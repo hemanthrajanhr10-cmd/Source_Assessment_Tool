@@ -21,9 +21,11 @@ from app.models.requests import AssessmentRequest
 from app.models.responses import (
     AssessmentResponse,
     AssessmentResults,
+    ConnectionTestResponse,
     JobStatus,
     JobStatusResponse,
     OverviewResult,
+    humanize_connection_error,
 )
 from app.services import assessment_service
 
@@ -61,16 +63,51 @@ def _run_assessment_task(job_id: str, request: AssessmentRequest) -> None:
             "Job %s failed: %s", job_id, exc,
             extra={"job_id": job_id}, exc_info=True,
         )
+        friendly = humanize_connection_error(
+            exc,
+            server=request.connection.server,
+            database=request.connection.database,
+        )
         job_store.update_job(
             job_id,
             status=JobStatus.FAILED,
             completed_at=datetime.now(timezone.utc),
-            error=str(exc),
+            error=friendly,
             progress_message=None,
         )
 
 
 # ──────────────────────────── Endpoints ─────────────────────────────────────
+
+@router.post(
+    "/test-connection",
+    response_model=ConnectionTestResponse,
+    summary="Test SQL Server connectivity",
+    description=(
+        "Attempts to open a connection and run a trivial query. "
+        "Always returns 200; check the `success` field to determine the result."
+    ),
+)
+async def test_connection(body: AssessmentRequest) -> ConnectionTestResponse:
+    try:
+        conn = connector.get_connection(body.connection)
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.close()
+        conn.close()
+        return ConnectionTestResponse(
+            success=True,
+            message=f"Successfully connected to '{body.connection.database}' on '{body.connection.server}'.",
+        )
+    except Exception as exc:
+        friendly = humanize_connection_error(
+            exc,
+            server=body.connection.server,
+            database=body.connection.database,
+        )
+        logger.warning("Connection test failed: %s", exc)
+        return ConnectionTestResponse(success=False, message=friendly)
+
 
 @router.post(
     "/assess",
@@ -142,6 +179,7 @@ async def get_results(job_id: str) -> AssessmentResults:
     return AssessmentResults(
         job_id=job_id,
         overview=overview,
+        # Core metadata
         schemas=raw.get("schemas", []),
         tables=raw.get("tables", []),
         columns=raw.get("columns", []),
@@ -153,6 +191,22 @@ async def get_results(job_id: str) -> AssessmentResults:
         index_coverage=raw.get("index_coverage", []),
         insertion_frequency=raw.get("insertion_frequency", []),
         null_analysis=raw.get("null_analysis", []),
+        # Security assessment
+        db_users_roles=raw.get("db_users_roles", []),
+        orphaned_users=raw.get("orphaned_users", []),
+        db_owner_members=raw.get("db_owner_members", []),
+        dynamic_sql_usage=raw.get("dynamic_sql_usage", []),
+        clr_assemblies=raw.get("clr_assemblies", []),
+        tde_status=raw.get("tde_status", []),
+        column_encryption=raw.get("column_encryption", []),
+        pii_indicators=raw.get("pii_indicators", []),
+        # Feature usage & risks
+        sql_agent_jobs=raw.get("sql_agent_jobs", []),
+        linked_servers=raw.get("linked_servers", []),
+        cross_db_references=raw.get("cross_db_references", []),
+        replication_status=raw.get("replication_status", []),
+        service_broker=raw.get("service_broker", []),
+        version_features=raw.get("version_features", []),
     )
 
 

@@ -5,7 +5,9 @@ import {
   ChevronRight, Download, AlertTriangle, CheckCircle2,
   Clock, Database, Table2, Columns, Eye,
   Code2, FunctionSquare, ListTree, GitMerge,
-  BarChart2, Activity, Search
+  BarChart2, Activity, Search,
+  Users, UserX, ShieldAlert, Zap, Cpu, Lock, KeyRound, Fingerprint,
+  Bot, Link2, Network, GitBranch, MessageSquare, MonitorCheck,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { StatusBadge } from '../components/ui/Badge'
@@ -54,7 +56,7 @@ interface TabDef {
   id: string
   label: string
   icon: React.ReactNode
-  getData: (r: AssessmentResults) => Record<string, unknown>[]
+  getData: (r: AssessmentResults) => Record<string, unknown>[] | undefined
   columns?: ColumnDef[]
   emptyMessage?: string
 }
@@ -139,6 +141,106 @@ const TABS: TabDef[] = [
     getData: (r) => r.insertion_frequency,
     emptyMessage: 'No insertion frequency data.',
   },
+  // ── Security Assessment ──────────────────────────────────────────────────
+  {
+    id: 'db_users_roles',
+    label: 'DB Users & Roles',
+    icon: <Users className="h-4 w-4" />,
+    getData: (r) => r.db_users_roles,
+    emptyMessage: 'No database users found.',
+  },
+  {
+    id: 'orphaned_users',
+    label: 'Orphaned Users',
+    icon: <UserX className="h-4 w-4" />,
+    getData: (r) => r.orphaned_users,
+    emptyMessage: 'No orphaned users found.',
+  },
+  {
+    id: 'db_owner_members',
+    label: 'DB Owner Members',
+    icon: <ShieldAlert className="h-4 w-4" />,
+    getData: (r) => r.db_owner_members,
+    emptyMessage: 'No non-dbo db_owner members found.',
+  },
+  {
+    id: 'dynamic_sql_usage',
+    label: 'Dynamic SQL',
+    icon: <Zap className="h-4 w-4" />,
+    getData: (r) => r.dynamic_sql_usage,
+    emptyMessage: 'No dynamic SQL usage detected.',
+  },
+  {
+    id: 'clr_assemblies',
+    label: 'CLR Assemblies',
+    icon: <Cpu className="h-4 w-4" />,
+    getData: (r) => r.clr_assemblies,
+    emptyMessage: 'No CLR assemblies found.',
+  },
+  {
+    id: 'tde_status',
+    label: 'TDE Status',
+    icon: <Lock className="h-4 w-4" />,
+    getData: (r) => r.tde_status,
+    emptyMessage: 'TDE status unavailable.',
+  },
+  {
+    id: 'column_encryption',
+    label: 'Col. Encryption',
+    icon: <KeyRound className="h-4 w-4" />,
+    getData: (r) => r.column_encryption,
+    emptyMessage: 'No Always Encrypted columns found.',
+  },
+  {
+    id: 'pii_indicators',
+    label: 'PII Scan',
+    icon: <Fingerprint className="h-4 w-4" />,
+    getData: (r) => r.pii_indicators,
+    emptyMessage: 'No PII indicators detected in column names.',
+  },
+  // ── Feature Usage & Risks ────────────────────────────────────────────────
+  {
+    id: 'sql_agent_jobs',
+    label: 'Agent Jobs',
+    icon: <Bot className="h-4 w-4" />,
+    getData: (r) => r.sql_agent_jobs,
+    emptyMessage: 'No SQL Agent jobs found or msdb access denied.',
+  },
+  {
+    id: 'linked_servers',
+    label: 'Linked Servers',
+    icon: <Link2 className="h-4 w-4" />,
+    getData: (r) => r.linked_servers,
+    emptyMessage: 'No linked servers configured.',
+  },
+  {
+    id: 'cross_db_references',
+    label: 'Cross-DB Refs',
+    icon: <Network className="h-4 w-4" />,
+    getData: (r) => r.cross_db_references,
+    emptyMessage: 'No cross-database references found.',
+  },
+  {
+    id: 'replication_status',
+    label: 'Replication',
+    icon: <GitBranch className="h-4 w-4" />,
+    getData: (r) => r.replication_status,
+    emptyMessage: 'Replication status unavailable.',
+  },
+  {
+    id: 'service_broker',
+    label: 'Service Broker',
+    icon: <MessageSquare className="h-4 w-4" />,
+    getData: (r) => r.service_broker,
+    emptyMessage: 'Service Broker status unavailable.',
+  },
+  {
+    id: 'version_features',
+    label: 'Version & Features',
+    icon: <MonitorCheck className="h-4 w-4" />,
+    getData: (r) => r.version_features,
+    emptyMessage: 'Version features unavailable.',
+  },
 ]
 
 /* Build null analysis columns with pct formatting */
@@ -156,7 +258,12 @@ function buildNullAnalysisColumns(data: Record<string, unknown>[]): ColumnDef[] 
 const STEPS = [
   'Database overview', 'Schemas', 'Tables', 'Columns', 'Views',
   'Stored procedures', 'Functions', 'Indexes', 'Relationships',
-  'Index coverage', 'Insertion frequency', 'Null analysis', 'Building report',
+  'Index coverage', 'Insertion frequency',
+  'Database users', 'Orphaned users', 'Excessive permissions',
+  'Dynamic SQL', 'CLR', 'TDE', 'Column-level encryption', 'PII',
+  'SQL Agent', 'Linked servers', 'Cross-database', 'Replication',
+  'Service Broker', 'Version',
+  'Null analysis', 'Building report',
 ]
 
 function guessProgress(msg?: string): number {
@@ -354,7 +461,7 @@ export default function JobDetailPage() {
           <div className="border-b border-slate-200 overflow-x-auto scrollbar-thin">
             <div className="flex min-w-max px-2 pt-2">
               {TABS.map((tab) => {
-                const count = results ? tab.getData(results).length : null
+                const count = results ? (tab.getData(results) ?? []).length : null
                 const isActive = activeTab === tab.id
                 return (
                   <button
@@ -393,7 +500,7 @@ export default function JobDetailPage() {
             ) : results ? (
               (() => {
                 const tab = TABS.find((t) => t.id === activeTab)!
-                const data = tab.getData(results)
+                const data = tab.getData(results) ?? []
                 const columns = tab.id === 'null_analysis'
                   ? buildNullAnalysisColumns(data)
                   : tab.columns

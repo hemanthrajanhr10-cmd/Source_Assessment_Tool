@@ -15,17 +15,34 @@ logger = get_logger(__name__)
 
 # Ordered list of (result_key, sql_constant, display_name)
 _QUERY_STEPS: list[tuple[str, str, str]] = [
-    ("overview", queries.OVERVIEW, "Database overview"),
-    ("schemas", queries.SCHEMAS, "Schemas"),
-    ("tables", queries.TABLES, "Tables"),
-    ("columns", queries.COLUMNS, "Columns"),
-    ("views", queries.VIEWS, "Views"),
-    ("stored_procedures", queries.STORED_PROCEDURES, "Stored procedures"),
-    ("functions", queries.FUNCTIONS, "Functions"),
-    ("indexes", queries.INDEXES, "Indexes"),
-    ("relationships", queries.RELATIONSHIPS, "Relationships"),
-    ("index_coverage", queries.INDEX_COVERAGE, "Index coverage"),
+    # ── Core metadata ──────────────────────────────────────────────────────
+    ("overview",            queries.OVERVIEW,            "Database overview"),
+    ("schemas",             queries.SCHEMAS,             "Schemas"),
+    ("tables",              queries.TABLES,              "Tables"),
+    ("columns",             queries.COLUMNS,             "Columns"),
+    ("views",               queries.VIEWS,               "Views"),
+    ("stored_procedures",   queries.STORED_PROCEDURES,   "Stored procedures"),
+    ("functions",           queries.FUNCTIONS,           "Functions"),
+    ("indexes",             queries.INDEXES,             "Indexes"),
+    ("relationships",       queries.RELATIONSHIPS,       "Relationships"),
+    ("index_coverage",      queries.INDEX_COVERAGE,      "Index coverage"),
     ("insertion_frequency", queries.INSERTION_FREQUENCY, "Insertion frequency"),
+    # ── Security assessment ────────────────────────────────────────────────
+    ("db_users_roles",      queries.DB_USERS_ROLES,      "Database users & roles"),
+    ("orphaned_users",      queries.ORPHANED_USERS,      "Orphaned users"),
+    ("db_owner_members",    queries.DB_OWNER_MEMBERS,    "Excessive permissions (db_owner)"),
+    ("dynamic_sql_usage",   queries.DYNAMIC_SQL_USAGE,   "Dynamic SQL usage"),
+    ("clr_assemblies",      queries.CLR_ASSEMBLIES,      "CLR assemblies"),
+    ("tde_status",          queries.TDE_STATUS,          "TDE encryption status"),
+    ("column_encryption",   queries.COLUMN_ENCRYPTION,   "Column-level encryption"),
+    ("pii_indicators",      queries.PII_INDICATORS,      "PII / sensitive data scan"),
+    # ── Feature usage & risks ──────────────────────────────────────────────
+    ("sql_agent_jobs",      queries.SQL_AGENT_JOBS,      "SQL Agent jobs"),
+    ("linked_servers",      queries.LINKED_SERVERS,      "Linked servers"),
+    ("cross_db_references", queries.CROSS_DB_REFERENCES, "Cross-database references"),
+    ("replication_status",  queries.REPLICATION_STATUS,  "Replication status"),
+    ("service_broker",      queries.SERVICE_BROKER,      "Service Broker"),
+    ("version_features",    queries.VERSION_FEATURES,    "Version & feature risks"),
 ]
 
 
@@ -182,18 +199,35 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
 
         results: dict[str, Any] = {
             "job_id": job_id,
-            "overview": _extract_overview(raw.get("overview", [])),
-            "schemas": raw.get("schemas", []),
-            "tables": raw.get("tables", []),
-            "columns": raw.get("columns", []),
-            "views": raw.get("views", []),
-            "stored_procedures": raw.get("stored_procedures", []),
-            "functions": raw.get("functions", []),
-            "indexes": raw.get("indexes", []),
-            "relationships": raw.get("relationships", []),
-            "index_coverage": raw.get("index_coverage", []),
+            # Core metadata
+            "overview":            _extract_overview(raw.get("overview", [])),
+            "schemas":             raw.get("schemas", []),
+            "tables":              raw.get("tables", []),
+            "columns":             raw.get("columns", []),
+            "views":               raw.get("views", []),
+            "stored_procedures":   raw.get("stored_procedures", []),
+            "functions":           raw.get("functions", []),
+            "indexes":             raw.get("indexes", []),
+            "relationships":       raw.get("relationships", []),
+            "index_coverage":      raw.get("index_coverage", []),
             "insertion_frequency": raw.get("insertion_frequency", []),
-            "null_analysis": raw.get("null_analysis", []),
+            "null_analysis":       raw.get("null_analysis", []),
+            # Security assessment
+            "db_users_roles":      raw.get("db_users_roles", []),
+            "orphaned_users":      raw.get("orphaned_users", []),
+            "db_owner_members":    raw.get("db_owner_members", []),
+            "dynamic_sql_usage":   raw.get("dynamic_sql_usage", []),
+            "clr_assemblies":      raw.get("clr_assemblies", []),
+            "tde_status":          raw.get("tde_status", []),
+            "column_encryption":   raw.get("column_encryption", []),
+            "pii_indicators":      raw.get("pii_indicators", []),
+            # Feature usage & risks
+            "sql_agent_jobs":      raw.get("sql_agent_jobs", []),
+            "linked_servers":      raw.get("linked_servers", []),
+            "cross_db_references": raw.get("cross_db_references", []),
+            "replication_status":  raw.get("replication_status", []),
+            "service_broker":      raw.get("service_broker", []),
+            "version_features":    raw.get("version_features", []),
         }
 
         logger.info("Assessment completed", extra=extra)

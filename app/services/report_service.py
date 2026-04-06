@@ -506,6 +506,392 @@ def _build_insertion_freq_sheet(wb: Workbook, rows: list[dict[str, Any]]):
     _auto_width(ws)
 
 
+# ──────────────────────── Security sheet builders ───────────────────────────
+
+def _build_db_users_roles_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Sec-DB Users")
+    _set_tab_color(ws, "C00000")
+    headers = ["principal_name", "principal_type", "create_date", "default_schema", "server_login", "roles"]
+    labels  = ["Principal Name", "Type", "Created", "Default Schema", "Server Login", "Roles"]
+    _section_title(ws, 1, 1, "  SECURITY — DATABASE USERS & ROLES", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl, bg="C00000")
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    for ri, row in enumerate(rows, start=3):
+        bg = "FFE2E2" if ri % 2 == 0 else WHITE
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("left", wrap=(key == "roles"))
+            if key == "roles" and val and "db_owner" in str(val):
+                c.font = _font(bold=True, color=RED)
+    _auto_width(ws)
+    ws.column_dimensions["F"].width = 40
+
+
+def _build_orphaned_users_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Sec-Orphaned Users")
+    _set_tab_color(ws, "C00000")
+    headers = ["user_name", "user_type", "create_date", "default_schema"]
+    labels  = ["User Name", "User Type", "Created", "Default Schema"]
+    _section_title(ws, 1, 1, "  SECURITY — ORPHANED USERS (No Server Login)", span=len(labels))
+    note = ws.cell(row=2, column=1, value="⚠ These users have no matching server login and cannot authenticate.")
+    note.font = _font(italic=True, size=9, color="7F7F7F")
+    ws.merge_cells(f"A2:{get_column_letter(len(labels))}2")
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 3, ci, lbl, bg="C00000")
+    ws.auto_filter.ref = f"A3:{get_column_letter(len(labels))}3"
+    ws.freeze_panes = "A4"
+    if not rows:
+        ws.cell(row=4, column=1, value="No orphaned users found.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(rows, start=4):
+        bg = "FFE2E2" if ri % 2 == 0 else WHITE
+        for ci, key in enumerate(headers, 1):
+            _data_cell(ws, ri, ci, row.get(key, ""), bg=bg)
+    _auto_width(ws)
+
+
+def _build_db_owner_members_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Sec-DB Owners")
+    _set_tab_color(ws, "C00000")
+    headers = ["member_name", "member_type", "server_login", "create_date"]
+    labels  = ["Member Name", "Member Type", "Server Login", "Created"]
+    _section_title(ws, 1, 1, "  SECURITY — EXCESSIVE PERMISSIONS (db_owner Members)", span=len(labels))
+    note = ws.cell(row=2, column=1, value="⚠ Non-dbo members of db_owner have unrestricted database control.")
+    note.font = _font(italic=True, size=9, color="7F7F7F")
+    ws.merge_cells(f"A2:{get_column_letter(len(labels))}2")
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 3, ci, lbl, bg="C00000")
+    ws.auto_filter.ref = f"A3:{get_column_letter(len(labels))}3"
+    ws.freeze_panes = "A4"
+    if not rows:
+        ws.cell(row=4, column=1, value="No non-dbo db_owner members found.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(rows, start=4):
+        bg = "FFE2E2" if ri % 2 == 0 else WHITE
+        for ci, key in enumerate(headers, 1):
+            c = ws.cell(row=ri, column=ci, value=row.get(key, ""))
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("left")
+            c.font = _font(bold=True, color=RED)
+    _auto_width(ws)
+
+
+def _build_dynamic_sql_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Sec-Dynamic SQL")
+    _set_tab_color(ws, "C55A11")
+    headers = ["object_type", "schema_name", "object_name", "dynamic_sql_type"]
+    labels  = ["Object Type", "Schema", "Object Name", "Dynamic SQL Pattern"]
+    _section_title(ws, 1, 1, "  SECURITY — DYNAMIC SQL USAGE", span=len(labels))
+    note = ws.cell(row=2, column=1, value="⚠ Dynamic SQL can introduce SQL injection risks if user input is not sanitised.")
+    note.font = _font(italic=True, size=9, color="7F7F7F")
+    ws.merge_cells(f"A2:{get_column_letter(len(labels))}2")
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 3, ci, lbl, bg="C55A11")
+    ws.auto_filter.ref = f"A3:{get_column_letter(len(labels))}3"
+    ws.freeze_panes = "A4"
+    if not rows:
+        ws.cell(row=4, column=1, value="No dynamic SQL usage detected.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(rows, start=4):
+        bg = LIGHT_ORANGE if ri % 2 == 0 else WHITE
+        for ci, key in enumerate(headers, 1):
+            _data_cell(ws, ri, ci, row.get(key, ""), bg=bg)
+    _auto_width(ws)
+
+
+def _build_clr_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Sec-CLR")
+    _set_tab_color(ws, "7030A0")
+    headers = ["assembly_name", "permission_set", "clr_object_count", "create_date", "modify_date", "is_visible"]
+    labels  = ["Assembly Name", "Permission Set", "CLR Objects", "Created", "Modified", "Visible"]
+    _section_title(ws, 1, 1, "  SECURITY — CLR ASSEMBLIES", span=len(labels))
+    note = ws.cell(row=2, column=1, value="⚠ UNSAFE / EXTERNAL_ACCESS assemblies can execute arbitrary code.")
+    note.font = _font(italic=True, size=9, color="7F7F7F")
+    ws.merge_cells(f"A2:{get_column_letter(len(labels))}2")
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 3, ci, lbl, bg="7030A0", fg=WHITE)
+    ws.auto_filter.ref = f"A3:{get_column_letter(len(labels))}3"
+    ws.freeze_panes = "A4"
+    if not rows:
+        ws.cell(row=4, column=1, value="CLR is not used or no user-defined assemblies found.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(rows, start=4):
+        bg = "EAD1DC" if ri % 2 == 0 else WHITE
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 2 else "left")
+            if key == "permission_set" and str(val) in ("UNSAFE", "EXTERNAL_ACCESS"):
+                c.font = _font(bold=True, color=RED)
+                c.fill = _fill(LIGHT_RED)
+    _auto_width(ws)
+
+
+def _build_encryption_sheet(wb: Workbook, tde_rows: list[dict[str, Any]], col_enc_rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Sec-Encryption")
+    _set_tab_color(ws, "375623")
+    row_offset = 1
+
+    # TDE section
+    _section_title(ws, row_offset, 1, "  SECURITY — TRANSPARENT DATA ENCRYPTION (TDE)", span=6)
+    row_offset += 1
+    tde_headers = ["database_name", "tde_status", "encryption_state", "percent_complete", "key_algorithm", "key_length"]
+    tde_labels  = ["Database", "TDE Status", "Encryption State", "% Complete", "Algorithm", "Key Length"]
+    for ci, lbl in enumerate(tde_labels, 1):
+        _header_cell(ws, row_offset, ci, lbl, bg="375623")
+    row_offset += 1
+    ws.freeze_panes = f"A{row_offset}"
+    for row in tde_rows:
+        enabled = str(row.get("tde_status", "")).lower() == "enabled"
+        bg = LIGHT_GREEN if enabled else LIGHT_RED
+        for ci, key in enumerate(tde_headers, 1):
+            c = ws.cell(row=row_offset, column=ci, value=row.get(key, ""))
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 1 else "left")
+            if key == "tde_status":
+                c.font = _font(bold=True, color="375623" if enabled else RED)
+        row_offset += 1
+
+    # Column encryption section
+    row_offset += 2
+    _section_title(ws, row_offset, 1, "  SECURITY — COLUMN-LEVEL ENCRYPTION (Always Encrypted)", span=6)
+    row_offset += 1
+    ce_headers = ["schema_name", "table_name", "column_name", "data_type", "encryption_key_name", "encryption_type"]
+    ce_labels  = ["Schema", "Table", "Column", "Data Type", "Encryption Key", "Encryption Type"]
+    for ci, lbl in enumerate(ce_labels, 1):
+        _header_cell(ws, row_offset, ci, lbl, bg="375623")
+    row_offset += 1
+    if not col_enc_rows:
+        ws.cell(row=row_offset, column=1, value="No Always Encrypted columns found.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(col_enc_rows):
+        bg = LIGHT_GREEN if (ri % 2 == 0) else WHITE
+        for ci, key in enumerate(ce_headers, 1):
+            _data_cell(ws, row_offset + ri, ci, row.get(key, ""), bg=bg)
+    _auto_width(ws)
+
+
+def _build_pii_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Sec-PII Scan")
+    _set_tab_color(ws, "FF0000")
+    headers = ["pii_category", "schema_name", "table_name", "column_name", "data_type"]
+    labels  = ["PII Category", "Schema", "Table", "Column", "Data Type"]
+    _section_title(ws, 1, 1, "  SECURITY — PII / SENSITIVE DATA INDICATORS", span=len(labels))
+    note = ws.cell(row=2, column=1, value="⚠ Column names match known PII patterns. Verify data and apply appropriate controls.")
+    note.font = _font(italic=True, size=9, color="7F7F7F")
+    ws.merge_cells(f"A2:{get_column_letter(len(labels))}2")
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 3, ci, lbl, bg="C00000")
+    ws.auto_filter.ref = f"A3:{get_column_letter(len(labels))}3"
+    ws.freeze_panes = "A4"
+    if not rows:
+        ws.cell(row=4, column=1, value="No PII indicators detected in column names.").font = _font(italic=True, color=MED_GRAY)
+
+    PII_COLORS = {
+        "SSN": ("FFE2E2", RED),
+        "Credit Card": ("FFE2E2", RED),
+        "Password/Secret": ("FFE2E2", RED),
+        "National ID": ("FFE2E2", RED),
+        "Date of Birth": (LIGHT_ORANGE, ORANGE),
+        "Financial": (LIGHT_ORANGE, ORANGE),
+        "Email": ("FFF2CC", "806000"),
+        "Phone": ("FFF2CC", "806000"),
+        "Passport": ("FFF2CC", "806000"),
+    }
+    for ri, row in enumerate(rows, start=4):
+        cat = str(row.get("pii_category", ""))
+        row_bg, label_color = PII_COLORS.get(cat, (LIGHT_GRAY, DARK_GRAY))
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(row_bg if ci > 1 else row_bg)
+            c.border = _border()
+            c.alignment = _align("left")
+            if key == "pii_category":
+                c.font = _font(bold=True, color=label_color)
+    _auto_width(ws)
+
+
+# ─────────────────────── Feature Usage sheet builders ───────────────────────
+
+def _build_agent_jobs_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Feat-Agent Jobs")
+    _set_tab_color(ws, "2E75B6")
+    headers = ["job_name", "status", "failure_count", "last_run_status", "date_created", "date_modified", "description"]
+    labels  = ["Job Name", "Status", "Failure Count", "Last Run Status", "Created", "Modified", "Description"]
+    _section_title(ws, 1, 1, "  FEATURE USAGE — SQL AGENT JOBS", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl)
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    if not rows:
+        ws.cell(row=3, column=1, value="No SQL Agent jobs found or msdb access denied.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(rows, start=3):
+        failures = int(row.get("failure_count", 0) or 0)
+        bg = LIGHT_RED if failures > 0 else (LIGHT_GRAY if ri % 2 == 0 else WHITE)
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if 2 <= ci <= 5 else "left")
+            if key == "failure_count" and failures > 0:
+                c.font = _font(bold=True, color=RED)
+            if key == "last_run_status" and str(val) == "Failed":
+                c.font = _font(bold=True, color=RED)
+                c.fill = _fill(LIGHT_RED)
+    _auto_width(ws)
+    ws.column_dimensions["G"].width = 40
+
+
+def _build_linked_servers_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Feat-Linked Servers")
+    _set_tab_color(ws, "2E75B6")
+    headers = ["linked_server_name", "product", "provider", "data_source",
+               "remote_login_enabled", "data_access_enabled", "rpc_out_enabled", "modify_date"]
+    labels  = ["Linked Server", "Product", "Provider", "Data Source",
+               "Remote Login", "Data Access", "RPC Out", "Modified"]
+    _section_title(ws, 1, 1, "  FEATURE USAGE — LINKED SERVERS", span=len(labels))
+    note = ws.cell(row=2, column=1, value="⚠ Linked servers can introduce lateral movement and privilege escalation risks.")
+    note.font = _font(italic=True, size=9, color="7F7F7F")
+    ws.merge_cells(f"A2:{get_column_letter(len(labels))}2")
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 3, ci, lbl)
+    ws.auto_filter.ref = f"A3:{get_column_letter(len(labels))}3"
+    ws.freeze_panes = "A4"
+    if not rows:
+        ws.cell(row=4, column=1, value="No linked servers configured.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(rows, start=4):
+        bg = LIGHT_ORANGE if ri % 2 == 0 else WHITE
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 4 else "left")
+            if key in ("remote_login_enabled", "rpc_out_enabled") and str(val) == "Yes":
+                c.font = _font(bold=True, color=ORANGE)
+    _auto_width(ws)
+
+
+def _build_cross_db_refs_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Feat-Cross-DB Refs")
+    _set_tab_color(ws, "2E75B6")
+    headers = ["object_type", "schema_name", "object_name",
+               "referenced_database", "referenced_schema", "referenced_entity"]
+    labels  = ["Object Type", "Schema", "Object Name",
+               "Referenced DB", "Ref Schema", "Ref Entity"]
+    _section_title(ws, 1, 1, "  FEATURE USAGE — CROSS-DATABASE REFERENCES", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl)
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    if not rows:
+        ws.cell(row=3, column=1, value="No cross-database references found.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(rows, start=3):
+        bg = LIGHT_BLUE if ri % 2 == 0 else WHITE
+        for ci, key in enumerate(headers, 1):
+            _data_cell(ws, ri, ci, row.get(key, ""), bg=bg)
+    _auto_width(ws)
+
+
+def _build_replication_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Feat-Replication")
+    _set_tab_color(ws, "2E75B6")
+    headers = ["database_name", "has_replicated_tables", "replicated_table_count",
+               "is_publisher", "is_subscriber", "is_merge_published"]
+    labels  = ["Database", "Has Replicated Tables", "Replicated Table Count",
+               "Is Publisher", "Is Subscriber", "Is Merge Published"]
+    _section_title(ws, 1, 1, "  FEATURE USAGE — REPLICATION STATUS", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl)
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    if not rows:
+        ws.cell(row=3, column=1, value="Replication status unavailable.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(rows, start=3):
+        bg = LIGHT_GRAY if ri % 2 == 0 else WHITE
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 1 else "left")
+            if str(val) == "Yes":
+                c.font = _font(bold=True, color=ORANGE)
+    _auto_width(ws)
+
+
+def _build_service_broker_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Feat-Svc Broker")
+    _set_tab_color(ws, "2E75B6")
+    headers = ["database_name", "broker_status", "user_queue_count",
+               "user_service_count", "active_conversations"]
+    labels  = ["Database", "Broker Status", "User Queues",
+               "User Services", "Active Conversations"]
+    _section_title(ws, 1, 1, "  FEATURE USAGE — SERVICE BROKER", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl)
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    if not rows:
+        ws.cell(row=3, column=1, value="Service Broker status unavailable.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(rows, start=3):
+        enabled = str(row.get("broker_status", "")).lower() == "enabled"
+        bg = LIGHT_GREEN if enabled else LIGHT_GRAY
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 1 else "left")
+            if key == "broker_status":
+                c.font = _font(bold=True, color="375623" if enabled else MED_GRAY)
+    _auto_width(ws)
+
+
+def _build_version_features_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Feat-Version")
+    _set_tab_color(ws, "1F3864")
+    headers = [
+        "server_name", "product_version", "product_level", "product_update_level",
+        "edition", "is_clustered", "hadr_enabled", "fulltext_installed",
+        "clr_enabled", "xp_cmdshell_enabled", "ole_automation_enabled", "adhoc_distributed_queries",
+    ]
+    labels = [
+        "Server Name", "Product Version", "Product Level", "Update Level",
+        "Edition", "Clustered", "HADR Enabled", "Full-Text",
+        "CLR Enabled", "xp_cmdshell", "OLE Automation", "Ad Hoc Dist. Queries",
+    ]
+    _section_title(ws, 1, 1, "  FEATURE USAGE — SQL SERVER VERSION & RISK FEATURES", span=len(labels))
+    note = ws.cell(row=2, column=1, value="⚠ Highlighted cells indicate high-risk surface area features that should be reviewed.")
+    note.font = _font(italic=True, size=9, color="7F7F7F")
+    ws.merge_cells(f"A2:{get_column_letter(len(labels))}2")
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 3, ci, lbl, bg=DARK_BLUE)
+    ws.auto_filter.ref = f"A3:{get_column_letter(len(labels))}3"
+    ws.freeze_panes = "A4"
+    RISK_KEYS = {"clr_enabled", "xp_cmdshell_enabled", "ole_automation_enabled", "adhoc_distributed_queries"}
+    if not rows:
+        ws.cell(row=4, column=1, value="Version features unavailable.").font = _font(italic=True, color=MED_GRAY)
+    for ri, row in enumerate(rows, start=4):
+        bg = LIGHT_GRAY if ri % 2 == 0 else WHITE
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            is_risk_on = key in RISK_KEYS and str(val) in ("1", "True", True, 1)
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(LIGHT_RED if is_risk_on else bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 5 else "left")
+            if is_risk_on:
+                c.font = _font(bold=True, color=RED)
+    _auto_width(ws)
+
+
 # ─────────────────────────── Public entry point ─────────────────────────────
 
 def build_report(job_id: str, raw: dict[str, Any]) -> str:
@@ -519,6 +905,7 @@ def build_report(job_id: str, raw: dict[str, Any]) -> str:
 
     wb = Workbook()
 
+    # ── Core metadata sheets ─────────────────────────────────────────────────
     _build_summary(wb, raw)
     _build_tables_sheet(wb, raw.get("tables", []))
     _build_columns_sheet(wb, raw.get("columns", []))
@@ -530,6 +917,21 @@ def build_report(job_id: str, raw: dict[str, Any]) -> str:
     _build_index_coverage_sheet(wb, raw.get("index_coverage", []))
     _build_null_analysis_sheet(wb, raw.get("null_analysis", []))
     _build_insertion_freq_sheet(wb, raw.get("insertion_frequency", []))
+    # ── Security assessment sheets ───────────────────────────────────────────
+    _build_db_users_roles_sheet(wb, raw.get("db_users_roles", []))
+    _build_orphaned_users_sheet(wb, raw.get("orphaned_users", []))
+    _build_db_owner_members_sheet(wb, raw.get("db_owner_members", []))
+    _build_dynamic_sql_sheet(wb, raw.get("dynamic_sql_usage", []))
+    _build_clr_sheet(wb, raw.get("clr_assemblies", []))
+    _build_encryption_sheet(wb, raw.get("tde_status", []), raw.get("column_encryption", []))
+    _build_pii_sheet(wb, raw.get("pii_indicators", []))
+    # ── Feature usage & risk sheets ──────────────────────────────────────────
+    _build_agent_jobs_sheet(wb, raw.get("sql_agent_jobs", []))
+    _build_linked_servers_sheet(wb, raw.get("linked_servers", []))
+    _build_cross_db_refs_sheet(wb, raw.get("cross_db_references", []))
+    _build_replication_sheet(wb, raw.get("replication_status", []))
+    _build_service_broker_sheet(wb, raw.get("service_broker", []))
+    _build_version_features_sheet(wb, raw.get("version_features", []))
 
     wb.save(str(output_path))
     logger.info("Report saved: %s", output_path)

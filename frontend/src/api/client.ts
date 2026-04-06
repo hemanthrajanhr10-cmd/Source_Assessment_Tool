@@ -3,6 +3,7 @@ import type {
   AssessmentRequest,
   AssessmentResponse,
   AssessmentResults,
+  ConnectionTestResponse,
   JobStatusResponse,
 } from '../types/api'
 
@@ -14,6 +15,9 @@ const http = axios.create({
 })
 
 export const api = {
+  testConnection: (data: AssessmentRequest) =>
+    http.post<ConnectionTestResponse>('/api/v1/test-connection', data),
+
   triggerAssessment: (data: AssessmentRequest) =>
     http.post<AssessmentResponse>('/api/v1/assess', data),
 

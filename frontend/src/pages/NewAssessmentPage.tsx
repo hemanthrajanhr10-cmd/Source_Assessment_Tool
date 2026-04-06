@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Server, Database, User, Lock, Eye, EyeOff,
-  ShieldCheck, Zap, Tag, AlertCircle, ArrowRight
+  ShieldCheck, Zap, Tag, AlertCircle, ArrowRight,
+  CheckCircle2, WifiOff, Wifi,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import Button from '../components/ui/Button'
@@ -60,11 +61,14 @@ function Toggle({
   )
 }
 
+type TestState = { status: 'idle' } | { status: 'testing' } | { status: 'ok'; message: string } | { status: 'fail'; message: string }
+
 export default function NewAssessmentPage() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [testState, setTestState] = useState<TestState>({ status: 'idle' })
 
   const [form, setForm] = useState<FormState>({
     server: '',
@@ -79,8 +83,36 @@ export default function NewAssessmentPage() {
     null_analysis_sample_limit: 30,
   })
 
-  const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
+    setTestState({ status: 'idle' })
+  }
+
+  const connectionPayload = () => ({
+    connection: {
+      server: form.server,
+      port: form.port,
+      database: form.database,
+      username: form.username,
+      password: form.password,
+      trust_server_certificate: form.trust_server_certificate,
+      encrypt: form.encrypt,
+    },
+    include_null_analysis: form.include_null_analysis,
+    null_analysis_sample_limit: form.null_analysis_sample_limit,
+  })
+
+  const handleTestConnection = async () => {
+    setTestState({ status: 'testing' })
+    try {
+      const { data } = await api.testConnection(connectionPayload())
+      setTestState(data.success
+        ? { status: 'ok',   message: data.message }
+        : { status: 'fail', message: data.message })
+    } catch (err) {
+      setTestState({ status: 'fail', message: getApiErrorMessage(err) })
+    }
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -88,17 +120,7 @@ export default function NewAssessmentPage() {
     setError(null)
     try {
       const { data } = await api.triggerAssessment({
-        connection: {
-          server: form.server,
-          port: form.port,
-          database: form.database,
-          username: form.username,
-          password: form.password,
-          trust_server_certificate: form.trust_server_certificate,
-          encrypt: form.encrypt,
-        },
-        include_null_analysis: form.include_null_analysis,
-        null_analysis_sample_limit: form.null_analysis_sample_limit,
+        ...connectionPayload(),
         label: form.label.trim() || undefined,
       })
       navigate(`/jobs/${data.job_id}`)
@@ -234,7 +256,7 @@ export default function NewAssessmentPage() {
           </div>
 
           {/* Security toggles */}
-          <div className="px-6 pb-6 pt-1 flex flex-col sm:flex-row gap-5">
+          <div className="px-6 pt-1 flex flex-col sm:flex-row gap-5">
             <Toggle
               checked={form.encrypt}
               onChange={(v) => set('encrypt', v)}
@@ -247,6 +269,34 @@ export default function NewAssessmentPage() {
               label="Trust Server Certificate"
               description="Accept self-signed certs"
             />
+          </div>
+
+          {/* Test Connection */}
+          <div className="px-6 pb-6 pt-4 border-t border-slate-100 mt-4 space-y-3">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={testState.status === 'testing'}
+              leftIcon={<Wifi className="h-4 w-4" />}
+              onClick={handleTestConnection}
+              disabled={!form.server || !form.database || !form.username || !form.password || testState.status === 'testing'}
+            >
+              {testState.status === 'testing' ? 'Testing connection…' : 'Test Connection'}
+            </Button>
+
+            {testState.status === 'ok' && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700">
+                <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-emerald-500" />
+                <span>{testState.message}</span>
+              </div>
+            )}
+            {testState.status === 'fail' && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                <WifiOff className="h-4 w-4 mt-0.5 shrink-0 text-red-500" />
+                <span>{testState.message}</span>
+              </div>
+            )}
           </div>
         </div>
 

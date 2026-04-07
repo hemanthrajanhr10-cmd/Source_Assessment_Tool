@@ -1,0 +1,73 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SQL Server Source Assessment Tool — Docker Compose
+#
+# Services
+#   backend   FastAPI + mssql-python   → http://localhost:8000
+#   frontend  Nginx + React (built)    → http://localhost:3000
+#
+# Usage
+#   docker compose up --build          # first run / after code changes
+#   docker compose up -d               # detached
+#   docker compose logs -f backend     # follow backend logs
+#   docker compose down                # stop & remove containers
+#   docker compose down -v             # also remove named volumes
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sat_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      LOG_LEVEL: INFO
+      REPORTS_DIR: /app/reports
+      # CORS — allow the frontend origin
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173"]'
+    volumes:
+      # Persist generated Excel reports across restarts
+      - reports_data:/app/reports
+    networks:
+      - sat_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sat_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - sat_net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+# ── Volumes ────────────────────────────────────────────────────────────────────
+volumes:
+  reports_data:
+    driver: local
+
+# ── Networks ───────────────────────────────────────────────────────────────────
+networks:
+  sat_net:
+    driver: bridge

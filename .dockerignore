@@ -1,0 +1,23 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+*.egg-info/
+
+# ── Reports (mounted as volume; don't bake into the image) ────────────────────
+reports/
+
+# ── Frontend (built separately) ───────────────────────────────────────────────
+frontend/
+
+# ── Dev / tooling ──────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.github/
+*.md
+Readme/
+docker-compose.yml

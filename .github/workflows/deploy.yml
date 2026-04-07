@@ -10,35 +10,23 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4          # v4 — Node.js 20 deprecation fix
+        uses: actions/checkout@v4
 
       - name: Log in to ACR
         run: |
           echo "${{ secrets.ACR_PASSWORD }}" | docker login "${{ secrets.ACR_LOGIN_SERVER }}" \
             -u "${{ secrets.ACR_USERNAME }}" --password-stdin
 
-      # ── Backend ─────────────────────────────────────────────────────────────
-      # Dockerfile is at the project ROOT (not ./backend/)
-      # Context is the repo root so app/ and requirements.txt are reachable
-      - name: Build and Push Backend
+      # ── Single combined image ─────────────────────────────────────────────
+      # Stage 1 (node-builder) : npm ci + vite build  → dist/
+      # Stage 2 (py-deps)      : pip install           → site-packages
+      # Stage 3 (runtime)      : ODBC 18 + app + dist  → one runnable image
+      - name: Build and Push
         run: |
           docker build \
-            -t "${{ secrets.ACR_LOGIN_SERVER }}/backend:latest" \
-            -t "${{ secrets.ACR_LOGIN_SERVER }}/backend:${{ github.sha }}" \
+            -t "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:latest" \
+            -t "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}" \
             -f Dockerfile \
             .
-          docker push "${{ secrets.ACR_LOGIN_SERVER }}/backend:latest"
-          docker push "${{ secrets.ACR_LOGIN_SERVER }}/backend:${{ github.sha }}"
-
-      # ── Frontend ─────────────────────────────────────────────────────────────
-      # Dockerfile is at ./frontend/Dockerfile
-      # Context is ./frontend/ so package.json and src/ are reachable
-      - name: Build and Push Frontend
-        run: |
-          docker build \
-            -t "${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest" \
-            -t "${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ github.sha }}" \
-            -f frontend/Dockerfile \
-            ./frontend
-          docker push "${{ secrets.ACR_LOGIN_SERVER }}/frontend:latest"
-          docker push "${{ secrets.ACR_LOGIN_SERVER }}/frontend:${{ github.sha }}"
+          docker push "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:latest"
+          docker push "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}"

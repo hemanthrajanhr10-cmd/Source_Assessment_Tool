@@ -1,12 +1,25 @@
 from pathlib import Path
+
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    # ── CORS ──────────────────────────────────────────────────────────────────
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+
+    # ── Local paths ───────────────────────────────────────────────────────────
     reports_dir: Path = Path("reports")
+    static_dir: Path = Path("static")
     log_level: str = "INFO"
     max_null_analysis_tables: int = 100
+
+    # ── Azure SQL Store (job persistence + assessment results) ────────────────
+    azure_store_server: str = "source-assessment.database.windows.net"
+    azure_store_port: int = 1433
+    azure_store_database: str = "SourceAssessment"
+    azure_store_username: str = "hemanth"
+    azure_store_password: SecretStr = SecretStr("Ubti@123")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

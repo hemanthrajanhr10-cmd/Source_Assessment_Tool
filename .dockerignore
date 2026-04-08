@@ -11,8 +11,9 @@ venv/
 # ── Reports (mounted as volume; don't bake into the image) ────────────────────
 reports/
 
-# ── Frontend (built separately) ───────────────────────────────────────────────
-frontend/
+# ── Frontend — exclude node_modules and dist (rebuilt inside Docker) ──────────
+frontend/node_modules/
+frontend/dist/
 
 # ── Dev / tooling ──────────────────────────────────────────────────────────────
 .git/

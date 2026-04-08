@@ -1,18 +1,47 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Backend — SQL Server Source Assessment API
-# Python 3.11 · FastAPI · mssql-python · ODBC Driver 18
+# SQL Server Source Assessment Tool — Combined Image
+#
+# Stage 1  node-builder    Build the React/Vite frontend → dist/
+# Stage 2  py-deps         Install Python deps (separate layer for caching)
+# Stage 3  runtime         Slim Python image + ODBC 18 + frontend assets
+#
+# Result: a single image that serves both the API (/api/v1) and the React SPA (/)
 # ─────────────────────────────────────────────────────────────────────────────
 
-FROM python:3.11-slim AS base
+# ── Stage 1: Build frontend ───────────────────────────────────────────────────
+FROM node:20-slim AS node-builder
 
-# ── System packages + Microsoft ODBC Driver 18 ────────────────────────────────
+WORKDIR /ui
+
+# Install deps (cached unless package files change)
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm ci --prefer-offline
+
+# Copy source and build
+COPY frontend/ .
+RUN npm run build
+# Output: /ui/dist/
+
+
+# ── Stage 2: Install Python dependencies ─────────────────────────────────────
+FROM python:3.11-slim AS py-deps
+
+WORKDIR /deps
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+ && pip install --no-cache-dir -r requirements.txt
+
+
+# ── Stage 3: Runtime ──────────────────────────────────────────────────────────
+FROM python:3.11-slim AS runtime
+
+# ── Microsoft ODBC Driver 18 (required by mssql-python) ───────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
         gnupg2 \
         apt-transport-https \
-        gcc \
-        g++ \
-        unixodbc-dev \
+        unixodbc \
     && curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor \
         -o /usr/share/keyrings/microsoft-prod.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] \
@@ -21,36 +50,39 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get update \
     && ACCEPT_EULA=Y apt-get install -y --no-install-recommends \
         msodbcsql18 \
-    && apt-get purge -y --auto-remove gcc g++ \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# ── Python dependencies ────────────────────────────────────────────────────────
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip \
- && pip install --no-cache-dir -r requirements.txt
+# ── Python packages from build stage (no pip compile needed) ──────────────────
+COPY --from=py-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=py-deps /usr/local/bin /usr/local/bin
 
 # ── Application code ───────────────────────────────────────────────────────────
 COPY app/ app/
 
-# ── Reports directory (mounted as volume in production) ────────────────────────
+# ── Frontend assets (FastAPI serves these as static files at /) ───────────────
+COPY --from=node-builder /ui/dist/ static/
+
+# ── Reports directory (mount as volume in production) ─────────────────────────
 RUN mkdir -p reports
 
-# ── Non-root user for security ─────────────────────────────────────────────────
+# ── Non-root user ──────────────────────────────────────────────────────────────
 RUN groupadd -r appuser && useradd -r -g appuser appuser \
  && chown -R appuser:appuser /app
 USER appuser
 
-# ── Runtime ────────────────────────────────────────────────────────────────────
-EXPOSE 8000
-
+# ── Environment ────────────────────────────────────────────────────────────────
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    LOG_LEVEL=INFO
+    LOG_LEVEL=INFO \
+    STATIC_DIR=/app/static \
+    REPORTS_DIR=/app/reports
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

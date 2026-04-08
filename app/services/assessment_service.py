@@ -3,11 +3,12 @@ Assessment service: orchestrates the full SQL Server metadata collection workflo
 """
 
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 from app.core import job_store
 from app.core.logging import get_logger
-from app.db import connector, queries
+from app.db import azure_store, connector, queries
 from app.models.requests import AssessmentRequest
 from app.services import report_service
 
@@ -58,6 +59,8 @@ def _cursor_rows_to_dicts(cursor) -> list[dict[str, Any]]:
         for name, value in zip(col_names, row):
             if isinstance(value, datetime):
                 record[name] = value.isoformat()
+            elif isinstance(value, Decimal):
+                record[name] = float(value)
             else:
                 record[name] = value
         result.append(record)
@@ -193,6 +196,11 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
             )
         else:
             raw["null_analysis"] = []
+
+        job_store.update_job(job_id, progress_message="Persisting results to Azure SQL…")
+        overview_dict = _extract_overview(raw.get("overview", []))
+        azure_store.save_overview(job_id, overview_dict)
+        azure_store.save_sections(job_id, raw)
 
         job_store.update_job(job_id, progress_message="Building Excel report…")
         report_path = report_service.build_report(job_id, raw)

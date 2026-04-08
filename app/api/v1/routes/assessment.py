@@ -16,6 +16,7 @@ from fastapi.responses import FileResponse
 
 from app.core import job_store
 from app.core.logging import get_logger
+from app.db import azure_store, connector
 from app.models.job import JobRecord
 from app.models.requests import AssessmentRequest
 from app.models.responses import (
@@ -167,7 +168,7 @@ async def get_job_status(job_id: str) -> JobStatusResponse:
 async def get_results(job_id: str) -> AssessmentResults:
     record = _require_completed(job_id)
 
-    raw = record.results or {}
+    raw = azure_store.load_full_results(job_id)
     overview_raw = raw.get("overview")
     overview: OverviewResult | None = None
     if isinstance(overview_raw, dict):

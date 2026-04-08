@@ -1,0 +1,73 @@
+name: Build, Push & Deploy to Azure
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+# Push to 'dev'  → build + push to ACR + deploy to Azure Web App
+# Push to 'main' → same (production gate — merge dev → main to release)
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  build-and-deploy:
+    name: Build Image & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # ── 1. Source code ───────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Build & push combined image to ACR ────────────────────────────────
+      - name: Log in to Azure Container Registry
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login "${{ secrets.ACR_LOGIN_SERVER }}" \
+            -u "${{ secrets.ACR_USERNAME }}" --password-stdin
+
+      - name: Build and push image
+        run: |
+          IMAGE="${{ secrets.ACR_LOGIN_SERVER }}/sat-app"
+          docker build \
+            -t "${IMAGE}:latest" \
+            -t "${IMAGE}:${{ github.sha }}" \
+            -f Dockerfile \
+            .
+          docker push "${IMAGE}:latest"
+          docker push "${IMAGE}:${{ github.sha }}"
+
+      # ── 3. Authenticate to Azure ─────────────────────────────────────────────
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # ── 4. Update Azure Web App container ────────────────────────────────────
+      - name: Deploy container to Azure Web App
+        run: |
+          az webapp config container set \
+            --name            "${{ secrets.AZURE_WEBAPP_NAME }}" \
+            --resource-group  "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --container-image-name \
+              "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}" \
+            --container-registry-url \
+              "https://${{ secrets.ACR_LOGIN_SERVER }}" \
+            --container-registry-user     "${{ secrets.ACR_USERNAME }}" \
+            --container-registry-password "${{ secrets.ACR_PASSWORD }}"
+
+      # ── 5. Restart Web App to pull the new image ─────────────────────────────
+      - name: Restart Web App
+        run: |
+          az webapp restart \
+            --name           "${{ secrets.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}"
+
+      # ── 6. Print deployment URL ───────────────────────────────────────────────
+      - name: Deployment summary
+        run: |
+          echo "Deployed: ${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}"
+          az webapp show \
+            --name "${{ secrets.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --query "defaultHostName" -o tsv

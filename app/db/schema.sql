@@ -22,11 +22,32 @@ BEGIN
         error            NVARCHAR(MAX)   NULL,
         progress_message NVARCHAR(500)   NULL,
         report_path      NVARCHAR(1000)  NULL,
+        gateway_key      VARCHAR(36)     NULL,
+        gateway_payload  NVARCHAR(MAX)   NULL,
         CONSTRAINT PK_jobs PRIMARY KEY (job_id)
     );
-    CREATE INDEX IX_jobs_status     ON dbo.jobs (status);
-    CREATE INDEX IX_jobs_created_at ON dbo.jobs (created_at DESC);
+    CREATE INDEX IX_jobs_status      ON dbo.jobs (status);
+    CREATE INDEX IX_jobs_created_at  ON dbo.jobs (created_at DESC);
+    CREATE INDEX IX_jobs_gateway_key ON dbo.jobs (gateway_key);
 END;
+
+-- Migration: add gateway columns to existing jobs table if not present
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'gateway_key')
+    ALTER TABLE dbo.jobs ADD gateway_key VARCHAR(36) NULL;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'gateway_payload')
+    ALTER TABLE dbo.jobs ADD gateway_payload NVARCHAR(MAX) NULL;
+
+-- ─── 1b. gateways ─────────────────────────────────────────────────────────────
+IF OBJECT_ID('dbo.gateways', 'U') IS NULL
+    CREATE TABLE dbo.gateways (
+        gateway_key   VARCHAR(36)    NOT NULL,
+        name          NVARCHAR(200)  NOT NULL,
+        status        VARCHAR(20)    NOT NULL DEFAULT 'offline',
+        last_seen_at  DATETIME2      NULL,
+        created_at    DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_gateways PRIMARY KEY (gateway_key)
+    );
 
 -- ─── 2. assessment_overview ───────────────────────────────────────────────────
 IF OBJECT_ID('dbo.assessment_overview', 'U') IS NULL

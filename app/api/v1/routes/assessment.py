@@ -8,6 +8,7 @@ GET    /api/v1/jobs/{job_id}/results — fetch full JSON results (completed jobs
 GET    /api/v1/jobs/{job_id}/report  — download Excel report (completed jobs only)
 """
 
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -125,9 +126,44 @@ async def trigger_assessment(
     background_tasks: BackgroundTasks,
 ) -> AssessmentResponse:
     job_id = str(uuid.uuid4())
+
+    # ── Gateway path: store payload for agent pickup ──────────────────────────
+    if body.gateway_key:
+        gw = azure_store.get_gateway(body.gateway_key)
+        if not gw:
+            raise HTTPException(status_code=400, detail="Gateway key not found. Register the gateway first.")
+
+        payload = {
+            "connection": {
+                "server":                   body.connection.server,
+                "port":                     body.connection.port,
+                "database":                 body.connection.database,
+                "username":                 body.connection.username,
+                "password":                 body.connection.password.get_secret_value(),
+                "trust_server_certificate": body.connection.trust_server_certificate,
+                "encrypt":                  body.connection.encrypt,
+            },
+            "include_null_analysis":      body.include_null_analysis,
+            "null_analysis_sample_limit": body.null_analysis_sample_limit,
+        }
+        record = JobRecord(job_id=job_id, label=body.label)
+        azure_store.create_gateway_job(
+            job_id=job_id,
+            label=body.label,
+            created_at=record.created_at,
+            gateway_key=body.gateway_key,
+            gateway_payload=json.dumps(payload),
+        )
+        logger.info("Gateway job %s queued for gateway %s", job_id, body.gateway_key[:8], extra={"job_id": job_id})
+        return AssessmentResponse(
+            job_id=job_id,
+            status=JobStatus.PENDING,
+            message="Job queued for gateway agent. The agent will pick it up shortly.",
+        )
+
+    # ── Direct path: run in background ───────────────────────────────────────
     record = JobRecord(job_id=job_id, label=body.label)
     job_store.create_job(record)
-
     background_tasks.add_task(_run_assessment_task, job_id, body)
 
     logger.info("Assessment job %s queued", job_id, extra={"job_id": job_id})

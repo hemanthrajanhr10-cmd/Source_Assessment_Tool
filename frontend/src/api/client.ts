@@ -4,6 +4,8 @@ import type {
   AssessmentResponse,
   AssessmentResults,
   ConnectionTestResponse,
+  Gateway,
+  GatewayRegisterResponse,
   JobStatusResponse,
 } from '../types/api'
 
@@ -32,6 +34,16 @@ export const api = {
 
   getReportUrl: (jobId: string) =>
     `${BASE_URL}/api/v1/jobs/${jobId}/report`,
+
+  // Gateway
+  registerGateway: (name: string) =>
+    http.post<GatewayRegisterResponse>('/api/v1/gateway/register', { name }),
+
+  listGateways: () =>
+    http.get<Gateway[]>('/api/v1/gateway/list'),
+
+  getAgentDownloadUrl: () =>
+    `${BASE_URL}/api/v1/gateway/download`,
 }
 
 export function getApiErrorMessage(err: unknown): string {

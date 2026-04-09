@@ -367,3 +367,130 @@ def load_full_results(job_id: str) -> dict[str, Any]:
     overview = load_overview(job_id)
     sections = load_sections(job_id)
     return {"job_id": job_id, "overview": overview, **sections}
+
+
+# ── Gateway CRUD ──────────────────────────────────────────────────────────────
+
+def register_gateway(gateway_key: str, name: str) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO dbo.gateways (gateway_key, name, status) VALUES (?, ?, 'offline')",
+            (gateway_key, name),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_gateway(gateway_key: str) -> Optional[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT gateway_key, name, status, last_seen_at, created_at "
+            "FROM dbo.gateways WHERE gateway_key = ?",
+            (gateway_key,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [d[0] for d in cur.description]
+        result = dict(zip(cols, row))
+        # Serialize datetimes
+        for k, v in result.items():
+            if isinstance(v, datetime):
+                result[k] = v.isoformat()
+        return result
+    finally:
+        conn.close()
+
+
+def list_gateways() -> list[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT gateway_key, name, status, last_seen_at, created_at "
+            "FROM dbo.gateways ORDER BY created_at DESC"
+        )
+        cols = [d[0] for d in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            for k, v in d.items():
+                if isinstance(v, datetime):
+                    d[k] = v.isoformat()
+            rows.append(d)
+        return rows
+    finally:
+        conn.close()
+
+
+def update_gateway_seen(gateway_key: str) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.gateways SET status = 'online', last_seen_at = SYSUTCDATETIME() "
+            "WHERE gateway_key = ?",
+            (gateway_key,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_pending_gateway_job(gateway_key: str) -> Optional[dict[str, Any]]:
+    """Return the oldest pending job assigned to this gateway, or None."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT TOP 1 job_id, gateway_payload
+            FROM dbo.jobs
+            WHERE gateway_key = ? AND status = 'pending' AND gateway_payload IS NOT NULL
+            ORDER BY created_at ASC
+            """,
+            (gateway_key,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return {"job_id": row[0], "gateway_payload": row[1]}
+    finally:
+        conn.close()
+
+
+def clear_gateway_payload(job_id: str) -> None:
+    """Remove credentials from DB as soon as the agent picks them up."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.jobs SET gateway_payload = NULL WHERE job_id = ?",
+            (job_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def create_gateway_job(job_id: str, label: Optional[str], created_at: datetime,
+                       gateway_key: str, gateway_payload: str) -> None:
+    """Create a job that is destined for a gateway agent."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            INSERT INTO dbo.jobs (job_id, status, label, created_at, gateway_key, gateway_payload)
+            VALUES (?, 'pending', ?, ?, ?, ?)
+            """,
+            (job_id, label, created_at, gateway_key, gateway_payload),
+        )
+        conn.commit()
+    finally:
+        conn.close()

@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   Server, Database, User, Lock, Eye, EyeOff,
   ShieldCheck, Zap, Tag, AlertCircle, ArrowRight,
-  CheckCircle2, WifiOff, Wifi,
+  CheckCircle2, WifiOff, Wifi, Radio,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import Button from '../components/ui/Button'
@@ -69,6 +70,14 @@ export default function NewAssessmentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [testState, setTestState] = useState<TestState>({ status: 'idle' })
+  const [useGateway, setUseGateway] = useState(false)
+  const [selectedGateway, setSelectedGateway] = useState('')
+
+  const { data: gateways } = useQuery({
+    queryKey: ['gateways'],
+    queryFn: () => api.listGateways().then((r) => r.data),
+    enabled: useGateway,
+  })
 
   const [form, setForm] = useState<FormState>({
     server: '',
@@ -116,12 +125,17 @@ export default function NewAssessmentPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (useGateway && !selectedGateway) {
+      setError('Please select a gateway.')
+      return
+    }
     setIsSubmitting(true)
     setError(null)
     try {
       const { data } = await api.triggerAssessment({
         ...connectionPayload(),
         label: form.label.trim() || undefined,
+        gateway_key: useGateway ? selectedGateway : undefined,
       })
       navigate(`/jobs/${data.job_id}`)
     } catch (err) {
@@ -359,6 +373,72 @@ export default function NewAssessmentPage() {
           </div>
         </div>
 
+        {/* Gateway card */}
+        <div className="card overflow-hidden">
+          <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-100 bg-slate-50">
+            <Radio className="h-4 w-4 text-brand-600" aria-hidden="true" />
+            <h2 className="text-sm font-semibold text-slate-800">Connection Mode</h2>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setUseGateway(false)}
+                className={`flex-1 rounded-xl border-2 px-4 py-3 text-left transition-all ${
+                  !useGateway
+                    ? 'border-brand-500 bg-brand-50'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <p className="text-sm font-semibold text-slate-800">Direct Connection</p>
+                <p className="text-xs text-slate-500 mt-0.5">Server is reachable from the internet</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setUseGateway(true)}
+                className={`flex-1 rounded-xl border-2 px-4 py-3 text-left transition-all ${
+                  useGateway
+                    ? 'border-brand-500 bg-brand-50'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <p className="text-sm font-semibold text-slate-800">Via Gateway Agent</p>
+                <p className="text-xs text-slate-500 mt-0.5">Server is behind a corporate firewall</p>
+              </button>
+            </div>
+
+            {useGateway && (
+              <div>
+                <label htmlFor="gateway-select" className="form-label">Select Gateway</label>
+                {!gateways?.length ? (
+                  <p className="text-sm text-amber-600 flex items-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" />
+                    No gateways registered.{' '}
+                    <a href="/gateway" className="underline font-medium">Register one first.</a>
+                  </p>
+                ) : (
+                  <select
+                    id="gateway-select"
+                    className="form-input"
+                    value={selectedGateway}
+                    onChange={(e) => setSelectedGateway(e.target.value)}
+                  >
+                    <option value="">— Pick a gateway —</option>
+                    {gateways.map((gw) => (
+                      <option key={gw.gateway_key} value={gw.gateway_key}>
+                        {gw.name} ({gw.status})
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <p className="mt-1.5 text-xs text-slate-400">
+                  The gateway agent must be running on a machine inside the client's network.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Error */}
         {error && (
           <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -375,7 +455,9 @@ export default function NewAssessmentPage() {
           rightIcon={<ArrowRight className="h-4 w-4" />}
           className="w-full justify-center"
         >
-          {isSubmitting ? 'Starting assessment…' : 'Run Assessment'}
+          {isSubmitting
+            ? (useGateway ? 'Queuing for gateway…' : 'Starting assessment…')
+            : (useGateway ? 'Queue via Gateway' : 'Run Assessment')}
         </Button>
       </form>
     </div>

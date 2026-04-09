@@ -20,6 +20,21 @@ export interface AssessmentRequest {
   include_null_analysis: boolean
   null_analysis_sample_limit: number
   label?: string
+  gateway_key?: string
+}
+
+export interface Gateway {
+  gateway_key: string
+  name: string
+  status: 'online' | 'offline'
+  last_seen_at?: string
+  created_at: string
+}
+
+export interface GatewayRegisterResponse {
+  gateway_key: string
+  name: string
+  message: string
 }
 
 export interface AssessmentResponse {

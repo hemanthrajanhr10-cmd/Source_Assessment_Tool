@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.routes.assessment import router as assessment_router
+from app.api.v1.routes.gateway import router as gateway_router
 from app.config import settings
 from app.core.logging import get_logger
 from app.db import azure_store
@@ -63,6 +64,7 @@ app.add_middleware(
 )
 
 app.include_router(assessment_router, prefix="/api/v1", tags=["Assessment"])
+app.include_router(gateway_router, prefix="/api/v1/gateway", tags=["Gateway"])
 
 
 @app.get("/health", tags=["Health"])

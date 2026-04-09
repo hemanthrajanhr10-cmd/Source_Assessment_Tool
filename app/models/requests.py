@@ -29,3 +29,7 @@ class AssessmentRequest(BaseModel):
         description="Max number of tables to sample for null analysis"
     )
     label: str | None = Field(None, description="Optional human-readable job label")
+    gateway_key: str | None = Field(
+        None,
+        description="If set, the job is routed to the gateway agent with this key instead of running directly"
+    )

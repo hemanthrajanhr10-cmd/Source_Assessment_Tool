@@ -126,7 +126,25 @@ function RegisterGateway({ onRegistered }: { onRegistered: () => void }) {
 
 // ── Download agent ─────────────────────────────────────────────────────────────
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+      className="ml-auto shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-xs text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+      title="Copy"
+    >
+      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  )
+}
+
 function DownloadAgent() {
+  // Derive the actual server URL from the current browser location so the
+  // instructions always show the real URL — never a placeholder.
+  const serverUrl = `${window.location.protocol}//${window.location.host}`
+
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-100 bg-slate-50">
@@ -156,19 +174,45 @@ function DownloadAgent() {
 
         <div className="space-y-2">
           <p className="text-sm font-medium text-slate-700">Step 2 — Install dependencies</p>
-          <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-sm text-slate-100 flex items-start gap-2">
-            <Terminal className="h-4 w-4 mt-0.5 shrink-0 text-slate-400" />
+          <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-sm text-slate-100 flex items-center gap-2">
+            <Terminal className="h-4 w-4 shrink-0 text-slate-400" />
             <span>pip install mssql-python requests</span>
+            <CopyButton text="pip install mssql-python requests" />
           </div>
         </div>
 
         <div className="space-y-2">
           <p className="text-sm font-medium text-slate-700">Step 3 — Run the agent</p>
-          <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-xs text-slate-100 space-y-1">
-            <div className="text-slate-400"># Windows</div>
-            <div>set SAT_SERVER_URL=https://your-sat-app.azurewebsites.net</div>
-            <div>set GATEWAY_KEY=your-gateway-key-here</div>
-            <div>python sat_agent.py</div>
+          <p className="text-xs text-slate-400">
+            Copy these exact commands — the server URL is pre-filled for you.
+          </p>
+          <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-xs text-slate-100 space-y-2">
+            <div className="text-slate-400"># Windows — run in Command Prompt</div>
+            <div className="flex items-center gap-2">
+              <span className="flex-1 break-all">set SAT_SERVER_URL={serverUrl}</span>
+              <CopyButton text={`set SAT_SERVER_URL=${serverUrl}`} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex-1">set GATEWAY_KEY=<span className="text-yellow-300">paste-your-key-here</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex-1">python sat_agent.py</span>
+              <CopyButton text="python sat_agent.py" />
+            </div>
+          </div>
+
+          <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-xs text-slate-100 space-y-2 mt-2">
+            <div className="text-slate-400"># Linux / Mac — run in Terminal</div>
+            <div className="flex items-center gap-2">
+              <span className="flex-1 break-all">export SAT_SERVER_URL={serverUrl}</span>
+              <CopyButton text={`export SAT_SERVER_URL=${serverUrl}`} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex-1">export GATEWAY_KEY=<span className="text-yellow-300">paste-your-key-here</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex-1">python sat_agent.py</span>
+            </div>
           </div>
         </div>
 

@@ -556,6 +556,12 @@ def main():
         print("ERROR: SAT_SERVER_URL and GATEWAY_KEY are required.")
         sys.exit(1)
 
+    if "your-sat-app" in SAT_SERVER_URL or SAT_SERVER_URL == "https://your-sat-app.azurewebsites.net":
+        print("ERROR: SAT_SERVER_URL is still the placeholder value.")
+        print("       Set it to your actual app URL. Example:")
+        print("         set SAT_SERVER_URL=https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net")
+        sys.exit(1)
+
     print(f"\nServer  : {SAT_SERVER_URL}")
     print(f"Key     : {GATEWAY_KEY[:8]}…{GATEWAY_KEY[-4:]}")
     print(f"Polling every {POLL_INTERVAL}s. Press Ctrl+C to stop.\n")

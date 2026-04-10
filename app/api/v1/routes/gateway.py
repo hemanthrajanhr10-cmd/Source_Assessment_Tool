@@ -189,7 +189,9 @@ async def submit_job_results(job_id: str, body: GatewaySubmitRequest):
 @router.get("/download", summary="Download the SAT Gateway Agent script")
 async def download_agent():
     """Serves the agent Python script for download."""
-    agent_path = Path(__file__).parents[4] / "agent" / "agent.py"
+    # agent.py is at /app/app/agent.py inside Docker
+    # __file__ = /app/app/api/v1/routes/gateway.py → parents[3] = /app/app
+    agent_path = Path(__file__).parents[3] / "agent.py"
     if not agent_path.is_file():
         raise HTTPException(status_code=404, detail="Agent script not found on server.")
     return FileResponse(

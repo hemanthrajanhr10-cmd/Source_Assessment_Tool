@@ -176,8 +176,8 @@ function DownloadAgent() {
           <p className="text-sm font-medium text-slate-700">Step 2 — Install dependencies</p>
           <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-sm text-slate-100 flex items-center gap-2">
             <Terminal className="h-4 w-4 shrink-0 text-slate-400" />
-            <span>pip install mssql-python requests</span>
-            <CopyButton text="pip install mssql-python requests" />
+            <span>pip install pymssql requests</span>
+            <CopyButton text="pip install pymssql requests" />
           </div>
         </div>
 

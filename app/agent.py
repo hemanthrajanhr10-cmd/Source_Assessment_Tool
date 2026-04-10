@@ -33,9 +33,9 @@ except ImportError:
     sys.exit(1)
 
 try:
-    import mssql_python
+    import pymssql
 except ImportError:
-    print("ERROR: 'mssql_python' library not found. Run: pip install mssql-python")
+    print("ERROR: 'pymssql' library not found. Run: pip install pymssql")
     sys.exit(1)
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -410,13 +410,11 @@ def _serialize(value: Any) -> Any:
 
 
 def _rows_to_dicts(cursor) -> list[dict]:
-    if cursor.description is None:
+    rows = cursor.fetchall()
+    if not rows:
         return []
-    cols = [d[0] for d in cursor.description]
-    return [
-        {name: _serialize(val) for name, val in zip(cols, row)}
-        for row in cursor.fetchall()
-    ]
+    # pymssql with as_dict=True returns list of dicts already
+    return [{k: _serialize(v) for k, v in row.items()} for row in rows]
 
 
 def _safe_fetch(cursor, sql: str, label: str) -> list[dict]:
@@ -473,9 +471,11 @@ def _run_null_analysis(cursor, table_rows: list[dict], sample_limit: int) -> lis
             sampled += 1
             continue
         if row:
-            total_rows = row[0]
-            for idx, (col_name, _) in enumerate(nullable_cols):
-                pct_raw = row[idx + 1]
+            # pymssql as_dict=True returns a dict; access by key
+            total_rows = row.get("total_rows", 0) if isinstance(row, dict) else row[0]
+            for col_name, _ in nullable_cols:
+                key = f"{col_name}_null_pct"
+                pct_raw = row.get(key) if isinstance(row, dict) else None
                 results.append({
                     "schema_name": schema,
                     "table_name": table,
@@ -492,18 +492,18 @@ def run_assessment(payload: dict) -> dict:
     include_null = payload.get("include_null_analysis", True)
     null_limit   = payload.get("null_analysis_sample_limit", 30)
 
-    conn_str = (
-        f"SERVER={conn_cfg['server']},{conn_cfg['port']};"
-        f"DATABASE={conn_cfg['database']};"
-        f"UID={conn_cfg['username']};"
-        f"PWD={conn_cfg['password']};"
-        f"TrustServerCertificate={'yes' if conn_cfg.get('trust_server_certificate', True) else 'no'};"
-        f"Encrypt={'yes' if conn_cfg.get('encrypt', True) else 'no'};"
-    )
-
     print(f"  Connecting to {conn_cfg['server']} / {conn_cfg['database']}…")
-    conn = mssql_python.connect(conn_str)
-    cursor = conn.cursor()
+    # pymssql bundles its own TDS driver — no ODBC Driver installation required
+    conn = pymssql.connect(
+        server=conn_cfg["server"],
+        port=str(conn_cfg.get("port", 1433)),
+        user=conn_cfg["username"],
+        password=conn_cfg["password"],
+        database=conn_cfg["database"],
+        tds_version="7.4",
+        login_timeout=30,
+    )
+    cursor = conn.cursor(as_dict=True)
 
     raw: dict[str, Any] = {}
     try:

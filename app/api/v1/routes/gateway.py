@@ -84,6 +84,19 @@ async def gateway_status(gateway_key: str):
     return gw
 
 
+@router.post("/heartbeat", summary="Agent heartbeat — marks gateway as online")
+async def gateway_heartbeat(gateway_key: str):
+    """
+    Called periodically by agents running in Service Bus mode (which don't poll).
+    Keeps the gateway status green in the portal.
+    """
+    gw = azure_store.get_gateway(gateway_key)
+    if not gw:
+        raise HTTPException(status_code=403, detail="Unknown gateway key.")
+    azure_store.update_gateway_seen(gateway_key)
+    return {"ok": True}
+
+
 @router.get("/poll", response_model=GatewayPollResponse, summary="Agent polls for pending jobs")
 async def poll_for_job(gateway_key: str):
     """

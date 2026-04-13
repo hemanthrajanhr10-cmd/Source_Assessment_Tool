@@ -19,6 +19,7 @@ Environment variables:
 import json
 import os
 import sys
+import threading
 import time
 import traceback
 from datetime import datetime, date
@@ -41,7 +42,7 @@ except ImportError:
 # ── Config ────────────────────────────────────────────────────────────────────
 # Service Bus mode (recommended — works through VPNs)
 SERVICE_BUS_CONNECTION_STRING = os.environ.get("SERVICE_BUS_CONNECTION_STRING", "")
-SERVICE_BUS_JOBS_QUEUE   = os.environ.get("SERVICE_BUS_JOBS_QUEUE", "sat-jobs")
+SERVICE_BUS_JOBS_QUEUE = os.environ.get("SERVICE_BUS_JOBS_QUEUE", "sat-jobs")
 SERVICE_BUS_RESULTS_QUEUE = os.environ.get("SERVICE_BUS_RESULTS_QUEUE", "sat-results")
 
 # Legacy HTTP polling mode (fallback if Service Bus not configured)
@@ -377,35 +378,36 @@ WHERE c.object_id = OBJECT_ID('{full_name}') AND c.is_nullable = 1
 """
 
 _QUERY_STEPS = [
-    ("overview",            OVERVIEW),
-    ("schemas",             SCHEMAS),
-    ("tables",              TABLES),
-    ("columns",             COLUMNS),
-    ("views",               VIEWS),
-    ("stored_procedures",   STORED_PROCEDURES),
-    ("functions",           FUNCTIONS),
-    ("indexes",             INDEXES),
-    ("relationships",       RELATIONSHIPS),
-    ("index_coverage",      INDEX_COVERAGE),
+    ("overview", OVERVIEW),
+    ("schemas", SCHEMAS),
+    ("tables", TABLES),
+    ("columns", COLUMNS),
+    ("views", VIEWS),
+    ("stored_procedures", STORED_PROCEDURES),
+    ("functions", FUNCTIONS),
+    ("indexes", INDEXES),
+    ("relationships", RELATIONSHIPS),
+    ("index_coverage", INDEX_COVERAGE),
     ("insertion_frequency", INSERTION_FREQUENCY),
-    ("db_users_roles",      DB_USERS_ROLES),
-    ("orphaned_users",      ORPHANED_USERS),
-    ("db_owner_members",    DB_OWNER_MEMBERS),
-    ("dynamic_sql_usage",   DYNAMIC_SQL_USAGE),
-    ("clr_assemblies",      CLR_ASSEMBLIES),
-    ("tde_status",          TDE_STATUS),
-    ("column_encryption",   COLUMN_ENCRYPTION),
-    ("pii_indicators",      PII_INDICATORS),
-    ("sql_agent_jobs",      SQL_AGENT_JOBS),
-    ("linked_servers",      LINKED_SERVERS),
+    ("db_users_roles", DB_USERS_ROLES),
+    ("orphaned_users", ORPHANED_USERS),
+    ("db_owner_members", DB_OWNER_MEMBERS),
+    ("dynamic_sql_usage", DYNAMIC_SQL_USAGE),
+    ("clr_assemblies", CLR_ASSEMBLIES),
+    ("tde_status", TDE_STATUS),
+    ("column_encryption", COLUMN_ENCRYPTION),
+    ("pii_indicators", PII_INDICATORS),
+    ("sql_agent_jobs", SQL_AGENT_JOBS),
+    ("linked_servers", LINKED_SERVERS),
     ("cross_db_references", CROSS_DB_REFERENCES),
-    ("replication_status",  REPLICATION_STATUS),
-    ("service_broker",      SERVICE_BROKER),
-    ("version_features",    VERSION_FEATURES),
+    ("replication_status", REPLICATION_STATUS),
+    ("service_broker", SERVICE_BROKER),
+    ("version_features", VERSION_FEATURES),
 ]
 
 
 # ── Assessment helpers ────────────────────────────────────────────────────────
+
 
 def _serialize(value: Any) -> Any:
     if isinstance(value, (datetime, date)):
@@ -482,13 +484,17 @@ def _run_null_analysis(cursor, table_rows: list[dict], sample_limit: int) -> lis
             for col_name, _ in nullable_cols:
                 key = f"{col_name}_null_pct"
                 pct_raw = row.get(key) if isinstance(row, dict) else None
-                results.append({
-                    "schema_name": schema,
-                    "table_name": table,
-                    "column_name": col_name,
-                    "total_rows": total_rows,
-                    "null_blank_pct": round(float(pct_raw), 2) if pct_raw is not None else 0.0,
-                })
+                results.append(
+                    {
+                        "schema_name": schema,
+                        "table_name": table,
+                        "column_name": col_name,
+                        "total_rows": total_rows,
+                        "null_blank_pct": (
+                            round(float(pct_raw), 2) if pct_raw is not None else 0.0
+                        ),
+                    }
+                )
         sampled += 1
     return results
 
@@ -496,7 +502,7 @@ def _run_null_analysis(cursor, table_rows: list[dict], sample_limit: int) -> lis
 def run_assessment(payload: dict) -> dict:
     conn_cfg = payload["connection"]
     include_null = payload.get("include_null_analysis", True)
-    null_limit   = payload.get("null_analysis_sample_limit", 30)
+    null_limit = payload.get("null_analysis_sample_limit", 30)
 
     print(f"  Connecting to {conn_cfg['server']} / {conn_cfg['database']}…")
     # pymssql bundles its own TDS driver — no ODBC Driver installation required
@@ -520,7 +526,9 @@ def run_assessment(payload: dict) -> dict:
 
         if include_null:
             print(f"  [NA] Null analysis (limit={null_limit})…")
-            raw["null_analysis"] = _run_null_analysis(cursor, raw.get("tables", []), null_limit)
+            raw["null_analysis"] = _run_null_analysis(
+                cursor, raw.get("tables", []), null_limit
+            )
         else:
             raw["null_analysis"] = []
     finally:
@@ -531,6 +539,7 @@ def run_assessment(payload: dict) -> dict:
 
 
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
+
 
 def _post(url: str, data: dict) -> dict:
     resp = requests.post(url, json=data, timeout=120)
@@ -544,19 +553,54 @@ def _get(url: str, params: dict = None) -> dict:
     return resp.json()
 
 
+# ── Heartbeat (Service Bus mode) ──────────────────────────────────────────────
+
+
+def _start_heartbeat(server_url: str, gateway_key: str, interval: int = 30) -> None:
+    """
+    Background thread: pings /gateway/heartbeat every `interval` seconds so
+    the portal shows this gateway as Online even in Service Bus mode.
+    """
+    if not server_url or not gateway_key:
+        return  # HTTP heartbeat not configured — skip silently
+
+    def _beat():
+        while True:
+            try:
+                requests.post(
+                    f"{server_url}/api/v1/gateway/heartbeat",
+                    params={"gateway_key": gateway_key},
+                    timeout=10,
+                )
+            except Exception:
+                pass  # Never crash the heartbeat thread
+            time.sleep(interval)
+
+    t = threading.Thread(target=_beat, daemon=True)
+    t.start()
+
+
 # ── Service Bus mode ──────────────────────────────────────────────────────────
+
 
 def _run_service_bus_loop(conn_str: str) -> None:
     """Main loop using Azure Service Bus — works through VPNs."""
     try:
         from azure.servicebus import ServiceBusClient, ServiceBusMessage
     except ImportError:
-        print("ERROR: azure-servicebus not installed. Run: pip install azure-servicebus")
+        print(
+            "ERROR: azure-servicebus not installed. Run: pip install azure-servicebus"
+        )
         sys.exit(1)
 
     print(f"Mode    : Azure Service Bus (VPN-compatible)")
     print(f"Jobs Q  : {SERVICE_BUS_JOBS_QUEUE}")
     print(f"Results Q: {SERVICE_BUS_RESULTS_QUEUE}")
+    if SAT_SERVER_URL and GATEWAY_KEY:
+        print(f"Heartbeat: {SAT_SERVER_URL} every 30s")
+        _start_heartbeat(SAT_SERVER_URL, GATEWAY_KEY)
+    else:
+        print(f"Heartbeat: disabled (set SAT_SERVER_URL + GATEWAY_KEY to enable)")
     print(f"Listening for jobs. Press Ctrl+C to stop.\n")
 
     while True:
@@ -567,19 +611,21 @@ def _run_service_bus_loop(conn_str: str) -> None:
                     max_wait_time=30,
                 ) as receiver:
                     print(f"[{_now()}] Idle — waiting for jobs…", end="\r")
-                    msgs = receiver.receive_messages(max_message_count=1, max_wait_time=30)
+                    msgs = receiver.receive_messages(
+                        max_message_count=1, max_wait_time=30
+                    )
                     if not msgs:
                         continue
 
                     msg = msgs[0]
                     body = json.loads(str(msg))
-                    job_id  = body.get("job_id")
+                    job_id = body.get("job_id")
                     payload = body.get("payload", {})
 
                     print(f"\n[{_now()}] Job received: {job_id}")
                     receiver.complete_message(msg)
 
-                    error   = None
+                    error = None
                     results = None
                     try:
                         results = run_assessment(payload)
@@ -589,13 +635,17 @@ def _run_service_bus_loop(conn_str: str) -> None:
                         print(f"[{_now()}] Assessment FAILED: {exc}")
 
                     # Send result back via Service Bus
-                    result_payload = json.dumps({
-                        "job_id": job_id,
-                        "results": results,
-                        "error": error,
-                    })
+                    result_payload = json.dumps(
+                        {
+                            "job_id": job_id,
+                            "results": results,
+                            "error": error,
+                        }
+                    )
                     with client.get_queue_sender(SERVICE_BUS_RESULTS_QUEUE) as sender:
-                        sender.send_messages(ServiceBusMessage(result_payload, message_id=job_id))
+                        sender.send_messages(
+                            ServiceBusMessage(result_payload, message_id=job_id)
+                        )
 
                     if error:
                         print(f"[{_now()}] Error reported to server for job {job_id}.")
@@ -611,6 +661,7 @@ def _run_service_bus_loop(conn_str: str) -> None:
 
 
 # ── Legacy HTTP polling mode ──────────────────────────────────────────────────
+
 
 def _run_http_poll_loop() -> None:
     """Fallback loop using HTTP polling — may be blocked by strict VPNs."""
@@ -636,7 +687,10 @@ def _run_http_poll_loop() -> None:
 
     while True:
         try:
-            data = _get(f"{SAT_SERVER_URL}/api/v1/gateway/poll", params={"gateway_key": GATEWAY_KEY})
+            data = _get(
+                f"{SAT_SERVER_URL}/api/v1/gateway/poll",
+                params={"gateway_key": GATEWAY_KEY},
+            )
             job_id = data.get("job_id")
 
             if job_id:
@@ -672,6 +726,7 @@ def _run_http_poll_loop() -> None:
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+
 
 def main():
     print("=" * 60)

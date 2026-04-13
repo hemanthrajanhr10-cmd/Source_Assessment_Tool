@@ -631,8 +631,10 @@ def _run_service_bus_loop(conn_str: str) -> None:
                         results = run_assessment(payload)
                         print(f"[{_now()}] Assessment done. Sending results…")
                     except Exception as exc:
+                        import traceback
                         error = str(exc)
-                        print(f"[{_now()}] Assessment FAILED: {exc}")
+                        print(f"[{_now()}] Assessment FAILED: {type(exc).__name__}: {exc}")
+                        traceback.print_exc()
 
                     # Send result back via Service Bus
                     result_payload = json.dumps(

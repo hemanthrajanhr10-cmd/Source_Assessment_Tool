@@ -56,16 +56,14 @@ def list_databases(connection_params) -> list[dict]:
     conn = connector.get_connection(connection_params)
     try:
         cursor = conn.cursor()
+        # sys.master_files is unavailable on Azure SQL — use sys.databases only
         cursor.execute(
             """
-            SELECT d.name, d.state_desc,
-                   CAST(SUM(mf.size) * 8.0 / 1024 AS DECIMAL(18,2)) AS size_mb
-            FROM sys.databases d
-            JOIN sys.master_files mf ON d.database_id = mf.database_id
-            WHERE d.name NOT IN ('master', 'tempdb', 'model', 'msdb')
-              AND d.state = 0
-            GROUP BY d.name, d.state_desc
-            ORDER BY d.name
+            SELECT name, state_desc, NULL AS size_mb
+            FROM sys.databases
+            WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb')
+              AND state = 0
+            ORDER BY name
             """
         )
         cols = [desc[0] for desc in cursor.description]

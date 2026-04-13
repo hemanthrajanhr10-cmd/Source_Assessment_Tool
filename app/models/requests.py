@@ -19,7 +19,8 @@ class ServerTarget(BaseModel):
     trust_server_certificate: bool = Field(True)
     encrypt: bool = Field(True)
     databases: list[DatabaseTarget] = Field(default_factory=list)
-    use_gateway: bool = Field(False, description="Route via auto-assigned gateway agent")
+    use_gateway: bool = Field(False, description="Route via gateway agent")
+    gateway_key: str | None = Field(None, description="Specific gateway key to use (required when use_gateway=True)")
 
 
 class SessionRequest(BaseModel):

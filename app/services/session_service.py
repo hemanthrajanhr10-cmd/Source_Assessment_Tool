@@ -173,8 +173,8 @@ def _queue_gateway_job(session_id: str, job_id: str, srv: ServerTarget, db: Data
         service_bus.publish_job(job_id, payload)
         logger.info("Session %s job %s published to Service Bus", session_id, job_id)
     else:
-        # HTTP polling fallback — auto-assign first online gateway
-        gw_key = get_online_gateway()
+        # HTTP polling fallback — use the specified gateway key
+        gw_key = srv.gateway_key
         if gw_key:
             azure_store.update_job(
                 job_id,
@@ -188,7 +188,7 @@ def _queue_gateway_job(session_id: str, job_id: str, srv: ServerTarget, db: Data
                 job_id,
                 status=JobStatus.FAILED,
                 completed_at=datetime.now(timezone.utc),
-                error="No online gateway available. Start a gateway agent first.",
+                error="No gateway selected. Choose a gateway agent for this server.",
             )
             update_session_progress(session_id)
 

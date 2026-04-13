@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   Server, Database, User, Lock, Eye, EyeOff,
   Plus, Trash2, ChevronDown, ChevronUp, Wifi, WifiOff,
@@ -7,7 +8,7 @@ import {
   RefreshCw, Radio, Search,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
-import type { DatabaseInfo } from '../types/api'
+import type { DatabaseInfo, Gateway } from '../types/api'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 
@@ -29,6 +30,7 @@ interface ServerEntry {
   trust_server_certificate: boolean
   encrypt: boolean
   use_gateway: boolean
+  gateway_key: string
   // Detect state
   connectivity: null | { reachable: boolean; latency_ms: number | null }
   connectivity_loading: boolean
@@ -53,6 +55,7 @@ function makeServer(): ServerEntry {
     trust_server_certificate: true,
     encrypt: true,
     use_gateway: false,
+    gateway_key: '',
     connectivity: null,
     connectivity_loading: false,
     available_dbs: null,
@@ -103,12 +106,14 @@ function ServerCard({
   onUpdate,
   onRemove,
   canRemove,
+  gateways,
 }: {
   entry: ServerEntry
   index: number
   onUpdate: (id: string, patch: Partial<ServerEntry>) => void
   onRemove: (id: string) => void
   canRemove: boolean
+  gateways: Gateway[]
 }) {
   const set = (patch: Partial<ServerEntry>) => onUpdate(entry.id, patch)
 
@@ -326,31 +331,59 @@ function ServerCard({
           </div>
 
           {/* Connection mode */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => set({ use_gateway: false })}
-              className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
-                !entry.use_gateway ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                <Wifi className="h-3.5 w-3.5 text-emerald-500" /> Direct Connection
-              </p>
-              <p className="text-xs text-slate-500 mt-0.5">Server reachable from internet</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => set({ use_gateway: true })}
-              className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
-                entry.use_gateway ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'
-              }`}
-            >
-              <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                <Radio className="h-3.5 w-3.5 text-brand-500" /> Via Gateway Agent
-              </p>
-              <p className="text-xs text-slate-500 mt-0.5">Behind corporate firewall (auto-assigned)</p>
-            </button>
+          <div className="space-y-3">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => set({ use_gateway: false, gateway_key: '' })}
+                className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
+                  !entry.use_gateway ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Wifi className="h-3.5 w-3.5 text-emerald-500" /> Direct Connection
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">Server reachable from internet</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => set({ use_gateway: true })}
+                className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
+                  entry.use_gateway ? 'border-brand-500 bg-brand-50' : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                  <Radio className="h-3.5 w-3.5 text-brand-500" /> Via Gateway Agent
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">Behind corporate firewall</p>
+              </button>
+            </div>
+
+            {/* Gateway picker — shown only when use_gateway is selected */}
+            {entry.use_gateway && (
+              <div>
+                <label className="form-label">Select Gateway <span className="text-red-500">*</span></label>
+                {gateways.length === 0 ? (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    No gateways registered. Go to <strong>Gateway Manager</strong> to register one.
+                  </div>
+                ) : (
+                  <select
+                    className="form-input"
+                    value={entry.gateway_key}
+                    onChange={(e) => set({ gateway_key: e.target.value })}
+                  >
+                    <option value="">— Choose a gateway —</option>
+                    {gateways.map((gw) => (
+                      <option key={gw.gateway_key} value={gw.gateway_key}>
+                        {gw.name} {gw.status === 'online' ? '● Online' : '○ Offline'}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Database browser */}
@@ -473,6 +506,12 @@ export default function NewAssessmentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const { data: gateways = [] } = useQuery({
+    queryKey: ['gateways'],
+    queryFn: () => api.listGateways().then((r) => r.data),
+    refetchInterval: 15_000,
+  })
+
   const updateServer = useCallback((id: string, patch: Partial<ServerEntry>) => {
     setServers((prev) => prev.map((s) => s.id === id ? { ...s, ...patch } : s))
   }, [])
@@ -498,6 +537,10 @@ export default function NewAssessmentPage() {
         setError(`Server "${srv.server}": no databases selected. Click "Browse Databases" and select at least one.`)
         return
       }
+      if (srv.use_gateway && !srv.gateway_key) {
+        setError(`Server "${srv.server}": please select a gateway agent.`)
+        return
+      }
     }
 
     if (totalDbs === 0) {
@@ -517,6 +560,7 @@ export default function NewAssessmentPage() {
           trust_server_certificate: srv.trust_server_certificate,
           encrypt: srv.encrypt,
           use_gateway: srv.use_gateway,
+          gateway_key: srv.use_gateway ? srv.gateway_key : undefined,
           databases: srv.selected_dbs.map((db) => ({
             name: db.name,
             include_null_analysis: db.include_null_analysis,
@@ -583,6 +627,7 @@ export default function NewAssessmentPage() {
               onUpdate={updateServer}
               onRemove={removeServer}
               canRemove={servers.length > 1}
+              gateways={gateways}
             />
           ))}
 

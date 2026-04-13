@@ -123,6 +123,7 @@ export interface ServerTarget {
   encrypt: boolean
   databases: DatabaseTarget[]
   use_gateway: boolean
+  gateway_key?: string
 }
 
 export interface SessionRequest {

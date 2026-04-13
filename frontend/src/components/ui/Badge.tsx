@@ -46,6 +46,7 @@ export function StatusBadge({ status }: { status: JobStatus }) {
     running:   { label: 'Running',   variant: 'info'     },
     completed: { label: 'Completed', variant: 'success'  },
     failed:    { label: 'Failed',    variant: 'error'    },
+    cancelled: { label: 'Cancelled', variant: 'neutral'  },
   }
   const { label, variant } = map[status]
   return <Badge variant={variant} dot>{label}</Badge>

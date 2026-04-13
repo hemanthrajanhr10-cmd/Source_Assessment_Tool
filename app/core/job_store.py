@@ -14,23 +14,38 @@ from app.models.responses import JobStatus
 
 def _row_to_record(row: dict) -> JobRecord:
     """Convert a raw DB row dict into a JobRecord dataclass."""
+
+    def _parse_dt(v):
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v
+        return datetime.fromisoformat(str(v))
+
     return JobRecord(
         job_id=row["job_id"],
         status=JobStatus(row["status"]),
         label=row.get("label"),
-        created_at=row["created_at"] if isinstance(row["created_at"], datetime)
-                   else datetime.fromisoformat(str(row["created_at"])),
-        started_at=row.get("started_at"),
-        completed_at=row.get("completed_at"),
+        created_at=_parse_dt(row["created_at"]) or datetime.now(timezone.utc),
+        started_at=_parse_dt(row.get("started_at")),
+        completed_at=_parse_dt(row.get("completed_at")),
         error=row.get("error"),
         progress_message=row.get("progress_message"),
         report_path=row.get("report_path"),
         results=None,   # results live in assessment_sections, not in memory
+        session_id=row.get("session_id"),
+        server_name=row.get("server_name"),
+        database_name=row.get("database_name"),
     )
 
 
 def create_job(record: JobRecord) -> None:
-    azure_store.create_job(record.job_id, record.label, record.created_at)
+    azure_store.create_job(
+        record.job_id, record.label, record.created_at,
+        session_id=record.session_id,
+        server_name=record.server_name,
+        database_name=record.database_name,
+    )
 
 
 def get_job(job_id: str) -> Optional[JobRecord]:

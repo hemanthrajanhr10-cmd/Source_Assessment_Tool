@@ -936,3 +936,130 @@ def build_report(job_id: str, raw: dict[str, Any]) -> str:
     wb.save(str(output_path))
     logger.info("Report saved: %s", output_path)
     return str(output_path.resolve())
+
+
+def build_session_report(session_id: str, jobs_data: list[dict]) -> str:
+    """
+    Build a combined Excel workbook for a multi-server session.
+
+    jobs_data: list of { job_id, server, database, results: raw_dict }
+
+    Produces:
+      - Sheet 1: Session Summary (one row per database, overview stats)
+      - Subsequent sheets: key data per database (Tables, Columns, PII etc.)
+        prefixed with a short server/database tag.
+    Returns the absolute path to the saved file.
+    """
+    from app.config import settings
+
+    reports_dir = settings.reports_dir
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    output_path = reports_dir / f"session_{session_id}.xlsx"
+
+    wb = Workbook()
+
+    # ── Session Summary sheet ─────────────────────────────────────────────────
+    ws = wb.active
+    ws.title = "Session Summary"
+    _set_tab_color(ws, DARK_BLUE)
+
+    # Title
+    ws.merge_cells("A1:K1")
+    title_cell = ws["A1"]
+    title_cell.value = "SQL SERVER SOURCE ASSESSMENT — MULTI-SERVER SESSION REPORT"
+    title_cell.font = _font(bold=True, size=16, color=WHITE)
+    title_cell.fill = _fill(DARK_BLUE)
+    title_cell.alignment = _align("center")
+    ws.row_dimensions[1].height = 32
+
+    ws.merge_cells("A2:K2")
+    sub_cell = ws["A2"]
+    sub_cell.value = f"Session ID: {session_id}   |   Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    sub_cell.font = _font(italic=True, color=MED_GRAY)
+    sub_cell.fill = _fill(LIGHT_BLUE)
+    sub_cell.alignment = _align("center")
+    ws.row_dimensions[2].height = 18
+
+    headers = [
+        "Server", "Database", "SQL Version", "Tables", "Views",
+        "Stored Procs", "Functions", "Indexes", "Relationships",
+        "Size (MB)", "PII Indicators",
+    ]
+    for ci, h in enumerate(headers, 1):
+        _header_cell(ws, 4, ci, h, bg=MID_BLUE)
+
+    ws.auto_filter.ref = f"A4:{get_column_letter(len(headers))}4"
+    ws.freeze_panes = "A5"
+
+    for ri, job in enumerate(jobs_data, start=5):
+        bg = LIGHT_GRAY if ri % 2 == 0 else WHITE
+        raw = job.get("results", {})
+        overview = raw.get("overview") or {}
+        if isinstance(overview, list):
+            overview = overview[0] if overview else {}
+
+        row_vals = [
+            job.get("server", ""),
+            job.get("database", ""),
+            str(overview.get("sql_server_version", ""))[:60],
+            overview.get("table_count", 0),
+            overview.get("view_count", 0),
+            overview.get("stored_proc_count", 0),
+            overview.get("function_count", 0),
+            len(raw.get("indexes", [])),
+            len(raw.get("relationships", [])),
+            overview.get("total_size_mb", ""),
+            len(raw.get("pii_indicators", [])),
+        ]
+        for ci, val in enumerate(row_vals, 1):
+            _data_cell(ws, ri, ci, val, bg=bg, align_h="center" if ci > 2 else "left")
+
+    _auto_width(ws)
+
+    # ── Per-database detail sheets ─────────────────────────────────────────────
+    for job in jobs_data:
+        raw = job.get("results", {})
+        server = job.get("server", "")
+        database = job.get("database", "")
+        # Create a short safe prefix for sheet names (max ~20 chars)
+        prefix = f"{server[:10]}/{database[:10]}"
+
+        # Tables
+        tables = raw.get("tables", [])
+        if tables:
+            _write_generic_sheet(
+                wb, f"{prefix[:20]} Tbl", MID_BLUE, f"Tables — {server}/{database}",
+                ["schema_name", "table_name", "column_count", "row_count", "size_mb"],
+                tables,
+            )
+
+        # PII indicators
+        pii = raw.get("pii_indicators", [])
+        if pii:
+            _write_generic_sheet(
+                wb, f"{prefix[:20]} PII", RED, f"PII Indicators — {server}/{database}",
+                ["schema_name", "table_name", "column_name", "data_type", "pii_category"],
+                pii,
+            )
+
+        # Null analysis
+        null_data = raw.get("null_analysis", [])
+        if null_data:
+            _write_generic_sheet(
+                wb, f"{prefix[:20]} Null", ORANGE, f"Null Analysis — {server}/{database}",
+                ["schema_name", "table_name", "column_name", "total_rows", "null_blank_pct"],
+                null_data,
+            )
+
+        # Linked servers (risk)
+        linked = raw.get("linked_servers", [])
+        if linked:
+            _write_generic_sheet(
+                wb, f"{prefix[:20]} Lnk", ORANGE, f"Linked Servers — {server}/{database}",
+                ["linked_server_name", "product", "provider", "data_source"],
+                linked,
+            )
+
+    wb.save(str(output_path))
+    logger.info("Session report saved: %s", output_path)
+    return str(output_path.resolve())

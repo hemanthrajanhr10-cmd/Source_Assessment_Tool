@@ -81,3 +81,12 @@ def handle_result(job_id: str, body: dict) -> None:
             error=str(exc),
             progress_message=None,
         )
+
+    # If this job belongs to a session, update session progress
+    try:
+        job_row = azure_store.get_job(job_id)
+        if job_row and job_row.get("session_id"):
+            from app.services.session_service import update_session_progress
+            update_session_progress(job_row["session_id"])
+    except Exception as exc:
+        logger.warning("Could not update session progress for job %s: %s", job_id, exc)

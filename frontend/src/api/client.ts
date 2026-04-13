@@ -4,9 +4,14 @@ import type {
   AssessmentResponse,
   AssessmentResults,
   ConnectionTestResponse,
+  ConnectivityResult,
+  CreateSessionResponse,
+  DatabaseInfo,
   Gateway,
   GatewayRegisterResponse,
   JobStatusResponse,
+  SessionRequest,
+  SessionStatusResponse,
 } from '../types/api'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''
@@ -17,6 +22,7 @@ const http = axios.create({
 })
 
 export const api = {
+  // ── Single-server assessment ──────────────────────────────────────────────
   testConnection: (data: AssessmentRequest) =>
     http.post<ConnectionTestResponse>('/api/v1/test-connection', data),
 
@@ -35,7 +41,7 @@ export const api = {
   getReportUrl: (jobId: string) =>
     `${BASE_URL}/api/v1/jobs/${jobId}/report`,
 
-  // Gateway
+  // ── Gateway ───────────────────────────────────────────────────────────────
   registerGateway: (name: string) =>
     http.post<GatewayRegisterResponse>('/api/v1/gateway/register', { name }),
 
@@ -44,6 +50,29 @@ export const api = {
 
   getAgentDownloadUrl: () =>
     `${BASE_URL}/api/v1/gateway/download`,
+
+  // ── Session (multi-server) ────────────────────────────────────────────────
+  detectConnectivity: (servers: { server: string; port: number }[]) =>
+    http.post<ConnectivityResult[]>('/api/v1/detect-connectivity', { servers }),
+
+  listDatabases: (connection: {
+    server: string; port: number; database: string
+    username: string; password: string
+    trust_server_certificate: boolean; encrypt: boolean
+  }) =>
+    http.post<DatabaseInfo[]>('/api/v1/list-databases', { connection }),
+
+  createSession: (data: SessionRequest) =>
+    http.post<CreateSessionResponse>('/api/v1/sessions', data),
+
+  listSessions: () =>
+    http.get<SessionStatusResponse[]>('/api/v1/sessions'),
+
+  getSessionStatus: (sessionId: string) =>
+    http.get<SessionStatusResponse>(`/api/v1/sessions/${sessionId}/status`),
+
+  getSessionReportUrl: (sessionId: string) =>
+    `${BASE_URL}/api/v1/sessions/${sessionId}/report`,
 }
 
 export function getApiErrorMessage(err: unknown): string {

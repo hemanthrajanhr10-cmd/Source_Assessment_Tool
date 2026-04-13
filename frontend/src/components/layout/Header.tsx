@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Database, PlusCircle, List, Radio } from 'lucide-react'
+import { Database, PlusCircle, Layers, Radio, List } from 'lucide-react'
 import Button from '../ui/Button'
 
 export default function Header() {
@@ -27,6 +27,19 @@ export default function Header() {
           {/* Nav */}
           <nav className="flex items-center gap-1" aria-label="Main navigation">
             <NavLink
+              to="/sessions"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
+                  isActive
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`
+              }
+            >
+              <Layers className="h-4 w-4" aria-hidden="true" />
+              <span>Sessions</span>
+            </NavLink>
+            <NavLink
               to="/jobs"
               className={({ isActive }) =>
                 `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
@@ -37,7 +50,7 @@ export default function Header() {
               }
             >
               <List className="h-4 w-4" aria-hidden="true" />
-              <span>All Jobs</span>
+              <span className="hidden sm:inline">Jobs</span>
             </NavLink>
             <NavLink
               to="/gateway"
@@ -50,7 +63,7 @@ export default function Header() {
               }
             >
               <Radio className="h-4 w-4" aria-hidden="true" />
-              <span>Gateway</span>
+              <span className="hidden sm:inline">Gateway</span>
             </NavLink>
           </nav>
 

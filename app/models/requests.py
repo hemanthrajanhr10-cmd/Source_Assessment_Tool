@@ -1,6 +1,45 @@
 from pydantic import BaseModel, SecretStr, Field
 
 
+# ── Multi-server session models ────────────────────────────────────────────────
+
+class DatabaseTarget(BaseModel):
+    """One database within a server to be assessed."""
+    name: str = Field(..., description="Database name")
+    include_null_analysis: bool = Field(True, description="Run null/blank analysis")
+    null_analysis_sample_limit: int = Field(30, ge=1, le=1000, description="Max tables to sample")
+
+
+class ServerTarget(BaseModel):
+    """One SQL Server instance with credentials and selected databases."""
+    server: str = Field(..., description="SQL Server hostname or host\\instance")
+    port: int = Field(1433, description="SQL Server port")
+    username: str = Field(..., description="SQL login username")
+    password: SecretStr = Field(..., description="SQL login password")
+    trust_server_certificate: bool = Field(True)
+    encrypt: bool = Field(True)
+    databases: list[DatabaseTarget] = Field(default_factory=list)
+    use_gateway: bool = Field(False, description="Route via auto-assigned gateway agent")
+
+
+class SessionRequest(BaseModel):
+    """Create a multi-server assessment session."""
+    label: str | None = Field(None, description="Optional session label")
+    servers: list[ServerTarget] = Field(..., min_length=1)
+
+
+class ConnectivityTestRequest(BaseModel):
+    """TCP connectivity test for a list of servers."""
+    servers: list[dict] = Field(..., description="List of {server: str, port: int} objects")
+
+
+class ListDatabasesRequest(BaseModel):
+    """List available databases on a server."""
+    connection: "ConnectionParams"
+
+
+# ── Single-server assessment models ───────────────────────────────────────────
+
 class ConnectionParams(BaseModel):
     server: str = Field(..., description="SQL Server hostname or host\\instance")
     port: int = Field(1433, description="SQL Server port")

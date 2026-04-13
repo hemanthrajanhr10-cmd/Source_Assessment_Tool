@@ -6,6 +6,50 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 
+# ── Session response models ────────────────────────────────────────────────────
+
+class ConnectivityResult(BaseModel):
+    server: str
+    port: int
+    reachable: bool
+    latency_ms: Optional[float]
+
+
+class DatabaseInfo(BaseModel):
+    name: str
+    size_mb: Optional[float]
+    state: str
+
+
+class CreateSessionResponse(BaseModel):
+    session_id: str
+    status: str
+    total_jobs: int
+
+
+class SessionJobInfo(BaseModel):
+    job_id: str
+    server: str
+    database: str
+    status: str
+    progress_message: Optional[str]
+    error: Optional[str]
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+
+
+class SessionStatusResponse(BaseModel):
+    session_id: str
+    label: Optional[str]
+    status: str
+    total_jobs: int
+    completed_jobs: int
+    failed_jobs: int
+    created_at: datetime
+    completed_at: Optional[datetime]
+    jobs: list[SessionJobInfo]
+
+
 def humanize_connection_error(exc: Exception, server: str = "", database: str = "") -> str:
     """
     Convert a raw ODBC / mssql-python exception into a short, actionable message.

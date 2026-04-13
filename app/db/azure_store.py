@@ -179,13 +179,22 @@ _SECTION_CONFIG: dict[str, tuple[str, list[str]]] = {
 
 # ── Job CRUD ──────────────────────────────────────────────────────────────────
 
-def create_job(job_id: str, label: Optional[str], created_at: datetime) -> None:
+def create_job(
+    job_id: str,
+    label: Optional[str],
+    created_at: datetime,
+    session_id: Optional[str] = None,
+    server_name: Optional[str] = None,
+    database_name: Optional[str] = None,
+) -> None:
     conn = _get_conn()
     try:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO dbo.jobs (job_id, status, label, created_at) VALUES (?, 'pending', ?, ?)",
-            (job_id, label, created_at),
+            """INSERT INTO dbo.jobs
+               (job_id, status, label, created_at, session_id, server_name, database_name)
+               VALUES (?, 'pending', ?, ?, ?, ?, ?)""",
+            (job_id, label, created_at, session_id, server_name, database_name),
         )
         conn.commit()
     finally:
@@ -193,7 +202,10 @@ def create_job(job_id: str, label: Optional[str], created_at: datetime) -> None:
 
 
 def update_job(job_id: str, **kwargs) -> None:
-    allowed = {"status", "started_at", "completed_at", "error", "progress_message", "report_path"}
+    allowed = {
+        "status", "started_at", "completed_at", "error",
+        "progress_message", "report_path", "gateway_key", "gateway_payload",
+    }
     fields = {k: v for k, v in kwargs.items() if k in allowed}
     if not fields:
         return
@@ -213,11 +225,9 @@ def get_job(job_id: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            """
-            SELECT job_id, status, label, created_at, started_at,
-                   completed_at, error, progress_message, report_path
-            FROM dbo.jobs WHERE job_id = ?
-            """,
+            """SELECT job_id, status, label, created_at, started_at, completed_at,
+                      error, progress_message, report_path, session_id, server_name, database_name
+               FROM dbo.jobs WHERE job_id = ?""",
             (job_id,),
         )
         row = cur.fetchone()
@@ -233,11 +243,9 @@ def list_jobs() -> list[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            """
-            SELECT job_id, status, label, created_at, started_at,
-                   completed_at, error, progress_message, report_path
-            FROM dbo.jobs ORDER BY created_at DESC
-            """
+            """SELECT job_id, status, label, created_at, started_at, completed_at,
+                      error, progress_message, report_path, session_id, server_name, database_name
+               FROM dbo.jobs ORDER BY created_at DESC"""
         )
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
@@ -492,5 +500,148 @@ def create_gateway_job(job_id: str, label: Optional[str], created_at: datetime,
             (job_id, label, created_at, gateway_key, gateway_payload),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+# ── Session CRUD ───────────────────────────────────────────────────────────────
+
+def create_session(session_id: str, label: Optional[str], created_at: datetime) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO dbo.sessions (session_id, label, status, created_at) VALUES (?, ?, 'pending', ?)",
+            (session_id, label, created_at),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def update_session(session_id: str, **kwargs) -> None:
+    """Atomically recompute session counters + status from child jobs, then apply any extra fields."""
+    allowed = {"status", "total_jobs", "completed_jobs", "failed_jobs", "completed_at"}
+    fields = {k: v for k, v in kwargs.items() if k in allowed}
+    if not fields:
+        return
+    set_clause = ", ".join(f"{col} = ?" for col in fields)
+    values = list(fields.values()) + [session_id]
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(f"UPDATE dbo.sessions SET {set_clause} WHERE session_id = ?", values)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def recompute_session_status(session_id: str) -> None:
+    """Atomically update session status/counters from child job states in one SQL statement."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE s
+            SET
+                s.completed_jobs = j.completed_count,
+                s.failed_jobs    = j.failed_count,
+                s.status         = CASE
+                    WHEN j.completed_count + j.failed_count >= s.total_jobs AND s.total_jobs > 0
+                        AND j.failed_count = s.total_jobs                        THEN 'failed'
+                    WHEN j.completed_count + j.failed_count >= s.total_jobs AND s.total_jobs > 0
+                        AND j.failed_count > 0                                   THEN 'partial'
+                    WHEN j.completed_count + j.failed_count >= s.total_jobs AND s.total_jobs > 0
+                                                                                 THEN 'completed'
+                    ELSE 'running'
+                END,
+                s.completed_at   = CASE
+                    WHEN j.completed_count + j.failed_count >= s.total_jobs AND s.total_jobs > 0
+                        THEN SYSUTCDATETIME()
+                    ELSE s.completed_at
+                END
+            FROM dbo.sessions s
+            CROSS APPLY (
+                SELECT
+                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+                    SUM(CASE WHEN status = 'failed'    THEN 1 ELSE 0 END) AS failed_count
+                FROM dbo.jobs
+                WHERE session_id = s.session_id
+            ) j
+            WHERE s.session_id = ?
+            """,
+            (session_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_session(session_id: str) -> Optional[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT session_id, label, status, total_jobs, completed_jobs, failed_jobs,
+                      created_at, completed_at
+               FROM dbo.sessions WHERE session_id = ?""",
+            (session_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [d[0] for d in cur.description]
+        result = dict(zip(cols, row))
+        for k, v in result.items():
+            if isinstance(v, datetime):
+                result[k] = v.isoformat()
+        return result
+    finally:
+        conn.close()
+
+
+def list_sessions() -> list[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT session_id, label, status, total_jobs, completed_jobs, failed_jobs,
+                      created_at, completed_at
+               FROM dbo.sessions ORDER BY created_at DESC"""
+        )
+        cols = [d[0] for d in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            for k, v in d.items():
+                if isinstance(v, datetime):
+                    d[k] = v.isoformat()
+            rows.append(d)
+        return rows
+    finally:
+        conn.close()
+
+
+def list_session_jobs(session_id: str) -> list[dict[str, Any]]:
+    """Return all jobs belonging to a session, ordered by creation time."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT job_id, status, label, created_at, started_at, completed_at,
+                      error, progress_message, report_path, server_name, database_name
+               FROM dbo.jobs WHERE session_id = ? ORDER BY created_at""",
+            (session_id,),
+        )
+        cols = [d[0] for d in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            for k, v in d.items():
+                if isinstance(v, datetime):
+                    d[k] = v.isoformat()
+            rows.append(d)
+        return rows
     finally:
         conn.close()

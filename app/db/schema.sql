@@ -465,6 +465,30 @@ IF OBJECT_ID('dbo.assessment_service_broker', 'U') IS NULL
             REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
     );
 
+-- ─── 28. sessions (multi-server assessment sessions) ──────────────────────────
+IF OBJECT_ID('dbo.sessions', 'U') IS NULL
+    CREATE TABLE dbo.sessions (
+        session_id     VARCHAR(36)    NOT NULL,
+        label          NVARCHAR(200)  NULL,
+        status         VARCHAR(20)    NOT NULL DEFAULT 'pending',
+        total_jobs     INT            NOT NULL DEFAULT 0,
+        completed_jobs INT            NOT NULL DEFAULT 0,
+        failed_jobs    INT            NOT NULL DEFAULT 0,
+        created_at     DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at   DATETIME2      NULL,
+        CONSTRAINT PK_sessions PRIMARY KEY (session_id)
+    );
+
+-- Migration: add session tracking columns to existing jobs table
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'session_id')
+    ALTER TABLE dbo.jobs ADD session_id VARCHAR(36) NULL;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'server_name')
+    ALTER TABLE dbo.jobs ADD server_name NVARCHAR(300) NULL;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'database_name')
+    ALTER TABLE dbo.jobs ADD database_name NVARCHAR(300) NULL;
+
 -- ─── 27. assessment_version_features ─────────────────────────────────────────
 IF OBJECT_ID('dbo.assessment_version_features', 'U') IS NULL
     CREATE TABLE dbo.assessment_version_features (

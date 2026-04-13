@@ -29,6 +29,15 @@ services:
       REPORTS_DIR: /app/reports
       # CORS — allow the frontend origin
       CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173"]'
+      # Azure SQL store
+      AZURE_STORE_SERVER: source-assessment.database.windows.net
+      AZURE_STORE_DATABASE: SourceAssessment
+      AZURE_STORE_USERNAME: hemanth
+      AZURE_STORE_PASSWORD: "Ubti@123"
+      # Azure Service Bus — enables gateway agent communication
+      SERVICE_BUS_CONNECTION_STRING: "Endpoint=sb://sat-servicebus-hr.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=mQWeDlTRAhw3w2hyltFQvJgYgbgUbNe8K+ASbHTuBKw="
+      SERVICE_BUS_JOBS_QUEUE: sat-jobs
+      SERVICE_BUS_RESULTS_QUEUE: sat-results
     volumes:
       # Persist generated Excel reports across restarts
       - reports_data:/app/reports

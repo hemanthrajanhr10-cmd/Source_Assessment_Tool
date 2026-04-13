@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     azure_store_username: str = "hemanth"
     azure_store_password: SecretStr = SecretStr("Ubti@123")
 
+    # ── Azure Service Bus (gateway agent messaging) ───────────────────────────
+    # Set SERVICE_BUS_CONNECTION_STRING env var in Azure Web App settings
+    service_bus_connection_string: SecretStr = SecretStr("")
+    service_bus_jobs_queue: str = "sat-jobs"
+    service_bus_results_queue: str = "sat-results"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

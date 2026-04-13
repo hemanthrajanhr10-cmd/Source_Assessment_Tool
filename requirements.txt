@@ -28,6 +28,9 @@ cffi==2.0.0
 pycparser==3.0
 PyJWT==2.12.1
 
+# Azure Service Bus (gateway agent messaging)
+azure-servicebus==7.14.2
+
 # HTTP / utilities
 requests==2.33.1
 urllib3==2.6.3

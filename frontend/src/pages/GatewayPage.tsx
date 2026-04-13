@@ -141,27 +141,27 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function DownloadAgent() {
-  // Derive the actual server URL from the current browser location so the
-  // instructions always show the real URL — never a placeholder.
-  const serverUrl = `${window.location.protocol}//${window.location.host}`
-
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-100 bg-slate-50">
         <Download className="h-4 w-4 text-brand-600" />
         <h2 className="text-sm font-semibold text-slate-800">Download Agent</h2>
       </div>
-      <div className="p-6 space-y-4">
+      <div className="p-6 space-y-5">
+
+        {/* How it works */}
         <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           <Info className="h-4 w-4 mt-0.5 shrink-0" />
           <span>
-            The agent runs on any machine inside the client's network (Windows, Linux, or Mac).
-            It needs Python 3.9+ and Microsoft ODBC Driver 18 for SQL Server installed.
+            The agent connects to <strong>Azure Service Bus</strong> (outbound HTTPS port 443) —
+            this works through corporate VPNs. No inbound ports needed on the client network.
+            Requires Python 3.9+ only. No ODBC Driver installation needed.
           </span>
         </div>
 
-        <div className="space-y-3">
-          <p className="text-sm font-medium text-slate-700">Step 1 — Download the agent script</p>
+        {/* Step 1 */}
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-slate-700">Step 1 — Download the agent</p>
           <a
             href={api.getAgentDownloadUrl()}
             download="sat_agent.py"
@@ -172,28 +172,27 @@ function DownloadAgent() {
           </a>
         </div>
 
+        {/* Step 2 */}
         <div className="space-y-2">
-          <p className="text-sm font-medium text-slate-700">Step 2 — Install dependencies</p>
+          <p className="text-sm font-semibold text-slate-700">Step 2 — Install dependencies</p>
           <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-sm text-slate-100 flex items-center gap-2">
             <Terminal className="h-4 w-4 shrink-0 text-slate-400" />
-            <span>pip install pymssql requests</span>
-            <CopyButton text="pip install pymssql requests" />
+            <span>pip install pymssql requests azure-servicebus</span>
+            <CopyButton text="pip install pymssql requests azure-servicebus" />
           </div>
         </div>
 
+        {/* Step 3 */}
         <div className="space-y-2">
-          <p className="text-sm font-medium text-slate-700">Step 3 — Run the agent</p>
+          <p className="text-sm font-semibold text-slate-700">Step 3 — Set the Service Bus connection string and run</p>
           <p className="text-xs text-slate-400">
-            Copy these exact commands — the server URL is pre-filled for you.
+            Get the connection string from: <strong>Azure Portal → Service Bus → sat-servicebus → Shared access policies → RootManageSharedAccessKey → Primary Connection String</strong>
           </p>
+
           <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-xs text-slate-100 space-y-2">
-            <div className="text-slate-400"># Windows — run in Command Prompt</div>
-            <div className="flex items-center gap-2">
-              <span className="flex-1 break-all">set SAT_SERVER_URL={serverUrl}</span>
-              <CopyButton text={`set SAT_SERVER_URL=${serverUrl}`} />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="flex-1">set GATEWAY_KEY=<span className="text-yellow-300">paste-your-key-here</span></span>
+            <div className="text-slate-400"># Windows — Command Prompt</div>
+            <div className="flex items-start gap-2">
+              <span className="flex-1 break-all">set SERVICE_BUS_CONNECTION_STRING=<span className="text-yellow-300">Endpoint=sb://sat-servicebus.servicebus.windows.net/;SharedAccessKey=...</span></span>
             </div>
             <div className="flex items-center gap-2">
               <span className="flex-1">python sat_agent.py</span>
@@ -201,14 +200,10 @@ function DownloadAgent() {
             </div>
           </div>
 
-          <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-xs text-slate-100 space-y-2 mt-2">
-            <div className="text-slate-400"># Linux / Mac — run in Terminal</div>
-            <div className="flex items-center gap-2">
-              <span className="flex-1 break-all">export SAT_SERVER_URL={serverUrl}</span>
-              <CopyButton text={`export SAT_SERVER_URL=${serverUrl}`} />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="flex-1">export GATEWAY_KEY=<span className="text-yellow-300">paste-your-key-here</span></span>
+          <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-xs text-slate-100 space-y-2">
+            <div className="text-slate-400"># Linux / Mac — Terminal</div>
+            <div className="flex items-start gap-2">
+              <span className="flex-1 break-all">export SERVICE_BUS_CONNECTION_STRING=<span className="text-yellow-300">Endpoint=sb://sat-servicebus.servicebus.windows.net/;SharedAccessKey=...</span></span>
             </div>
             <div className="flex items-center gap-2">
               <span className="flex-1">python sat_agent.py</span>
@@ -217,8 +212,9 @@ function DownloadAgent() {
         </div>
 
         <p className="text-xs text-slate-400">
-          The agent will appear as "Online" in the gateways list within a few seconds of starting.
-          Keep it running — it polls for new jobs every 5 seconds.
+          The agent connects to Azure Service Bus on port 443 (HTTPS) — the same port used by
+          Office 365 and Teams, so corporate firewalls allow it by default.
+          Keep the agent running while assessments are being submitted.
         </p>
       </div>
     </div>

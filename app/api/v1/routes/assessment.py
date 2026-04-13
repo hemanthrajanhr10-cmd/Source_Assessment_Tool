@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse
 
 from app.core import job_store
 from app.core.logging import get_logger
-from app.db import azure_store, connector
+from app.db import azure_store, connector, service_bus
 from app.models.job import JobRecord
 from app.models.requests import AssessmentRequest
 from app.models.responses import (
@@ -127,12 +127,8 @@ async def trigger_assessment(
 ) -> AssessmentResponse:
     job_id = str(uuid.uuid4())
 
-    # ── Gateway path: store payload for agent pickup ──────────────────────────
+    # ── Gateway path: publish to Service Bus ─────────────────────────────────
     if body.gateway_key:
-        gw = azure_store.get_gateway(body.gateway_key)
-        if not gw:
-            raise HTTPException(status_code=400, detail="Gateway key not found. Register the gateway first.")
-
         payload = {
             "connection": {
                 "server":                   body.connection.server,
@@ -147,19 +143,33 @@ async def trigger_assessment(
             "null_analysis_sample_limit": body.null_analysis_sample_limit,
         }
         record = JobRecord(job_id=job_id, label=body.label)
-        azure_store.create_gateway_job(
-            job_id=job_id,
-            label=body.label,
-            created_at=record.created_at,
-            gateway_key=body.gateway_key,
-            gateway_payload=json.dumps(payload),
-        )
-        logger.info("Gateway job %s queued for gateway %s", job_id, body.gateway_key[:8], extra={"job_id": job_id})
-        return AssessmentResponse(
-            job_id=job_id,
-            status=JobStatus.PENDING,
-            message="Job queued for gateway agent. The agent will pick it up shortly.",
-        )
+
+        if service_bus.is_available():
+            # Service Bus path — VPN-proof, agent receives via Azure Service Bus
+            job_store.create_job(record)
+            job_store.update_job(job_id, progress_message="Waiting for gateway agent to pick up job…")
+            service_bus.publish_job(job_id, payload)
+            logger.info("Job %s published to Service Bus", job_id, extra={"job_id": job_id})
+            return AssessmentResponse(
+                job_id=job_id,
+                status=JobStatus.PENDING,
+                message="Job sent to Service Bus. Agent will pick it up shortly.",
+            )
+        else:
+            # Fallback: legacy HTTP polling (no Service Bus configured)
+            azure_store.create_gateway_job(
+                job_id=job_id,
+                label=body.label,
+                created_at=record.created_at,
+                gateway_key=body.gateway_key,
+                gateway_payload=json.dumps(payload),
+            )
+            logger.info("Job %s queued (HTTP poll fallback) for gateway %s", job_id, body.gateway_key[:8], extra={"job_id": job_id})
+            return AssessmentResponse(
+                job_id=job_id,
+                status=JobStatus.PENDING,
+                message="Job queued for gateway agent (HTTP polling mode).",
+            )
 
     # ── Direct path: run in background ───────────────────────────────────────
     record = JobRecord(job_id=job_id, label=body.label)

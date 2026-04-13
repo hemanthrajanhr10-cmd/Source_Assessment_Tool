@@ -15,6 +15,7 @@ from app.api.v1.routes.gateway import router as gateway_router
 from app.config import settings
 from app.core.logging import get_logger
 from app.db import azure_store
+from app.db import service_bus
 
 logger = get_logger(__name__)
 
@@ -36,6 +37,14 @@ async def lifespan(app: FastAPI):
             "Azure SQL schema init failed — API will start but persistence "
             "is unavailable until the DB is reachable. Error: %s", exc
         )
+
+    # Start Service Bus result listener if configured
+    if service_bus.is_available():
+        from app.services import result_handler
+        service_bus.start_result_listener(result_handler.handle_result)
+        logger.info("Service Bus result listener started")
+    else:
+        logger.info("Service Bus not configured — gateway jobs will use direct HTTP polling")
 
     logger.info("SQL Server Assessment API started")
     yield

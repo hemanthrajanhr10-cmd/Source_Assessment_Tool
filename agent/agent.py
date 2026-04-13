@@ -39,6 +39,12 @@ except ImportError:
     sys.exit(1)
 
 # ── Config ────────────────────────────────────────────────────────────────────
+# Service Bus mode (recommended — works through VPNs)
+SERVICE_BUS_CONNECTION_STRING = os.environ.get("SERVICE_BUS_CONNECTION_STRING", "")
+SERVICE_BUS_JOBS_QUEUE   = os.environ.get("SERVICE_BUS_JOBS_QUEUE", "sat-jobs")
+SERVICE_BUS_RESULTS_QUEUE = os.environ.get("SERVICE_BUS_RESULTS_QUEUE", "sat-results")
+
+# Legacy HTTP polling mode (fallback if Service Bus not configured)
 SAT_SERVER_URL = os.environ.get("SAT_SERVER_URL", "").rstrip("/")
 GATEWAY_KEY = os.environ.get("GATEWAY_KEY", "")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "5"))
@@ -538,17 +544,80 @@ def _get(url: str, params: dict = None) -> dict:
     return resp.json()
 
 
-# ── Main loop ─────────────────────────────────────────────────────────────────
+# ── Service Bus mode ──────────────────────────────────────────────────────────
 
-def main():
+def _run_service_bus_loop(conn_str: str) -> None:
+    """Main loop using Azure Service Bus — works through VPNs."""
+    try:
+        from azure.servicebus import ServiceBusClient, ServiceBusMessage
+    except ImportError:
+        print("ERROR: azure-servicebus not installed. Run: pip install azure-servicebus")
+        sys.exit(1)
+
+    print(f"Mode    : Azure Service Bus (VPN-compatible)")
+    print(f"Jobs Q  : {SERVICE_BUS_JOBS_QUEUE}")
+    print(f"Results Q: {SERVICE_BUS_RESULTS_QUEUE}")
+    print(f"Listening for jobs. Press Ctrl+C to stop.\n")
+
+    while True:
+        try:
+            with ServiceBusClient.from_connection_string(conn_str) as client:
+                with client.get_queue_receiver(
+                    SERVICE_BUS_JOBS_QUEUE,
+                    max_wait_time=30,
+                ) as receiver:
+                    print(f"[{_now()}] Idle — waiting for jobs…", end="\r")
+                    msgs = receiver.receive_messages(max_message_count=1, max_wait_time=30)
+                    if not msgs:
+                        continue
+
+                    msg = msgs[0]
+                    body = json.loads(str(msg))
+                    job_id  = body.get("job_id")
+                    payload = body.get("payload", {})
+
+                    print(f"\n[{_now()}] Job received: {job_id}")
+                    receiver.complete_message(msg)
+
+                    error   = None
+                    results = None
+                    try:
+                        results = run_assessment(payload)
+                        print(f"[{_now()}] Assessment done. Sending results…")
+                    except Exception as exc:
+                        error = str(exc)
+                        print(f"[{_now()}] Assessment FAILED: {exc}")
+
+                    # Send result back via Service Bus
+                    result_payload = json.dumps({
+                        "job_id": job_id,
+                        "results": results,
+                        "error": error,
+                    })
+                    with client.get_queue_sender(SERVICE_BUS_RESULTS_QUEUE) as sender:
+                        sender.send_messages(ServiceBusMessage(result_payload, message_id=job_id))
+
+                    if error:
+                        print(f"[{_now()}] Error reported to server for job {job_id}.")
+                    else:
+                        print(f"[{_now()}] Job {job_id} completed successfully.")
+
+        except KeyboardInterrupt:
+            print("\nStopped.")
+            sys.exit(0)
+        except Exception as exc:
+            print(f"[{_now()}] Service Bus error (retrying in 10s): {exc}")
+            time.sleep(10)
+
+
+# ── Legacy HTTP polling mode ──────────────────────────────────────────────────
+
+def _run_http_poll_loop() -> None:
+    """Fallback loop using HTTP polling — may be blocked by strict VPNs."""
     global SAT_SERVER_URL, GATEWAY_KEY
 
-    print("=" * 60)
-    print("  SAT Gateway Agent")
-    print("=" * 60)
-
     if not SAT_SERVER_URL:
-        SAT_SERVER_URL = input("SAT Server URL (e.g. https://sat-app.azurewebsites.net): ").strip().rstrip("/")
+        SAT_SERVER_URL = input("SAT Server URL: ").strip().rstrip("/")
     if not GATEWAY_KEY:
         GATEWAY_KEY = input("Gateway Key: ").strip()
 
@@ -556,13 +625,12 @@ def main():
         print("ERROR: SAT_SERVER_URL and GATEWAY_KEY are required.")
         sys.exit(1)
 
-    if "your-sat-app" in SAT_SERVER_URL or SAT_SERVER_URL == "https://your-sat-app.azurewebsites.net":
-        print("ERROR: SAT_SERVER_URL is still the placeholder value.")
-        print("       Set it to your actual app URL. Example:")
-        print("         set SAT_SERVER_URL=https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net")
+    if "your-sat-app" in SAT_SERVER_URL:
+        print("ERROR: SAT_SERVER_URL is still the placeholder.")
         sys.exit(1)
 
-    print(f"\nServer  : {SAT_SERVER_URL}")
+    print(f"Mode    : HTTP Polling (fallback)")
+    print(f"Server  : {SAT_SERVER_URL}")
     print(f"Key     : {GATEWAY_KEY[:8]}…{GATEWAY_KEY[-4:]}")
     print(f"Polling every {POLL_INTERVAL}s. Press Ctrl+C to stop.\n")
 
@@ -583,7 +651,6 @@ def main():
                     )
                     print(f"[{_now()}] Job {job_id} completed successfully.")
                 except Exception as exc:
-                    err = traceback.format_exc()
                     print(f"[{_now()}] Job {job_id} FAILED: {exc}")
                     try:
                         _post(
@@ -602,6 +669,24 @@ def main():
             print(f"[{_now()}] Poll error: {exc}")
 
         time.sleep(POLL_INTERVAL)
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+def main():
+    print("=" * 60)
+    print("  SAT Gateway Agent")
+    print("=" * 60)
+
+    if SERVICE_BUS_CONNECTION_STRING:
+        # Recommended: Azure Service Bus — works through corporate VPNs
+        _run_service_bus_loop(SERVICE_BUS_CONNECTION_STRING)
+    else:
+        # Fallback: HTTP polling
+        print("\nNote: SERVICE_BUS_CONNECTION_STRING not set.")
+        print("      Falling back to HTTP polling mode.")
+        print("      This may not work if your VPN blocks outbound connections.\n")
+        _run_http_poll_loop()
 
 
 def _now() -> str:

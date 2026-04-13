@@ -623,6 +623,38 @@ def list_sessions() -> list[dict[str, Any]]:
         conn.close()
 
 
+def cancel_session(session_id: str) -> None:
+    """
+    Cancel a session: mark all pending/running jobs as cancelled,
+    then set the session status to 'cancelled'.
+    """
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE dbo.jobs
+            SET status = 'cancelled',
+                error  = 'Cancelled by user',
+                completed_at = SYSUTCDATETIME()
+            WHERE session_id = ?
+              AND status IN ('pending', 'running')
+            """,
+            (session_id,),
+        )
+        cur.execute(
+            """
+            UPDATE dbo.sessions
+            SET status = 'cancelled', completed_at = SYSUTCDATETIME()
+            WHERE session_id = ?
+            """,
+            (session_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def list_session_jobs(session_id: str) -> list[dict[str, Any]]:
     """Return all jobs belonging to a session, ordered by creation time."""
     conn = _get_conn()

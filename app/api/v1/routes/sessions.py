@@ -142,6 +142,24 @@ async def get_session_status(session_id: str) -> SessionStatusResponse:
     return _build_response(row, jobs)
 
 
+@router.post(
+    "/sessions/{session_id}/cancel",
+    summary="Cancel a running or pending session",
+)
+async def cancel_session(session_id: str):
+    row = azure_store.get_session(session_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+    if row["status"] not in ("pending", "running"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Session is already '{row['status']}' and cannot be cancelled.",
+        )
+    azure_store.cancel_session(session_id)
+    logger.info("Session %s cancelled by user", session_id)
+    return {"ok": True, "session_id": session_id, "status": "cancelled"}
+
+
 @router.get(
     "/sessions/{session_id}/report",
     summary="Download combined Excel assessment report for a session",

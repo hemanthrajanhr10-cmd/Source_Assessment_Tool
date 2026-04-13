@@ -71,6 +71,9 @@ export const api = {
   getSessionStatus: (sessionId: string) =>
     http.get<SessionStatusResponse>(`/api/v1/sessions/${sessionId}/status`),
 
+  cancelSession: (sessionId: string) =>
+    http.post(`/api/v1/sessions/${sessionId}/cancel`),
+
   getSessionReportUrl: (sessionId: string) =>
     `${BASE_URL}/api/v1/sessions/${sessionId}/report`,
 }

@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { PlusCircle, RefreshCw, ExternalLink, Layers, CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react'
+import { PlusCircle, RefreshCw, ExternalLink, Layers, CheckCircle2, XCircle, Loader2, AlertTriangle, StopCircle } from 'lucide-react'
 import { api } from '../api/client'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
@@ -48,6 +48,12 @@ function SessionStatusBadge({ status }: { status: SessionStatus }) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
           <Loader2 className="h-3 w-3 animate-spin" /> Running
+        </span>
+      )
+    case 'cancelled':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
+          <StopCircle className="h-3 w-3" /> Cancelled
         </span>
       )
     default:

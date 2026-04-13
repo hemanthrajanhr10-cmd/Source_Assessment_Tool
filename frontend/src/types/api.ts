@@ -1,5 +1,5 @@
-export type JobStatus = 'pending' | 'running' | 'completed' | 'failed'
-export type SessionStatus = 'pending' | 'running' | 'completed' | 'partial' | 'failed'
+export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type SessionStatus = 'pending' | 'running' | 'completed' | 'partial' | 'failed' | 'cancelled'
 
 // ── Connection ────────────────────────────────────────────────────────────────
 

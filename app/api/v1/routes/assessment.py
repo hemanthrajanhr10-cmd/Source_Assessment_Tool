@@ -267,18 +267,17 @@ async def get_results(job_id: str, current_user: dict = Depends(get_current_user
     response_class=FileResponse,
 )
 async def download_report(job_id: str, current_user: dict = Depends(get_current_user)) -> FileResponse:
-    record = _require_completed(job_id, current_user["user_id"])
+    _require_completed(job_id, current_user["user_id"])
 
-    if not record.report_path:
-        raise HTTPException(status_code=404, detail="Report file not found.")
-
-    import os
-    if not os.path.isfile(record.report_path):
-        raise HTTPException(status_code=404, detail="Report file missing from disk.")
+    # Always regenerate from DB — Azure App Service disk is ephemeral and files
+    # written during the background task may be gone after a container restart.
+    from app.services.report_service import build_report
+    raw = azure_store.load_full_results(job_id)
+    report_path = build_report(job_id, raw)
 
     filename = f"sql_assessment_{job_id[:8]}.xlsx"
     return FileResponse(
-        path=record.report_path,
+        path=report_path,
         media_type=EXCEL_MEDIA_TYPE,
         filename=filename,
     )

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.routes.assessment import router as assessment_router
@@ -86,9 +87,24 @@ async def health_check():
 
 
 # ── Serve React SPA (combined image only) ────────────────────────────────────
-# Mounted LAST so all API routes above take priority.
-# html=True makes StaticFiles return index.html for unknown paths (SPA routing).
+# Static assets (JS/CSS/fonts) are served directly.
+# A catch-all GET route returns index.html for ALL other paths so that
+# React Router can handle client-side navigation on refresh or direct URL access.
+# This must come AFTER all API routers so API routes take priority.
 _static_dir = Path(os.environ.get("STATIC_DIR", str(settings.static_dir)))
 if _static_dir.is_dir():
-    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="spa")
+    # Serve /assets/* directly (JS, CSS, images)
+    _assets_dir = _static_dir / "assets"
+    if _assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
+
+    # Catch-all: serve index.html for any path React Router should own
+    _index_file = _static_dir / "index.html"
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_spa(full_path: str):
+        if _index_file.is_file():
+            return FileResponse(str(_index_file))
+        return {"detail": "Not found"}
+
     logger.info("Serving React SPA from %s", _static_dir)

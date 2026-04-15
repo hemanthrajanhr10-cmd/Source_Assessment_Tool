@@ -175,6 +175,15 @@ export default function SessionDetailPage() {
     },
   })
 
+  // ── All hooks must be called before any early returns (Rules of Hooks) ──────
+  const cancelMutation = useMutation({
+    mutationFn: () => api.cancelSession(session?.session_id ?? ''),
+    onSuccess: () => {
+      setShowCancelConfirm(false)
+      queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
+    },
+  })
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-32">
@@ -201,14 +210,6 @@ export default function SessionDetailPage() {
 
   const isActive = session.status === 'pending' || session.status === 'running'
   const sessionReportUrl = api.getSessionReportUrl(session.session_id)
-
-  const cancelMutation = useMutation({
-    mutationFn: () => api.cancelSession(session.session_id),
-    onSuccess: () => {
-      setShowCancelConfirm(false)
-      queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
-    },
-  })
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

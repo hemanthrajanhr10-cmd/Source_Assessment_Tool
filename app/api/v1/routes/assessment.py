@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from app.core import job_store
 from app.core.dependencies import get_current_user
@@ -280,6 +280,28 @@ async def download_report(job_id: str, current_user: dict = Depends(get_current_
         path=report_path,
         media_type=EXCEL_MEDIA_TYPE,
         filename=filename,
+    )
+
+
+WORD_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+@router.get(
+    "/jobs/{job_id}/word-report",
+    summary="Download the Word (.docx) Fabric Assessment Report",
+)
+async def download_word_report(job_id: str, current_user: dict = Depends(get_current_user)) -> Response:
+    _require_completed(job_id, current_user["user_id"])
+
+    from app.services.word_report_service import build_word_report
+    raw = azure_store.load_full_results(job_id)
+    doc_bytes = build_word_report(job_id, raw)
+
+    filename = f"fabric_assessment_{job_id[:8]}.docx"
+    return Response(
+        content=doc_bytes,
+        media_type=WORD_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

@@ -15,6 +15,9 @@ mssql-python==1.4.0
 openpyxl==3.1.5
 et_xmlfile==2.0.0
 
+# Word report generation
+python-docx==1.1.2
+
 # Request parsing
 python-multipart==0.0.22
 

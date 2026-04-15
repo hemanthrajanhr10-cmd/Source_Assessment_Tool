@@ -100,6 +100,16 @@ export const api = {
     URL.revokeObjectURL(url)
   },
 
+  downloadWordReport: async (jobId: string, filename: string) => {
+    const res = await http.get(`/api/v1/jobs/${jobId}/word-report`, { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
   // ── Gateway ───────────────────────────────────────────────────────────────
   registerGateway: (name: string) =>
     http.post<GatewayRegisterResponse>('/api/v1/gateway/register', { name }),

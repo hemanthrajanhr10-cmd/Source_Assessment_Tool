@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
-  ChevronRight, Download, AlertTriangle, CheckCircle2, Loader2,
+  ChevronRight, Download, FileText, AlertTriangle, CheckCircle2, Loader2,
   Clock, Database, Table2, Columns, Eye,
   Code2, FunctionSquare, ListTree, GitMerge,
   BarChart2, Activity, Search,
@@ -279,6 +279,7 @@ export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
   const [activeTab, setActiveTab] = useState('schemas')
   const [downloading, setDownloading] = useState(false)
+  const [downloadingWord, setDownloadingWord] = useState(false)
 
   const handleDownload = useCallback(async () => {
     if (!jobId || downloading) return
@@ -289,6 +290,16 @@ export default function JobDetailPage() {
       setDownloading(false)
     }
   }, [jobId, downloading])
+
+  const handleDownloadWord = useCallback(async () => {
+    if (!jobId || downloadingWord) return
+    setDownloadingWord(true)
+    try {
+      await api.downloadWordReport(jobId, `fabric_assessment_${jobId.slice(0, 8)}.docx`)
+    } finally {
+      setDownloadingWord(false)
+    }
+  }, [jobId, downloadingWord])
 
   /* Poll job status */
   const { data: status, isLoading: statusLoading } = useQuery({
@@ -358,16 +369,26 @@ export default function JobDetailPage() {
           </div>
 
           {status.status === 'completed' && (
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              disabled={downloading}
-              onClick={handleDownload}
-              className="shrink-0"
-            >
-              {downloading ? 'Downloading…' : 'Download Report (.xlsx)'}
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                disabled={downloading}
+                onClick={handleDownload}
+              >
+                {downloading ? 'Downloading…' : 'Excel Report'}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={downloadingWord ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                disabled={downloadingWord}
+                onClick={handleDownloadWord}
+              >
+                {downloadingWord ? 'Downloading…' : 'Fabric Assessment (Word)'}
+              </Button>
+            </div>
           )}
         </div>
 

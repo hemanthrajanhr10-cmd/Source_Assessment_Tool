@@ -10,18 +10,67 @@ import type {
   Gateway,
   GatewayRegisterResponse,
   JobStatusResponse,
+  LoginRequest,
+  MeResponse,
+  RegisterRequest,
   SessionRequest,
   SessionStatusResponse,
+  SetupMFAResponse,
+  TokenResponse,
+  VerifyMFARequest,
 } from '../types/api'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''
 
-const http = axios.create({
+export const http = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 })
 
+// ── JWT interceptor: attach token to every request ───────────────────────────
+http.interceptors.request.use((config) => {
+  const token = localStorage.getItem('sat_token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// ── 401 interceptor: redirect to login if token expired ──────────────────────
+http.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (axios.isAxiosError(err) && err.response?.status === 401) {
+      const isAuthRoute = err.config?.url?.includes('/api/v1/auth/')
+      if (!isAuthRoute) {
+        localStorage.removeItem('sat_token')
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(err)
+  },
+)
+
 export const api = {
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  register: (data: RegisterRequest) =>
+    http.post<TokenResponse>('/api/v1/auth/register', data),
+
+  login: (data: LoginRequest) =>
+    http.post<TokenResponse>('/api/v1/auth/login', data),
+
+  verifyMFA: (data: VerifyMFARequest) =>
+    http.post<TokenResponse>('/api/v1/auth/verify-mfa', data),
+
+  setupMFA: () =>
+    http.post<SetupMFAResponse>('/api/v1/auth/setup-mfa'),
+
+  confirmMFA: (code: string) =>
+    http.post('/api/v1/auth/confirm-mfa', { code }),
+
+  me: () =>
+    http.get<MeResponse>('/api/v1/auth/me'),
+
   // ── Single-server assessment ──────────────────────────────────────────────
   testConnection: (data: AssessmentRequest) =>
     http.post<ConnectionTestResponse>('/api/v1/test-connection', data),
@@ -56,7 +105,7 @@ export const api = {
     http.post<ConnectivityResult[]>('/api/v1/detect-connectivity', { servers }),
 
   listDatabases: (connection: {
-    server: string; port: number; database: string
+    db_type?: string; server: string; port: number; database: string
     username: string; password: string
     trust_server_certificate: boolean; encrypt: boolean
   }) =>

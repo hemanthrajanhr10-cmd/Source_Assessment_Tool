@@ -46,26 +46,45 @@ def test_connectivity(server: str, port: int, timeout: float = 3.0) -> tuple[boo
 
 # ── Database listing ───────────────────────────────────────────────────────────
 
+_LIST_DB_QUERIES = {
+    "mssql": """
+        SELECT name, state_desc, NULL AS size_mb
+        FROM sys.databases
+        WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb')
+          AND state = 0
+        ORDER BY name
+    """,
+    "postgres": """
+        SELECT datname AS name, 'ONLINE' AS state_desc,
+               pg_database_size(datname) / (1024*1024.0) AS size_mb
+        FROM pg_database
+        WHERE datistemplate = false
+          AND datname NOT IN ('postgres')
+        ORDER BY datname
+    """,
+    "mysql": """
+        SELECT schema_name AS name, 'ONLINE' AS state_desc, NULL AS size_mb
+        FROM information_schema.schemata
+        WHERE schema_name NOT IN ('information_schema','performance_schema','mysql','sys')
+        ORDER BY schema_name
+    """,
+}
+
+
 def list_databases(connection_params) -> list[dict]:
     """
-    Return user databases from sys.databases (excludes master/tempdb/model/msdb).
-    connection_params must be a ConnectionParams with 'master' or any accessible database.
+    Return user databases for the given connection (excludes system databases).
+    Supports mssql, postgres, and mysql.
     """
     from app.db import connector
+
+    db_type = getattr(connection_params, "db_type", "mssql")
+    sql = _LIST_DB_QUERIES.get(db_type, _LIST_DB_QUERIES["mssql"])
 
     conn = connector.get_connection(connection_params)
     try:
         cursor = conn.cursor()
-        # sys.master_files is unavailable on Azure SQL — use sys.databases only
-        cursor.execute(
-            """
-            SELECT name, state_desc, NULL AS size_mb
-            FROM sys.databases
-            WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb')
-              AND state = 0
-            ORDER BY name
-            """
-        )
+        cursor.execute(sql)
         cols = [desc[0] for desc in cursor.description]
         rows = []
         for row in cursor.fetchall():
@@ -113,6 +132,7 @@ def _run_direct_job(session_id: str, job_id: str, srv: ServerTarget, db: Databas
 
     request = AssessmentRequest(
         connection=ConnectionParams(
+            db_type=srv.db_type,
             server=srv.server,
             port=srv.port,
             database=db.name,

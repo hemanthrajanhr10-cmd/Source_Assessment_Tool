@@ -12,10 +12,11 @@ import json
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
 
 from app.core import job_store
+from app.core.dependencies import get_current_user
 from app.core.logging import get_logger
 from app.db import azure_store, connector, service_bus
 from app.models.job import JobRecord
@@ -124,8 +125,10 @@ async def test_connection(body: AssessmentRequest) -> ConnectionTestResponse:
 async def trigger_assessment(
     body: AssessmentRequest,
     background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user),
 ) -> AssessmentResponse:
     job_id = str(uuid.uuid4())
+    user_id = current_user["user_id"]
 
     # ── Gateway path: publish to Service Bus ─────────────────────────────────
     if body.gateway_key:
@@ -146,7 +149,7 @@ async def trigger_assessment(
 
         if service_bus.is_available():
             # Service Bus path — VPN-proof, agent receives via Azure Service Bus
-            job_store.create_job(record)
+            job_store.create_job(record, user_id=user_id)
             job_store.update_job(job_id, progress_message="Waiting for gateway agent to pick up job…")
             service_bus.publish_job(job_id, payload)
             logger.info("Job %s published to Service Bus", job_id, extra={"job_id": job_id})
@@ -163,6 +166,7 @@ async def trigger_assessment(
                 created_at=record.created_at,
                 gateway_key=body.gateway_key,
                 gateway_payload=json.dumps(payload),
+                user_id=user_id,
             )
             logger.info("Job %s queued (HTTP poll fallback) for gateway %s", job_id, body.gateway_key[:8], extra={"job_id": job_id})
             return AssessmentResponse(
@@ -173,7 +177,7 @@ async def trigger_assessment(
 
     # ── Direct path: run in background ───────────────────────────────────────
     record = JobRecord(job_id=job_id, label=body.label)
-    job_store.create_job(record)
+    job_store.create_job(record, user_id=user_id)
     background_tasks.add_task(_run_assessment_task, job_id, body)
 
     logger.info("Assessment job %s queued", job_id, extra={"job_id": job_id})
@@ -189,8 +193,8 @@ async def trigger_assessment(
     response_model=list[JobStatusResponse],
     summary="List all assessment jobs",
 )
-async def list_jobs() -> list[JobStatusResponse]:
-    records = job_store.list_jobs()
+async def list_jobs(current_user: dict = Depends(get_current_user)) -> list[JobStatusResponse]:
+    records = job_store.list_jobs(user_id=current_user["user_id"])
     return [_to_status_response(r) for r in records]
 
 

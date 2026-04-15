@@ -186,15 +186,16 @@ def create_job(
     session_id: Optional[str] = None,
     server_name: Optional[str] = None,
     database_name: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> None:
     conn = _get_conn()
     try:
         cur = conn.cursor()
         cur.execute(
             """INSERT INTO dbo.jobs
-               (job_id, status, label, created_at, session_id, server_name, database_name)
-               VALUES (?, 'pending', ?, ?, ?, ?, ?)""",
-            (job_id, label, created_at, session_id, server_name, database_name),
+               (job_id, status, label, created_at, session_id, server_name, database_name, user_id)
+               VALUES (?, 'pending', ?, ?, ?, ?, ?, ?)""",
+            (job_id, label, created_at, session_id, server_name, database_name, user_id),
         )
         conn.commit()
     finally:
@@ -238,15 +239,23 @@ def get_job(job_id: str) -> Optional[dict[str, Any]]:
         conn.close()
 
 
-def list_jobs() -> list[dict[str, Any]]:
+def list_jobs(user_id: Optional[str] = None) -> list[dict[str, Any]]:
     conn = _get_conn()
     try:
         cur = conn.cursor()
-        cur.execute(
-            """SELECT job_id, status, label, created_at, started_at, completed_at,
-                      error, progress_message, report_path, session_id, server_name, database_name
-               FROM dbo.jobs ORDER BY created_at DESC"""
-        )
+        if user_id:
+            cur.execute(
+                """SELECT job_id, status, label, created_at, started_at, completed_at,
+                          error, progress_message, report_path, session_id, server_name, database_name
+                   FROM dbo.jobs WHERE user_id = ? ORDER BY created_at DESC""",
+                (user_id,),
+            )
+        else:
+            cur.execute(
+                """SELECT job_id, status, label, created_at, started_at, completed_at,
+                          error, progress_message, report_path, session_id, server_name, database_name
+                   FROM dbo.jobs ORDER BY created_at DESC"""
+            )
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, row)) for row in cur.fetchall()]
     finally:
@@ -377,6 +386,70 @@ def load_full_results(job_id: str) -> dict[str, Any]:
     return {"job_id": job_id, "overview": overview, **sections}
 
 
+# ── User CRUD ─────────────────────────────────────────────────────────────────
+
+def create_user(user_id: str, email: str, full_name: Optional[str], password_hash: str) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO dbo.users (user_id, email, full_name, password_hash) VALUES (?, ?, ?, ?)",
+            (user_id, email, full_name, password_hash),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_user_by_email(email: str) -> Optional[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, created_at "
+            "FROM dbo.users WHERE email = ?",
+            (email,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [d[0] for d in cur.description]
+        return dict(zip(cols, row))
+    finally:
+        conn.close()
+
+
+def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, created_at "
+            "FROM dbo.users WHERE user_id = ?",
+            (user_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [d[0] for d in cur.description]
+        return dict(zip(cols, row))
+    finally:
+        conn.close()
+
+
+def set_user_mfa(user_id: str, secret: str, enabled: bool) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.users SET mfa_secret = ?, mfa_enabled = ? WHERE user_id = ?",
+            (secret, 1 if enabled else 0, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ── Gateway CRUD ──────────────────────────────────────────────────────────────
 
 def register_gateway(gateway_key: str, name: str) -> None:
@@ -487,17 +560,18 @@ def clear_gateway_payload(job_id: str) -> None:
 
 
 def create_gateway_job(job_id: str, label: Optional[str], created_at: datetime,
-                       gateway_key: str, gateway_payload: str) -> None:
+                       gateway_key: str, gateway_payload: str,
+                       user_id: Optional[str] = None) -> None:
     """Create a job that is destined for a gateway agent."""
     conn = _get_conn()
     try:
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT INTO dbo.jobs (job_id, status, label, created_at, gateway_key, gateway_payload)
-            VALUES (?, 'pending', ?, ?, ?, ?)
+            INSERT INTO dbo.jobs (job_id, status, label, created_at, gateway_key, gateway_payload, user_id)
+            VALUES (?, 'pending', ?, ?, ?, ?, ?)
             """,
-            (job_id, label, created_at, gateway_key, gateway_payload),
+            (job_id, label, created_at, gateway_key, gateway_payload, user_id),
         )
         conn.commit()
     finally:
@@ -506,13 +580,13 @@ def create_gateway_job(job_id: str, label: Optional[str], created_at: datetime,
 
 # ── Session CRUD ───────────────────────────────────────────────────────────────
 
-def create_session(session_id: str, label: Optional[str], created_at: datetime) -> None:
+def create_session(session_id: str, label: Optional[str], created_at: datetime, user_id: Optional[str] = None) -> None:
     conn = _get_conn()
     try:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO dbo.sessions (session_id, label, status, created_at) VALUES (?, ?, 'pending', ?)",
-            (session_id, label, created_at),
+            "INSERT INTO dbo.sessions (session_id, label, status, created_at, user_id) VALUES (?, ?, 'pending', ?, ?)",
+            (session_id, label, created_at, user_id),
         )
         conn.commit()
     finally:
@@ -584,7 +658,7 @@ def get_session(session_id: str) -> Optional[dict[str, Any]]:
         cur = conn.cursor()
         cur.execute(
             """SELECT session_id, label, status, total_jobs, completed_jobs, failed_jobs,
-                      created_at, completed_at
+                      created_at, completed_at, user_id
                FROM dbo.sessions WHERE session_id = ?""",
             (session_id,),
         )
@@ -601,15 +675,23 @@ def get_session(session_id: str) -> Optional[dict[str, Any]]:
         conn.close()
 
 
-def list_sessions() -> list[dict[str, Any]]:
+def list_sessions(user_id: Optional[str] = None) -> list[dict[str, Any]]:
     conn = _get_conn()
     try:
         cur = conn.cursor()
-        cur.execute(
-            """SELECT session_id, label, status, total_jobs, completed_jobs, failed_jobs,
-                      created_at, completed_at
-               FROM dbo.sessions ORDER BY created_at DESC"""
-        )
+        if user_id:
+            cur.execute(
+                """SELECT session_id, label, status, total_jobs, completed_jobs, failed_jobs,
+                          created_at, completed_at
+                   FROM dbo.sessions WHERE user_id = ? ORDER BY created_at DESC""",
+                (user_id,),
+            )
+        else:
+            cur.execute(
+                """SELECT session_id, label, status, total_jobs, completed_jobs, failed_jobs,
+                          created_at, completed_at
+                   FROM dbo.sessions ORDER BY created_at DESC"""
+            )
         cols = [d[0] for d in cur.description]
         rows = []
         for row in cur.fetchall():

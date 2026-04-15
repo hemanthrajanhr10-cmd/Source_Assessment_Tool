@@ -12,9 +12,10 @@ GET  /api/v1/sessions/{session_id}/report — download combined Excel report
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import FileResponse
 
+from app.core.dependencies import get_current_user
 from app.core.logging import get_logger
 from app.db import azure_store
 from app.models.requests import ConnectivityTestRequest, ListDatabasesRequest, SessionRequest
@@ -98,6 +99,7 @@ async def list_databases(body: ListDatabasesRequest) -> list[DatabaseInfo]:
 async def create_session(
     body: SessionRequest,
     background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user),
 ) -> CreateSessionResponse:
     total_jobs = sum(len(srv.databases) for srv in body.servers)
     if total_jobs == 0:
@@ -107,7 +109,7 @@ async def create_session(
         )
 
     session_id = str(uuid.uuid4())
-    azure_store.create_session(session_id, body.label, datetime.now(timezone.utc))
+    azure_store.create_session(session_id, body.label, datetime.now(timezone.utc), user_id=current_user["user_id"])
 
     background_tasks.add_task(session_service.run_session_background, session_id, body)
 
@@ -120,8 +122,8 @@ async def create_session(
     response_model=list[SessionStatusResponse],
     summary="List all assessment sessions",
 )
-async def list_sessions() -> list[SessionStatusResponse]:
-    rows = azure_store.list_sessions()
+async def list_sessions(current_user: dict = Depends(get_current_user)) -> list[SessionStatusResponse]:
+    rows = azure_store.list_sessions(user_id=current_user["user_id"])
     result = []
     for row in rows:
         jobs = azure_store.list_session_jobs(row["session_id"])
@@ -134,9 +136,9 @@ async def list_sessions() -> list[SessionStatusResponse]:
     response_model=SessionStatusResponse,
     summary="Get session status and per-job details",
 )
-async def get_session_status(session_id: str) -> SessionStatusResponse:
+async def get_session_status(session_id: str, current_user: dict = Depends(get_current_user)) -> SessionStatusResponse:
     row = azure_store.get_session(session_id)
-    if row is None:
+    if row is None or row.get("user_id") != current_user["user_id"]:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
     jobs = azure_store.list_session_jobs(session_id)
     return _build_response(row, jobs)
@@ -146,9 +148,9 @@ async def get_session_status(session_id: str) -> SessionStatusResponse:
     "/sessions/{session_id}/cancel",
     summary="Cancel a running or pending session",
 )
-async def cancel_session(session_id: str):
+async def cancel_session(session_id: str, current_user: dict = Depends(get_current_user)):
     row = azure_store.get_session(session_id)
-    if row is None:
+    if row is None or row.get("user_id") != current_user["user_id"]:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
     if row["status"] not in ("pending", "running"):
         raise HTTPException(
@@ -165,9 +167,9 @@ async def cancel_session(session_id: str):
     summary="Download combined Excel assessment report for a session",
     response_class=FileResponse,
 )
-async def download_session_report(session_id: str) -> FileResponse:
+async def download_session_report(session_id: str, current_user: dict = Depends(get_current_user)) -> FileResponse:
     row = azure_store.get_session(session_id)
-    if row is None:
+    if row is None or row.get("user_id") != current_user["user_id"]:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
 
     jobs = azure_store.list_session_jobs(session_id)

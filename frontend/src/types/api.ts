@@ -1,9 +1,49 @@
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type SessionStatus = 'pending' | 'running' | 'completed' | 'partial' | 'failed' | 'cancelled'
+export type DbType = 'mssql' | 'postgres' | 'mysql'
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export interface RegisterRequest {
+  email: string
+  password: string
+  full_name?: string
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface VerifyMFARequest {
+  email: string
+  code: string
+}
+
+export interface TokenResponse {
+  access_token: string
+  token_type: string
+  mfa_required: boolean
+}
+
+export interface MeResponse {
+  user_id: string
+  email: string
+  full_name?: string
+  mfa_enabled: boolean
+  created_at: string
+}
+
+export interface SetupMFAResponse {
+  secret: string
+  qr_code: string
+  uri: string
+}
 
 // ── Connection ────────────────────────────────────────────────────────────────
 
 export interface ConnectionParams {
+  db_type: DbType
   server: string
   port: number
   database: string
@@ -115,6 +155,7 @@ export interface DatabaseTarget {
 }
 
 export interface ServerTarget {
+  db_type: DbType
   server: string
   port: number
   username: string

@@ -8,9 +8,15 @@ import {
   RefreshCw, Radio, Search,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
-import type { DatabaseInfo, Gateway } from '../types/api'
+import type { DatabaseInfo, DbType, Gateway } from '../types/api'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
+
+const DB_TYPE_OPTIONS: { value: DbType; label: string; defaultPort: number }[] = [
+  { value: 'mssql',    label: 'SQL Server',  defaultPort: 1433 },
+  { value: 'postgres', label: 'PostgreSQL',  defaultPort: 5432 },
+  { value: 'mysql',    label: 'MySQL',       defaultPort: 3306 },
+]
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -22,6 +28,7 @@ interface SelectedDb {
 
 interface ServerEntry {
   id: string
+  db_type: DbType
   server: string
   port: number
   username: string
@@ -47,6 +54,7 @@ interface ServerEntry {
 function makeServer(): ServerEntry {
   return {
     id: crypto.randomUUID(),
+    db_type: 'mssql',
     server: '',
     port: 1433,
     username: '',
@@ -136,11 +144,16 @@ function ServerCard({
   const handleBrowseDbs = async () => {
     if (!entry.server || !entry.username || !entry.password) return
     set({ dbs_loading: true, dbs_error: null, available_dbs: null })
+    // Use a sensible default catalog per db type
+    const defaultDb = entry.db_type === 'postgres' ? 'postgres'
+      : entry.db_type === 'mysql' ? 'information_schema'
+      : 'master'
     try {
       const { data } = await api.listDatabases({
+        db_type: entry.db_type,
         server: entry.server,
         port: entry.port,
-        database: 'master',
+        database: defaultDb,
         username: entry.username,
         password: entry.password,
         trust_server_certificate: entry.trust_server_certificate,
@@ -234,9 +247,30 @@ function ServerCard({
         <div className="p-5 space-y-5">
           {/* Connection fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* DB Type */}
+            <div className="sm:col-span-2">
+              <label className="form-label">Database Engine</label>
+              <div className="flex gap-2">
+                {DB_TYPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => set({ db_type: opt.value, port: opt.defaultPort, available_dbs: null, selected_dbs: [] })}
+                    className={`flex-1 rounded-xl border-2 px-3 py-2 text-center text-xs font-semibold transition-all ${
+                      entry.db_type === opt.value
+                        ? 'border-brand-500 bg-brand-50 text-brand-700'
+                        : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Server */}
             <div className="sm:col-span-2">
-              <label className="form-label">Server <span className="text-red-500">*</span></label>
+              <label className="form-label">Host / Server <span className="text-red-500">*</span></label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Server className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
@@ -313,21 +347,23 @@ function ServerCard({
               </div>
             </div>
 
-            {/* TLS toggles */}
-            <div className="sm:col-span-2 flex flex-wrap gap-5">
-              <Toggle
-                checked={entry.encrypt}
-                onChange={(v) => set({ encrypt: v })}
-                label="Encrypt Connection"
-                description="Enforce TLS"
-              />
-              <Toggle
-                checked={entry.trust_server_certificate}
-                onChange={(v) => set({ trust_server_certificate: v })}
-                label="Trust Server Certificate"
-                description="Accept self-signed"
-              />
-            </div>
+            {/* TLS toggles — SQL Server only */}
+            {entry.db_type === 'mssql' && (
+              <div className="sm:col-span-2 flex flex-wrap gap-5">
+                <Toggle
+                  checked={entry.encrypt}
+                  onChange={(v) => set({ encrypt: v })}
+                  label="Encrypt Connection"
+                  description="Enforce TLS"
+                />
+                <Toggle
+                  checked={entry.trust_server_certificate}
+                  onChange={(v) => set({ trust_server_certificate: v })}
+                  label="Trust Server Certificate"
+                  description="Accept self-signed"
+                />
+              </div>
+            )}
           </div>
 
           {/* Connection mode */}
@@ -553,6 +589,7 @@ export default function NewAssessmentPage() {
       const { data } = await api.createSession({
         label: label.trim() || undefined,
         servers: servers.map((srv) => ({
+          db_type: srv.db_type,
           server: srv.server.trim(),
           port: srv.port,
           username: srv.username.trim(),

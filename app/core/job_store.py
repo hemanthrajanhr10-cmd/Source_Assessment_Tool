@@ -39,12 +39,13 @@ def _row_to_record(row: dict) -> JobRecord:
     )
 
 
-def create_job(record: JobRecord) -> None:
+def create_job(record: JobRecord, user_id: Optional[str] = None) -> None:
     azure_store.create_job(
         record.job_id, record.label, record.created_at,
         session_id=record.session_id,
         server_name=record.server_name,
         database_name=record.database_name,
+        user_id=user_id,
     )
 
 
@@ -61,6 +62,6 @@ def update_job(job_id: str, **kwargs) -> None:
     azure_store.update_job(job_id, **kwargs)
 
 
-def list_jobs() -> list[JobRecord]:
-    rows = azure_store.list_jobs()
+def list_jobs(user_id: Optional[str] = None) -> list[JobRecord]:
+    rows = azure_store.list_jobs(user_id=user_id)
     return [_row_to_record(r) for r in rows]

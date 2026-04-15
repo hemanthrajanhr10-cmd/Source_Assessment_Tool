@@ -1,4 +1,7 @@
+from typing import Literal
 from pydantic import BaseModel, SecretStr, Field
+
+DbType = Literal["mssql", "postgres", "mysql"]
 
 
 # ── Multi-server session models ────────────────────────────────────────────────
@@ -11,11 +14,12 @@ class DatabaseTarget(BaseModel):
 
 
 class ServerTarget(BaseModel):
-    """One SQL Server instance with credentials and selected databases."""
-    server: str = Field(..., description="SQL Server hostname or host\\instance")
-    port: int = Field(1433, description="SQL Server port")
-    username: str = Field(..., description="SQL login username")
-    password: SecretStr = Field(..., description="SQL login password")
+    """One database server with credentials and selected databases."""
+    db_type: DbType = Field("mssql", description="Database engine type: mssql, postgres, mysql")
+    server: str = Field(..., description="Hostname or IP")
+    port: int = Field(1433, description="Port (default 1433 for SQL Server, 5432 for PostgreSQL, 3306 for MySQL)")
+    username: str = Field(..., description="Login username")
+    password: SecretStr = Field(..., description="Login password")
     trust_server_certificate: bool = Field(True)
     encrypt: bool = Field(True)
     databases: list[DatabaseTarget] = Field(default_factory=list)
@@ -42,16 +46,18 @@ class ListDatabasesRequest(BaseModel):
 # ── Single-server assessment models ───────────────────────────────────────────
 
 class ConnectionParams(BaseModel):
-    server: str = Field(..., description="SQL Server hostname or host\\instance")
-    port: int = Field(1433, description="SQL Server port")
+    db_type: DbType = Field("mssql", description="Database engine: mssql, postgres, mysql")
+    server: str = Field(..., description="Hostname or IP")
+    port: int = Field(1433, description="Port")
     database: str = Field(..., description="Target database name")
-    username: str = Field(..., description="SQL login username")
-    password: SecretStr = Field(..., description="SQL login password")
-    trust_server_certificate: bool = Field(True, description="Skip TLS certificate validation")
-    encrypt: bool = Field(True, description="Require encrypted connection")
+    username: str = Field(..., description="Login username")
+    password: SecretStr = Field(..., description="Login password")
+    trust_server_certificate: bool = Field(True, description="Skip TLS certificate validation (SQL Server)")
+    encrypt: bool = Field(True, description="Require encrypted connection (SQL Server)")
 
     model_config = {"json_schema_extra": {"example": {
-        "server": "UIAP-S-SQL-01V",
+        "db_type": "mssql",
+        "server": "myserver.database.windows.net",
         "port": 1433,
         "database": "MyDatabase",
         "username": "db_user",

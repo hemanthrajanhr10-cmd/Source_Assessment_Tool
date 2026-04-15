@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.routes.assessment import router as assessment_router
+from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.gateway import router as gateway_router
 from app.api.v1.routes.sessions import router as sessions_router
 from app.config import settings
@@ -73,6 +74,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(assessment_router, prefix="/api/v1", tags=["Assessment"])
 app.include_router(gateway_router, prefix="/api/v1/gateway", tags=["Gateway"])
 app.include_router(sessions_router, prefix="/api/v1", tags=["Sessions"])

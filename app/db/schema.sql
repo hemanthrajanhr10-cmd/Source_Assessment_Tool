@@ -5,6 +5,21 @@
 -- Migration : old JSON-blob assessment_sections table is dropped automatically
 -- =============================================================================
 
+-- ─── 0. users ────────────────────────────────────────────────────────────────
+IF OBJECT_ID('dbo.users', 'U') IS NULL
+    CREATE TABLE dbo.users (
+        user_id        VARCHAR(36)    NOT NULL,
+        email          NVARCHAR(255)  NOT NULL,
+        full_name      NVARCHAR(200)  NULL,
+        password_hash  NVARCHAR(255)  NOT NULL,
+        mfa_secret     NVARCHAR(64)   NULL,       -- NULL = MFA not yet set up
+        mfa_enabled    BIT            NOT NULL DEFAULT 0,
+        is_active      BIT            NOT NULL DEFAULT 1,
+        created_at     DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_users PRIMARY KEY (user_id),
+        CONSTRAINT UQ_users_email UNIQUE (email)
+    );
+
 -- ─── Migration: remove old JSON-blob table (one-time) ────────────────────────
 IF OBJECT_ID('dbo.assessment_sections', 'U') IS NOT NULL
     DROP TABLE dbo.assessment_sections;
@@ -488,6 +503,13 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs')
 
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'database_name')
     ALTER TABLE dbo.jobs ADD database_name NVARCHAR(300) NULL;
+
+-- Migration: add user_id to jobs and sessions
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'user_id')
+    ALTER TABLE dbo.jobs ADD user_id VARCHAR(36) NULL;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.sessions') AND name = 'user_id')
+    ALTER TABLE dbo.sessions ADD user_id VARCHAR(36) NULL;
 
 -- ─── 27. assessment_version_features ─────────────────────────────────────────
 IF OBJECT_ID('dbo.assessment_version_features', 'U') IS NULL

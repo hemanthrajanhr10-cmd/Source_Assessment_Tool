@@ -9,42 +9,58 @@ from typing import Any
 from app.core import job_store
 from app.core.logging import get_logger
 from app.db import azure_store, connector, queries
+from app.db import queries_postgres, queries_mysql
 from app.models.requests import AssessmentRequest
 from app.services import report_service
 
 logger = get_logger(__name__)
 
-# Ordered list of (result_key, sql_constant, display_name)
-_QUERY_STEPS: list[tuple[str, str, str]] = [
+_STEP_KEYS = [
     # ── Core metadata ──────────────────────────────────────────────────────
-    ("overview",            queries.OVERVIEW,            "Database overview"),
-    ("schemas",             queries.SCHEMAS,             "Schemas"),
-    ("tables",              queries.TABLES,              "Tables"),
-    ("columns",             queries.COLUMNS,             "Columns"),
-    ("views",               queries.VIEWS,               "Views"),
-    ("stored_procedures",   queries.STORED_PROCEDURES,   "Stored procedures"),
-    ("functions",           queries.FUNCTIONS,           "Functions"),
-    ("indexes",             queries.INDEXES,             "Indexes"),
-    ("relationships",       queries.RELATIONSHIPS,       "Relationships"),
-    ("index_coverage",      queries.INDEX_COVERAGE,      "Index coverage"),
-    ("insertion_frequency", queries.INSERTION_FREQUENCY, "Insertion frequency"),
+    ("overview",            "OVERVIEW",            "Database overview"),
+    ("schemas",             "SCHEMAS",             "Schemas"),
+    ("tables",              "TABLES",              "Tables"),
+    ("columns",             "COLUMNS",             "Columns"),
+    ("views",               "VIEWS",               "Views"),
+    ("stored_procedures",   "STORED_PROCEDURES",   "Stored procedures"),
+    ("functions",           "FUNCTIONS",           "Functions"),
+    ("indexes",             "INDEXES",             "Indexes"),
+    ("relationships",       "RELATIONSHIPS",       "Relationships"),
+    ("index_coverage",      "INDEX_COVERAGE",      "Index coverage"),
+    ("insertion_frequency", "INSERTION_FREQUENCY", "Insertion frequency"),
     # ── Security assessment ────────────────────────────────────────────────
-    ("db_users_roles",      queries.DB_USERS_ROLES,      "Database users & roles"),
-    ("orphaned_users",      queries.ORPHANED_USERS,      "Orphaned users"),
-    ("db_owner_members",    queries.DB_OWNER_MEMBERS,    "Excessive permissions (db_owner)"),
-    ("dynamic_sql_usage",   queries.DYNAMIC_SQL_USAGE,   "Dynamic SQL usage"),
-    ("clr_assemblies",      queries.CLR_ASSEMBLIES,      "CLR assemblies"),
-    ("tde_status",          queries.TDE_STATUS,          "TDE encryption status"),
-    ("column_encryption",   queries.COLUMN_ENCRYPTION,   "Column-level encryption"),
-    ("pii_indicators",      queries.PII_INDICATORS,      "PII / sensitive data scan"),
+    ("db_users_roles",      "DB_USERS_ROLES",      "Database users & roles"),
+    ("orphaned_users",      "ORPHANED_USERS",      "Orphaned users"),
+    ("db_owner_members",    "DB_OWNER_MEMBERS",    "Excessive permissions (db_owner)"),
+    ("dynamic_sql_usage",   "DYNAMIC_SQL_USAGE",   "Dynamic SQL usage"),
+    ("clr_assemblies",      "CLR_ASSEMBLIES",      "CLR assemblies"),
+    ("tde_status",          "TDE_STATUS",          "TDE encryption status"),
+    ("column_encryption",   "COLUMN_ENCRYPTION",   "Column-level encryption"),
+    ("pii_indicators",      "PII_INDICATORS",      "PII / sensitive data scan"),
     # ── Feature usage & risks ──────────────────────────────────────────────
-    ("sql_agent_jobs",      queries.SQL_AGENT_JOBS,      "SQL Agent jobs"),
-    ("linked_servers",      queries.LINKED_SERVERS,      "Linked servers"),
-    ("cross_db_references", queries.CROSS_DB_REFERENCES, "Cross-database references"),
-    ("replication_status",  queries.REPLICATION_STATUS,  "Replication status"),
-    ("service_broker",      queries.SERVICE_BROKER,      "Service Broker"),
-    ("version_features",    queries.VERSION_FEATURES,    "Version & feature risks"),
+    ("sql_agent_jobs",      "SQL_AGENT_JOBS",      "SQL Agent jobs"),
+    ("linked_servers",      "LINKED_SERVERS",      "Linked servers"),
+    ("cross_db_references", "CROSS_DB_REFERENCES", "Cross-database references"),
+    ("replication_status",  "REPLICATION_STATUS",  "Replication status"),
+    ("service_broker",      "SERVICE_BROKER",      "Service Broker"),
+    ("version_features",    "VERSION_FEATURES",    "Version & feature risks"),
 ]
+
+_QUERY_MODULE = {
+    "mssql":    queries,
+    "postgres": queries_postgres,
+    "mysql":    queries_mysql,
+}
+
+
+def _get_query_steps(db_type: str) -> list[tuple[str, str, str]]:
+    mod = _QUERY_MODULE.get(db_type, queries)
+    return [(key, getattr(mod, attr, "SELECT NULL WHERE false"), display)
+            for key, attr, display in _STEP_KEYS]
+
+
+# Keep backward-compat name used by older callers
+_QUERY_STEPS = _get_query_steps("mssql")
 
 
 def _cursor_rows_to_dicts(cursor) -> list[dict[str, Any]]:
@@ -77,13 +93,16 @@ def _safe_fetch(cursor, sql: str) -> list[dict[str, Any]]:
 
 
 def _run_null_analysis(
-    cursor, table_rows: list[dict[str, Any]], sample_limit: int
+    cursor, table_rows: list[dict[str, Any]], sample_limit: int,
+    db_type: str = "mssql",
 ) -> list[dict[str, Any]]:
     """
     For up to sample_limit tables, compute null/blank percentage per nullable column.
+    Generates db_type-appropriate SQL.
     """
     results: list[dict[str, Any]] = []
     sampled = 0
+    query_mod = _QUERY_MODULE.get(db_type, queries)
 
     for tbl in table_rows:
         if sampled >= sample_limit:
@@ -91,9 +110,15 @@ def _run_null_analysis(
 
         schema = tbl.get("schema_name", "")
         table = tbl.get("table_name", "")
-        full_name = f"[{schema}].[{table}]"
 
-        col_sql = queries.NULL_ANALYSIS_COLUMNS.format(full_name=full_name)
+        if db_type == "mssql":
+            full_name = f"[{schema}].[{table}]"
+        elif db_type == "mysql":
+            full_name = f"{schema}.{table}"
+        else:
+            full_name = f"{schema}.{table}"
+
+        col_sql = query_mod.NULL_ANALYSIS_COLUMNS.format(full_name=full_name)
         col_rows = _safe_fetch(cursor, col_sql)
         if not col_rows:
             sampled += 1
@@ -106,26 +131,36 @@ def _run_null_analysis(
 
         exprs: list[str] = []
         for col_name, dtype in nullable_cols:
-            safe_col = f"[{col_name}]"
-            if dtype in ("varchar", "nvarchar", "char", "nchar"):
-                exprs.append(
-                    f"SUM(CASE WHEN {safe_col} IS NULL "
-                    f"OR LTRIM(RTRIM({safe_col})) = '' THEN 1 ELSE 0 END) "
-                    f"* 100.0 / NULLIF(COUNT(*),0) AS [{col_name}_null_pct]"
-                )
-            elif dtype in ("text", "ntext"):
-                exprs.append(
-                    f"SUM(CASE WHEN {safe_col} IS NULL "
-                    f"OR LTRIM(RTRIM(CAST({safe_col} AS NVARCHAR(MAX)))) = '' THEN 1 ELSE 0 END) "
-                    f"* 100.0 / NULLIF(COUNT(*),0) AS [{col_name}_null_pct]"
-                )
+            if db_type == "mssql":
+                safe_col = f"[{col_name}]"
+                if dtype in ("varchar", "nvarchar", "char", "nchar"):
+                    exprs.append(
+                        f"SUM(CASE WHEN {safe_col} IS NULL "
+                        f"OR LTRIM(RTRIM({safe_col})) = '' THEN 1 ELSE 0 END) "
+                        f"* 100.0 / NULLIF(COUNT(*),0) AS [{col_name}_null_pct]"
+                    )
+                elif dtype in ("text", "ntext"):
+                    exprs.append(
+                        f"SUM(CASE WHEN {safe_col} IS NULL "
+                        f"OR LTRIM(RTRIM(CAST({safe_col} AS NVARCHAR(MAX)))) = '' THEN 1 ELSE 0 END) "
+                        f"* 100.0 / NULLIF(COUNT(*),0) AS [{col_name}_null_pct]"
+                    )
+                else:
+                    exprs.append(
+                        f"SUM(CASE WHEN {safe_col} IS NULL THEN 1 ELSE 0 END) "
+                        f"* 100.0 / NULLIF(COUNT(*),0) AS [{col_name}_null_pct]"
+                    )
             else:
+                # PostgreSQL / MySQL use standard quoting
+                safe_col = f'"{col_name}"' if db_type == "postgres" else f"`{col_name}`"
+                null_pct_alias = f"{col_name}_null_pct"
                 exprs.append(
                     f"SUM(CASE WHEN {safe_col} IS NULL THEN 1 ELSE 0 END) "
-                    f"* 100.0 / NULLIF(COUNT(*),0) AS [{col_name}_null_pct]"
+                    f"* 100.0 / NULLIF(COUNT(*),0) AS \"{null_pct_alias}\""
                 )
 
-        query = f"SELECT COUNT(*) AS total_rows, {', '.join(exprs)} FROM {full_name}"
+        table_ref = f'"{schema}"."{table}"' if db_type == "postgres" else f"`{schema}`.`{table}`" if db_type == "mysql" else full_name
+        query = f"SELECT COUNT(*) AS total_rows, {', '.join(exprs)} FROM {table_ref}"
         try:
             cursor.execute(query)
             row = cursor.fetchone()
@@ -170,20 +205,23 @@ def _extract_overview(overview_rows: list[dict[str, Any]]) -> dict[str, Any] | N
 
 def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, Any], str]:
     """
-    Connect to SQL Server, run all metadata queries, build the Excel report,
+    Connect to the database, run all metadata queries, build the Excel report,
     and return (results_dict, report_file_path).
     Raises on any fatal error; the caller updates job status accordingly.
     """
     extra = {"job_id": job_id}
-    logger.info("Connecting to SQL Server", extra=extra)
+    db_type = getattr(request.connection, "db_type", "mssql")
+    logger.info("Connecting to %s database", db_type, extra=extra)
 
     conn = connector.get_connection(request.connection)
     cursor = conn.cursor()
 
+    query_steps = _get_query_steps(db_type)
+
     try:
         raw: dict[str, Any] = {}
 
-        for key, sql, display_name in _QUERY_STEPS:
+        for key, sql, display_name in query_steps:
             logger.info("Running query: %s", display_name, extra=extra)
             job_store.update_job(job_id, progress_message=f"Collecting {display_name}…")
             raw[key] = _safe_fetch(cursor, sql)
@@ -192,7 +230,8 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
             logger.info("Running null analysis (limit=%d)", request.null_analysis_sample_limit, extra=extra)
             job_store.update_job(job_id, progress_message="Running null/blank analysis…")
             raw["null_analysis"] = _run_null_analysis(
-                cursor, raw.get("tables", []), request.null_analysis_sample_limit
+                cursor, raw.get("tables", []), request.null_analysis_sample_limit,
+                db_type=db_type,
             )
         else:
             raw["null_analysis"] = []

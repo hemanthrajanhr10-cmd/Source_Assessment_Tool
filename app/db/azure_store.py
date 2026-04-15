@@ -586,13 +586,19 @@ def create_gateway_job(job_id: str, label: Optional[str], created_at: datetime,
 
 # ── Session CRUD ───────────────────────────────────────────────────────────────
 
-def create_session(session_id: str, label: Optional[str], created_at: datetime, user_id: Optional[str] = None) -> None:
+def create_session(
+    session_id: str,
+    label: Optional[str],
+    created_at: datetime,
+    user_id: Optional[str] = None,
+    total_jobs: int = 0,
+) -> None:
     conn = _get_conn()
     try:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO dbo.sessions (session_id, label, status, created_at, user_id) VALUES (?, ?, 'pending', ?, ?)",
-            (session_id, label, created_at, user_id),
+            "INSERT INTO dbo.sessions (session_id, label, status, created_at, user_id, total_jobs) VALUES (?, ?, 'pending', ?, ?, ?)",
+            (session_id, label, created_at, user_id, total_jobs),
         )
         conn.commit()
     finally:

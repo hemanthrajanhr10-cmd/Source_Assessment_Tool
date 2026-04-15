@@ -90,6 +90,16 @@ export const api = {
   getReportUrl: (jobId: string) =>
     `${BASE_URL}/api/v1/jobs/${jobId}/report`,
 
+  downloadReport: async (jobId: string, filename: string) => {
+    const res = await http.get(`/api/v1/jobs/${jobId}/report`, { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
   // ── Gateway ───────────────────────────────────────────────────────────────
   registerGateway: (name: string) =>
     http.post<GatewayRegisterResponse>('/api/v1/gateway/register', { name }),
@@ -125,6 +135,16 @@ export const api = {
 
   getSessionReportUrl: (sessionId: string) =>
     `${BASE_URL}/api/v1/sessions/${sessionId}/report`,
+
+  downloadSessionReport: async (sessionId: string, filename: string) => {
+    const res = await http.get(`/api/v1/sessions/${sessionId}/report`, { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
 }
 
 export function getApiErrorMessage(err: unknown): string {

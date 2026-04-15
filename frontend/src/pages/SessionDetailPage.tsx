@@ -10,6 +10,12 @@ import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import type { JobStatus, SessionJobInfo, SessionStatus } from '../types/api'
 
+// Authenticated download — sends Bearer token via axios, then saves blob
+async function downloadWithAuth(fetcher: () => Promise<void>, setLoading: (v: boolean) => void) {
+  setLoading(true)
+  try { await fetcher() } finally { setLoading(false) }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(iso?: string) {
@@ -105,7 +111,7 @@ function SessionBanner({ status, completed, total, failed }: {
 // ── Job row ───────────────────────────────────────────────────────────────────
 
 function JobRow({ job }: { job: SessionJobInfo }) {
-  const reportUrl = api.getReportUrl(job.job_id)
+  const [downloading, setDownloading] = useState(false)
 
   return (
     <tr className="hover:bg-slate-50 transition-colors">
@@ -141,15 +147,17 @@ function JobRow({ job }: { job: SessionJobInfo }) {
       </td>
       <td className="px-5 py-3.5 text-right">
         {job.status === 'completed' && (
-          <a
-            href={reportUrl}
-            download
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline"
-            onClick={(e) => e.stopPropagation()}
+          <button
+            disabled={downloading}
+            onClick={() => downloadWithAuth(
+              () => api.downloadReport(job.job_id, `sql_assessment_${job.database}.xlsx`),
+              setDownloading,
+            )}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline disabled:opacity-50"
           >
-            <Download className="h-3.5 w-3.5" />
-            Report
-          </a>
+            {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {downloading ? 'Downloading…' : 'Report'}
+          </button>
         )}
       </td>
     </tr>
@@ -163,6 +171,7 @@ export default function SessionDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [sessionReportDownloading, setSessionReportDownloading] = useState(false)
 
   const { data: session, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['session', sessionId],
@@ -170,9 +179,12 @@ export default function SessionDetailPage() {
     enabled: !!sessionId,
     refetchInterval: (query) => {
       const s = query.state.data
+      // No data yet (initial fetch in-flight) — let enabled handle first load
       if (!s) return false
+      // Actively running: poll every 2s; completed/failed/cancelled: stop
       return s.status === 'pending' || s.status === 'running' ? 2000 : false
     },
+    refetchOnMount: true,
   })
 
   // ── All hooks must be called before any early returns (Rules of Hooks) ──────
@@ -209,7 +221,8 @@ export default function SessionDetailPage() {
   }
 
   const isActive = session.status === 'pending' || session.status === 'running'
-  const sessionReportUrl = api.getSessionReportUrl(session.session_id)
+  // sessionReportUrl kept for reference; actual download goes through authenticated helper
+  void api.getSessionReportUrl  // suppress unused-var warning
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -272,11 +285,19 @@ export default function SessionDetailPage() {
             </>
           )}
           {(session.status === 'completed' || session.status === 'partial') && (
-            <a href={sessionReportUrl} download>
-              <Button size="sm" leftIcon={<Download className="h-4 w-4" />}>
-                Session Report
-              </Button>
-            </a>
+            <Button
+              size="sm"
+              leftIcon={sessionReportDownloading
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <Download className="h-4 w-4" />}
+              disabled={sessionReportDownloading}
+              onClick={() => downloadWithAuth(
+                () => api.downloadSessionReport(session.session_id, `session_report_${session.session_id.slice(0, 8)}.xlsx`),
+                setSessionReportDownloading,
+              )}
+            >
+              {sessionReportDownloading ? 'Downloading…' : 'Session Report'}
+            </Button>
           )}
         </div>
       </div>

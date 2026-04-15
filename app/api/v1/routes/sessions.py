@@ -109,7 +109,7 @@ async def create_session(
         )
 
     session_id = str(uuid.uuid4())
-    azure_store.create_session(session_id, body.label, datetime.now(timezone.utc), user_id=current_user["user_id"])
+    azure_store.create_session(session_id, body.label, datetime.now(timezone.utc), user_id=current_user["user_id"], total_jobs=total_jobs)
 
     background_tasks.add_task(session_service.run_session_background, session_id, body, current_user["user_id"])
 

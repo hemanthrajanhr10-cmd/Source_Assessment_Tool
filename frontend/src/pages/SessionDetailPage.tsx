@@ -2,19 +2,13 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Download, RefreshCw, CheckCircle2, XCircle,
+  ArrowLeft, RefreshCw, CheckCircle2, XCircle,
   Loader2, Clock, AlertTriangle, Database, Server, StopCircle,
 } from 'lucide-react'
 import { api } from '../api/client'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import type { JobStatus, SessionJobInfo, SessionStatus } from '../types/api'
-
-// Authenticated download — sends Bearer token via axios, then saves blob
-async function downloadWithAuth(fetcher: () => Promise<void>, setLoading: (v: boolean) => void) {
-  setLoading(true)
-  try { await fetcher() } finally { setLoading(false) }
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -110,11 +104,12 @@ function SessionBanner({ status, completed, total, failed }: {
 
 // ── Job row ───────────────────────────────────────────────────────────────────
 
-function JobRow({ job }: { job: SessionJobInfo }) {
-  const [downloading, setDownloading] = useState(false)
-
+function JobRow({ job, onNavigate }: { job: SessionJobInfo; onNavigate: (jobId: string) => void }) {
   return (
-    <tr className="hover:bg-slate-50 transition-colors">
+    <tr
+      className="hover:bg-slate-50 transition-colors cursor-pointer"
+      onClick={() => onNavigate(job.job_id)}
+    >
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-2">
           <Server className="h-3.5 w-3.5 text-slate-400 shrink-0" />
@@ -145,21 +140,6 @@ function JobRow({ job }: { job: SessionJobInfo }) {
       <td className="px-5 py-3.5 text-xs text-slate-500 whitespace-nowrap tabular-nums">
         {elapsed(job.started_at, job.completed_at)}
       </td>
-      <td className="px-5 py-3.5 text-right">
-        {job.status === 'completed' && (
-          <button
-            disabled={downloading}
-            onClick={() => downloadWithAuth(
-              () => api.downloadReport(job.job_id, `sql_assessment_${job.database}.xlsx`),
-              setDownloading,
-            )}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-brand-600 hover:text-brand-800 hover:underline disabled:opacity-50"
-          >
-            {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            {downloading ? 'Downloading…' : 'Report'}
-          </button>
-        )}
-      </td>
     </tr>
   )
 }
@@ -171,7 +151,6 @@ export default function SessionDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
-  const [sessionReportDownloading, setSessionReportDownloading] = useState(false)
 
   const { data: session, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['session', sessionId],
@@ -221,8 +200,6 @@ export default function SessionDetailPage() {
   }
 
   const isActive = session.status === 'pending' || session.status === 'running'
-  // sessionReportUrl kept for reference; actual download goes through authenticated helper
-  void api.getSessionReportUrl  // suppress unused-var warning
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -284,21 +261,6 @@ export default function SessionDetailPage() {
               )}
             </>
           )}
-          {(session.status === 'completed' || session.status === 'partial') && (
-            <Button
-              size="sm"
-              leftIcon={sessionReportDownloading
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Download className="h-4 w-4" />}
-              disabled={sessionReportDownloading}
-              onClick={() => downloadWithAuth(
-                () => api.downloadSessionReport(session.session_id, `session_report_${session.session_id.slice(0, 8)}.xlsx`),
-                setSessionReportDownloading,
-              )}
-            >
-              {sessionReportDownloading ? 'Downloading…' : 'Session Report'}
-            </Button>
-          )}
         </div>
       </div>
 
@@ -322,7 +284,7 @@ export default function SessionDetailPage() {
             <table className="min-w-full divide-y divide-slate-100 text-sm">
               <thead className="bg-slate-50">
                 <tr>
-                  {['Server', 'Database', 'Status', 'Duration', ''].map((h) => (
+                  {['Server', 'Database', 'Status', 'Duration'].map((h) => (
                     <th
                       key={h}
                       className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap"
@@ -334,7 +296,7 @@ export default function SessionDetailPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {session.jobs.map((job) => (
-                  <JobRow key={job.job_id} job={job} />
+                  <JobRow key={job.job_id} job={job} onNavigate={(id) => navigate(`/jobs/${id}`)} />
                 ))}
               </tbody>
             </table>

@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
-  ChevronRight, Download, AlertTriangle, CheckCircle2,
+  ChevronRight, Download, AlertTriangle, CheckCircle2, Loader2,
   Clock, Database, Table2, Columns, Eye,
   Code2, FunctionSquare, ListTree, GitMerge,
   BarChart2, Activity, Search,
@@ -278,6 +278,17 @@ function guessProgress(msg?: string): number {
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
   const [activeTab, setActiveTab] = useState('schemas')
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = useCallback(async () => {
+    if (!jobId || downloading) return
+    setDownloading(true)
+    try {
+      await api.downloadReport(jobId, `sql_assessment_${jobId.slice(0, 8)}.xlsx`)
+    } finally {
+      setDownloading(false)
+    }
+  }, [jobId, downloading])
 
   /* Poll job status */
   const { data: status, isLoading: statusLoading } = useQuery({
@@ -347,19 +358,16 @@ export default function JobDetailPage() {
           </div>
 
           {status.status === 'completed' && (
-            <a
-              href={api.getReportUrl(jobId!)}
-              download
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              disabled={downloading}
+              onClick={handleDownload}
               className="shrink-0"
             >
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<Download className="h-4 w-4" />}
-              >
-                Download Report (.xlsx)
-              </Button>
-            </a>
+              {downloading ? 'Downloading…' : 'Download Report (.xlsx)'}
+            </Button>
           )}
         </div>
 

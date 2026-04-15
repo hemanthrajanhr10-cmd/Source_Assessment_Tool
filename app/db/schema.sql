@@ -61,8 +61,13 @@ IF OBJECT_ID('dbo.gateways', 'U') IS NULL
         status        VARCHAR(20)    NOT NULL DEFAULT 'offline',
         last_seen_at  DATETIME2      NULL,
         created_at    DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        user_id       VARCHAR(36)    NULL,
         CONSTRAINT PK_gateways PRIMARY KEY (gateway_key)
     );
+
+-- Migration: add user_id to existing gateways table
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.gateways') AND name = 'user_id')
+    ALTER TABLE dbo.gateways ADD user_id VARCHAR(36) NULL;
 
 -- ─── 2. assessment_overview ───────────────────────────────────────────────────
 IF OBJECT_ID('dbo.assessment_overview', 'U') IS NULL

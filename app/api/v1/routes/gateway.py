@@ -16,11 +16,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.core import job_store
+from app.core.dependencies import get_current_user
 from app.core.logging import get_logger
 from app.db import azure_store
 from app.models.responses import JobStatus
@@ -57,10 +58,13 @@ class GatewaySubmitRequest(BaseModel):
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/register", response_model=GatewayRegisterResponse, summary="Register a new gateway")
-async def register_gateway(body: GatewayRegisterRequest):
+async def register_gateway(
+    body: GatewayRegisterRequest,
+    current_user: dict = Depends(get_current_user),
+):
     gateway_key = str(uuid.uuid4())
-    azure_store.register_gateway(gateway_key, body.name)
-    logger.info("Gateway registered: %s (%s)", body.name, gateway_key)
+    azure_store.register_gateway(gateway_key, body.name, user_id=current_user["user_id"])
+    logger.info("Gateway registered: %s (%s) by user %s", body.name, gateway_key, current_user["user_id"])
     return GatewayRegisterResponse(
         gateway_key=gateway_key,
         name=body.name,
@@ -71,15 +75,15 @@ async def register_gateway(body: GatewayRegisterRequest):
     )
 
 
-@router.get("/list", summary="List all registered gateways")
-async def list_gateways():
-    return azure_store.list_gateways()
+@router.get("/list", summary="List registered gateways for current user")
+async def list_gateways(current_user: dict = Depends(get_current_user)):
+    return azure_store.list_gateways(user_id=current_user["user_id"])
 
 
 @router.get("/status", summary="Check one gateway status")
-async def gateway_status(gateway_key: str):
+async def gateway_status(gateway_key: str, current_user: dict = Depends(get_current_user)):
     gw = azure_store.get_gateway(gateway_key)
-    if not gw:
+    if not gw or gw.get("user_id") != current_user["user_id"]:
         raise HTTPException(status_code=404, detail="Gateway not found.")
     return gw
 

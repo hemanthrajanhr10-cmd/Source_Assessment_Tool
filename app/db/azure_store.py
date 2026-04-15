@@ -452,13 +452,13 @@ def set_user_mfa(user_id: str, secret: str, enabled: bool) -> None:
 
 # ── Gateway CRUD ──────────────────────────────────────────────────────────────
 
-def register_gateway(gateway_key: str, name: str) -> None:
+def register_gateway(gateway_key: str, name: str, user_id: Optional[str] = None) -> None:
     conn = _get_conn()
     try:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO dbo.gateways (gateway_key, name, status) VALUES (?, ?, 'offline')",
-            (gateway_key, name),
+            "INSERT INTO dbo.gateways (gateway_key, name, status, user_id) VALUES (?, ?, 'offline', ?)",
+            (gateway_key, name, user_id),
         )
         conn.commit()
     finally:
@@ -470,7 +470,7 @@ def get_gateway(gateway_key: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT gateway_key, name, status, last_seen_at, created_at "
+            "SELECT gateway_key, name, status, last_seen_at, created_at, user_id "
             "FROM dbo.gateways WHERE gateway_key = ?",
             (gateway_key,),
         )
@@ -479,7 +479,6 @@ def get_gateway(gateway_key: str) -> Optional[dict[str, Any]]:
             return None
         cols = [d[0] for d in cur.description]
         result = dict(zip(cols, row))
-        # Serialize datetimes
         for k, v in result.items():
             if isinstance(v, datetime):
                 result[k] = v.isoformat()
@@ -488,14 +487,21 @@ def get_gateway(gateway_key: str) -> Optional[dict[str, Any]]:
         conn.close()
 
 
-def list_gateways() -> list[dict[str, Any]]:
+def list_gateways(user_id: Optional[str] = None) -> list[dict[str, Any]]:
     conn = _get_conn()
     try:
         cur = conn.cursor()
-        cur.execute(
-            "SELECT gateway_key, name, status, last_seen_at, created_at "
-            "FROM dbo.gateways ORDER BY created_at DESC"
-        )
+        if user_id:
+            cur.execute(
+                "SELECT gateway_key, name, status, last_seen_at, created_at "
+                "FROM dbo.gateways WHERE user_id = ? ORDER BY created_at DESC",
+                (user_id,),
+            )
+        else:
+            cur.execute(
+                "SELECT gateway_key, name, status, last_seen_at, created_at "
+                "FROM dbo.gateways ORDER BY created_at DESC"
+            )
         cols = [d[0] for d in cur.description]
         rows = []
         for row in cur.fetchall():

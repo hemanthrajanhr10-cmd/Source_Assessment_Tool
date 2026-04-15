@@ -46,6 +46,7 @@ websockets==16.0
 h11==0.16.0
 
 # Auth (password hashing, TOTP MFA)
+email-validator==2.2.0
 bcrypt==4.2.1
 passlib[bcrypt]==1.7.4
 pyotp==2.9.0

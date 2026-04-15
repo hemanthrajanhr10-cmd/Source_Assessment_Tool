@@ -291,11 +291,10 @@ SELECT
     CONVERT(VARCHAR, a.create_date, 120)  AS create_date,
     CONVERT(VARCHAR, a.modify_date, 120)  AS modify_date,
     CASE a.is_visible WHEN 1 THEN 'Yes' ELSE 'No' END AS is_visible,
-    COUNT(ao.object_id)                   AS clr_object_count
+    (SELECT COUNT(*) FROM sys.objects o
+     WHERE o.assembly_id = a.assembly_id) AS clr_object_count
 FROM sys.assemblies a
-LEFT JOIN sys.assembly_objects ao ON ao.assembly_id = a.assembly_id
 WHERE a.is_user_defined = 1
-GROUP BY a.name, a.permission_set_desc, a.create_date, a.modify_date, a.is_visible
 ORDER BY a.name
 """
 
@@ -385,44 +384,27 @@ ORDER BY pii_category, s.name, t.name, c.name
 
 SQL_AGENT_JOBS = """
 SELECT
-    j.name                                AS job_name,
-    CASE j.enabled WHEN 1 THEN 'Enabled' ELSE 'Disabled' END AS status,
-    ISNULL(j.description, '')             AS description,
-    CONVERT(VARCHAR, j.date_created, 120) AS date_created,
-    CONVERT(VARCHAR, j.date_modified, 120) AS date_modified,
-    (SELECT COUNT(*)
-     FROM msdb.dbo.sysjobhistory h
-     WHERE h.job_id = j.job_id AND h.step_id = 0 AND h.run_status = 0) AS failure_count,
-    ISNULL(
-        (SELECT TOP 1
-             CASE h.run_status
-                 WHEN 0 THEN 'Failed'
-                 WHEN 1 THEN 'Succeeded'
-                 WHEN 2 THEN 'Retry'
-                 WHEN 3 THEN 'Cancelled'
-                 ELSE 'Unknown'
-             END
-         FROM msdb.dbo.sysjobhistory h
-         WHERE h.job_id = j.job_id AND h.step_id = 0
-         ORDER BY h.run_date DESC, h.run_time DESC),
-    'Never Run') AS last_run_status
-FROM msdb.dbo.sysjobs j
-ORDER BY j.name
+    CAST(NULL AS VARCHAR(128)) AS job_name,
+    CAST(NULL AS VARCHAR(10))  AS status,
+    CAST(NULL AS VARCHAR(512)) AS description,
+    CAST(NULL AS VARCHAR(30))  AS date_created,
+    CAST(NULL AS VARCHAR(30))  AS date_modified,
+    CAST(NULL AS INT)          AS failure_count,
+    CAST(NULL AS VARCHAR(20))  AS last_run_status
+WHERE 1 = 0
 """
 
 LINKED_SERVERS = """
 SELECT
-    s.name                                                                   AS linked_server_name,
-    ISNULL(s.product, '')                                                    AS product,
-    ISNULL(s.provider, '')                                                   AS provider,
-    ISNULL(s.data_source, '')                                                AS data_source,
-    CASE s.is_remote_login_enabled WHEN 1 THEN 'Yes' ELSE 'No' END          AS remote_login_enabled,
-    CASE s.is_data_access_enabled  WHEN 1 THEN 'Yes' ELSE 'No' END          AS data_access_enabled,
-    CASE s.is_rpc_out_enabled      WHEN 1 THEN 'Yes' ELSE 'No' END          AS rpc_out_enabled,
-    CONVERT(VARCHAR, s.modify_date, 120)                                     AS modify_date
-FROM sys.servers s
-WHERE s.is_linked = 1
-ORDER BY s.name
+    CAST(NULL AS VARCHAR(128)) AS linked_server_name,
+    CAST(NULL AS VARCHAR(128)) AS product,
+    CAST(NULL AS VARCHAR(128)) AS provider,
+    CAST(NULL AS VARCHAR(255)) AS data_source,
+    CAST(NULL AS VARCHAR(3))   AS remote_login_enabled,
+    CAST(NULL AS VARCHAR(3))   AS data_access_enabled,
+    CAST(NULL AS VARCHAR(3))   AS rpc_out_enabled,
+    CAST(NULL AS VARCHAR(30))  AS modify_date
+WHERE 1 = 0
 """
 
 CROSS_DB_REFERENCES = """
@@ -459,8 +441,8 @@ SERVICE_BROKER = """
 SELECT
     DB_NAME() AS database_name,
     CASE d.is_broker_enabled WHEN 1 THEN 'Enabled' ELSE 'Disabled' END      AS broker_status,
-    (SELECT COUNT(*) FROM sys.service_queues WHERE is_ms_shipped = 0)       AS user_queue_count,
-    (SELECT COUNT(*) FROM sys.services      WHERE is_ms_shipped = 0)        AS user_service_count,
+    (SELECT COUNT(*) FROM sys.service_queues)                                AS user_queue_count,
+    (SELECT COUNT(*) FROM sys.services)                                      AS user_service_count,
     (SELECT COUNT(*) FROM sys.conversation_endpoints
      WHERE state NOT IN ('CD', 'ER'))                                        AS active_conversations
 FROM sys.databases d
@@ -478,8 +460,8 @@ SELECT
     CASE SERVERPROPERTY('IsClustered')        WHEN 1 THEN 'Yes' ELSE 'No' END AS is_clustered,
     CASE SERVERPROPERTY('IsHadrEnabled')      WHEN 1 THEN 'Yes' ELSE 'No' END AS hadr_enabled,
     CASE SERVERPROPERTY('IsFullTextInstalled') WHEN 1 THEN 'Yes' ELSE 'No' END AS fulltext_installed,
-    (SELECT value_in_use FROM sys.configurations WHERE name = 'clr enabled')              AS clr_enabled,
-    (SELECT value_in_use FROM sys.configurations WHERE name = 'xp_cmdshell')             AS xp_cmdshell_enabled,
-    (SELECT value_in_use FROM sys.configurations WHERE name = 'Ole Automation Procedures') AS ole_automation_enabled,
-    (SELECT value_in_use FROM sys.configurations WHERE name = 'Ad Hoc Distributed Queries') AS adhoc_distributed_queries
+    (SELECT CAST(value_in_use AS VARCHAR(20)) FROM sys.configurations WHERE name = 'clr enabled')               AS clr_enabled,
+    (SELECT CAST(value_in_use AS VARCHAR(20)) FROM sys.configurations WHERE name = 'xp_cmdshell')              AS xp_cmdshell_enabled,
+    (SELECT CAST(value_in_use AS VARCHAR(20)) FROM sys.configurations WHERE name = 'Ole Automation Procedures') AS ole_automation_enabled,
+    (SELECT CAST(value_in_use AS VARCHAR(20)) FROM sys.configurations WHERE name = 'Ad Hoc Distributed Queries') AS adhoc_distributed_queries
 """

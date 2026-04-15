@@ -215,7 +215,7 @@ def _queue_gateway_job(session_id: str, job_id: str, srv: ServerTarget, db: Data
 
 # ── Session orchestrator ───────────────────────────────────────────────────────
 
-def run_session_background(session_id: str, request: SessionRequest) -> None:
+def run_session_background(session_id: str, request: SessionRequest, user_id: str | None = None) -> None:
     """
     Background task: create child jobs for all server+database pairs and run them.
     - Gateway jobs: published immediately (non-blocking), session progress updated by result_handler
@@ -233,7 +233,7 @@ def run_session_background(session_id: str, request: SessionRequest) -> None:
                 server_name=srv.server,
                 database_name=db.name,
             )
-            job_store.create_job(record)
+            job_store.create_job(record, user_id=user_id)
             jobs_info.append((job_id, srv, db))
 
     if not jobs_info:

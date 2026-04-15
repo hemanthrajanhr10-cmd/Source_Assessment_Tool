@@ -227,7 +227,7 @@ def get_job(job_id: str) -> Optional[dict[str, Any]]:
         cur = conn.cursor()
         cur.execute(
             """SELECT job_id, status, label, created_at, started_at, completed_at,
-                      error, progress_message, report_path, session_id, server_name, database_name
+                      error, progress_message, report_path, session_id, server_name, database_name, user_id
                FROM dbo.jobs WHERE job_id = ?""",
             (job_id,),
         )

@@ -36,6 +36,7 @@ def _row_to_record(row: dict) -> JobRecord:
         session_id=row.get("session_id"),
         server_name=row.get("server_name"),
         database_name=row.get("database_name"),
+        user_id=row.get("user_id"),
     )
 
 

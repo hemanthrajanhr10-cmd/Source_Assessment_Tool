@@ -1022,7 +1022,8 @@ def build_session_report(session_id: str, jobs_data: list[dict]) -> str:
         server = job.get("server", "")
         database = job.get("database", "")
         # Create a short safe prefix for sheet names (max ~20 chars)
-        prefix = f"{server[:10]}/{database[:10]}"
+        # Excel sheet names cannot contain: \ / ? * [ ] :
+        prefix = f"{server[:10]}-{database[:10]}"
 
         # Tables
         tables = raw.get("tables", [])

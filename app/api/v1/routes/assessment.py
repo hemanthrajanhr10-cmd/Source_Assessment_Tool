@@ -203,9 +203,9 @@ async def list_jobs(current_user: dict = Depends(get_current_user)) -> list[JobS
     response_model=JobStatusResponse,
     summary="Get job status and progress",
 )
-async def get_job_status(job_id: str) -> JobStatusResponse:
+async def get_job_status(job_id: str, current_user: dict = Depends(get_current_user)) -> JobStatusResponse:
     record = job_store.get_job(job_id)
-    if record is None:
+    if record is None or (record.user_id and record.user_id != current_user["user_id"]):
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
     return _to_status_response(record)
 
@@ -215,8 +215,8 @@ async def get_job_status(job_id: str) -> JobStatusResponse:
     response_model=AssessmentResults,
     summary="Get full JSON results of a completed assessment",
 )
-async def get_results(job_id: str) -> AssessmentResults:
-    record = _require_completed(job_id)
+async def get_results(job_id: str, current_user: dict = Depends(get_current_user)) -> AssessmentResults:
+    record = _require_completed(job_id, current_user["user_id"])
 
     raw = azure_store.load_full_results(job_id)
     overview_raw = raw.get("overview")
@@ -266,8 +266,8 @@ async def get_results(job_id: str) -> AssessmentResults:
     summary="Download the Excel assessment report",
     response_class=FileResponse,
 )
-async def download_report(job_id: str) -> FileResponse:
-    record = _require_completed(job_id)
+async def download_report(job_id: str, current_user: dict = Depends(get_current_user)) -> FileResponse:
+    record = _require_completed(job_id, current_user["user_id"])
 
     if not record.report_path:
         raise HTTPException(status_code=404, detail="Report file not found.")
@@ -299,9 +299,9 @@ def _to_status_response(record: JobRecord) -> JobStatusResponse:
     )
 
 
-def _require_completed(job_id: str) -> JobRecord:
+def _require_completed(job_id: str, user_id: str | None = None) -> JobRecord:
     record = job_store.get_job(job_id)
-    if record is None:
+    if record is None or (user_id and record.user_id and record.user_id != user_id):
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
     if record.status == JobStatus.PENDING:
         raise HTTPException(status_code=409, detail="Assessment is still pending.")

@@ -21,3 +21,5 @@ class JobRecord:
     session_id: Optional[str] = None
     server_name: Optional[str] = None
     database_name: Optional[str] = None
+    # Owning user — None for legacy/unauthenticated jobs
+    user_id: Optional[str] = None

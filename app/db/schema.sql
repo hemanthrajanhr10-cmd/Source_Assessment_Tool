@@ -69,6 +69,23 @@ IF OBJECT_ID('dbo.gateways', 'U') IS NULL
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.gateways') AND name = 'user_id')
     ALTER TABLE dbo.gateways ADD user_id VARCHAR(36) NULL;
 
+-- ─── 1c. fabric_sessions ─────────────────────────────────────────────────────
+IF OBJECT_ID('dbo.fabric_sessions', 'U') IS NULL
+    CREATE TABLE dbo.fabric_sessions (
+        session_id       VARCHAR(36)     NOT NULL,
+        user_id          VARCHAR(36)     NULL,
+        label            NVARCHAR(200)   NULL,
+        status           VARCHAR(20)     NOT NULL DEFAULT 'running',
+        created_at       DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at     DATETIME2       NULL,
+        error            NVARCHAR(MAX)   NULL,
+        progress_message NVARCHAR(500)   NULL,
+        results_json     NVARCHAR(MAX)   NULL,
+        CONSTRAINT PK_fabric_sessions PRIMARY KEY (session_id)
+    );
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_fabric_sessions_user')
+    CREATE INDEX IX_fabric_sessions_user ON dbo.fabric_sessions (user_id, created_at DESC);
+
 -- ─── 2. assessment_overview ───────────────────────────────────────────────────
 IF OBJECT_ID('dbo.assessment_overview', 'U') IS NULL
     CREATE TABLE dbo.assessment_overview (

@@ -177,6 +177,77 @@ _SECTION_CONFIG: dict[str, tuple[str, list[str]]] = {
 }
 
 
+# ── Fabric session CRUD ───────────────────────────────────────────────────────
+
+def create_fabric_session(session_id: str, label: Optional[str], user_id: Optional[str]) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO dbo.fabric_sessions (session_id, label, user_id, status) "
+            "VALUES (?, ?, ?, 'running')",
+            (session_id, label, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def update_fabric_session(session_id: str, **kwargs) -> None:
+    allowed = {"status", "completed_at", "error", "progress_message", "results_json"}
+    fields = {k: v for k, v in kwargs.items() if k in allowed}
+    if not fields:
+        return
+    set_clause = ", ".join(f"{col} = ?" for col in fields)
+    values = list(fields.values()) + [session_id]
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(f"UPDATE dbo.fabric_sessions SET {set_clause} WHERE session_id = ?", values)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_fabric_session(session_id: str) -> Optional[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT session_id, label, user_id, status, created_at, completed_at, "
+            "error, progress_message, results_json "
+            "FROM dbo.fabric_sessions WHERE session_id = ?",
+            (session_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return dict(zip([d[0] for d in cur.description], row))
+    finally:
+        conn.close()
+
+
+def list_fabric_sessions(user_id: Optional[str] = None) -> list[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        if user_id:
+            cur.execute(
+                "SELECT session_id, label, status, created_at, completed_at, error, progress_message "
+                "FROM dbo.fabric_sessions WHERE user_id = ? ORDER BY created_at DESC",
+                (user_id,),
+            )
+        else:
+            cur.execute(
+                "SELECT session_id, label, status, created_at, completed_at, error, progress_message "
+                "FROM dbo.fabric_sessions ORDER BY created_at DESC"
+            )
+        cols = [d[0] for d in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+    finally:
+        conn.close()
+
+
 # ── Job CRUD ──────────────────────────────────────────────────────────────────
 
 def create_job(

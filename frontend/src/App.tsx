@@ -7,6 +7,9 @@ import JobDetailPage from './pages/JobDetailPage'
 import GatewayPage from './pages/GatewayPage'
 import SessionsPage from './pages/SessionsPage'
 import SessionDetailPage from './pages/SessionDetailPage'
+import FabricAssessmentPage from './pages/FabricAssessmentPage'
+import FabricSessionsPage from './pages/FabricSessionsPage'
+import FabricSessionDetailPage from './pages/FabricSessionDetailPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import MFASetupPage from './pages/MFASetupPage'
@@ -57,6 +60,9 @@ function AppRoutes() {
                 <Route path="/jobs" element={<JobsPage />} />
                 <Route path="/jobs/:jobId" element={<JobDetailPage />} />
                 <Route path="/gateway" element={<GatewayPage />} />
+                <Route path="/fabric/new" element={<FabricAssessmentPage />} />
+                <Route path="/fabric/sessions" element={<FabricSessionsPage />} />
+                <Route path="/fabric/sessions/:sessionId" element={<FabricSessionDetailPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Layout>

@@ -7,6 +7,9 @@ import type {
   ConnectivityResult,
   CreateSessionResponse,
   DatabaseInfo,
+  FabricAuthStartResponse,
+  FabricAuthStatus,
+  FabricSessionRecord,
   Gateway,
   GatewayRegisterResponse,
   JobStatusResponse,
@@ -165,6 +168,21 @@ export const api = {
     a.click()
     URL.revokeObjectURL(url)
   },
+  // ── Fabric Workspace Assessment ───────────────────────────────────────────
+  fabricAuthStart: () =>
+    http.post<FabricAuthStartResponse>('/api/v1/fabric/auth/start'),
+
+  fabricAuthStatus: (authId: string) =>
+    http.get<FabricAuthStatus>(`/api/v1/fabric/auth/${authId}/status`),
+
+  createFabricSession: (data: { auth_id: string; label?: string }) =>
+    http.post<{ fabric_session_id: string; status: string }>('/api/v1/fabric/sessions', data),
+
+  listFabricSessions: () =>
+    http.get<FabricSessionRecord[]>('/api/v1/fabric/sessions'),
+
+  getFabricSession: (sessionId: string) =>
+    http.get<FabricSessionRecord>(`/api/v1/fabric/sessions/${sessionId}`),
 }
 
 export function getApiErrorMessage(err: unknown): string {

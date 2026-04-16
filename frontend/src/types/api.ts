@@ -191,6 +191,99 @@ export interface DatabaseInfo {
   state: string
 }
 
+// ── Fabric Workspace Assessment ───────────────────────────────────────────────
+
+export interface FabricAuthStartResponse {
+  auth_id: string
+  user_code: string
+  verification_url: string
+  expires_at: string
+}
+
+export interface FabricAuthStatus {
+  status: 'starting' | 'pending' | 'ready' | 'error' | 'not_found'
+  error?: string
+}
+
+export interface FabricMeasure {
+  name: string
+  expression: string
+  display_folder: string
+}
+
+export interface FabricTable {
+  name: string
+  storage_mode: string
+  is_hidden: boolean
+}
+
+export interface FabricDataset {
+  id: string
+  name: string
+  configured_by: string
+  is_refreshable: boolean
+  storage_mode: string
+  web_url: string
+  table_count: number
+  measure_count: number
+  calculated_column_count: number
+  calculated_table_count: number
+  complexity_score: number
+  tables: FabricTable[]
+  measures: FabricMeasure[]
+  calculated_columns: { name: string; expression: string }[]
+  calculated_tables: { name: string; expression: string }[]
+}
+
+export interface FabricReport {
+  id: string
+  name: string
+  report_type: string
+  is_paginated: boolean
+  dataset_id: string
+  web_url: string
+  page_count: number | null
+}
+
+export interface FabricWorkspace {
+  id: string
+  name: string
+  type: string
+  state: string
+  dataset_count: number
+  report_count: number
+  paginated_report_count: number
+  datasets: FabricDataset[]
+  reports: FabricReport[]
+}
+
+export interface FabricSummary {
+  workspace_count: number
+  dataset_count: number
+  report_count: number
+  paginated_report_count: number
+  total_measures: number
+  total_calculated_tables: number
+  total_calculated_columns: number
+}
+
+export interface FabricResults {
+  assessed_at: string
+  workspaces: FabricWorkspace[]
+  summary: FabricSummary
+}
+
+export interface FabricSessionRecord {
+  fabric_session_id: string
+  label?: string
+  status: 'running' | 'completed' | 'failed'
+  created_at: string
+  completed_at?: string
+  error?: string
+  progress_message?: string
+  results?: FabricResults
+}
+
 export interface SessionJobInfo {
   job_id: string
   server: string

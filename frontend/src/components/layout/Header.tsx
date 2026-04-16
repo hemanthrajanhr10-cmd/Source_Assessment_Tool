@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Database, PlusCircle, Layers, Radio, List, LogOut, Shield, ChevronDown } from 'lucide-react'
+import { Database, PlusCircle, Layers, Radio, List, LogOut, Shield, ChevronDown, Zap } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import Button from '../ui/Button'
 import { useAuth } from '../../context/AuthContext'
@@ -89,6 +89,19 @@ export default function Header() {
             >
               <Radio className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Gateway</span>
+            </NavLink>
+            <NavLink
+              to="/fabric/sessions"
+              className={({ isActive }) =>
+                `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
+                  isActive
+                    ? 'bg-brand-50 text-brand-700'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                }`
+              }
+            >
+              <Zap className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Fabric</span>
             </NavLink>
           </nav>
 

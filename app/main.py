@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.routes.assessment import router as assessment_router
 from app.api.v1.routes.auth import router as auth_router
+from app.api.v1.routes.fabric import router as fabric_router
 from app.api.v1.routes.gateway import router as gateway_router
 from app.api.v1.routes.sessions import router as sessions_router
 from app.config import settings
@@ -79,6 +80,7 @@ app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(assessment_router, prefix="/api/v1", tags=["Assessment"])
 app.include_router(gateway_router, prefix="/api/v1/gateway", tags=["Gateway"])
 app.include_router(sessions_router, prefix="/api/v1", tags=["Sessions"])
+app.include_router(fabric_router, prefix="/api/v1/fabric", tags=["Fabric"])
 
 
 @app.get("/health", tags=["Health"])

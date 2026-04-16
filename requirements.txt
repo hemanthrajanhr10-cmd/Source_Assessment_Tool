@@ -57,9 +57,10 @@ python-jose[cryptography]==3.3.0
 qrcode[pil]==8.0
 Pillow==11.2.1
 
-# PostgreSQL + MySQL drivers
+# PostgreSQL + MySQL + Oracle drivers
 psycopg2-binary==2.9.10
 pymysql==1.1.1
+oracledb==2.5.1
 
 # Misc
 annotated-doc==0.0.4

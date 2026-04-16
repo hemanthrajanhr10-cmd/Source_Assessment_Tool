@@ -19,6 +19,8 @@ def get_connection(params: ConnectionParams):
         return _connect_postgres(params)
     elif db_type == "mysql":
         return _connect_mysql(params)
+    elif db_type == "oracle":
+        return _connect_oracle(params)
     else:
         return _connect_mssql(params)
 
@@ -52,6 +54,18 @@ def _connect_postgres(params: ConnectionParams):
         password=params.password.get_secret_value(),
         connect_timeout=30,
         sslmode="prefer",
+    )
+
+
+def _connect_oracle(params: ConnectionParams):
+    import oracledb
+    # Thin mode — no Oracle Client installation required.
+    # params.database holds the Oracle service name (used in the Easy Connect DSN).
+    # Works on OCI Autonomous DB, AWS RDS Oracle, on-premises 12c+.
+    return oracledb.connect(
+        user=params.username,
+        password=params.password.get_secret_value(),
+        dsn=f"{params.server}:{params.port}/{params.database}",
     )
 
 

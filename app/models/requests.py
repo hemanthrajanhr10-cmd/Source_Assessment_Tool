@@ -1,7 +1,7 @@
 from typing import Literal
 from pydantic import BaseModel, SecretStr, Field
 
-DbType = Literal["mssql", "postgres", "mysql"]
+DbType = Literal["mssql", "postgres", "mysql", "oracle"]
 
 
 # ── Multi-server session models ────────────────────────────────────────────────
@@ -15,7 +15,7 @@ class DatabaseTarget(BaseModel):
 
 class ServerTarget(BaseModel):
     """One database server with credentials and selected databases."""
-    db_type: DbType = Field("mssql", description="Database engine type: mssql, postgres, mysql")
+    db_type: DbType = Field("mssql", description="Database engine type: mssql, postgres, mysql, oracle")
     server: str = Field(..., description="Hostname or IP")
     port: int = Field(1433, description="Port (default 1433 for SQL Server, 5432 for PostgreSQL, 3306 for MySQL)")
     username: str = Field(..., description="Login username")
@@ -46,7 +46,7 @@ class ListDatabasesRequest(BaseModel):
 # ── Single-server assessment models ───────────────────────────────────────────
 
 class ConnectionParams(BaseModel):
-    db_type: DbType = Field("mssql", description="Database engine: mssql, postgres, mysql")
+    db_type: DbType = Field("mssql", description="Database engine: mssql, postgres, mysql, oracle")
     server: str = Field(..., description="Hostname or IP")
     port: int = Field(1433, description="Port")
     database: str = Field(..., description="Target database name")

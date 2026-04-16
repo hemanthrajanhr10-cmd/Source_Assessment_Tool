@@ -74,18 +74,36 @@ _LIST_DB_QUERIES = {
 def list_databases(connection_params) -> list[dict]:
     """
     Return user databases for the given connection (excludes system databases).
-    Supports mssql, postgres, and mysql.
+    Supports mssql, postgres, mysql, and oracle.
     """
     from app.db import connector
 
     db_type = getattr(connection_params, "db_type", "mssql")
+
+    if db_type == "oracle":
+        # Oracle has one database per service; the service name is params.database.
+        # Validate credentials by connecting, then return the service as the one entry.
+        conn = connector.get_connection(connection_params)
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT ROUND(NVL(SUM(bytes) / (1024*1024), 0), 2) FROM user_segments"
+            )
+            row = cursor.fetchone()
+            size_mb = float(row[0]) if row and row[0] is not None else None
+        except Exception:
+            size_mb = None
+        finally:
+            conn.close()
+        return [{"name": connection_params.database, "state_desc": "ONLINE", "size_mb": size_mb}]
+
     sql = _LIST_DB_QUERIES.get(db_type, _LIST_DB_QUERIES["mssql"])
 
     conn = connector.get_connection(connection_params)
     try:
         cursor = conn.cursor()
         cursor.execute(sql)
-        cols = [desc[0] for desc in cursor.description]
+        cols = [desc[0].lower() for desc in cursor.description]
         rows = []
         for row in cursor.fetchall():
             d = dict(zip(cols, row))

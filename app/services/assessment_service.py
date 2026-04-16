@@ -9,7 +9,7 @@ from typing import Any
 from app.core import job_store
 from app.core.logging import get_logger
 from app.db import azure_store, connector, queries
-from app.db import queries_postgres, queries_mysql
+from app.db import queries_postgres, queries_mysql, queries_oracle
 from app.models.requests import AssessmentRequest
 from app.services import report_service
 
@@ -50,6 +50,7 @@ _QUERY_MODULE = {
     "mssql":    queries,
     "postgres": queries_postgres,
     "mysql":    queries_mysql,
+    "oracle":   queries_oracle,
 }
 
 
@@ -64,10 +65,12 @@ _QUERY_STEPS = _get_query_steps("mssql")
 
 
 def _cursor_rows_to_dicts(cursor) -> list[dict[str, Any]]:
-    """Convert cursor results to a list of dicts keyed by column name."""
+    """Convert cursor results to a list of dicts keyed by lowercase column name.
+    Lowercasing normalises Oracle's uppercase column aliases to match PG/MySQL/MSSQL.
+    """
     if cursor.description is None:
         return []
-    col_names = [desc[0] for desc in cursor.description]
+    col_names = [desc[0].lower() for desc in cursor.description]
     rows = cursor.fetchall()
     result = []
     for row in rows:
@@ -120,7 +123,7 @@ def _run_null_analysis(
 
         null_analysis_sql = getattr(query_mod, "NULL_ANALYSIS_COLUMNS", "")
         if null_analysis_sql == "PARAMETERISED":
-            # postgres / mysql: use parameterised query to avoid SQL injection
+            # postgres / mysql / oracle: parameterised queries to avoid SQL injection
             if db_type == "postgres":
                 col_sql = (
                     "SELECT column_name AS name, data_type "
@@ -129,6 +132,18 @@ def _run_null_analysis(
                     "  AND is_nullable = 'YES' "
                     "ORDER BY ordinal_position LIMIT 20"
                 )
+                params_tuple = (schema, table)
+            elif db_type == "oracle":
+                # Oracle uses :1/:2 positional placeholders; owner = schema for Oracle
+                col_sql = (
+                    "SELECT column_name AS name, data_type "
+                    "FROM all_tab_columns "
+                    "WHERE owner = :1 AND table_name = :2 AND nullable = 'Y' "
+                    "ORDER BY column_id "
+                    "FETCH FIRST 20 ROWS ONLY"
+                )
+                # Oracle stores identifiers uppercase unless quoted at creation
+                params_tuple = (schema.upper(), table.upper())
             else:  # mysql
                 col_sql = (
                     "SELECT COLUMN_NAME AS name, DATA_TYPE AS data_type "
@@ -137,8 +152,9 @@ def _run_null_analysis(
                     "  AND IS_NULLABLE = 'YES' "
                     "ORDER BY ORDINAL_POSITION LIMIT 20"
                 )
+                params_tuple = (schema, table)
             try:
-                cursor.execute(col_sql, (schema, table))
+                cursor.execute(col_sql, params_tuple)
                 col_rows = _cursor_rows_to_dicts(cursor)
             except Exception as exc:
                 logger.warning("Column fetch failed for %s.%s: %s", schema, table, exc)
@@ -176,8 +192,16 @@ def _run_null_analysis(
                         f"SUM(CASE WHEN {safe_col} IS NULL THEN 1 ELSE 0 END) "
                         f"* 100.0 / NULLIF(COUNT(*),0) AS [{col_name}_null_pct]"
                     )
+            elif db_type == "oracle":
+                # Oracle: double-quote identifiers; alias lowercased for consistency
+                safe_col = f'"{col_name}"'
+                null_pct_alias = f"{col_name.lower()}_null_pct"
+                exprs.append(
+                    f"SUM(CASE WHEN {safe_col} IS NULL THEN 1 ELSE 0 END) "
+                    f"* 100.0 / NULLIF(COUNT(*),0) AS \"{null_pct_alias}\""
+                )
             else:
-                # PostgreSQL / MySQL use standard quoting
+                # PostgreSQL / MySQL
                 safe_col = f'"{col_name}"' if db_type == "postgres" else f"`{col_name}`"
                 null_pct_alias = f"{col_name}_null_pct"
                 exprs.append(
@@ -185,7 +209,14 @@ def _run_null_analysis(
                     f"* 100.0 / NULLIF(COUNT(*),0) AS \"{null_pct_alias}\""
                 )
 
-        table_ref = f'"{schema}"."{table}"' if db_type == "postgres" else f"`{schema}`.`{table}`" if db_type == "mysql" else full_name
+        if db_type == "oracle":
+            table_ref = f'"{schema.upper()}"."{table.upper()}"'
+        elif db_type == "postgres":
+            table_ref = f'"{schema}"."{table}"'
+        elif db_type == "mysql":
+            table_ref = f"`{schema}`.`{table}`"
+        else:
+            table_ref = full_name
         query = f"SELECT COUNT(*) AS total_rows, {', '.join(exprs)} FROM {table_ref}"
         try:
             cursor.execute(query)

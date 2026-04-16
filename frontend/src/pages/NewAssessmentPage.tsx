@@ -16,6 +16,7 @@ const DB_TYPE_OPTIONS: { value: DbType; label: string; defaultPort: number }[] =
   { value: 'mssql',    label: 'SQL Server',  defaultPort: 1433 },
   { value: 'postgres', label: 'PostgreSQL',  defaultPort: 5432 },
   { value: 'mysql',    label: 'MySQL',       defaultPort: 3306 },
+  { value: 'oracle',   label: 'Oracle',      defaultPort: 1521 },
 ]
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -31,6 +32,7 @@ interface ServerEntry {
   db_type: DbType
   server: string
   port: number
+  service_name: string   // Oracle: service name (e.g. ORCL, XEPDB1)
   username: string
   password: string
   show_password: boolean
@@ -57,6 +59,7 @@ function makeServer(): ServerEntry {
     db_type: 'mssql',
     server: '',
     port: 1433,
+    service_name: '',
     username: '',
     password: '',
     show_password: false,
@@ -145,8 +148,10 @@ function ServerCard({
     if (!entry.server || !entry.username || !entry.password) return
     set({ dbs_loading: true, dbs_error: null, available_dbs: null })
     // Use a sensible default catalog per db type
+    // Oracle: service_name is required and stored in entry.service_name
     const defaultDb = entry.db_type === 'postgres' ? 'postgres'
       : entry.db_type === 'mysql' ? 'information_schema'
+      : entry.db_type === 'oracle' ? (entry.service_name.trim() || 'ORCL')
       : 'master'
     try {
       const { data } = await api.listDatabases({
@@ -255,7 +260,7 @@ function ServerCard({
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => set({ db_type: opt.value, port: opt.defaultPort, available_dbs: null, selected_dbs: [] })}
+                    onClick={() => set({ db_type: opt.value, port: opt.defaultPort, service_name: '', available_dbs: null, selected_dbs: [] })}
                     className={`flex-1 rounded-xl border-2 px-3 py-2 text-center text-xs font-semibold transition-all ${
                       entry.db_type === opt.value
                         ? 'border-brand-500 bg-brand-50 text-brand-700'
@@ -267,6 +272,30 @@ function ServerCard({
                 ))}
               </div>
             </div>
+
+            {/* Oracle service name */}
+            {entry.db_type === 'oracle' && (
+              <div className="sm:col-span-2">
+                <label className="form-label">
+                  Service Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Database className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    className="form-input pl-10"
+                    placeholder="e.g. ORCL, XEPDB1, mydb.sub.oraclevcn.com"
+                    value={entry.service_name}
+                    onChange={(e) => set({ service_name: e.target.value, available_dbs: null, selected_dbs: [] })}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-slate-400">
+                  Oracle service name (used in the DSN). On OCI this is the connection string prefix.
+                </p>
+              </div>
+            )}
 
             {/* Server */}
             <div className="sm:col-span-2">
@@ -567,6 +596,10 @@ export default function NewAssessmentPage() {
     // Validate
     for (const srv of servers) {
       if (!srv.server.trim()) { setError('All servers must have a hostname.'); return }
+      if (srv.db_type === 'oracle' && !srv.service_name.trim()) {
+        setError(`Server "${srv.server}": Oracle service name is required.`)
+        return
+      }
       if (!srv.username.trim()) { setError(`Server "${srv.server}": username is required.`); return }
       if (!srv.password) { setError(`Server "${srv.server}": password is required.`); return }
       if (srv.selected_dbs.length === 0) {

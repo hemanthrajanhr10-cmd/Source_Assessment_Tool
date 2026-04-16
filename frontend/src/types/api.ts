@@ -1,6 +1,6 @@
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type SessionStatus = 'pending' | 'running' | 'completed' | 'partial' | 'failed' | 'cancelled'
-export type DbType = 'mssql' | 'postgres' | 'mysql'
+export type DbType = 'mssql' | 'postgres' | 'mysql' | 'oracle'
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 

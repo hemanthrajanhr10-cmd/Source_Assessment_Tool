@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from app.core.dependencies import get_current_user
 from app.core.logging import get_logger
@@ -32,6 +32,7 @@ router = APIRouter()
 logger = get_logger(__name__)
 
 EXCEL_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+WORD_MEDIA_TYPE  = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
 # ──────────────────────────── Utility endpoints ──────────────────────────────
@@ -204,6 +205,57 @@ async def download_session_report(session_id: str, current_user: dict = Depends(
         path=report_path,
         media_type=EXCEL_MEDIA_TYPE,
         filename=f"session_{session_id[:8]}.xlsx",
+    )
+
+
+@router.get(
+    "/sessions/{session_id}/word-report",
+    summary="Download combined Word Fabric Assessment Report for a session",
+)
+async def download_session_word_report(
+    session_id: str, current_user: dict = Depends(get_current_user)
+) -> Response:
+    row = azure_store.get_session(session_id)
+    if row is None or row.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+
+    jobs = azure_store.list_session_jobs(session_id)
+    completed = [j for j in jobs if j["status"] == "completed"]
+    if not completed:
+        raise HTTPException(
+            status_code=409,
+            detail="No completed jobs in this session yet.",
+        )
+
+    jobs_data = []
+    for job in completed:
+        try:
+            raw = azure_store.load_full_results(job["job_id"])
+            jobs_data.append({
+                "job_id":   job["job_id"],
+                "server":   job.get("server_name") or "",
+                "database": job.get("database_name") or "",
+                "label":    job.get("label") or job.get("database_name") or "",
+                "results":  raw,
+            })
+        except Exception as exc:
+            logger.warning("Could not load results for job %s: %s", job["job_id"], exc)
+
+    if not jobs_data:
+        raise HTTPException(status_code=409, detail="Could not load results for any completed jobs.")
+
+    from app.services.word_report_service import build_session_word_report
+    doc_bytes = build_session_word_report(
+        session_id=session_id,
+        session_label=row.get("label"),
+        jobs_data=jobs_data,
+    )
+
+    filename = f"fabric_assessment_{session_id[:8]}.docx"
+    return Response(
+        content=doc_bytes,
+        media_type=WORD_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

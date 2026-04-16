@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, RefreshCw, CheckCircle2, XCircle,
+  ArrowLeft, RefreshCw, CheckCircle2, XCircle, FileText,
   Loader2, Clock, AlertTriangle, Database, Server, StopCircle,
 } from 'lucide-react'
 import { api } from '../api/client'
@@ -151,6 +151,20 @@ export default function SessionDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [wordDownloading, setWordDownloading] = useState(false)
+
+  const handleSessionWordDownload = async () => {
+    if (!session || wordDownloading) return
+    setWordDownloading(true)
+    try {
+      await api.downloadSessionWordReport(
+        session.session_id,
+        `fabric_assessment_${session.session_id.slice(0, 8)}.docx`,
+      )
+    } finally {
+      setWordDownloading(false)
+    }
+  }
 
   const { data: session, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['session', sessionId],
@@ -260,6 +274,18 @@ export default function SessionDetailPage() {
                 </div>
               )}
             </>
+          )}
+          {(session.status === 'completed' || session.status === 'partial') && (
+            <Button
+              size="sm"
+              leftIcon={wordDownloading
+                ? <Loader2 className="h-4 w-4 animate-spin" />
+                : <FileText className="h-4 w-4" />}
+              disabled={wordDownloading}
+              onClick={handleSessionWordDownload}
+            >
+              {wordDownloading ? 'Downloading…' : 'Fabric Assessment (Word)'}
+            </Button>
           )}
         </div>
       </div>

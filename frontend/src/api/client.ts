@@ -155,6 +155,16 @@ export const api = {
     a.click()
     URL.revokeObjectURL(url)
   },
+
+  downloadSessionWordReport: async (sessionId: string, filename: string) => {
+    const res = await http.get(`/api/v1/sessions/${sessionId}/word-report`, { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
 }
 
 export function getApiErrorMessage(err: unknown): string {

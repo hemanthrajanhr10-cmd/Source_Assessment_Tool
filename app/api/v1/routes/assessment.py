@@ -291,11 +291,12 @@ WORD_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingm
     summary="Download the Word (.docx) Fabric Assessment Report",
 )
 async def download_word_report(job_id: str, current_user: dict = Depends(get_current_user)) -> Response:
-    _require_completed(job_id, current_user["user_id"])
+    record = _require_completed(job_id, current_user["user_id"])
 
     from app.services.word_report_service import build_word_report
     raw = azure_store.load_full_results(job_id)
-    doc_bytes = build_word_report(job_id, raw)
+    # Use job label as client name (falls back to database name inside the builder)
+    doc_bytes = build_word_report(job_id, raw, client_name=record.label or None)
 
     filename = f"fabric_assessment_{job_id[:8]}.docx"
     return Response(

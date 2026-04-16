@@ -105,7 +105,7 @@ async def create_fabric_session(
             azure_store.create_fabric_session,
             session_id=fabric_session_id,
             label=label,
-            user_id=current_user.user_id,
+            user_id=current_user["user_id"],
         )
     except Exception as exc:
         logger.error("Failed to create fabric session record: %s", exc, exc_info=True)
@@ -123,7 +123,7 @@ async def create_fabric_session(
 @router.get("/sessions")
 async def list_fabric_sessions(current_user=Depends(get_current_user)):
     """List all Fabric assessment sessions for the current user."""
-    return await run_in_threadpool(azure_store.list_fabric_sessions, user_id=current_user.user_id)
+    return await run_in_threadpool(azure_store.list_fabric_sessions, user_id=current_user["user_id"])
 
 
 @router.get("/sessions/{fabric_session_id}")

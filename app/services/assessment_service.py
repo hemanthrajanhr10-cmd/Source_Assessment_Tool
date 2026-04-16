@@ -118,8 +118,34 @@ def _run_null_analysis(
         else:
             full_name = f"{schema}.{table}"
 
-        col_sql = query_mod.NULL_ANALYSIS_COLUMNS.format(full_name=full_name)
-        col_rows = _safe_fetch(cursor, col_sql)
+        null_analysis_sql = getattr(query_mod, "NULL_ANALYSIS_COLUMNS", "")
+        if null_analysis_sql == "PARAMETERISED":
+            # postgres / mysql: use parameterised query to avoid SQL injection
+            if db_type == "postgres":
+                col_sql = (
+                    "SELECT column_name AS name, data_type "
+                    "FROM information_schema.columns "
+                    "WHERE table_schema = %s AND table_name = %s "
+                    "  AND is_nullable = 'YES' "
+                    "ORDER BY ordinal_position LIMIT 20"
+                )
+            else:  # mysql
+                col_sql = (
+                    "SELECT COLUMN_NAME AS name, DATA_TYPE AS data_type "
+                    "FROM information_schema.COLUMNS "
+                    "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s "
+                    "  AND IS_NULLABLE = 'YES' "
+                    "ORDER BY ORDINAL_POSITION LIMIT 20"
+                )
+            try:
+                cursor.execute(col_sql, (schema, table))
+                col_rows = _cursor_rows_to_dicts(cursor)
+            except Exception as exc:
+                logger.warning("Column fetch failed for %s.%s: %s", schema, table, exc)
+                col_rows = []
+        else:
+            col_sql = null_analysis_sql.format(full_name=full_name)
+            col_rows = _safe_fetch(cursor, col_sql)
         if not col_rows:
             sampled += 1
             continue

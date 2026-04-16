@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+import time
+
 import mssql_python
 
 from app.config import settings
@@ -18,7 +20,13 @@ logger = get_logger(__name__)
 
 # ── Connection factory ────────────────────────────────────────────────────────
 
-def _get_conn():
+def _get_conn(retries: int = 3, delay: float = 1.5):
+    """
+    Open a connection to the Azure SQL store.
+    Retries up to `retries` times with a short back-off on transient failures.
+    Azure SQL free / serverless tier occasionally drops connections briefly;
+    a simple retry avoids spurious 500 errors for the caller.
+    """
     conn_str = (
         f"SERVER=tcp:{settings.azure_store_server},{settings.azure_store_port};"
         f"DATABASE={settings.azure_store_database};"
@@ -27,10 +35,42 @@ def _get_conn():
         "TrustServerCertificate=no;"
         "Encrypt=yes;"
     )
-    return mssql_python.connect(conn_str)
+    last_exc: Exception | None = None
+    for attempt in range(retries):
+        try:
+            return mssql_python.connect(conn_str)
+        except Exception as exc:
+            last_exc = exc
+            if attempt < retries - 1:
+                logger.warning(
+                    "Azure SQL connection attempt %d/%d failed (%s) — retrying in %.1fs",
+                    attempt + 1, retries, exc, delay,
+                )
+                time.sleep(delay)
+    raise RuntimeError(f"Azure SQL connection failed after {retries} attempts: {last_exc}") from last_exc
 
 
 # ── Schema init ───────────────────────────────────────────────────────────────
+
+_FABRIC_SESSIONS_DDL = """
+IF OBJECT_ID('dbo.fabric_sessions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.fabric_sessions (
+        session_id       VARCHAR(36)     NOT NULL,
+        user_id          VARCHAR(36)     NULL,
+        label            NVARCHAR(200)   NULL,
+        status           VARCHAR(20)     NOT NULL DEFAULT 'running',
+        created_at       DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at     DATETIME2       NULL,
+        error            NVARCHAR(MAX)   NULL,
+        progress_message NVARCHAR(500)   NULL,
+        results_json     NVARCHAR(MAX)   NULL,
+        CONSTRAINT PK_fabric_sessions PRIMARY KEY (session_id)
+    );
+    CREATE INDEX IX_fabric_sessions_user ON dbo.fabric_sessions (user_id, created_at DESC);
+END;
+"""
+
 
 def init_schema() -> None:
     """Create all tables if they do not exist. Safe to call on every startup."""
@@ -41,6 +81,11 @@ def init_schema() -> None:
         cur.execute(ddl)
         conn.commit()
         logger.info("Azure SQL schema initialised (tables created if missing)")
+        # Run fabric_sessions separately to ensure it always exists
+        # (large schema batches can silently skip later statements on some drivers)
+        cur.execute(_FABRIC_SESSIONS_DDL)
+        conn.commit()
+        logger.info("fabric_sessions table verified")
     except Exception as exc:
         logger.error("Schema init failed: %s", exc)
         raise

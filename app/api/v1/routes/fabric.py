@@ -13,6 +13,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from starlette.concurrency import run_in_threadpool
 
 from app.core.dependencies import get_current_user
 from app.core.logging import get_logger
@@ -99,11 +100,16 @@ async def create_fabric_session(
         )
 
     fabric_session_id = str(uuid.uuid4())
-    azure_store.create_fabric_session(
-        session_id=fabric_session_id,
-        label=label,
-        user_id=current_user.user_id,
-    )
+    try:
+        await run_in_threadpool(
+            azure_store.create_fabric_session,
+            session_id=fabric_session_id,
+            label=label,
+            user_id=current_user.user_id,
+        )
+    except Exception as exc:
+        logger.error("Failed to create fabric session record: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
 
     background_tasks.add_task(_run_fabric_assessment_task, fabric_session_id, auth_id)
 
@@ -117,7 +123,7 @@ async def create_fabric_session(
 @router.get("/sessions")
 async def list_fabric_sessions(current_user=Depends(get_current_user)):
     """List all Fabric assessment sessions for the current user."""
-    return azure_store.list_fabric_sessions(user_id=current_user.user_id)
+    return await run_in_threadpool(azure_store.list_fabric_sessions, user_id=current_user.user_id)
 
 
 @router.get("/sessions/{fabric_session_id}")
@@ -126,7 +132,7 @@ async def get_fabric_session(
     current_user=Depends(get_current_user),
 ):
     """Get status and full results for a Fabric assessment session."""
-    record = azure_store.get_fabric_session(fabric_session_id)
+    record = await run_in_threadpool(azure_store.get_fabric_session, fabric_session_id)
     if not record:
         raise HTTPException(status_code=404, detail="Fabric session not found")
 

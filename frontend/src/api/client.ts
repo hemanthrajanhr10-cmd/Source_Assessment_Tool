@@ -10,6 +10,7 @@ import type {
   FabricAuthStartResponse,
   FabricAuthStatus,
   FabricSessionRecord,
+  FabricWorkspaceInfo,
   Gateway,
   GatewayRegisterResponse,
   JobStatusResponse,
@@ -120,6 +121,12 @@ export const api = {
   listGateways: () =>
     http.get<Gateway[]>('/api/v1/gateway/list'),
 
+  setGatewayRelay: (gateway_key: string, relay_connection_string: string) =>
+    http.post<{ ok: boolean; relay_configured: boolean }>('/api/v1/gateway/relay/config', {
+      gateway_key,
+      relay_connection_string,
+    }),
+
   getAgentDownloadUrl: () =>
     `${BASE_URL}/api/v1/gateway/download`,
 
@@ -175,7 +182,10 @@ export const api = {
   fabricAuthStatus: (authId: string) =>
     http.get<FabricAuthStatus>(`/api/v1/fabric/auth/${authId}/status`),
 
-  createFabricSession: (data: { auth_id: string; label?: string }) =>
+  fabricListWorkspaces: (authId: string) =>
+    http.get<FabricWorkspaceInfo[]>(`/api/v1/fabric/auth/${authId}/workspaces`),
+
+  createFabricSession: (data: { auth_id: string; label?: string; workspace_ids: string[] }) =>
     http.post<{ fabric_session_id: string; status: string }>('/api/v1/fabric/sessions', data),
 
   listFabricSessions: () =>

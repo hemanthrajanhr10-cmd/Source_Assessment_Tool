@@ -16,11 +16,16 @@ Environment variables:
     POLL_INTERVAL   - Seconds between polls (default: 5)
 """
 
+import asyncio
+import base64
+import hashlib
+import hmac
 import json
 import os
 import sys
 import time
 import traceback
+import urllib.parse
 from datetime import datetime, date
 from decimal import Decimal
 from typing import Any
@@ -39,7 +44,11 @@ except ImportError:
     sys.exit(1)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-# Service Bus mode (recommended — works through VPNs)
+# Azure Relay Hybrid Connection mode (preferred — real-time, works through VPNs)
+# Format: Endpoint=sb://ns.servicebus.windows.net/;SharedAccessKeyName=...;SharedAccessKey=...;EntityPath=<hc-name>
+RELAY_CONNECTION_STRING = os.environ.get("RELAY_CONNECTION_STRING", "")
+
+# Service Bus mode (alternative — works through VPNs)
 SERVICE_BUS_CONNECTION_STRING = os.environ.get("SERVICE_BUS_CONNECTION_STRING", "")
 SERVICE_BUS_JOBS_QUEUE   = os.environ.get("SERVICE_BUS_JOBS_QUEUE", "sat-jobs")
 SERVICE_BUS_RESULTS_QUEUE = os.environ.get("SERVICE_BUS_RESULTS_QUEUE", "sat-results")
@@ -530,6 +539,189 @@ def run_assessment(payload: dict) -> dict:
     return raw
 
 
+# ── Azure Relay Hybrid Connection mode ───────────────────────────────────────
+
+def _relay_parse_conn_str(conn_str: str) -> tuple[str, str, str, str]:
+    """Parse relay connection string → (namespace_host, key_name, key, hc_path)."""
+    parts: dict[str, str] = {}
+    for seg in conn_str.split(';'):
+        if '=' in seg:
+            k, v = seg.split('=', 1)
+            parts[k.strip()] = v.strip()
+    endpoint = parts.get('Endpoint', '').replace('sb://', '').rstrip('/')
+    return (
+        endpoint,
+        parts.get('SharedAccessKeyName', ''),
+        parts.get('SharedAccessKey', ''),
+        parts.get('EntityPath', ''),
+    )
+
+
+def _relay_sas_token(resource_uri: str, key_name: str, key: str, expiry_s: int = 3600) -> str:
+    expiry = int(time.time() + expiry_s)
+    encoded_uri = urllib.parse.quote_plus(resource_uri)
+    string_to_sign = encoded_uri + '\n' + str(expiry)
+    sig = base64.b64encode(
+        hmac.new(key.encode('utf-8'), string_to_sign.encode('utf-8'), hashlib.sha256).digest()
+    ).decode()
+    return (
+        f"SharedAccessSignature sr={encoded_uri}"
+        f"&sig={urllib.parse.quote_plus(sig)}"
+        f"&se={expiry}&skn={key_name}"
+    )
+
+
+async def _relay_handle_job(rendezvous_url: str, sat_url: str, gateway_key: str) -> None:
+    """
+    Accept a single inbound relay connection (one job):
+      1. Connect to the Azure Relay rendezvous URL
+      2. Receive the job JSON from the SAT server
+      3. Run the assessment in a thread executor
+      4. POST results back to the SAT server via HTTP
+    """
+    try:
+        import websockets  # type: ignore[import-untyped]
+    except ImportError:
+        print("ERROR: 'websockets' not installed. Run: pip install websockets")
+        return
+
+    try:
+        async with websockets.connect(rendezvous_url) as ws:
+            raw = await asyncio.wait_for(ws.recv(), timeout=30)
+            job = json.loads(raw)
+            job_id  = job.get("job_id", "unknown")
+            payload = job.get("payload", {})
+
+        print(f"\n[{_now()}] Relay job received: {job_id}")
+
+        loop = asyncio.get_event_loop()
+        error = None
+        results = None
+        try:
+            results = await loop.run_in_executor(None, run_assessment, payload)
+            print(f"[{_now()}] Assessment done. Submitting results for {job_id}…")
+        except Exception as exc:
+            error = str(exc)
+            print(f"[{_now()}] Assessment FAILED for {job_id}: {exc}")
+
+        # Post results back via HTTP (existing submit endpoint)
+        try:
+            resp = requests.post(
+                f"{sat_url}/api/v1/gateway/submit/{job_id}",
+                json={"gateway_key": gateway_key, "results": results, "error": error},
+                timeout=120,
+            )
+            resp.raise_for_status()
+            status = "completed" if not error else "error reported"
+            print(f"[{_now()}] Job {job_id} {status} successfully.")
+        except Exception as exc:
+            print(f"[{_now()}] Failed to submit results for {job_id}: {exc}")
+
+    except Exception as exc:
+        print(f"[{_now()}] Error handling relay job: {exc}")
+
+
+async def _relay_listener_async(
+    namespace: str, key_name: str, key: str, hc_path: str,
+    sat_url: str, gateway_key: str,
+) -> None:
+    """
+    Persistent Azure Relay Hybrid Connection listener loop.
+    Connects outbound to Azure Relay and waits for the SAT server to send jobs.
+    Automatically reconnects on disconnection.
+    """
+    try:
+        import websockets  # type: ignore[import-untyped]
+        import websockets.exceptions as _wse  # type: ignore[import-untyped]
+    except ImportError:
+        print("ERROR: 'websockets' not installed. Run: pip install websockets")
+        sys.exit(1)
+
+    resource_uri = f"https://{namespace}/{hc_path}"
+
+    while True:
+        try:
+            token   = _relay_sas_token(resource_uri, key_name, key)
+            ws_url  = (
+                f"wss://{namespace}/$hc/{hc_path}"
+                f"?sb-hc-action=listen"
+                f"&sb-hc-token={urllib.parse.quote(token)}"
+            )
+            print(f"[{_now()}] Connecting to Azure Relay… (HC: {hc_path})")
+
+            async with websockets.connect(ws_url) as ws:
+                print(f"[{_now()}] Relay connected. Waiting for jobs from SAT server…")
+
+                # Mark gateway as online
+                try:
+                    requests.post(
+                        f"{sat_url}/api/v1/gateway/heartbeat",
+                        params={"gateway_key": gateway_key},
+                        timeout=5,
+                    )
+                except Exception:
+                    pass  # heartbeat failure is non-fatal
+
+                while True:
+                    try:
+                        msg = await asyncio.wait_for(ws.recv(), timeout=55)
+                    except asyncio.TimeoutError:
+                        # Send WebSocket ping to keep connection alive
+                        await ws.ping()
+                        continue
+
+                    try:
+                        data = json.loads(msg)
+                    except json.JSONDecodeError:
+                        continue
+
+                    if "accept" in data:
+                        # Azure Relay tells us a sender has connected; give us
+                        # a rendezvous URL to complete the bridged connection.
+                        rendezvous_url = data["accept"]["address"]
+                        asyncio.create_task(
+                            _relay_handle_job(rendezvous_url, sat_url, gateway_key)
+                        )
+
+        except KeyboardInterrupt:
+            print("\nStopped.")
+            sys.exit(0)
+        except Exception as exc:
+            print(f"[{_now()}] Relay error: {exc}. Reconnecting in 10s…")
+            await asyncio.sleep(10)
+
+
+def _run_relay_loop() -> None:
+    """Parse RELAY_CONNECTION_STRING and start the async listener."""
+    namespace, key_name, key, hc_path = _relay_parse_conn_str(RELAY_CONNECTION_STRING)
+
+    if not namespace or not key_name or not key or not hc_path:
+        print("ERROR: RELAY_CONNECTION_STRING is invalid or incomplete.")
+        print("Required format:")
+        print("  Endpoint=sb://<namespace>.servicebus.windows.net/;")
+        print("  SharedAccessKeyName=<name>;SharedAccessKey=<key>;")
+        print("  EntityPath=<hybrid-connection-name>")
+        sys.exit(1)
+
+    if not SAT_SERVER_URL:
+        print("ERROR: SAT_SERVER_URL is required in relay mode (used to submit results).")
+        sys.exit(1)
+    if not GATEWAY_KEY:
+        print("ERROR: GATEWAY_KEY is required in relay mode.")
+        sys.exit(1)
+
+    print(f"Mode     : Azure Relay Hybrid Connection (VPN-compatible, real-time)")
+    print(f"Namespace: {namespace}")
+    print(f"HC Path  : {hc_path}")
+    print(f"Server   : {SAT_SERVER_URL}")
+    print(f"Key      : {GATEWAY_KEY[:8]}…{GATEWAY_KEY[-4:]}")
+    print(f"Press Ctrl+C to stop.\n")
+
+    asyncio.run(
+        _relay_listener_async(namespace, key_name, key, hc_path, SAT_SERVER_URL, GATEWAY_KEY)
+    )
+
+
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
 
 def _post(url: str, data: dict) -> dict:
@@ -678,12 +870,15 @@ def main():
     print("  SAT Gateway Agent")
     print("=" * 60)
 
-    if SERVICE_BUS_CONNECTION_STRING:
-        # Recommended: Azure Service Bus — works through corporate VPNs
+    if RELAY_CONNECTION_STRING:
+        # Preferred: Azure Relay Hybrid Connection — real-time, works through VPNs
+        _run_relay_loop()
+    elif SERVICE_BUS_CONNECTION_STRING:
+        # Alternative: Azure Service Bus — queue-based, works through VPNs
         _run_service_bus_loop(SERVICE_BUS_CONNECTION_STRING)
     else:
         # Fallback: HTTP polling
-        print("\nNote: SERVICE_BUS_CONNECTION_STRING not set.")
+        print("\nNote: Neither RELAY_CONNECTION_STRING nor SERVICE_BUS_CONNECTION_STRING is set.")
         print("      Falling back to HTTP polling mode.")
         print("      This may not work if your VPN blocks outbound connections.\n")
         _run_http_poll_loop()

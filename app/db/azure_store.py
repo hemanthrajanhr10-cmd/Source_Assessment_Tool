@@ -586,7 +586,7 @@ def get_gateway(gateway_key: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT gateway_key, name, status, last_seen_at, created_at, user_id "
+            "SELECT gateway_key, name, status, last_seen_at, created_at, user_id, relay_connection_string "
             "FROM dbo.gateways WHERE gateway_key = ?",
             (gateway_key,),
         )
@@ -599,6 +599,20 @@ def get_gateway(gateway_key: str) -> Optional[dict[str, Any]]:
             if isinstance(v, datetime):
                 result[k] = v.isoformat()
         return result
+    finally:
+        conn.close()
+
+
+def set_gateway_relay(gateway_key: str, relay_connection_string: str) -> None:
+    """Store (or clear) the Azure Relay Hybrid Connection string for a gateway."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.gateways SET relay_connection_string = ? WHERE gateway_key = ?",
+            (relay_connection_string or None, gateway_key),
+        )
+        conn.commit()
     finally:
         conn.close()
 

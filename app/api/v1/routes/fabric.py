@@ -1,16 +1,18 @@
 """
 Fabric Workspace Assessment API routes.
 
-POST   /api/v1/fabric/auth/start           — start device-code auth flow
-GET    /api/v1/fabric/auth/{id}/status     — poll auth status
-POST   /api/v1/fabric/sessions             — start a Fabric assessment session
-GET    /api/v1/fabric/sessions             — list all Fabric sessions
-GET    /api/v1/fabric/sessions/{id}        — get session status + results
+POST   /api/v1/fabric/auth/start              — start device-code auth flow
+GET    /api/v1/fabric/auth/{id}/status        — poll auth status
+GET    /api/v1/fabric/auth/{id}/workspaces    — list workspaces the user can access
+POST   /api/v1/fabric/sessions                — start a Fabric assessment session
+GET    /api/v1/fabric/sessions                — list all Fabric sessions
+GET    /api/v1/fabric/sessions/{id}           — get session status + results
 """
 
 import json
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from starlette.concurrency import run_in_threadpool
@@ -41,16 +43,43 @@ async def start_fabric_auth(_user=Depends(get_current_user)):
 
 @router.get("/auth/{auth_id}/status")
 async def get_fabric_auth_status(auth_id: str, _user=Depends(get_current_user)):
-    """Poll this until status == 'ready'. Then POST /sessions to start assessment."""
+    """Poll this until status == 'ready'. Then fetch workspaces and POST /sessions."""
     return fabric_service.get_auth_status(auth_id)
+
+
+@router.get("/auth/{auth_id}/workspaces")
+async def list_fabric_workspaces(auth_id: str, _user=Depends(get_current_user)):
+    """
+    Return the list of Power BI / Fabric workspaces the authenticated user can access.
+    Call this once auth status is 'ready' to populate the workspace picker.
+    """
+    status = fabric_service.get_auth_status(auth_id)
+    if status.get("status") != "ready":
+        raise HTTPException(
+            status_code=400,
+            detail="Microsoft auth not completed yet. Poll /auth/{id}/status until ready.",
+        )
+    try:
+        workspaces = await run_in_threadpool(fabric_service.list_workspaces, auth_id)
+        return workspaces
+    except Exception as exc:
+        logger.error("Failed to list Fabric workspaces: %s", exc, exc_info=True)
+        raise HTTPException(status_code=502, detail=str(exc))
 
 
 # ── Session endpoints ─────────────────────────────────────────────────────────
 
-def _run_fabric_assessment_task(fabric_session_id: str, auth_id: str) -> None:
-    """Background task: run assessment, persist results."""
-    azure_store.update_fabric_session(fabric_session_id, status="running",
-                                      progress_message="Connecting to Power BI…")
+def _run_fabric_assessment_task(
+    fabric_session_id: str,
+    auth_id: str,
+    workspace_ids: Optional[list[str]],
+) -> None:
+    """Background task: run assessment for selected workspaces, persist results."""
+    azure_store.update_fabric_session(
+        fabric_session_id,
+        status="running",
+        progress_message="Connecting to Power BI…",
+    )
     try:
         def _progress(msg: str):
             azure_store.update_fabric_session(fabric_session_id, progress_message=msg)
@@ -58,6 +87,7 @@ def _run_fabric_assessment_task(fabric_session_id: str, auth_id: str) -> None:
         results = fabric_service.run_fabric_assessment(
             fabric_session_id=fabric_session_id,
             auth_id=auth_id,
+            workspace_ids=workspace_ids or None,
             on_progress=_progress,
         )
         azure_store.update_fabric_session(
@@ -87,10 +117,21 @@ async def create_fabric_session(
 ):
     """
     Start a Fabric workspace assessment.
-    Body: { "auth_id": "<uuid>", "label": "<optional>" }
+    Body: {
+        "auth_id": "<uuid>",
+        "label": "<optional>",
+        "workspace_ids": ["<ws-id-1>", "<ws-id-2>"]   ← required; list of workspace IDs to assess
+    }
     """
-    auth_id = body.get("auth_id", "")
-    label   = body.get("label") or None
+    auth_id       = body.get("auth_id", "")
+    label         = body.get("label") or None
+    workspace_ids: list[str] = body.get("workspace_ids") or []
+
+    if not workspace_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="workspace_ids is required. Fetch workspaces via GET /auth/{id}/workspaces and select at least one.",
+        )
 
     status = fabric_service.get_auth_status(auth_id)
     if status.get("status") != "ready":
@@ -111,12 +152,17 @@ async def create_fabric_session(
         logger.error("Failed to create fabric session record: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database error: {exc}")
 
-    background_tasks.add_task(_run_fabric_assessment_task, fabric_session_id, auth_id)
+    background_tasks.add_task(
+        _run_fabric_assessment_task,
+        fabric_session_id,
+        auth_id,
+        workspace_ids,
+    )
 
     return {
         "fabric_session_id": fabric_session_id,
         "status": "running",
-        "message": "Fabric assessment started.",
+        "message": f"Fabric assessment started for {len(workspace_ids)} workspace(s).",
     }
 
 

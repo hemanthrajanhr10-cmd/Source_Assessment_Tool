@@ -55,6 +55,11 @@ class GatewaySubmitRequest(BaseModel):
     error: Optional[str] = None
 
 
+class GatewayRelayConfigRequest(BaseModel):
+    gateway_key: str
+    relay_connection_string: str   # empty string = clear relay config
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/register", response_model=GatewayRegisterResponse, summary="Register a new gateway")
@@ -86,6 +91,44 @@ async def gateway_status(gateway_key: str, current_user: dict = Depends(get_curr
     if not gw or gw.get("user_id") != current_user["user_id"]:
         raise HTTPException(status_code=404, detail="Gateway not found.")
     return gw
+
+
+@router.post("/relay/config", summary="Store Azure Relay connection string for a gateway")
+async def set_relay_config(
+    body: GatewayRelayConfigRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Associate an Azure Relay Hybrid Connection string with a registered gateway.
+    The agent will listen on this relay for jobs instead of polling.
+
+    Pass relay_connection_string="" to remove relay mode and revert to polling.
+    """
+    from app.services import relay_service
+
+    gw = azure_store.get_gateway(body.gateway_key)
+    if not gw or gw.get("user_id") != current_user["user_id"]:
+        raise HTTPException(status_code=404, detail="Gateway not found.")
+
+    conn_str = body.relay_connection_string.strip()
+    if conn_str and not relay_service.is_valid_conn_str(conn_str):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid relay connection string. "
+                "Required format: Endpoint=sb://<namespace>.servicebus.windows.net/;"
+                "SharedAccessKeyName=<name>;SharedAccessKey=<key>;EntityPath=<hc-name>"
+            ),
+        )
+
+    azure_store.set_gateway_relay(body.gateway_key, conn_str)
+    logger.info(
+        "Gateway %s relay config %s by user %s",
+        body.gateway_key[:8],
+        "updated" if conn_str else "cleared",
+        current_user["user_id"],
+    )
+    return {"ok": True, "relay_configured": bool(conn_str)}
 
 
 @router.post("/heartbeat", summary="Agent heartbeat — marks gateway as online")

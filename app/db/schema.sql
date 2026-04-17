@@ -69,6 +69,10 @@ IF OBJECT_ID('dbo.gateways', 'U') IS NULL
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.gateways') AND name = 'user_id')
     ALTER TABLE dbo.gateways ADD user_id VARCHAR(36) NULL;
 
+-- Migration: add relay connection string to gateways (Azure Relay Hybrid Connection)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.gateways') AND name = 'relay_connection_string')
+    ALTER TABLE dbo.gateways ADD relay_connection_string NVARCHAR(MAX) NULL;
+
 -- ─── 1c. fabric_sessions ─────────────────────────────────────────────────────
 IF OBJECT_ID('dbo.fabric_sessions', 'U') IS NULL
     CREATE TABLE dbo.fabric_sessions (

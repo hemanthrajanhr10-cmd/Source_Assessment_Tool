@@ -138,6 +138,7 @@ export interface Gateway {
   status: 'online' | 'offline'
   last_seen_at?: string
   created_at: string
+  relay_connection_string?: string | null
 }
 
 export interface GatewayRegisterResponse {
@@ -192,6 +193,17 @@ export interface DatabaseInfo {
 }
 
 // ── Fabric Workspace Assessment ───────────────────────────────────────────────
+
+// Lightweight workspace info returned by GET /auth/{id}/workspaces (for the picker)
+export interface FabricWorkspaceInfo {
+  id: string
+  name: string
+  type: string
+  state: string
+  capacity_id: string
+  dataset_count: number
+  report_count: number
+}
 
 export interface FabricAuthStartResponse {
   auth_id: string

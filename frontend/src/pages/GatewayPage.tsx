@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Radio, Plus, Download, Copy, Check, Wifi, WifiOff,
-  Clock, AlertCircle, Info, Terminal,
+  Clock, AlertCircle, Info, Terminal, Zap, X, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { Gateway } from '../types/api'
@@ -124,7 +124,7 @@ function RegisterGateway({ onRegistered }: { onRegistered: () => void }) {
   )
 }
 
-// ── Download agent ─────────────────────────────────────────────────────────────
+// ── Copy button ────────────────────────────────────────────────────────────────
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -140,6 +140,8 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+// ── Download agent ─────────────────────────────────────────────────────────────
+
 function DownloadAgent() {
   return (
     <div className="card overflow-hidden">
@@ -149,14 +151,26 @@ function DownloadAgent() {
       </div>
       <div className="p-6 space-y-5">
 
-        {/* How it works */}
-        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          <Info className="h-4 w-4 mt-0.5 shrink-0" />
-          <span>
-            The agent connects to <strong>Azure Service Bus</strong> (outbound HTTPS port 443) —
-            this works through corporate VPNs. No inbound ports needed on the client network.
-            Requires Python 3.9+ only. No ODBC Driver installation needed.
-          </span>
+        {/* Mode overview */}
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div className="rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-800 space-y-1">
+            <div className="flex items-center gap-2 font-semibold">
+              <Zap className="h-4 w-4" /> Azure Relay Hybrid Connection
+            </div>
+            <p className="text-xs text-purple-700">
+              Recommended for on-prem & network-restricted databases. Real-time dispatch via
+              outbound WebSocket (port 443). No inbound ports needed.
+            </p>
+          </div>
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 space-y-1">
+            <div className="flex items-center gap-2 font-semibold">
+              <Info className="h-4 w-4" /> Azure Service Bus (alternative)
+            </div>
+            <p className="text-xs text-blue-700">
+              Queue-based delivery via outbound HTTPS port 443.
+              Works through corporate VPNs. Agent polls the queue.
+            </p>
+          </div>
         </div>
 
         {/* Step 1 */}
@@ -177,18 +191,48 @@ function DownloadAgent() {
           <p className="text-sm font-semibold text-slate-700">Step 2 — Install dependencies</p>
           <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-sm text-slate-100 flex items-center gap-2">
             <Terminal className="h-4 w-4 shrink-0 text-slate-400" />
-            <span>pip install pymssql requests azure-servicebus</span>
-            <CopyButton text="pip install pymssql requests azure-servicebus" />
+            <span>pip install pymssql requests websockets</span>
+            <CopyButton text="pip install pymssql requests websockets" />
           </div>
         </div>
 
-        {/* Step 3 */}
+        {/* Step 3 — Relay mode */}
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-slate-700">Step 3 — Set the Service Bus connection string and run</p>
-          <p className="text-xs text-slate-400">
-            Get the connection string from: <strong>Azure Portal → Service Bus → sat-servicebus → Shared access policies → RootManageSharedAccessKey → Primary Connection String</strong>
+          <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+            <Zap className="h-4 w-4 text-purple-500" />
+            Step 3a — Configure Azure Relay mode (recommended)
           </p>
+          <ol className="text-xs text-slate-500 list-decimal list-inside space-y-1 pl-1">
+            <li>In Azure Portal, create a <strong>Relay</strong> namespace (or use an existing one)</li>
+            <li>Inside it, create a <strong>Hybrid Connection</strong> — name it anything (e.g. <code className="font-mono bg-slate-100 px-1 rounded">sat-gateway-acme</code>)</li>
+            <li>Go to the Hybrid Connection → <strong>Shared access policies</strong> → Add a policy with <strong>Listen + Send</strong></li>
+            <li>Copy the <strong>Primary connection string</strong> — it includes <code className="font-mono bg-slate-100 px-1 rounded">EntityPath=</code></li>
+            <li>Paste it into the gateway's <strong>Relay Config</strong> panel below, then run the agent:</li>
+          </ol>
+          <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-xs text-slate-100 space-y-2">
+            <div className="text-slate-400"># Windows — Command Prompt</div>
+            <div className="flex items-start gap-2">
+              <span className="flex-1 break-all">set RELAY_CONNECTION_STRING=<span className="text-yellow-300">Endpoint=sb://my-relay.servicebus.windows.net/;SharedAccessKeyName=...;SharedAccessKey=...;EntityPath=sat-gateway-acme</span></span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="flex-1 break-all">set SAT_SERVER_URL=<span className="text-yellow-300">https://your-sat-app.azurewebsites.net</span></span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="flex-1">set GATEWAY_KEY=<span className="text-yellow-300">&lt;your-gateway-key&gt;</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="flex-1">python sat_agent.py</span>
+              <CopyButton text="python sat_agent.py" />
+            </div>
+          </div>
+        </div>
 
+        {/* Step 3b — Service Bus mode */}
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+            <Info className="h-4 w-4 text-blue-500" />
+            Step 3b — Configure Service Bus mode (alternative)
+          </p>
           <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-xs text-slate-100 space-y-2">
             <div className="text-slate-400"># Windows — Command Prompt</div>
             <div className="flex items-start gap-2">
@@ -196,34 +240,105 @@ function DownloadAgent() {
             </div>
             <div className="flex items-center gap-2">
               <span className="flex-1">python sat_agent.py</span>
-              <CopyButton text="python sat_agent.py" />
             </div>
           </div>
+          <p className="text-xs text-slate-400">
+            Add <code className="font-mono bg-slate-100 px-1 rounded">azure-servicebus</code> to your pip install command when using this mode.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-          <div className="rounded-lg bg-slate-900 px-4 py-3 font-mono text-xs text-slate-100 space-y-2">
-            <div className="text-slate-400"># Linux / Mac — Terminal</div>
-            <div className="flex items-start gap-2">
-              <span className="flex-1 break-all">export SERVICE_BUS_CONNECTION_STRING=<span className="text-yellow-300">Endpoint=sb://sat-servicebus.servicebus.windows.net/;SharedAccessKey=...</span></span>
+// ── Relay config panel (per gateway) ──────────────────────────────────────────
+
+function RelayConfigPanel({ gw, onSaved }: { gw: Gateway; onSaved: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [connStr, setConnStr] = useState(gw.relay_connection_string ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  const mutation = useMutation({
+    mutationFn: () => api.setGatewayRelay(gw.gateway_key, connStr.trim()),
+    onSuccess: () => {
+      setSaved(true)
+      setError(null)
+      setTimeout(() => setSaved(false), 3000)
+      onSaved()
+    },
+    onError: (err) => setError(getApiErrorMessage(err)),
+  })
+
+  const isConfigured = !!gw.relay_connection_string
+
+  return (
+    <div className="mt-3 rounded-xl border border-purple-100 bg-purple-50 overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-purple-100 transition-colors"
+      >
+        <Zap className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+        <span className="text-xs font-semibold text-purple-800 flex-1">
+          Azure Relay Config
+          {isConfigured && (
+            <span className="ml-2 inline-flex items-center gap-1 text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full text-[10px]">
+              <Check className="h-2.5 w-2.5" /> Configured
+            </span>
+          )}
+        </span>
+        {open ? <ChevronUp className="h-3.5 w-3.5 text-purple-400" /> : <ChevronDown className="h-3.5 w-3.5 text-purple-400" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 pt-1 space-y-3 border-t border-purple-100">
+          <p className="text-xs text-purple-700">
+            Paste the Azure Relay Hybrid Connection string (must include <code className="font-mono bg-purple-100 px-1 rounded">EntityPath=</code>).
+            Leave blank to use Service Bus / HTTP polling mode.
+          </p>
+          <textarea
+            className="w-full rounded-lg border border-purple-200 bg-white px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-300 resize-none"
+            rows={3}
+            placeholder="Endpoint=sb://my-relay.servicebus.windows.net/;SharedAccessKeyName=...;SharedAccessKey=...;EntityPath=sat-gateway-xyz"
+            value={connStr}
+            onChange={(e) => { setConnStr(e.target.value); setError(null) }}
+          />
+          {error && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>{error}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="flex-1">python sat_agent.py</span>
-            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => mutation.mutate()}
+              loading={mutation.isPending}
+            >
+              {saved ? <><Check className="h-3.5 w-3.5" /> Saved</> : 'Save'}
+            </Button>
+            {isConfigured && (
+              <button
+                onClick={() => { setConnStr(''); mutation.mutate() }}
+                className="flex items-center gap-1 text-xs text-red-600 hover:underline"
+              >
+                <X className="h-3 w-3" /> Clear
+              </button>
+            )}
           </div>
         </div>
-
-        <p className="text-xs text-slate-400">
-          The agent connects to Azure Service Bus on port 443 (HTTPS) — the same port used by
-          Office 365 and Teams, so corporate firewalls allow it by default.
-          Keep the agent running while assessments are being submitted.
-        </p>
-      </div>
+      )}
     </div>
   )
 }
 
 // ── Gateway list ───────────────────────────────────────────────────────────────
 
-function GatewayList({ gateways, isLoading }: { gateways: Gateway[]; isLoading: boolean }) {
+function GatewayList({ gateways, isLoading, onRelayUpdate }: {
+  gateways: Gateway[]
+  isLoading: boolean
+  onRelayUpdate: () => void
+}) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   const copyKey = (key: string) => {
@@ -255,30 +370,38 @@ function GatewayList({ gateways, isLoading }: { gateways: Gateway[]; isLoading: 
       </div>
       <ul className="divide-y divide-slate-100">
         {gateways.map((gw) => (
-          <li key={gw.gateway_key} className="px-6 py-4 flex items-center gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-slate-900 truncate">{gw.name}</span>
-                <StatusBadge status={gw.status} />
+          <li key={gw.gateway_key} className="px-6 py-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-medium text-slate-900 truncate">{gw.name}</span>
+                  <StatusBadge status={gw.status} />
+                  {gw.relay_connection_string && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                      <Zap className="h-2.5 w-2.5" /> Relay
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
+                  <span className="font-mono truncate max-w-[200px]" title={gw.gateway_key}>
+                    {gw.gateway_key.substring(0, 8)}…{gw.gateway_key.substring(gw.gateway_key.length - 6)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {gw.status === 'online' ? 'Last seen ' : ''}{relativeTime(gw.last_seen_at)}
+                  </span>
+                </div>
               </div>
-              <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
-                <span className="font-mono truncate max-w-[200px]" title={gw.gateway_key}>
-                  {gw.gateway_key.substring(0, 8)}…{gw.gateway_key.substring(gw.gateway_key.length - 6)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {gw.status === 'online' ? 'Last seen ' : ''}{relativeTime(gw.last_seen_at)}
-                </span>
-              </div>
+              <button
+                onClick={() => copyKey(gw.gateway_key)}
+                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                title="Copy gateway key"
+              >
+                {copiedKey === gw.gateway_key ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedKey === gw.gateway_key ? 'Copied' : 'Key'}
+              </button>
             </div>
-            <button
-              onClick={() => copyKey(gw.gateway_key)}
-              className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-              title="Copy gateway key"
-            >
-              {copiedKey === gw.gateway_key ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-              {copiedKey === gw.gateway_key ? 'Copied' : 'Key'}
-            </button>
+            <RelayConfigPanel gw={gw} onSaved={onRelayUpdate} />
           </li>
         ))}
       </ul>
@@ -304,13 +427,15 @@ export default function GatewayPage() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Gateway Manager</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Connect to on-premises SQL Servers through a lightweight agent running inside the client's network.
+          Connect to on-premises or network-restricted SQL Servers through a lightweight agent
+          running inside the client's network. Uses Azure Relay Hybrid Connection for real-time,
+          VPN-compatible job delivery.
         </p>
       </div>
 
       <RegisterGateway onRegistered={refresh} />
       <DownloadAgent />
-      <GatewayList gateways={data ?? []} isLoading={isLoading} />
+      <GatewayList gateways={data ?? []} isLoading={isLoading} onRelayUpdate={refresh} />
     </div>
   )
 }

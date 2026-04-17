@@ -130,7 +130,7 @@ async def trigger_assessment(
     job_id = str(uuid.uuid4())
     user_id = current_user["user_id"]
 
-    # ── Gateway path: publish to Service Bus ─────────────────────────────────
+    # ── Gateway path: publish to Relay / Service Bus / HTTP poll ─────────────
     if body.gateway_key:
         payload = {
             "connection": {
@@ -147,8 +147,39 @@ async def trigger_assessment(
         }
         record = JobRecord(job_id=job_id, label=body.label)
 
-        if service_bus.is_available():
-            # Service Bus path — VPN-proof, agent receives via Azure Service Bus
+        # Check if this gateway has Azure Relay configured
+        gw = azure_store.get_gateway(body.gateway_key)
+        relay_conn_str = (gw or {}).get("relay_connection_string") or ""
+
+        if relay_conn_str:
+            # ── Azure Relay Hybrid Connection path (VPN-proof, real-time) ────
+            from app.services import relay_service
+            job_store.create_job(record, user_id=user_id)
+            job_store.update_job(
+                job_id,
+                status=JobStatus.PENDING,
+                progress_message="Dispatching to gateway agent via Azure Relay…",
+            )
+            try:
+                await relay_service.send_job(relay_conn_str, job_id, payload)
+            except RuntimeError as exc:
+                job_store.update_job(
+                    job_id,
+                    status=JobStatus.FAILED,
+                    completed_at=datetime.now(timezone.utc),
+                    error=str(exc),
+                    progress_message=None,
+                )
+                raise HTTPException(status_code=503, detail=str(exc))
+            logger.info("Job %s dispatched via Azure Relay to gateway %s", job_id, body.gateway_key[:8], extra={"job_id": job_id})
+            return AssessmentResponse(
+                job_id=job_id,
+                status=JobStatus.PENDING,
+                message="Job sent to gateway agent via Azure Relay.",
+            )
+
+        elif service_bus.is_available():
+            # ── Service Bus path — VPN-proof, agent receives via queue ────────
             job_store.create_job(record, user_id=user_id)
             job_store.update_job(job_id, progress_message="Waiting for gateway agent to pick up job…")
             service_bus.publish_job(job_id, payload)
@@ -158,8 +189,9 @@ async def trigger_assessment(
                 status=JobStatus.PENDING,
                 message="Job sent to Service Bus. Agent will pick it up shortly.",
             )
+
         else:
-            # Fallback: legacy HTTP polling (no Service Bus configured)
+            # ── Fallback: legacy HTTP polling ─────────────────────────────────
             azure_store.create_gateway_job(
                 job_id=job_id,
                 label=body.label,

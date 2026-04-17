@@ -278,13 +278,13 @@ def list_fabric_sessions(user_id: Optional[str] = None) -> list[dict[str, Any]]:
         cur = conn.cursor()
         if user_id:
             cur.execute(
-                "SELECT session_id, label, status, created_at, completed_at, error, progress_message "
+                "SELECT session_id AS fabric_session_id, label, status, created_at, completed_at, error, progress_message "
                 "FROM dbo.fabric_sessions WHERE user_id = ? ORDER BY created_at DESC",
                 (user_id,),
             )
         else:
             cur.execute(
-                "SELECT session_id, label, status, created_at, completed_at, error, progress_message "
+                "SELECT session_id AS fabric_session_id, label, status, created_at, completed_at, error, progress_message "
                 "FROM dbo.fabric_sessions ORDER BY created_at DESC"
             )
         cols = [d[0] for d in cur.description]

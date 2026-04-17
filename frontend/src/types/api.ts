@@ -240,7 +240,9 @@ export interface FabricDataset {
   measure_count: number
   calculated_column_count: number
   calculated_table_count: number
+  relationship_count: number
   complexity_score: number
+  info_supported: boolean
   tables: FabricTable[]
   measures: FabricMeasure[]
   calculated_columns: { name: string; expression: string }[]
@@ -255,6 +257,8 @@ export interface FabricReport {
   dataset_id: string
   web_url: string
   page_count: number | null
+  visual_count: number
+  bookmark_count: number
 }
 
 export interface FabricWorkspace {
@@ -277,6 +281,8 @@ export interface FabricSummary {
   total_measures: number
   total_calculated_tables: number
   total_calculated_columns: number
+  total_relationships: number
+  total_visuals: number
 }
 
 export interface FabricResults {

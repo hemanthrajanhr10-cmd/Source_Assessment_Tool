@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Zap, Database, FileText, BarChart2, ChevronDown, ChevronUp,
   Loader2, CheckCircle2, XCircle, AlertCircle, ExternalLink,
-  Table2, Hash, Calculator,
+  Table2, Hash, Calculator, Link2, Eye, Bookmark,
 } from 'lucide-react'
 import { api } from '../api/client'
 import type { FabricDataset, FabricReport, FabricWorkspace } from '../types/api'
@@ -47,6 +47,10 @@ function StorageBadge({ mode }: { mode: string }) {
 
 function DatasetRow({ ds }: { ds: FabricDataset }) {
   const [open, setOpen] = useState(false)
+
+  // Complexity rate as % of max possible score
+  const complexityPct = Math.min(100, ds.complexity_score)
+
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <button
@@ -61,6 +65,9 @@ function DatasetRow({ ds }: { ds: FabricDataset }) {
         <div className="flex items-center gap-2 shrink-0">
           <StorageBadge mode={ds.storage_mode} />
           <ComplexityBadge score={ds.complexity_score} />
+          {!ds.info_supported && (
+            <span className="text-xs text-slate-400 italic">No DAX access</span>
+          )}
           {open ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
         </div>
       </button>
@@ -68,24 +75,46 @@ function DatasetRow({ ds }: { ds: FabricDataset }) {
       {open && (
         <div className="p-4 space-y-4 border-t border-slate-100">
           {/* Stat row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
-              { icon: <Table2 className="h-3.5 w-3.5" />, label: 'Tables',             value: ds.table_count },
-              { icon: <Hash className="h-3.5 w-3.5" />,   label: 'Measures',           value: ds.measure_count },
-              { icon: <Calculator className="h-3.5 w-3.5" />, label: 'Calc. Columns',  value: ds.calculated_column_count },
-              { icon: <Database className="h-3.5 w-3.5" />,  label: 'Calc. Tables',   value: ds.calculated_table_count },
+              { icon: <Table2 className="h-3.5 w-3.5" />,      label: 'Tables',           value: ds.table_count },
+              { icon: <Hash className="h-3.5 w-3.5" />,         label: 'Measures',         value: ds.measure_count },
+              { icon: <Calculator className="h-3.5 w-3.5" />,   label: 'Calc. Columns',    value: ds.calculated_column_count },
+              { icon: <Database className="h-3.5 w-3.5" />,     label: 'Calc. Tables',     value: ds.calculated_table_count },
+              { icon: <Link2 className="h-3.5 w-3.5" />,        label: 'Relationships',    value: ds.relationship_count },
+              { icon: <BarChart2 className="h-3.5 w-3.5" />,    label: 'Complexity %',     value: `${complexityPct}%` },
             ].map(({ icon, label, value }) => (
               <div key={label} className="rounded-lg border border-slate-200 bg-white p-3 text-center">
-                <div className="flex items-center justify-center gap-1 text-slate-400 mb-1">{icon}<span className="text-xs">{label}</span></div>
+                <div className="flex items-center justify-center gap-1 text-slate-400 mb-1">
+                  {icon}<span className="text-xs">{label}</span>
+                </div>
                 <p className="text-lg font-bold text-slate-800">{value}</p>
               </div>
             ))}
           </div>
 
+          {/* Complexity bar */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-slate-500">Model Complexity</span>
+              <span className="text-xs font-medium text-slate-700">{complexityPct}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className={`h-2 rounded-full transition-all ${
+                  complexityPct >= 60 ? 'bg-red-500' : complexityPct >= 25 ? 'bg-amber-400' : 'bg-emerald-400'
+                }`}
+                style={{ width: `${complexityPct}%` }}
+              />
+            </div>
+          </div>
+
           {/* Tables */}
           {ds.tables.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Tables</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                Tables ({ds.tables.length})
+              </p>
               <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50">
@@ -93,6 +122,7 @@ function DatasetRow({ ds }: { ds: FabricDataset }) {
                       <th className="text-left px-3 py-2 font-semibold text-slate-600">Name</th>
                       <th className="text-left px-3 py-2 font-semibold text-slate-600">Storage Mode</th>
                       <th className="text-left px-3 py-2 font-semibold text-slate-600">Hidden</th>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-600">Calculated</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -100,7 +130,12 @@ function DatasetRow({ ds }: { ds: FabricDataset }) {
                       <tr key={t.name} className="hover:bg-slate-50">
                         <td className="px-3 py-2 font-mono">{t.name}</td>
                         <td className="px-3 py-2"><StorageBadge mode={t.storage_mode} /></td>
-                        <td className="px-3 py-2">{t.is_hidden ? 'Yes' : 'No'}</td>
+                        <td className="px-3 py-2 text-slate-500">{t.is_hidden ? 'Yes' : 'No'}</td>
+                        <td className="px-3 py-2 text-slate-500">
+                          {(t as { is_calculated?: boolean }).is_calculated ? (
+                            <span className="text-amber-600 font-medium">Yes</span>
+                          ) : 'No'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -120,6 +155,7 @@ function DatasetRow({ ds }: { ds: FabricDataset }) {
                   <thead className="bg-slate-50 sticky top-0">
                     <tr>
                       <th className="text-left px-3 py-2 font-semibold text-slate-600">Name</th>
+                      <th className="text-left px-3 py-2 font-semibold text-slate-600">Folder</th>
                       <th className="text-left px-3 py-2 font-semibold text-slate-600">Expression</th>
                     </tr>
                   </thead>
@@ -127,6 +163,9 @@ function DatasetRow({ ds }: { ds: FabricDataset }) {
                     {ds.measures.map((m) => (
                       <tr key={m.name} className="hover:bg-slate-50">
                         <td className="px-3 py-2 font-mono whitespace-nowrap">{m.name}</td>
+                        <td className="px-3 py-2 text-slate-400 whitespace-nowrap">
+                          {m.display_folder || '—'}
+                        </td>
                         <td className="px-3 py-2 font-mono text-slate-500 truncate max-w-xs" title={m.expression}>
                           {m.expression}
                         </td>
@@ -134,6 +173,25 @@ function DatasetRow({ ds }: { ds: FabricDataset }) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* Calculated Columns */}
+          {ds.calculated_columns.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                Calculated Columns ({ds.calculated_columns.length})
+              </p>
+              <div className="space-y-1">
+                {ds.calculated_columns.map((c) => (
+                  <div key={c.name} className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
+                    <p className="text-xs font-mono font-semibold text-slate-700">{c.name}</p>
+                    {c.expression && (
+                      <p className="text-xs font-mono text-slate-400 mt-0.5 truncate">{c.expression}</p>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -173,13 +231,27 @@ function DatasetRow({ ds }: { ds: FabricDataset }) {
 
 function ReportRow({ rpt }: { rpt: FabricReport }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 border-b last:border-0 border-slate-100 hover:bg-slate-50">
+    <div className="flex items-center gap-3 px-4 py-3 border-b last:border-0 border-slate-100 hover:bg-slate-50">
       <FileText className={`h-4 w-4 shrink-0 ${rpt.is_paginated ? 'text-orange-500' : 'text-blue-500'}`} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-800 truncate">{rpt.name}</p>
-        <p className="text-xs text-slate-400">
-          {rpt.is_paginated ? 'Paginated Report' : `${rpt.page_count ?? '?'} page${rpt.page_count !== 1 ? 's' : ''}`}
-        </p>
+        <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400">
+          <span>{rpt.is_paginated ? 'Paginated' : `${rpt.page_count ?? '?'} page${rpt.page_count !== 1 ? 's' : ''}`}</span>
+          {!rpt.is_paginated && (
+            <>
+              <span className="flex items-center gap-1">
+                <Eye className="h-3 w-3" />
+                {rpt.visual_count} visual{rpt.visual_count !== 1 ? 's' : ''}
+              </span>
+              {rpt.bookmark_count > 0 && (
+                <span className="flex items-center gap-1">
+                  <Bookmark className="h-3 w-3" />
+                  {rpt.bookmark_count} bookmark{rpt.bookmark_count !== 1 ? 's' : ''}
+                </span>
+              )}
+            </>
+          )}
+        </div>
       </div>
       {rpt.web_url && (
         <a href={rpt.web_url} target="_blank" rel="noopener noreferrer"
@@ -195,6 +267,7 @@ function ReportRow({ rpt }: { rpt: FabricReport }) {
 
 function WorkspaceCard({ ws }: { ws: FabricWorkspace }) {
   const [open, setOpen] = useState(true)
+  const totalVisuals = ws.reports.reduce((sum, r) => sum + (r.visual_count ?? 0), 0)
   return (
     <div className="card overflow-hidden border-2 border-slate-100">
       <button
@@ -207,7 +280,8 @@ function WorkspaceCard({ ws }: { ws: FabricWorkspace }) {
           <p className="text-xs text-slate-400">
             {ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''} ·{' '}
             {ws.report_count} report{ws.report_count !== 1 ? 's' : ''}{' '}
-            {ws.paginated_report_count > 0 ? `· ${ws.paginated_report_count} paginated` : ''}
+            {ws.paginated_report_count > 0 ? `· ${ws.paginated_report_count} paginated` : ''}{' '}
+            {totalVisuals > 0 ? `· ${totalVisuals} visuals` : ''}
           </p>
         </div>
         {open ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
@@ -304,7 +378,7 @@ export default function FabricSessionDetailPage() {
 
       {/* Summary stats */}
       {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
           {[
             { label: 'Workspaces',       value: summary.workspace_count },
             { label: 'Semantic Models',  value: summary.dataset_count },
@@ -313,6 +387,8 @@ export default function FabricSessionDetailPage() {
             { label: 'Measures',         value: summary.total_measures },
             { label: 'Calc. Tables',     value: summary.total_calculated_tables },
             { label: 'Calc. Columns',    value: summary.total_calculated_columns },
+            { label: 'Relationships',    value: summary.total_relationships ?? 0 },
+            { label: 'Visuals',          value: summary.total_visuals ?? 0 },
           ].map(({ label, value }) => (
             <StatCard key={label} label={label} value={value} />
           ))}

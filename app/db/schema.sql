@@ -46,6 +46,10 @@ BEGIN
     CREATE INDEX IX_jobs_gateway_key ON dbo.jobs (gateway_key);
 END;
 
+-- Migration: add excel_bytes cache column to jobs table
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'excel_bytes')
+    ALTER TABLE dbo.jobs ADD excel_bytes VARBINARY(MAX) NULL;
+
 -- Migration: add gateway columns to existing jobs table if not present
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'gateway_key')
     ALTER TABLE dbo.jobs ADD gateway_key VARCHAR(36) NULL;

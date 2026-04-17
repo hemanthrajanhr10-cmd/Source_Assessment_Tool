@@ -502,6 +502,34 @@ def load_full_results(job_id: str) -> dict[str, Any]:
     return {"job_id": job_id, "overview": overview, **sections}
 
 
+def save_excel_bytes(job_id: str, data: bytes) -> None:
+    """Cache the generated Excel bytes in the jobs table for fast re-download."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.jobs SET excel_bytes = ? WHERE job_id = ?",
+            (data, job_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def load_excel_bytes(job_id: str) -> Optional[bytes]:
+    """Return cached Excel bytes for a job, or None if not yet cached."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT excel_bytes FROM dbo.jobs WHERE job_id = ?", (job_id,))
+        row = cur.fetchone()
+        if row is None or row[0] is None:
+            return None
+        return bytes(row[0])
+    finally:
+        conn.close()
+
+
 # ── User CRUD ─────────────────────────────────────────────────────────────────
 
 def create_user(user_id: str, email: str, full_name: Optional[str], password_hash: str) -> None:

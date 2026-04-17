@@ -296,18 +296,29 @@ async def get_results(job_id: str, current_user: dict = Depends(get_current_user
 @router.get(
     "/jobs/{job_id}/report",
     summary="Download the Excel assessment report",
-    response_class=FileResponse,
 )
-async def download_report(job_id: str, current_user: dict = Depends(get_current_user)) -> FileResponse:
+async def download_report(job_id: str, current_user: dict = Depends(get_current_user)):
+    from fastapi.responses import Response
     _require_completed(job_id, current_user["user_id"])
 
-    # Always regenerate from DB — Azure App Service disk is ephemeral and files
-    # written during the background task may be gone after a container restart.
+    filename = f"sql_assessment_{job_id[:8]}.xlsx"
+
+    # Fast path: serve cached bytes directly from DB (no rebuild needed).
+    # Bytes are stored by build_report() when the assessment completes.
+    cached = azure_store.load_excel_bytes(job_id)
+    if cached:
+        return Response(
+            content=cached,
+            media_type=EXCEL_MEDIA_TYPE,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # Fallback: regenerate for legacy jobs that pre-date the cache column.
+    # This path is slow and may hit the 230s App Service timeout for large reports.
     from app.services.report_service import build_report
     raw = azure_store.load_full_results(job_id)
     report_path = build_report(job_id, raw)
 
-    filename = f"sql_assessment_{job_id[:8]}.xlsx"
     return FileResponse(
         path=report_path,
         media_type=EXCEL_MEDIA_TYPE,

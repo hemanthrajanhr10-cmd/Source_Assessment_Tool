@@ -935,6 +935,17 @@ def build_report(job_id: str, raw: dict[str, Any]) -> str:
 
     wb.save(str(output_path))
     logger.info("Report saved: %s", output_path)
+
+    # Cache bytes in Azure SQL so the download endpoint can serve directly
+    # without rebuilding — avoids the 230-second App Service gateway timeout.
+    try:
+        from app.db import azure_store
+        excel_bytes = output_path.read_bytes()
+        azure_store.save_excel_bytes(job_id, excel_bytes)
+        logger.info("Excel bytes cached in DB for job %s (%d bytes)", job_id, len(excel_bytes))
+    except Exception as exc:
+        logger.warning("Failed to cache excel bytes for job %s: %s", job_id, exc)
+
     return str(output_path.resolve())
 
 

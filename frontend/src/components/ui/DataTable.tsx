@@ -68,19 +68,19 @@ export default function DataTable({
 
   const cols = useMemo(() => columns ?? buildAutoColumns(data), [columns, data])
 
-  // Compute unique values per column (only for columns with ≤ FILTER_MAX_UNIQUE distinct values)
+  // For each column: collect unique values (capped at FILTER_MAX_UNIQUE for select dropdown).
+  // Columns with more unique values get a text-input filter instead.
   const uniqueColumnValues = useMemo(() => {
-    const result: Record<string, string[]> = {}
+    const result: Record<string, string[] | null> = {}  // null = use text input
     cols.forEach((col) => {
       const vals = new Set<string>()
+      let overflow = false
       for (const row of data) {
         const v = row[col.key]
         if (v !== null && v !== undefined) vals.add(String(v))
-        if (vals.size > FILTER_MAX_UNIQUE) break
+        if (vals.size > FILTER_MAX_UNIQUE) { overflow = true; break }
       }
-      if (vals.size <= FILTER_MAX_UNIQUE && vals.size > 0) {
-        result[col.key] = Array.from(vals).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-      }
+      result[col.key] = overflow ? null : Array.from(vals).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
     })
     return result
   }, [cols, data])
@@ -96,15 +96,17 @@ export default function DataTable({
       )
     }
     Object.entries(columnFilters).forEach(([key, val]) => {
-      if (val) {
-        rows = rows.filter((row) => {
-          const v = row[key]
-          return v !== null && v !== undefined && String(v) === val
-        })
-      }
+      if (!val) return
+      const isSelect = Array.isArray(uniqueColumnValues[key])
+      rows = rows.filter((row) => {
+        const v = row[key]
+        if (v === null || v === undefined) return false
+        const str = String(v)
+        return isSelect ? str === val : str.toLowerCase().includes(val.toLowerCase())
+      })
     })
     return rows
-  }, [data, search, columnFilters])
+  }, [data, search, columnFilters, uniqueColumnValues])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
@@ -178,29 +180,60 @@ export default function DataTable({
                 </th>
               ))}
             </tr>
-            {/* Column filter row — only rendered when any column has filterable values */}
-            {cols.some((col) => uniqueColumnValues[col.key]) && (
+            {/* Column filter row — always shown when data is present */}
+            {data.length > 0 && (
               <tr className="bg-white border-t border-slate-100">
-                {cols.map((col) => (
-                  <td key={col.key} className="px-2 py-1">
-                    {uniqueColumnValues[col.key] ? (
-                      <select
-                        value={columnFilters[col.key] ?? ''}
-                        onChange={(e) => setColFilter(col.key, e.target.value)}
-                        className={`w-full text-xs rounded border py-0.5 px-1 focus:outline-none focus:ring-1 focus:ring-brand-400 ${
-                          columnFilters[col.key]
-                            ? 'border-brand-400 bg-brand-50 text-brand-700 font-medium'
-                            : 'border-slate-200 bg-white text-slate-600'
-                        }`}
-                      >
-                        <option value="">All</option>
-                        {uniqueColumnValues[col.key].map((v) => (
-                          <option key={v} value={v}>{v.length > 30 ? v.slice(0, 30) + '…' : v}</option>
-                        ))}
-                      </select>
-                    ) : null}
-                  </td>
-                ))}
+                {cols.map((col) => {
+                  const activeVal = columnFilters[col.key] ?? ''
+                  const options = uniqueColumnValues[col.key]   // string[] = select, null = text input
+                  const isActive = Boolean(activeVal)
+                  return (
+                    <td key={col.key} className="px-2 py-1">
+                      <div className="flex items-center gap-0.5">
+                        {options !== null ? (
+                          /* Select dropdown for low-cardinality columns */
+                          <select
+                            value={activeVal}
+                            onChange={(e) => setColFilter(col.key, e.target.value)}
+                            className={`flex-1 min-w-0 text-xs rounded border py-0.5 px-1 focus:outline-none focus:ring-1 focus:ring-brand-400 ${
+                              isActive
+                                ? 'border-brand-400 bg-brand-50 text-brand-700 font-medium'
+                                : 'border-slate-200 bg-white text-slate-500'
+                            }`}
+                          >
+                            <option value="">All</option>
+                            {(options ?? []).map((v) => (
+                              <option key={v} value={v}>{v.length > 28 ? v.slice(0, 28) + '…' : v}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          /* Text input for high-cardinality columns */
+                          <input
+                            type="text"
+                            placeholder="Filter…"
+                            value={activeVal}
+                            onChange={(e) => setColFilter(col.key, e.target.value)}
+                            className={`flex-1 min-w-0 text-xs rounded border py-0.5 px-1.5 focus:outline-none focus:ring-1 focus:ring-brand-400 ${
+                              isActive
+                                ? 'border-brand-400 bg-brand-50 text-brand-700'
+                                : 'border-slate-200 bg-white text-slate-500'
+                            }`}
+                          />
+                        )}
+                        {/* Per-filter clear button */}
+                        {isActive && (
+                          <button
+                            onClick={() => setColFilter(col.key, '')}
+                            className="shrink-0 p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title={`Clear filter on ${col.header}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )
+                })}
               </tr>
             )}
           </thead>

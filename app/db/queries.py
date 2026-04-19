@@ -8,7 +8,10 @@ SELECT
     DB_NAME()                                                          AS database_name,
     SUSER_SNAME()                                                      AS connected_user,
     @@VERSION                                                          AS sql_version,
-    (SELECT COUNT(*) FROM sys.schemas WHERE principal_id = 1)         AS schema_count,
+    (SELECT COUNT(*) FROM sys.schemas
+     WHERE name NOT IN ('sys','INFORMATION_SCHEMA','guest','db_owner','db_accessadmin',
+                        'db_securityadmin','db_ddladmin','db_backupoperator',
+                        'db_datareader','db_datawriter','db_denydatareader','db_denydatawriter')) AS schema_count,
     (SELECT COUNT(*) FROM sys.tables)                                  AS table_count,
     (SELECT COUNT(*) FROM sys.views)                                   AS view_count,
     (SELECT COUNT(*) FROM sys.procedures)                              AS proc_count,
@@ -27,7 +30,9 @@ FROM sys.schemas s
 LEFT JOIN sys.tables     t ON t.schema_id = s.schema_id
 LEFT JOIN sys.views      v ON v.schema_id = s.schema_id
 LEFT JOIN sys.procedures p ON p.schema_id = s.schema_id
-WHERE s.principal_id = 1
+WHERE s.name NOT IN ('sys','INFORMATION_SCHEMA','guest','db_owner','db_accessadmin',
+                     'db_securityadmin','db_ddladmin','db_backupoperator',
+                     'db_datareader','db_datawriter','db_denydatareader','db_denydatawriter')
 GROUP BY s.name
 ORDER BY s.name
 """

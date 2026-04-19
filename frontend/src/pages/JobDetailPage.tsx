@@ -51,6 +51,25 @@ function pctCell(value: unknown) {
   )
 }
 
+/* ─── tab groups for sidebar ─── */
+const TAB_GROUPS = [
+  {
+    label: 'Core Metadata',
+    ids: ['schemas', 'tables', 'columns', 'views', 'stored_procedures', 'functions',
+          'indexes', 'relationships', 'index_coverage', 'null_analysis', 'insertion_frequency'],
+  },
+  {
+    label: 'Security',
+    ids: ['db_users_roles', 'orphaned_users', 'db_owner_members', 'dynamic_sql_usage',
+          'clr_assemblies', 'tde_status', 'column_encryption', 'pii_indicators'],
+  },
+  {
+    label: 'Features & Risks',
+    ids: ['sql_agent_jobs', 'linked_servers', 'cross_db_references',
+          'replication_status', 'service_broker', 'version_features'],
+  },
+]
+
 /* ─── tab definition ─── */
 interface TabDef {
   id: string
@@ -483,45 +502,53 @@ export default function JobDetailPage() {
         </>
       )}
 
-      {/* Results tabs */}
+      {/* Results — left sidebar + content */}
       {status.status === 'completed' && (
-        <div className="card overflow-hidden">
-          {/* Tab bar */}
-          <div className="border-b border-slate-200 overflow-x-auto scrollbar-thin">
-            <div className="flex min-w-max px-2 pt-2">
-              {TABS.map((tab) => {
-                const count = results ? (tab.getData(results) ?? []).length : null
-                const isActive = activeTab === tab.id
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`
-                      relative flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium
-                      border-b-2 transition-colors duration-150 whitespace-nowrap
-                      ${isActive
-                        ? 'border-brand-600 text-brand-700'
-                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'}
-                    `}
-                    aria-selected={isActive}
-                    role="tab"
-                  >
-                    {tab.icon}
-                    {tab.label}
-                    {count !== null && (
-                      <span className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold
-                        ${isActive ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-500'}`}>
-                        {count.toLocaleString()}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
+        <div className="card overflow-hidden flex" style={{ minHeight: '600px' }}>
+          {/* Left navigation sidebar */}
+          <nav
+            className="w-56 flex-shrink-0 border-r border-slate-200 bg-slate-50 overflow-y-auto"
+            aria-label="Assessment sections"
+          >
+            {TAB_GROUPS.map((group) => (
+              <div key={group.label}>
+                <p className="px-4 pt-4 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                  {group.label}
+                </p>
+                {group.ids.map((id) => {
+                  const tab = TABS.find((t) => t.id === id)!
+                  const count = results ? (tab.getData(results) ?? []).length : null
+                  const isActive = activeTab === id
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setActiveTab(id)}
+                      className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors duration-100 ${
+                        isActive
+                          ? 'bg-white text-brand-700 font-semibold border-r-2 border-brand-600'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                      aria-selected={isActive}
+                      role="tab"
+                    >
+                      <span className="shrink-0">{tab.icon}</span>
+                      <span className="truncate flex-1 text-left">{tab.label}</span>
+                      {count !== null && (
+                        <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold shrink-0 ${
+                          isActive ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-500'
+                        }`}>
+                          {count > 9999 ? `${(count / 1000).toFixed(1)}k` : count.toLocaleString()}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </nav>
 
-          {/* Tab content */}
-          <div className="p-5">
+          {/* Content area */}
+          <div className="flex-1 min-w-0 p-6 overflow-auto">
             {resultsLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Spinner size="lg" className="text-brand-500" />
@@ -534,12 +561,22 @@ export default function JobDetailPage() {
                   ? buildNullAnalysisColumns(data)
                   : tab.columns
                 return (
-                  <DataTable
-                    data={data}
-                    columns={columns}
-                    emptyMessage={tab.emptyMessage}
-                    searchable
-                  />
+                  <>
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="text-slate-400">{tab.icon}</span>
+                      <h2 className="text-base font-semibold text-slate-800">{tab.label}</h2>
+                      <span className="text-xs text-slate-400 tabular-nums">
+                        ({data.length.toLocaleString()} row{data.length !== 1 ? 's' : ''})
+                      </span>
+                    </div>
+                    <DataTable
+                      key={activeTab}
+                      data={data}
+                      columns={columns}
+                      emptyMessage={tab.emptyMessage}
+                      searchable
+                    />
+                  </>
                 )
               })()
             ) : null}

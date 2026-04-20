@@ -10,11 +10,15 @@ DAX   : executeQueries endpoint → INFO.* DAX functions
         INFO.* works for ALL model types: Import, DirectQuery, DirectLake, Composite.
         Note: Fabric Lakehouses / Warehouses do NOT support executeQueries (400).
               On first 400 for a dataset, all remaining queries are skipped.
+        Fallback: Metadata Scanning API (/admin/workspaces/getInfo) is used when
+              executeQueries returns 400 (e.g. Pro/shared capacity workspaces).
+              Requires Fabric Admin or Power BI Service Admin role on the caller.
 
 Visual Analysis:
         Downloads PBIX via Export endpoint → parses Report/Layout JSON (UTF-16-LE).
         Extracts visual types + prototypeQuery field bindings per page.
         Resolves measures → DAX dependency columns+tables via expression parsing.
+        Fallback: Pages REST API for page/visual counts when PBIX unavailable.
 
 Measure Complexity:
         Scores each measure expression by DAX function tier, nesting depth,
@@ -24,6 +28,7 @@ Measure Complexity:
 import io
 import json
 import re
+import time
 import threading
 import uuid
 import zipfile
@@ -309,12 +314,37 @@ def _headers(token: str) -> dict:
 
 
 def _pbi_get(token: str, path: str) -> Any:
-    resp = requests.get(f"{PBI_BASE}{path}", headers=_headers(token), timeout=30)
-    if resp.status_code == 200:
-        data = resp.json()
-        return data.get("value", data)
-    logger.warning("PBI GET %s → %s", path, resp.status_code)
-    return []
+    """
+    Paginated GET against the Power BI REST API.
+    Follows @odata.nextLink until all pages are consumed.
+    Returns a flat list of all items (or the raw dict for non-list responses).
+    """
+    url = f"{PBI_BASE}{path}"
+    results: list = []
+    while url:
+        try:
+            resp = requests.get(url, headers=_headers(token), timeout=30)
+        except requests.RequestException as exc:
+            logger.warning("PBI GET %s → network error: %s", path, exc)
+            break
+        if resp.status_code == 200:
+            data = resp.json()
+            page = data.get("value")
+            if page is None:
+                # Non-list response (e.g. bookmarks wrapper) — return raw
+                return data
+            results.extend(page)
+            url = data.get("@odata.nextLink")  # follow pagination
+        elif resp.status_code == 403:
+            logger.warning("PBI GET %s → 403 Forbidden (insufficient permissions)", path)
+            break
+        elif resp.status_code == 404:
+            logger.debug("PBI GET %s → 404 Not Found", path)
+            break
+        else:
+            logger.warning("PBI GET %s → HTTP %s", path, resp.status_code)
+            break
+    return results
 
 
 def _execute_dax(token: str, group_id: str, dataset_id: str, query: str) -> Optional[list[dict]]:
@@ -334,10 +364,14 @@ def _execute_dax(token: str, group_id: str, dataset_id: str, query: str) -> Opti
                     return tables[0].get("rows", [])
             return []
         elif resp.status_code == 400:
-            logger.debug("executeQueries not supported (400) for dataset %s", dataset_id)
+            logger.info(
+                "executeQueries not supported (400) for dataset %s — "
+                "workspace likely in shared/Pro capacity; will fall back to Scanner API",
+                dataset_id,
+            )
             return None
         elif resp.status_code == 403:
-            logger.debug("executeQueries blocked (403) for dataset %s", dataset_id)
+            logger.warning("executeQueries blocked (403) for dataset %s — insufficient permissions", dataset_id)
             return []
         else:
             logger.warning("DAX query failed (%s) for dataset %s", resp.status_code, dataset_id)
@@ -392,7 +426,14 @@ def _download_report_layout(token: str, group_id: str, report_id: str) -> Option
             stream=True,
         )
         if resp.status_code != 200:
-            logger.debug("PBIX export HTTP %s for report %s", resp.status_code, report_id)
+            try:
+                err_body = resp.json()
+            except Exception:
+                err_body = resp.text[:200]
+            logger.warning(
+                "PBIX export HTTP %s for report %s — %s",
+                resp.status_code, report_id, err_body,
+            )
             return None
 
         buf = io.BytesIO()
@@ -806,18 +847,221 @@ def _get_report_visual_details(
     }
 
 
+# ── Metadata Scanning API (admin) ────────────────────────────────────────────
+
+def _get_workspace_scanner_data(token: str, workspace_id: str) -> dict[str, dict]:
+    """
+    Use the Power BI Metadata Scanning API to get full semantic model info
+    (tables, columns, measures with DAX, relationships) for ALL datasets in a workspace.
+
+    Works for ANY capacity tier (Pro, Premium, Fabric) — unlike executeQueries which
+    requires Premium/PPU.
+
+    Requires: Fabric Admin or Power BI Service Admin role on the caller.
+
+    Returns: dict of dataset_id → details dict (same shape as _get_dataset_details).
+             Empty dict if caller lacks admin role or scan fails.
+    """
+    _progress_url = f"{PBI_BASE}/admin/workspaces/getInfo"
+    params = "lineage=false&datasourceDetails=false&datasetSchema=true&datasetExpressions=true"
+    url = f"{_progress_url}?{params}"
+
+    # Step 1 — start scan
+    try:
+        resp = requests.post(
+            url,
+            headers=_headers(token),
+            json={"workspaces": [workspace_id]},
+            timeout=30,
+        )
+        if resp.status_code not in (200, 202):
+            logger.info(
+                "Scanner API unavailable (HTTP %s) for workspace %s — caller may not be Fabric Admin",
+                resp.status_code, workspace_id,
+            )
+            return {}
+        scan_id = resp.json().get("id", "")
+        if not scan_id:
+            return {}
+        logger.info("Scanner API scan started: %s for workspace %s", scan_id, workspace_id)
+    except Exception as exc:
+        logger.debug("Scanner API start failed: %s", exc)
+        return {}
+
+    # Step 2 — poll until Succeeded (max 60 s)
+    status_url = f"{PBI_BASE}/admin/workspaces/scanStatus/{scan_id}"
+    for attempt in range(60):
+        time.sleep(1)
+        try:
+            s = requests.get(status_url, headers=_headers(token), timeout=10)
+            if s.status_code == 200:
+                scan_status = s.json().get("status", "")
+                if scan_status == "Succeeded":
+                    break
+                if scan_status == "Failed":
+                    logger.warning("Scanner scan %s failed for workspace %s", scan_id, workspace_id)
+                    return {}
+        except Exception:
+            pass
+    else:
+        logger.warning("Scanner scan %s timed out after 60 s", scan_id)
+        return {}
+
+    # Step 3 — fetch results
+    try:
+        r = requests.get(
+            f"{PBI_BASE}/admin/workspaces/scanResult/{scan_id}",
+            headers=_headers(token), timeout=30,
+        )
+        if r.status_code != 200:
+            logger.warning("Scanner result fetch HTTP %s for scan %s", r.status_code, scan_id)
+            return {}
+        ws_list = r.json().get("workspaces", [])
+    except Exception as exc:
+        logger.warning("Scanner result parse failed: %s", exc)
+        return {}
+
+    if not ws_list:
+        return {}
+
+    ws_data    = ws_list[0]
+    result_map: dict[str, dict] = {}
+
+    for ds in ws_data.get("datasets", []):
+        ds_id   = ds.get("id", "")
+        if not ds_id:
+            continue
+
+        tables_out:   list[dict] = []
+        measures:     list[dict] = []
+        calc_cols:    list[dict] = []
+        calc_tables:  list[dict] = []
+        measure_dep_map: dict[str, dict] = {}
+
+        for tbl in ds.get("tables", []):
+            tbl_name  = tbl.get("name", "")
+            is_hidden = tbl.get("isHidden", False)
+
+            # Calculated table: has a DAX expression at table level
+            tbl_expr = tbl.get("expression", "") or ""
+            if tbl_expr.strip():
+                calc_tables.append({"name": tbl_name, "expression": tbl_expr})
+
+            # Columns
+            for col in tbl.get("columns", []):
+                if (col.get("columnType") or "") == "CalculatedColumn":
+                    calc_cols.append({
+                        "name":       col.get("name", ""),
+                        "table":      tbl_name,
+                        "expression": col.get("expression", ""),
+                    })
+
+            # Measures
+            for m in tbl.get("measures", []):
+                expr       = m.get("expression", "") or ""
+                complexity = _score_measure_complexity(expr)
+                deps       = _extract_dax_dependencies(expr)
+                enriched   = {
+                    "name":           m.get("name", ""),
+                    "table":          tbl_name,
+                    "expression":     expr,
+                    "display_folder": m.get("displayFolder", "") or "",
+                    "complexity":     complexity,
+                    "dependencies":   deps,
+                }
+                measures.append(enriched)
+                if enriched["name"]:
+                    measure_dep_map[enriched["name"]] = enriched
+
+            tables_out.append({
+                "name":          tbl_name,
+                "storage_mode":  tbl.get("storageMode", "Import") or "Import",
+                "is_hidden":     is_hidden,
+                "is_calculated": bool(tbl_expr.strip()),
+            })
+
+        rel_count   = len(ds.get("relationships", []))
+        vis_tables  = [t for t in tables_out if not t["is_hidden"]]
+        total_score = sum(m["complexity"]["score"] for m in measures)
+        model_score = min(100,
+            total_score
+            + len(calc_cols)   * 2
+            + len(calc_tables) * 3
+            + rel_count
+        )
+
+        result_map[ds_id] = {
+            "tables":                  tables_out,
+            "measures":                measures,
+            "calculated_columns":      calc_cols,
+            "calculated_tables":       calc_tables,
+            "relationship_count":      rel_count,
+            "complexity_score":        model_score,
+            "table_count":             len(vis_tables),
+            "measure_count":           len(measures),
+            "calculated_column_count": len(calc_cols),
+            "calculated_table_count":  len(calc_tables),
+            "info_supported":          True,
+            "_measure_dep_map":        measure_dep_map,
+        }
+
+    logger.info(
+        "Scanner API returned metadata for %d dataset(s) in workspace %s",
+        len(result_map), workspace_id,
+    )
+    return result_map
+
+
 # ── Workspace listing ─────────────────────────────────────────────────────────
+
+def _fetch_all_workspaces(token: str) -> list[dict]:
+    """
+    Fetch all workspaces the user can access.
+
+    Strategy:
+    1. Regular /groups endpoint (user-scoped, workspaces the user is a member of).
+       Uses $top=5000 to avoid 100-item default limit.
+    2. Admin /admin/groups endpoint (tenant-admin scope).
+       Falls back if regular API returns fewer than expected or admin role detected.
+       Merges results (dedup by id) to ensure complete coverage.
+    """
+    # Regular user-scoped workspaces (supports $top)
+    regular = _pbi_get(
+        token,
+        "/groups?$filter=type eq 'Workspace'&$top=5000",
+    )
+    if not isinstance(regular, list):
+        regular = []
+
+    ws_map: dict[str, dict] = {ws["id"]: ws for ws in regular if ws.get("id")}
+
+    # Try admin API to catch workspaces where user has admin role but is not a member
+    try:
+        admin_ws = _pbi_get(token, "/admin/groups?$filter=type eq 'Workspace'&$top=5000")
+        if isinstance(admin_ws, list) and admin_ws:
+            for ws in admin_ws:
+                wid = ws.get("id")
+                if wid and wid not in ws_map:
+                    ws_map[wid] = ws
+            logger.info(
+                "Admin API returned %d workspaces (%d new beyond regular API)",
+                len(admin_ws),
+                len(ws_map) - len(regular),
+            )
+    except Exception as exc:
+        logger.debug("Admin workspace API unavailable (normal for non-admins): %s", exc)
+
+    return list(ws_map.values())
+
 
 def list_workspaces(auth_id: str) -> list[dict]:
     token = _get_token(auth_id)
-    raw   = _pbi_get(token, "/groups?$filter=type eq 'Workspace'")
-    if not isinstance(raw, list):
-        raw = []
+    raw   = _fetch_all_workspaces(token)
 
     workspaces: list[dict] = []
     for ws in raw:
         ws_id = ws.get("id", "")
-        raw_datasets = _pbi_get(token, f"/groups/{ws_id}/datasets")
+        raw_datasets = _pbi_get(token, f"/groups/{ws_id}/datasets?$top=5000")
         ds_count     = len(raw_datasets) if isinstance(raw_datasets, list) else 0
         raw_reports  = _pbi_get(token, f"/groups/{ws_id}/reports")
         rpt_count    = len(raw_reports)  if isinstance(raw_reports,  list) else 0
@@ -862,7 +1106,7 @@ def run_fabric_assessment(
 
     # ── 1. Workspaces ─────────────────────────────────────────────────────────
     _progress("Fetching workspaces…")
-    raw_workspaces = _pbi_get(token, "/groups?$filter=type eq 'Workspace'")
+    raw_workspaces = _fetch_all_workspaces(token)
     if not isinstance(raw_workspaces, list):
         raw_workspaces = []
 
@@ -890,9 +1134,26 @@ def run_fabric_assessment(
 
         # ── 2. Semantic Models ───────────────────────────────────────────────
         _progress(f"  Fetching semantic models in '{ws_name}'…")
-        raw_datasets = _pbi_get(token, f"/groups/{ws_id}/datasets")
+        raw_datasets = _pbi_get(token, f"/groups/{ws_id}/datasets?$top=5000")
         if not isinstance(raw_datasets, list):
             raw_datasets = []
+
+        # Pre-fetch scanner data for the whole workspace once.
+        # Metadata Scanning API works on any capacity (Pro/Premium/Fabric) for Fabric Admins.
+        # It returns tables, columns, measures with DAX, and relationships — everything
+        # executeQueries provides, but without the Premium-capacity requirement.
+        _progress(f"  Fetching model metadata via Scanner API for '{ws_name}'…")
+        scanner_data = _get_workspace_scanner_data(token, ws_id)
+        if scanner_data:
+            _progress(
+                f"  Scanner API returned metadata for {len(scanner_data)} model(s) — "
+                "DAX expressions and schema will be populated."
+            )
+        else:
+            _progress(
+                "  Scanner API unavailable (caller may not be Fabric Admin). "
+                "Trying executeQueries fallback…"
+            )
 
         datasets:        list[dict] = []
         ws_measure_deps: dict[str, dict] = {}   # workspace-level measure map for reports
@@ -903,11 +1164,17 @@ def run_fabric_assessment(
             if ds_name in _SKIP_MODEL_NAMES:
                 continue
             _progress(f"    Analysing model: {ds_name}")
-            try:
-                details = _get_dataset_details(token, ws_id, ds_id)
-            except Exception as exc:
-                logger.warning("Details failed for dataset %s: %s", ds_id, exc)
-                details = _empty_details()
+
+            # Prefer scanner data (works for any capacity); fall back to executeQueries
+            if ds_id in scanner_data:
+                details = dict(scanner_data[ds_id])
+                logger.info("Using scanner metadata for dataset %s (%s)", ds_name, ds_id)
+            else:
+                try:
+                    details = _get_dataset_details(token, ws_id, ds_id)
+                except Exception as exc:
+                    logger.warning("Details failed for dataset %s: %s", ds_id, exc)
+                    details = _empty_details()
 
             # Accumulate workspace-level measure map
             ws_measure_deps.update(details.pop("_measure_dep_map", {}))
@@ -945,7 +1212,7 @@ def run_fabric_assessment(
 
         # ── 3. Reports (interactive + paginated) ─────────────────────────────
         _progress(f"  Fetching reports in '{ws_name}'…")
-        raw_reports = _pbi_get(token, f"/groups/{ws_id}/reports")
+        raw_reports = _pbi_get(token, f"/groups/{ws_id}/reports?$top=5000")
         if not isinstance(raw_reports, list):
             raw_reports = []
 

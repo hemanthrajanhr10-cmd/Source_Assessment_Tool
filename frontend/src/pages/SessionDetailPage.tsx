@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, RefreshCw, CheckCircle2, XCircle, FileText,
   Loader2, Clock, AlertTriangle, Database, Server, StopCircle,
+  ChevronDown, ChevronUp, ListChecks,
 } from 'lucide-react'
 import { api } from '../api/client'
 import Button from '../components/ui/Button'
@@ -23,11 +24,105 @@ function formatDate(iso?: string) {
 function elapsed(start?: string, end?: string): string {
   if (!start) return '—'
   const ms = (end ? new Date(end) : new Date()).getTime() - new Date(start).getTime()
+  if (ms < 0) return '<1s'
   if (ms < 1000) return '<1s'
   const secs = Math.floor(ms / 1000)
   if (secs < 60) return `${secs}s`
   const mins = Math.floor(secs / 60)
   return `${mins}m ${secs % 60}s`
+}
+
+// Steps in assessment order (matches backend progress_message keywords)
+const ASSESSMENT_STEPS = [
+  { key: 'overview',          label: 'Database overview' },
+  { key: 'schemas',           label: 'Schemas' },
+  { key: 'tables',            label: 'Tables' },
+  { key: 'columns',           label: 'Columns' },
+  { key: 'views',             label: 'Views' },
+  { key: 'stored procedures', label: 'Stored procedures' },
+  { key: 'functions',         label: 'Functions' },
+  { key: 'indexes',           label: 'Indexes' },
+  { key: 'relationships',     label: 'Relationships' },
+  { key: 'index coverage',    label: 'Index coverage' },
+  { key: 'insertion frequency', label: 'Insertion frequency' },
+  { key: 'database users',    label: 'Database users & roles' },
+  { key: 'orphaned users',    label: 'Orphaned users' },
+  { key: 'excessive permissions', label: 'Excessive permissions' },
+  { key: 'dynamic sql',       label: 'Dynamic SQL usage' },
+  { key: 'clr',               label: 'CLR assemblies' },
+  { key: 'tde',               label: 'TDE status' },
+  { key: 'column-level encryption', label: 'Column encryption' },
+  { key: 'pii',               label: 'PII scan' },
+  { key: 'sql agent',         label: 'SQL Agent jobs' },
+  { key: 'linked servers',    label: 'Linked servers' },
+  { key: 'cross-database',    label: 'Cross-DB references' },
+  { key: 'replication',       label: 'Replication' },
+  { key: 'service broker',    label: 'Service Broker' },
+  { key: 'version',           label: 'Version & features' },
+  { key: 'null analysis',     label: 'Null analysis' },
+  { key: 'building report',   label: 'Building Excel report' },
+  { key: 'persisting results', label: 'Persisting results' },
+]
+
+function getCompletedSteps(progressMsg?: string, status?: string): number {
+  if (!progressMsg) return 0
+  if (status === 'completed') return ASSESSMENT_STEPS.length
+  const lower = progressMsg.toLowerCase()
+  const idx = ASSESSMENT_STEPS.findIndex((s) => lower.includes(s.key))
+  return idx === -1 ? 0 : idx
+}
+
+function ProgressDetails({ job }: { job: SessionJobInfo }) {
+  const [open, setOpen] = useState(false)
+  if (job.status !== 'running' && job.status !== 'completed') return null
+
+  const completedCount = getCompletedSteps(job.progress_message ?? undefined, job.status)
+  const total = ASSESSMENT_STEPS.length
+
+  return (
+    <div className="mt-3 border border-slate-200 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
+      >
+        <ListChecks className="h-4 w-4 text-brand-500 shrink-0" />
+        <span className="text-xs font-semibold text-slate-700 flex-1">
+          Assessment Progress — {completedCount} / {total} steps done
+        </span>
+        <span className="text-xs text-slate-400 tabular-nums mr-2">
+          {Math.round((completedCount / total) * 100)}%
+        </span>
+        {open ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+      </button>
+
+      {open && (
+        <div className="px-4 py-3 bg-white grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+          {ASSESSMENT_STEPS.map((step, i) => {
+            const done = i < completedCount
+            const active = i === completedCount && job.status === 'running'
+            return (
+              <div key={step.key} className="flex items-center gap-1.5">
+                {done ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                ) : active ? (
+                  <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin shrink-0" />
+                ) : (
+                  <div className="h-3.5 w-3.5 rounded-full border border-slate-300 shrink-0" />
+                )}
+                <span className={`text-xs truncate ${
+                  done   ? 'text-emerald-700 font-medium' :
+                  active ? 'text-blue-700 font-medium' :
+                           'text-slate-400'
+                }`}>
+                  {step.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function JobStatusIcon({ status }: { status: JobStatus }) {
@@ -104,6 +199,26 @@ function SessionBanner({ status, completed, total, failed }: {
 
 // ── Job row ───────────────────────────────────────────────────────────────────
 
+function DurationCell({ job }: { job: SessionJobInfo }) {
+  if (job.status === 'pending') {
+    return <span className="text-slate-300">—</span>
+  }
+  if (job.status === 'running') {
+    const e = elapsed(job.started_at ?? undefined, undefined)
+    return (
+      <span className="text-blue-600 tabular-nums">
+        {e === '—' ? 'Starting…' : `${e} elapsed`}
+      </span>
+    )
+  }
+  // completed / failed / cancelled
+  return (
+    <span className="tabular-nums text-slate-600">
+      {elapsed(job.started_at ?? undefined, job.completed_at ?? undefined)}
+    </span>
+  )
+}
+
 function JobRow({ job, onNavigate }: { job: SessionJobInfo; onNavigate: (jobId: string) => void }) {
   return (
     <tr
@@ -137,8 +252,8 @@ function JobRow({ job, onNavigate }: { job: SessionJobInfo; onNavigate: (jobId: 
           </p>
         )}
       </td>
-      <td className="px-5 py-3.5 text-xs text-slate-500 whitespace-nowrap tabular-nums">
-        {elapsed(job.started_at, job.completed_at)}
+      <td className="px-5 py-3.5 text-xs whitespace-nowrap">
+        <DurationCell job={job} />
       </td>
     </tr>
   )
@@ -327,6 +442,17 @@ export default function SessionDetailPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Per-job progress details (collapsible) */}
+          {session.jobs.some((j) => j.status === 'running' || j.status === 'completed') && (
+            <div className="px-6 pb-5 pt-2 space-y-2">
+              {session.jobs
+                .filter((j) => j.status === 'running' || j.status === 'completed')
+                .map((job) => (
+                  <ProgressDetails key={job.job_id} job={job} />
+                ))}
+            </div>
+          )}
         </div>
       )}
     </div>

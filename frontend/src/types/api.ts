@@ -217,17 +217,68 @@ export interface FabricAuthStatus {
   error?: string
 }
 
+// ── Fabric: measure complexity ────────────────────────────────────────────────
+
+export interface MeasureComplexity {
+  score: number
+  level: 'None' | 'Simple' | 'Moderate' | 'Complex' | 'Very Complex'
+  function_count: number
+  nesting_depth: number
+  dependency_count: number
+  complex_functions: string[]
+}
+
+export interface MeasureDependency {
+  table: string
+  column: string
+}
+
 export interface FabricMeasure {
   name: string
+  table: string
   expression: string
   display_folder: string
+  complexity: MeasureComplexity
+  dependencies: MeasureDependency[]
 }
 
 export interface FabricTable {
   name: string
   storage_mode: string
   is_hidden: boolean
+  is_calculated: boolean
 }
+
+// ── Fabric: visual field types ────────────────────────────────────────────────
+
+export interface VisualField {
+  field_type: 'column' | 'measure' | 'aggregation' | 'hierarchy'
+  name: string
+  table: string
+  // aggregation only
+  column?: string
+  agg_function?: string
+  // measure only
+  expression?: string
+  complexity?: MeasureComplexity
+  dependencies?: MeasureDependency[]
+}
+
+export interface ReportVisual {
+  type: string
+  title: string
+  field_count: number
+  fields: VisualField[]
+}
+
+export interface ReportPage {
+  name: string
+  order: number
+  visual_count: number
+  visuals: ReportVisual[]
+}
+
+// ── Fabric: dataset ───────────────────────────────────────────────────────────
 
 export interface FabricDataset {
   id: string
@@ -245,9 +296,11 @@ export interface FabricDataset {
   info_supported: boolean
   tables: FabricTable[]
   measures: FabricMeasure[]
-  calculated_columns: { name: string; expression: string }[]
+  calculated_columns: { name: string; table: string; expression: string }[]
   calculated_tables: { name: string; expression: string }[]
 }
+
+// ── Fabric: report ────────────────────────────────────────────────────────────
 
 export interface FabricReport {
   id: string
@@ -259,6 +312,8 @@ export interface FabricReport {
   page_count: number | null
   visual_count: number
   bookmark_count: number
+  layout_parsed: boolean
+  pages: ReportPage[]
 }
 
 export interface FabricWorkspace {

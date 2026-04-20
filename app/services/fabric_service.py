@@ -25,6 +25,7 @@ Measure Complexity:
         and column reference count. Returns level: Simple/Moderate/Complex/Very Complex.
 """
 
+import concurrent.futures
 import io
 import json
 import re
@@ -412,55 +413,77 @@ def _val_bool(val, default: bool = False) -> bool:
 
 # ── PBIX layout download & parsing ───────────────────────────────────────────
 
+# Hard wall-clock limit for a single PBIX download (seconds).
+# Keeps individual reports from blocking the whole assessment when PBIX export
+# is slow or the file is very large.
+_PBIX_WALL_TIMEOUT = 45
+
+
 def _download_report_layout(token: str, group_id: str, report_id: str) -> Optional[dict]:
     """
     Download the PBIX file and return the parsed Report/Layout JSON.
     Returns None if download fails, report is too large, or not a PBIX.
 
-    Uses a short connect timeout (10 s) so unavailable exports fail fast instead
-    of blocking the assessment for 120 s per report.
+    A hard wall-clock timeout (_PBIX_WALL_TIMEOUT seconds) is enforced via a
+    thread pool so slow/large exports don't block the entire assessment.
     """
-    url = f"{PBI_BASE}/groups/{group_id}/reports/{report_id}/Export"
-    try:
-        resp = requests.get(
-            url,
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=(10, 90),   # (connect_timeout, read_timeout)
-            stream=True,
-        )
-        if resp.status_code != 200:
-            try:
-                err_body = resp.json()
-            except Exception:
-                err_body = resp.text[:200]
-            logger.warning(
-                "PBIX export HTTP %s for report %s — %s",
-                resp.status_code, report_id, err_body,
+
+    def _do_download() -> Optional[dict]:
+        url = f"{PBI_BASE}/groups/{group_id}/reports/{report_id}/Export"
+        try:
+            resp = requests.get(
+                url,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=(10, 30),   # (connect_s, per-chunk read_s)
+                stream=True,
             )
-            return None
-
-        buf = io.BytesIO()
-        for chunk in resp.iter_content(chunk_size=65536):
-            buf.write(chunk)
-            if buf.tell() > _MAX_PBIX_BYTES:
-                logger.debug("PBIX >50 MB for report %s — skipping layout parse", report_id)
+            if resp.status_code != 200:
+                try:
+                    err_body = resp.json()
+                except Exception:
+                    err_body = resp.text[:200]
+                logger.warning(
+                    "PBIX export HTTP %s for report %s — %s",
+                    resp.status_code, report_id, err_body,
+                )
                 return None
-        buf.seek(0)
 
-        with zipfile.ZipFile(buf, "r") as z:
-            names_lower = {n.lower(): n for n in z.namelist()}
-            layout_key  = names_lower.get("report/layout")
-            if not layout_key:
-                return None
-            raw  = z.read(layout_key)
-            # PBIX Layout is encoded in UTF-16-LE
-            text = raw.decode("utf-16-le", errors="replace")
-            return json.loads(text)
+            buf = io.BytesIO()
+            for chunk in resp.iter_content(chunk_size=65536):
+                buf.write(chunk)
+                if buf.tell() > _MAX_PBIX_BYTES:
+                    logger.warning(
+                        "PBIX >50 MB for report %s — skipping layout parse", report_id
+                    )
+                    return None
+            buf.seek(0)
 
-    except zipfile.BadZipFile:
-        logger.debug("PBIX is not a valid ZIP for report %s", report_id)
+            with zipfile.ZipFile(buf, "r") as z:
+                names_lower = {n.lower(): n for n in z.namelist()}
+                layout_key  = names_lower.get("report/layout")
+                if not layout_key:
+                    return None
+                raw  = z.read(layout_key)
+                text = raw.decode("utf-16-le", errors="replace")
+                return json.loads(text)
+
+        except zipfile.BadZipFile:
+            logger.debug("PBIX is not a valid ZIP for report %s", report_id)
+        except Exception as exc:
+            logger.warning("PBIX download/parse error for report %s: %s", report_id, exc)
+        return None
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+            future = ex.submit(_do_download)
+            return future.result(timeout=_PBIX_WALL_TIMEOUT)
+    except concurrent.futures.TimeoutError:
+        logger.warning(
+            "PBIX download timed out after %ds for report %s — skipping",
+            _PBIX_WALL_TIMEOUT, report_id,
+        )
     except Exception as exc:
-        logger.debug("Failed to download/parse PBIX for report %s: %s", report_id, exc)
+        logger.debug("PBIX executor error for report %s: %s", report_id, exc)
     return None
 
 

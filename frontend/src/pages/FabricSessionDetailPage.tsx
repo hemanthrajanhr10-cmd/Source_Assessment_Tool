@@ -5,7 +5,7 @@ import {
   Zap, Database, FileText, BarChart2, ChevronDown, ChevronUp,
   Loader2, CheckCircle2, XCircle, AlertCircle, ExternalLink,
   Table2, Hash, Calculator, Link2, Eye, Bookmark, Layers,
-  ArrowRight, Code2, AlertTriangle, Info,
+  ArrowRight, Code2, Info,
 } from 'lucide-react'
 import { api } from '../api/client'
 import type {

@@ -416,13 +416,16 @@ def _download_report_layout(token: str, group_id: str, report_id: str) -> Option
     """
     Download the PBIX file and return the parsed Report/Layout JSON.
     Returns None if download fails, report is too large, or not a PBIX.
+
+    Uses a short connect timeout (10 s) so unavailable exports fail fast instead
+    of blocking the assessment for 120 s per report.
     """
     url = f"{PBI_BASE}/groups/{group_id}/reports/{report_id}/Export"
     try:
         resp = requests.get(
             url,
             headers={"Authorization": f"Bearer {token}"},
-            timeout=120,
+            timeout=(10, 90),   # (connect_timeout, read_timeout)
             stream=True,
         )
         if resp.status_code != 200:

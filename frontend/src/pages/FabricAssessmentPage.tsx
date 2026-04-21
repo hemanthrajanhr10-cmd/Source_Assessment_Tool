@@ -8,6 +8,7 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { FabricWorkspaceInfo } from '../types/api'
 import Button from '../components/ui/Button'
+import { formatTime } from '../utils/dateTime'
 
 // Step: start → waiting (device code) → picking (workspace selection) → naming → submitting
 type Step = 'start' | 'waiting' | 'picking' | 'naming' | 'submitting'
@@ -206,7 +207,7 @@ export default function FabricAssessmentPage() {
                   Waiting for you to sign in…
                   {expiresAt && (
                     <span className="text-xs text-slate-400">
-                      (expires {new Date(expiresAt).toLocaleTimeString()})
+                      (expires {formatTime(expiresAt)})
                     </span>
                   )}
                 </div>

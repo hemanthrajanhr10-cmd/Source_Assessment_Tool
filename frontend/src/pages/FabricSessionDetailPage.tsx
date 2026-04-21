@@ -13,6 +13,7 @@ import type {
   FabricMeasure, MeasureComplexity, ReportVisual, ReportPage, VisualField,
 } from '../types/api'
 import StatCard from '../components/ui/StatCard'
+import { formatDateTime } from '../utils/dateTime'
 
 // ── Complexity level colours ───────────────────────────────────────────────────
 
@@ -636,7 +637,7 @@ export default function FabricSessionDetailPage() {
           {session.status === 'completed' && (
             <span className="inline-flex items-center gap-1.5 text-sm text-emerald-700">
               <CheckCircle2 className="h-4 w-4" /> Completed
-              {session.completed_at && ` · ${new Date(session.completed_at).toLocaleString()}`}
+              {session.completed_at && ` · ${formatDateTime(session.completed_at)}`}
             </span>
           )}
           {session.status === 'failed' && (

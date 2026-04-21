@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Zap, PlusCircle, CheckCircle2, XCircle, Loader2, Clock, StopCircle } from 'lucide-react'
 import { api } from '../api/client'
 import type { FabricSessionRecord } from '../types/api'
+import { formatDateTime } from '../utils/dateTime'
 import Button from '../components/ui/Button'
 
 function StatusBadge({ status }: { status: string }) {
@@ -107,11 +108,11 @@ export default function FabricSessionsPage() {
                   <td className="px-5 py-3 text-slate-500">
                     <span className="inline-flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {new Date(s.created_at).toLocaleString()}
+                      {formatDateTime(s.created_at)}
                     </span>
                   </td>
                   <td className="px-5 py-3 text-slate-500">
-                    {s.completed_at ? new Date(s.completed_at).toLocaleString() : '—'}
+                    {s.completed_at ? formatDateTime(s.completed_at) : '—'}
                   </td>
                   <td className="px-5 py-3" onClick={e => e.stopPropagation()}>
                     {s.status === 'running' && (

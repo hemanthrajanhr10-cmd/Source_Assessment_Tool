@@ -10,27 +10,9 @@ import { api } from '../api/client'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import type { JobStatus, SessionJobInfo, SessionStatus } from '../types/api'
+import { formatDateTime, elapsed } from '../utils/dateTime'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatDate(iso?: string) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
-
-function elapsed(start?: string, end?: string): string {
-  if (!start) return '—'
-  const ms = (end ? new Date(end) : new Date()).getTime() - new Date(start).getTime()
-  if (ms < 0) return '<1s'
-  if (ms < 1000) return '<1s'
-  const secs = Math.floor(ms / 1000)
-  if (secs < 60) return `${secs}s`
-  const mins = Math.floor(secs / 60)
-  return `${mins}m ${secs % 60}s`
-}
 
 // Steps in assessment order (matches backend progress_message keywords)
 const ASSESSMENT_STEPS = [
@@ -347,7 +329,7 @@ export default function SessionDetailPage() {
             {session.label || 'Assessment Session'}
           </h1>
           <p className="mt-1 text-sm text-slate-500 font-mono">{session.session_id}</p>
-          <p className="mt-0.5 text-xs text-slate-400">Created {formatDate(session.created_at)}</p>
+          <p className="mt-0.5 text-xs text-slate-400">Created {formatDateTime(session.created_at)}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {isActive && (

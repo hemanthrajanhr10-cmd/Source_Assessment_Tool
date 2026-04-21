@@ -4,25 +4,8 @@ import { PlusCircle, RefreshCw, ExternalLink, Layers, CheckCircle2, XCircle, Loa
 import { api } from '../api/client'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
-import type { SessionStatusResponse, SessionStatus } from '../types/api'
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
-
-function elapsed(session: SessionStatusResponse): string {
-  const start = new Date(session.created_at)
-  const end = session.completed_at ? new Date(session.completed_at) : new Date()
-  const ms = end.getTime() - start.getTime()
-  if (ms < 1000) return '<1s'
-  const secs = Math.floor(ms / 1000)
-  if (secs < 60) return `${secs}s`
-  const mins = Math.floor(secs / 60)
-  return `${mins}m ${secs % 60}s`
-}
+import type { SessionStatus } from '../types/api'
+import { formatDateTime, elapsed } from '../utils/dateTime'
 
 function SessionStatusBadge({ status }: { status: SessionStatus }) {
   switch (status) {
@@ -206,10 +189,10 @@ export default function SessionsPage() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap">
-                      {formatDate(session.created_at)}
+                      {formatDateTime(session.created_at)}
                     </td>
                     <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap tabular-nums">
-                      {elapsed(session)}
+                      {elapsed(session.created_at, session.completed_at)}
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <button

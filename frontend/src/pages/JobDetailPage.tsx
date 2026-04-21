@@ -16,25 +16,7 @@ import Spinner from '../components/ui/Spinner'
 import StatCard from '../components/ui/StatCard'
 import DataTable, { type ColumnDef } from '../components/ui/DataTable'
 import type { AssessmentResults } from '../types/api'
-
-/* ─── helpers ─── */
-function formatDate(iso?: string) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  })
-}
-
-function formatDuration(start?: string, end?: string): string {
-  if (!start) return '—'
-  const ms = (end ? new Date(end) : new Date()).getTime() - new Date(start).getTime()
-  if (ms < 1000) return '<1s'
-  const secs = Math.floor(ms / 1000)
-  if (secs < 60) return `${secs}s`
-  const mins = Math.floor(secs / 60)
-  return `${mins}m ${secs % 60}s`
-}
+import { formatDateTime, elapsed } from '../utils/dateTime'
 
 function pctCell(value: unknown) {
   const n = Number(value)
@@ -414,14 +396,14 @@ export default function JobDetailPage() {
         {/* Timestamps */}
         <div className="border-t border-slate-100 px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50 text-sm">
           {[
-            { label: 'Created',   value: formatDate(status.created_at) },
-            { label: 'Started',   value: formatDate(status.started_at) },
-            { label: 'Completed', value: formatDate(status.completed_at) },
+            { label: 'Created',   value: formatDateTime(status.created_at) },
+            { label: 'Started',   value: formatDateTime(status.started_at) },
+            { label: 'Completed', value: formatDateTime(status.completed_at) },
             {
               label: 'Duration',
               value: (
                 <span className="tabular-nums">
-                  {formatDuration(status.started_at, status.completed_at)}
+                  {elapsed(status.started_at, status.completed_at)}
                   {isRunning && <span className="ml-1 text-blue-500 animate-pulse">…</span>}
                 </span>
               ),

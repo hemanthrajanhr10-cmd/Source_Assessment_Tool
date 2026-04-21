@@ -5,25 +5,7 @@ import { api } from '../api/client'
 import { StatusBadge } from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
-import type { JobStatusResponse } from '../types/api'
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
-
-function formatDuration(job: JobStatusResponse): string {
-  if (!job.started_at) return '—'
-  const end = job.completed_at ? new Date(job.completed_at) : new Date()
-  const ms = end.getTime() - new Date(job.started_at).getTime()
-  if (ms < 1000) return '<1s'
-  const secs = Math.floor(ms / 1000)
-  if (secs < 60) return `${secs}s`
-  const mins = Math.floor(secs / 60)
-  return `${mins}m ${secs % 60}s`
-}
+import { formatDateTime, elapsed } from '../utils/dateTime'
 
 export default function JobsPage() {
   const navigate = useNavigate()
@@ -145,10 +127,10 @@ export default function JobsPage() {
                       )}
                     </td>
                     <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap">
-                      {formatDate(job.created_at)}
+                      {formatDateTime(job.created_at)}
                     </td>
                     <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap tabular-nums">
-                      {formatDuration(job)}
+                      {elapsed(job.started_at, job.completed_at)}
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <button

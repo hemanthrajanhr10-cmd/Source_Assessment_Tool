@@ -8,20 +8,9 @@ import { api, getApiErrorMessage } from '../api/client'
 import type { Gateway } from '../types/api'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
+import { timeAgo } from '../utils/dateTime'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function relativeTime(iso?: string) {
-  if (!iso) return 'Never'
-  const diff = Date.now() - new Date(iso).getTime()
-  const secs = Math.floor(diff / 1000)
-  if (secs < 60) return `${secs}s ago`
-  const mins = Math.floor(secs / 60)
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return new Date(iso).toLocaleDateString()
-}
 
 function StatusBadge({ status }: { status: Gateway['status'] }) {
   return status === 'online' ? (
@@ -388,7 +377,7 @@ function GatewayList({ gateways, isLoading, onRelayUpdate }: {
                   </span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {gw.status === 'online' ? 'Last seen ' : ''}{relativeTime(gw.last_seen_at)}
+                    {gw.status === 'online' ? 'Last seen ' : ''}{timeAgo(gw.last_seen_at)}
                   </span>
                 </div>
               </div>

@@ -5,10 +5,11 @@ import {
   Server, Database, User, Lock, Eye, EyeOff,
   Plus, Trash2, ChevronDown, ChevronUp, Wifi, WifiOff,
   CheckCircle2, AlertCircle, ArrowRight, Tag, Zap,
-  RefreshCw, Radio, Search,
+  RefreshCw, Radio, Search, ShieldCheck,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
-import type { DatabaseInfo, DbType, Gateway } from '../types/api'
+import type { AccessLevel, DatabaseInfo, DbType, Gateway } from '../types/api'
+import { ACCESS_LEVEL_OPTIONS } from '../types/api'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 
@@ -40,6 +41,7 @@ interface ServerEntry {
   encrypt: boolean
   use_gateway: boolean
   gateway_key: string
+  access_level: AccessLevel
   // Detect state
   connectivity: null | { reachable: boolean; latency_ms: number | null }
   connectivity_loading: boolean
@@ -67,6 +69,7 @@ function makeServer(): ServerEntry {
     encrypt: true,
     use_gateway: false,
     gateway_key: '',
+    access_level: 'db_datareader',
     connectivity: null,
     connectivity_loading: false,
     available_dbs: null,
@@ -393,6 +396,41 @@ function ServerCard({
                 />
               </div>
             )}
+
+            {/* Access Level — SQL Server only */}
+            {entry.db_type === 'mssql' && (
+              <div className="sm:col-span-2">
+                <label className="form-label flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-brand-500" />
+                  Database Access Level <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+                  {ACCESS_LEVEL_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => set({ access_level: opt.value })}
+                      className={`rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
+                        entry.access_level === opt.value
+                          ? 'border-brand-500 bg-brand-50'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <p className={`text-xs font-semibold ${
+                        entry.access_level === opt.value ? 'text-brand-700' : 'text-slate-700'
+                      }`}>
+                        {opt.label}
+                      </p>
+                      <p className="text-xs text-slate-400 mt-0.5 leading-tight">{opt.description}</p>
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-xs text-slate-400">
+                  Select the role granted to <strong>{entry.username || 'this login'}</strong> on the target database.
+                  Assessments requiring a higher role will be skipped and shown as locked in the dashboard.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Connection mode */}
@@ -631,6 +669,7 @@ export default function NewAssessmentPage() {
           encrypt: srv.encrypt,
           use_gateway: srv.use_gateway,
           gateway_key: srv.use_gateway ? srv.gateway_key : undefined,
+          access_level: srv.db_type === 'mssql' ? srv.access_level : undefined,
           databases: srv.selected_dbs.map((db) => ({
             name: db.name,
             include_null_analysis: db.include_null_analysis,

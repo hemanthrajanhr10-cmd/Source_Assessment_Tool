@@ -3,6 +3,16 @@ from pydantic import BaseModel, SecretStr, Field
 
 DbType = Literal["mssql", "postgres", "mysql", "oracle"]
 
+# Access level determines which assessments are run (cumulative — higher includes lower)
+AccessLevel = Literal["db_datareader", "view_database_state", "db_owner", "sysadmin"]
+
+ACCESS_LEVEL_LABELS: dict[str, str] = {
+    "db_datareader":       "db_datareader (Basic catalog reads)",
+    "view_database_state": "VIEW DATABASE STATE (+ performance DMVs)",
+    "db_owner":            "db_owner (+ object permission auditing)",
+    "sysadmin":            "sysadmin (Full — includes msdb, server config, linked servers)",
+}
+
 
 # ── Multi-server session models ────────────────────────────────────────────────
 
@@ -25,6 +35,10 @@ class ServerTarget(BaseModel):
     databases: list[DatabaseTarget] = Field(default_factory=list)
     use_gateway: bool = Field(False, description="Route via gateway agent")
     gateway_key: str | None = Field(None, description="Specific gateway key to use (required when use_gateway=True)")
+    access_level: AccessLevel = Field(
+        "db_datareader",
+        description="SQL Server access level granted to the login — controls which assessments are run"
+    )
 
 
 class SessionRequest(BaseModel):
@@ -78,4 +92,8 @@ class AssessmentRequest(BaseModel):
     gateway_key: str | None = Field(
         None,
         description="If set, the job is routed to the gateway agent with this key instead of running directly"
+    )
+    access_level: AccessLevel = Field(
+        "db_datareader",
+        description="SQL Server access level granted to the login — controls which assessments are run"
     )

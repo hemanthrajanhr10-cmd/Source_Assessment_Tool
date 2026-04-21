@@ -131,6 +131,7 @@ class OverviewResult(BaseModel):
 class AssessmentResults(BaseModel):
     job_id: str
     overview: Optional[OverviewResult]
+    access_level: Optional[str]
     # Core metadata
     schemas: list[dict[str, Any]]
     tables: list[dict[str, Any]]
@@ -159,3 +160,24 @@ class AssessmentResults(BaseModel):
     replication_status: list[dict[str, Any]]
     service_broker: list[dict[str, Any]]
     version_features: list[dict[str, Any]]
+    # ── New: Schema / Design checks (db_datareader) ───────────────────────────
+    trustworthy_databases: list[dict[str, Any]]
+    deprecated_data_types: list[dict[str, Any]]
+    missing_primary_keys: list[dict[str, Any]]
+    heap_tables: list[dict[str, Any]]
+    untrusted_constraints: list[dict[str, Any]]
+    sp_naming_violations: list[dict[str, Any]]
+    duplicate_indexes: list[dict[str, Any]]
+    database_options_audit: list[dict[str, Any]]
+    object_permissions: list[dict[str, Any]]
+    # ── New: Performance checks (view_database_state) ─────────────────────────
+    missing_indexes: list[dict[str, Any]]
+    index_usage_stats: list[dict[str, Any]]
+    fragmentation_report: list[dict[str, Any]]
+    statistics_health: list[dict[str, Any]]
+    # ── New: Reliability / Config checks (sysadmin) ───────────────────────────
+    backup_history: list[dict[str, Any]]
+    server_configurations: list[dict[str, Any]]
+    weak_sql_logins: list[dict[str, Any]]
+    server_permissions: list[dict[str, Any]]
+    deprecated_features_in_use: list[dict[str, Any]]

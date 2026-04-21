@@ -162,6 +162,7 @@ def _run_direct_job(session_id: str, job_id: str, srv: ServerTarget, db: Databas
         include_null_analysis=db.include_null_analysis,
         null_analysis_sample_limit=db.null_analysis_sample_limit,
         label=f"{srv.server}/{db.name}",
+        access_level=getattr(srv, "access_level", "db_datareader") or "db_datareader",
     )
 
     job_store.update_job(job_id, status=JobStatus.RUNNING, started_at=datetime.now(timezone.utc))
@@ -204,6 +205,7 @@ def _queue_gateway_job(session_id: str, job_id: str, srv: ServerTarget, db: Data
         },
         "include_null_analysis": db.include_null_analysis,
         "null_analysis_sample_limit": db.null_analysis_sample_limit,
+        "access_level": getattr(srv, "access_level", "db_datareader") or "db_datareader",
     }
 
     if service_bus.is_available():

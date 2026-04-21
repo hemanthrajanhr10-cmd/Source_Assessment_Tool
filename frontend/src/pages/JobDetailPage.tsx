@@ -8,6 +8,8 @@ import {
   BarChart2, Activity, Search,
   Users, UserX, ShieldAlert, Zap, Cpu, Lock, KeyRound, Fingerprint,
   Bot, Link2, Network, GitBranch, MessageSquare, MonitorCheck,
+  ShieldCheck, AlertCircle, TrendingUp, BarChart, Layers,
+  Settings, History, Key, ServerCog, FlaskConical, Wrench, PackageSearch,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { StatusBadge } from '../components/ui/Badge'
@@ -15,8 +17,46 @@ import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import StatCard from '../components/ui/StatCard'
 import DataTable, { type ColumnDef } from '../components/ui/DataTable'
-import type { AssessmentResults } from '../types/api'
+import type { AccessLevel, AssessmentResults } from '../types/api'
+import { ACCESS_LEVEL_OPTIONS, ACCESS_LEVEL_RANK, TAB_MIN_ACCESS } from '../types/api'
 import { formatDateTime, elapsed } from '../utils/dateTime'
+
+function AccessLevelBadge({ level }: { level: AccessLevel }) {
+  const opt = ACCESS_LEVEL_OPTIONS.find((o) => o.value === level)
+  const colors: Record<AccessLevel, string> = {
+    db_datareader:       'bg-slate-100 text-slate-600 border-slate-200',
+    view_database_state: 'bg-blue-50 text-blue-700 border-blue-200',
+    db_owner:            'bg-amber-50 text-amber-700 border-amber-200',
+    sysadmin:            'bg-emerald-50 text-emerald-700 border-emerald-200',
+  }
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${colors[level]}`}>
+      <ShieldCheck className="h-3 w-3" />
+      {opt?.label ?? level}
+    </span>
+  )
+}
+
+function LockedTabOverlay({ requiredLevel, currentLevel }: { requiredLevel: AccessLevel; currentLevel: AccessLevel }) {
+  const opt = ACCESS_LEVEL_OPTIONS.find((o) => o.value === requiredLevel)
+  return (
+    <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+      <div className="flex items-center justify-center h-14 w-14 rounded-full bg-slate-100">
+        <Lock className="h-6 w-6 text-slate-400" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-slate-700">Assessment skipped</p>
+        <p className="text-xs text-slate-400 mt-1 max-w-xs">
+          This check requires <span className="font-semibold text-slate-600">{opt?.label ?? requiredLevel}</span> access.
+          The assessment was run with <span className="font-semibold">{currentLevel}</span>.
+        </p>
+      </div>
+      <p className="text-xs text-slate-400">
+        Re-run the assessment with a higher access level to unlock this section.
+      </p>
+    </div>
+  )
+}
 
 function pctCell(value: unknown) {
   const n = Number(value)
@@ -43,12 +83,26 @@ const TAB_GROUPS = [
   {
     label: 'Security',
     ids: ['db_users_roles', 'orphaned_users', 'db_owner_members', 'dynamic_sql_usage',
-          'clr_assemblies', 'tde_status', 'column_encryption', 'pii_indicators'],
+          'clr_assemblies', 'tde_status', 'column_encryption', 'pii_indicators',
+          'trustworthy_databases', 'weak_sql_logins', 'server_permissions', 'object_permissions'],
+  },
+  {
+    label: 'Schema & Design',
+    ids: ['deprecated_data_types', 'missing_primary_keys', 'heap_tables',
+          'untrusted_constraints', 'sp_naming_violations', 'duplicate_indexes'],
+  },
+  {
+    label: 'Performance',
+    ids: ['missing_indexes', 'index_usage_stats', 'fragmentation_report', 'statistics_health'],
+  },
+  {
+    label: 'Configuration',
+    ids: ['database_options_audit', 'server_configurations', 'deprecated_features_in_use', 'version_features'],
   },
   {
     label: 'Features & Risks',
-    ids: ['sql_agent_jobs', 'linked_servers', 'cross_db_references',
-          'replication_status', 'service_broker', 'version_features'],
+    ids: ['sql_agent_jobs', 'linked_servers', 'backup_history',
+          'cross_db_references', 'replication_status', 'service_broker'],
   },
 ]
 
@@ -205,7 +259,7 @@ const TABS: TabDef[] = [
     label: 'Agent Jobs',
     icon: <Bot className="h-4 w-4" />,
     getData: (r) => r.sql_agent_jobs,
-    emptyMessage: 'No SQL Agent jobs found or msdb access denied.',
+    emptyMessage: 'No SQL Agent jobs found.',
   },
   {
     id: 'linked_servers',
@@ -213,6 +267,13 @@ const TABS: TabDef[] = [
     icon: <Link2 className="h-4 w-4" />,
     getData: (r) => r.linked_servers,
     emptyMessage: 'No linked servers configured.',
+  },
+  {
+    id: 'backup_history',
+    label: 'Backup History',
+    icon: <History className="h-4 w-4" />,
+    getData: (r) => r.backup_history,
+    emptyMessage: 'No backup history found.',
   },
   {
     id: 'cross_db_references',
@@ -234,6 +295,129 @@ const TABS: TabDef[] = [
     icon: <MessageSquare className="h-4 w-4" />,
     getData: (r) => r.service_broker,
     emptyMessage: 'Service Broker status unavailable.',
+  },
+  // ── New: Security (higher roles) ─────────────────────────────────────────
+  {
+    id: 'trustworthy_databases',
+    label: 'Trustworthy DBs',
+    icon: <ShieldAlert className="h-4 w-4" />,
+    getData: (r) => r.trustworthy_databases,
+    emptyMessage: 'No databases with TRUSTWORTHY=ON found.',
+  },
+  {
+    id: 'weak_sql_logins',
+    label: 'Weak SQL Logins',
+    icon: <Key className="h-4 w-4" />,
+    getData: (r) => r.weak_sql_logins,
+    emptyMessage: 'No SQL logins with policy violations found.',
+  },
+  {
+    id: 'server_permissions',
+    label: 'Server Role Members',
+    icon: <ServerCog className="h-4 w-4" />,
+    getData: (r) => r.server_permissions,
+    emptyMessage: 'No privileged server role members found.',
+  },
+  {
+    id: 'object_permissions',
+    label: 'Object Permissions',
+    icon: <KeyRound className="h-4 w-4" />,
+    getData: (r) => r.object_permissions,
+    emptyMessage: 'No explicit object permissions found.',
+  },
+  // ── New: Schema & Design ─────────────────────────────────────────────────
+  {
+    id: 'deprecated_data_types',
+    label: 'Deprecated Types',
+    icon: <AlertCircle className="h-4 w-4" />,
+    getData: (r) => r.deprecated_data_types,
+    emptyMessage: 'No deprecated data types found.',
+  },
+  {
+    id: 'missing_primary_keys',
+    label: 'Missing PKs',
+    icon: <PackageSearch className="h-4 w-4" />,
+    getData: (r) => r.missing_primary_keys,
+    emptyMessage: 'All tables have a primary key.',
+  },
+  {
+    id: 'heap_tables',
+    label: 'Heap Tables',
+    icon: <Layers className="h-4 w-4" />,
+    getData: (r) => r.heap_tables,
+    emptyMessage: 'No heap tables found (all have a clustered index).',
+  },
+  {
+    id: 'untrusted_constraints',
+    label: 'Untrusted Constraints',
+    icon: <AlertTriangle className="h-4 w-4" />,
+    getData: (r) => r.untrusted_constraints,
+    emptyMessage: 'All FK and CHECK constraints are trusted.',
+  },
+  {
+    id: 'sp_naming_violations',
+    label: 'SP Naming',
+    icon: <FlaskConical className="h-4 w-4" />,
+    getData: (r) => r.sp_naming_violations,
+    emptyMessage: 'No stored procedures with sp_ prefix found.',
+  },
+  {
+    id: 'duplicate_indexes',
+    label: 'Duplicate Indexes',
+    icon: <Wrench className="h-4 w-4" />,
+    getData: (r) => r.duplicate_indexes,
+    emptyMessage: 'No duplicate indexes detected.',
+  },
+  // ── New: Performance ─────────────────────────────────────────────────────
+  {
+    id: 'missing_indexes',
+    label: 'Missing Indexes',
+    icon: <TrendingUp className="h-4 w-4" />,
+    getData: (r) => r.missing_indexes,
+    emptyMessage: 'No missing index recommendations from SQL Server.',
+  },
+  {
+    id: 'index_usage_stats',
+    label: 'Index Usage',
+    icon: <BarChart className="h-4 w-4" />,
+    getData: (r) => r.index_usage_stats,
+    emptyMessage: 'No index usage statistics available.',
+  },
+  {
+    id: 'fragmentation_report',
+    label: 'Fragmentation',
+    icon: <BarChart2 className="h-4 w-4" />,
+    getData: (r) => r.fragmentation_report,
+    emptyMessage: 'No indexes with significant fragmentation found.',
+  },
+  {
+    id: 'statistics_health',
+    label: 'Statistics Health',
+    icon: <Activity className="h-4 w-4" />,
+    getData: (r) => r.statistics_health,
+    emptyMessage: 'Statistics are up to date.',
+  },
+  // ── New: Configuration ───────────────────────────────────────────────────
+  {
+    id: 'database_options_audit',
+    label: 'DB Options',
+    icon: <Settings className="h-4 w-4" />,
+    getData: (r) => r.database_options_audit,
+    emptyMessage: 'Database options data unavailable.',
+  },
+  {
+    id: 'server_configurations',
+    label: 'Server Config',
+    icon: <ServerCog className="h-4 w-4" />,
+    getData: (r) => r.server_configurations,
+    emptyMessage: 'Server configuration data unavailable.',
+  },
+  {
+    id: 'deprecated_features_in_use',
+    label: 'Deprecated Features',
+    icon: <MonitorCheck className="h-4 w-4" />,
+    getData: (r) => r.deprecated_features_in_use,
+    emptyMessage: 'No deprecated features in active use.',
   },
   {
     id: 'version_features',
@@ -262,8 +446,14 @@ const STEPS = [
   'Index coverage', 'Insertion frequency',
   'Database users', 'Orphaned users', 'Excessive permissions',
   'Dynamic SQL', 'CLR', 'TDE', 'Column-level encryption', 'PII',
-  'SQL Agent', 'Linked servers', 'Cross-database', 'Replication',
-  'Service Broker', 'Version',
+  'Cross-database', 'Replication', 'Service Broker', 'Version',
+  'Trustworthy database', 'Deprecated data types', 'Missing primary keys',
+  'Heap tables', 'Untrusted constraints', 'Stored proc naming', 'Duplicate indexes',
+  'Database options', 'Object permissions',
+  'Missing index recommendations', 'Index usage statistics',
+  'Index fragmentation', 'Statistics health',
+  'SQL Agent jobs', 'Linked servers', 'Backup history',
+  'Server configurations', 'Weak SQL logins', 'Server role members', 'Deprecated features',
   'Null analysis', 'Building report',
 ]
 
@@ -462,10 +652,13 @@ export default function JobDetailPage() {
         <>
           <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
             <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" aria-hidden="true" />
-            <p className="text-sm font-medium text-emerald-700">
+            <p className="text-sm font-medium text-emerald-700 flex-1">
               Assessment complete — <span className="font-bold">{overview.database_name}</span> on{' '}
               {overview.sql_server_version?.split('\n')[0]}
             </p>
+            {results?.access_level && (
+              <AccessLevelBadge level={results.access_level as AccessLevel} />
+            )}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -489,44 +682,55 @@ export default function JobDetailPage() {
         <div className="card overflow-hidden flex" style={{ minHeight: '600px' }}>
           {/* Left navigation sidebar */}
           <nav
-            className="w-56 flex-shrink-0 border-r border-slate-200 bg-slate-50 overflow-y-auto"
+            className="w-60 flex-shrink-0 border-r border-slate-200 bg-slate-50 overflow-y-auto"
             aria-label="Assessment sections"
           >
-            {TAB_GROUPS.map((group) => (
-              <div key={group.label}>
-                <p className="px-4 pt-4 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-widest">
-                  {group.label}
-                </p>
-                {group.ids.map((id) => {
-                  const tab = TABS.find((t) => t.id === id)!
-                  const count = results ? (tab.getData(results) ?? []).length : null
-                  const isActive = activeTab === id
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => setActiveTab(id)}
-                      className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors duration-100 ${
-                        isActive
-                          ? 'bg-white text-brand-700 font-semibold border-r-2 border-brand-600'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                      }`}
-                      aria-selected={isActive}
-                      role="tab"
-                    >
-                      <span className="shrink-0">{tab.icon}</span>
-                      <span className="truncate flex-1 text-left">{tab.label}</span>
-                      {count !== null && (
-                        <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold shrink-0 ${
-                          isActive ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-500'
-                        }`}>
-                          {count > 9999 ? `${(count / 1000).toFixed(1)}k` : count.toLocaleString()}
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            ))}
+            {TAB_GROUPS.map((group) => {
+              const accessLevel = (results?.access_level ?? 'db_datareader') as AccessLevel
+              const accessRank = ACCESS_LEVEL_RANK[accessLevel] ?? 1
+              return (
+                <div key={group.label}>
+                  <p className="px-4 pt-4 pb-1 text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                    {group.label}
+                  </p>
+                  {group.ids.map((id) => {
+                    const tab = TABS.find((t) => t.id === id)!
+                    const count = results ? (tab.getData(results) ?? []).length : null
+                    const isActive = activeTab === id
+                    const minLevel = TAB_MIN_ACCESS[id] ?? 'db_datareader'
+                    const minRank = ACCESS_LEVEL_RANK[minLevel] ?? 1
+                    const isLocked = results != null && accessRank < minRank
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => setActiveTab(id)}
+                        className={`w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors duration-100 ${
+                          isActive
+                            ? 'bg-white text-brand-700 font-semibold border-r-2 border-brand-600'
+                            : isLocked
+                              ? 'text-slate-400 hover:bg-slate-100'
+                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                        aria-selected={isActive}
+                        role="tab"
+                      >
+                        <span className={`shrink-0 ${isLocked ? 'text-slate-300' : ''}`}>{tab.icon}</span>
+                        <span className="truncate flex-1 text-left">{tab.label}</span>
+                        {isLocked ? (
+                          <Lock className="h-3 w-3 text-slate-300 shrink-0" />
+                        ) : count !== null ? (
+                          <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold shrink-0 ${
+                            isActive ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-500'
+                          }`}>
+                            {count > 9999 ? `${(count / 1000).toFixed(1)}k` : count.toLocaleString()}
+                          </span>
+                        ) : null}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })}
           </nav>
 
           {/* Content area */}
@@ -538,18 +742,34 @@ export default function JobDetailPage() {
             ) : results ? (
               (() => {
                 const tab = TABS.find((t) => t.id === activeTab)!
+                const accessLevel = (results.access_level ?? 'db_datareader') as AccessLevel
+                const accessRank = ACCESS_LEVEL_RANK[accessLevel] ?? 1
+                const minLevel = TAB_MIN_ACCESS[activeTab] ?? 'db_datareader'
+                const minRank = ACCESS_LEVEL_RANK[minLevel] ?? 1
+                const isLocked = accessRank < minRank
+
+                if (isLocked) {
+                  return <LockedTabOverlay requiredLevel={minLevel} currentLevel={accessLevel} />
+                }
+
                 const data = tab.getData(results) ?? []
                 const columns = tab.id === 'null_analysis'
                   ? buildNullAnalysisColumns(data)
                   : tab.columns
                 return (
                   <>
-                    <div className="flex items-center gap-2 mb-4">
+                    <div className="flex items-center gap-2 mb-4 flex-wrap">
                       <span className="text-slate-400">{tab.icon}</span>
                       <h2 className="text-base font-semibold text-slate-800">{tab.label}</h2>
                       <span className="text-xs text-slate-400 tabular-nums">
                         ({data.length.toLocaleString()} row{data.length !== 1 ? 's' : ''})
                       </span>
+                      {minRank > 1 && (
+                        <span className="ml-auto text-xs text-slate-400 flex items-center gap-1">
+                          <ShieldCheck className="h-3 w-3" />
+                          Requires {minLevel}
+                        </span>
+                      )}
                     </div>
                     <DataTable
                       key={activeTab}

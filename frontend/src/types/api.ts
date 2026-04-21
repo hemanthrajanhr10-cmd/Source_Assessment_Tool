@@ -2,6 +2,90 @@ export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancel
 export type SessionStatus = 'pending' | 'running' | 'completed' | 'partial' | 'failed' | 'cancelled'
 export type DbType = 'mssql' | 'postgres' | 'mysql' | 'oracle'
 
+/** SQL Server access level — determines which assessments are run */
+export type AccessLevel = 'db_datareader' | 'view_database_state' | 'db_owner' | 'sysadmin'
+
+export const ACCESS_LEVEL_OPTIONS: { value: AccessLevel; label: string; description: string }[] = [
+  {
+    value: 'db_datareader',
+    label: 'db_datareader (Basic)',
+    description: 'Catalog reads, schema analysis, basic security checks',
+  },
+  {
+    value: 'view_database_state',
+    label: 'VIEW DATABASE STATE',
+    description: 'Adds performance DMVs: missing indexes, fragmentation, index usage, statistics',
+  },
+  {
+    value: 'db_owner',
+    label: 'db_owner',
+    description: 'Adds object-level permission auditing',
+  },
+  {
+    value: 'sysadmin',
+    label: 'sysadmin (Full)',
+    description: 'Adds msdb access (agent jobs, backup history), server config, linked servers, login security',
+  },
+]
+
+/** Minimum required access level per assessment tab */
+export const TAB_MIN_ACCESS: Record<string, AccessLevel> = {
+  // db_datareader
+  schemas: 'db_datareader',
+  tables: 'db_datareader',
+  columns: 'db_datareader',
+  views: 'db_datareader',
+  stored_procedures: 'db_datareader',
+  functions: 'db_datareader',
+  indexes: 'db_datareader',
+  relationships: 'db_datareader',
+  index_coverage: 'db_datareader',
+  null_analysis: 'db_datareader',
+  insertion_frequency: 'db_datareader',
+  db_users_roles: 'db_datareader',
+  orphaned_users: 'db_datareader',
+  db_owner_members: 'db_datareader',
+  dynamic_sql_usage: 'db_datareader',
+  clr_assemblies: 'db_datareader',
+  tde_status: 'db_datareader',
+  column_encryption: 'db_datareader',
+  pii_indicators: 'db_datareader',
+  cross_db_references: 'db_datareader',
+  replication_status: 'db_datareader',
+  service_broker: 'db_datareader',
+  version_features: 'db_datareader',
+  trustworthy_databases: 'db_datareader',
+  deprecated_data_types: 'db_datareader',
+  missing_primary_keys: 'db_datareader',
+  heap_tables: 'db_datareader',
+  untrusted_constraints: 'db_datareader',
+  sp_naming_violations: 'db_datareader',
+  duplicate_indexes: 'db_datareader',
+  database_options_audit: 'db_datareader',
+  // db_owner
+  object_permissions: 'db_owner',
+  // view_database_state
+  missing_indexes: 'view_database_state',
+  index_usage_stats: 'view_database_state',
+  fragmentation_report: 'view_database_state',
+  statistics_health: 'view_database_state',
+  // sysadmin
+  sql_agent_jobs: 'sysadmin',
+  linked_servers: 'sysadmin',
+  backup_history: 'sysadmin',
+  server_configurations: 'sysadmin',
+  weak_sql_logins: 'sysadmin',
+  server_permissions: 'sysadmin',
+  deprecated_features_in_use: 'sysadmin',
+}
+
+export const ACCESS_LEVEL_RANK: Record<AccessLevel, number> = {
+  db_datareader: 1,
+  view_database_state: 2,
+  db_owner: 3,
+  sysadmin: 4,
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export interface RegisterRequest {
@@ -103,6 +187,7 @@ export interface OverviewResult {
 export interface AssessmentResults {
   job_id: string
   overview?: OverviewResult
+  access_level?: AccessLevel
   schemas: Record<string, unknown>[]
   tables: Record<string, unknown>[]
   columns: Record<string, unknown>[]
@@ -114,6 +199,7 @@ export interface AssessmentResults {
   index_coverage: Record<string, unknown>[]
   insertion_frequency: Record<string, unknown>[]
   null_analysis: Record<string, unknown>[]
+  // Security
   db_users_roles?: Record<string, unknown>[]
   orphaned_users?: Record<string, unknown>[]
   db_owner_members?: Record<string, unknown>[]
@@ -122,12 +208,35 @@ export interface AssessmentResults {
   tde_status?: Record<string, unknown>[]
   column_encryption?: Record<string, unknown>[]
   pii_indicators?: Record<string, unknown>[]
+  // Features & risks
   sql_agent_jobs?: Record<string, unknown>[]
   linked_servers?: Record<string, unknown>[]
   cross_db_references?: Record<string, unknown>[]
   replication_status?: Record<string, unknown>[]
   service_broker?: Record<string, unknown>[]
   version_features?: Record<string, unknown>[]
+  // New: Schema / Design (db_datareader)
+  trustworthy_databases?: Record<string, unknown>[]
+  deprecated_data_types?: Record<string, unknown>[]
+  missing_primary_keys?: Record<string, unknown>[]
+  heap_tables?: Record<string, unknown>[]
+  untrusted_constraints?: Record<string, unknown>[]
+  sp_naming_violations?: Record<string, unknown>[]
+  duplicate_indexes?: Record<string, unknown>[]
+  database_options_audit?: Record<string, unknown>[]
+  // New: db_owner
+  object_permissions?: Record<string, unknown>[]
+  // New: Performance (view_database_state)
+  missing_indexes?: Record<string, unknown>[]
+  index_usage_stats?: Record<string, unknown>[]
+  fragmentation_report?: Record<string, unknown>[]
+  statistics_health?: Record<string, unknown>[]
+  // New: Server-level (sysadmin)
+  backup_history?: Record<string, unknown>[]
+  server_configurations?: Record<string, unknown>[]
+  weak_sql_logins?: Record<string, unknown>[]
+  server_permissions?: Record<string, unknown>[]
+  deprecated_features_in_use?: Record<string, unknown>[]
 }
 
 // ── Gateway ───────────────────────────────────────────────────────────────────
@@ -166,6 +275,7 @@ export interface ServerTarget {
   databases: DatabaseTarget[]
   use_gateway: boolean
   gateway_key?: string
+  access_level?: AccessLevel
 }
 
 export interface SessionRequest {

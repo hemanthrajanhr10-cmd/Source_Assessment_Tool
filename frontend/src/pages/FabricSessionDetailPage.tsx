@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Zap, Database, FileText, BarChart2, ChevronDown, ChevronUp,
   Loader2, CheckCircle2, XCircle, AlertCircle, ExternalLink,
   Table2, Hash, Calculator, Link2, Eye, Bookmark, Layers,
-  ArrowRight, Code2, Info,
+  ArrowRight, Code2, Info, StopCircle,
 } from 'lucide-react'
 import { api } from '../api/client'
 import type {
@@ -569,12 +569,21 @@ function WorkspaceCard({ ws }: { ws: FabricWorkspace }) {
 
 export default function FabricSessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
+  const queryClient = useQueryClient()
 
   const { data: session, isLoading } = useQuery({
     queryKey: ['fabric-session', sessionId],
     queryFn: () => api.getFabricSession(sessionId!).then(r => r.data),
     refetchInterval: q => q.state.data?.status === 'running' ? 4000 : false,
     enabled: !!sessionId,
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: () => api.cancelFabricSession(sessionId!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fabric-session', sessionId] })
+      queryClient.invalidateQueries({ queryKey: ['fabric-sessions'] })
+    },
   })
 
   if (isLoading) {
@@ -606,10 +615,23 @@ export default function FabricSessionDetailPage() {
         </h1>
         <div className="flex items-center gap-3 mt-1">
           {session.status === 'running' && (
-            <span className="inline-flex items-center gap-1.5 text-sm text-blue-700">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {session.progress_message || 'Running…'}
-            </span>
+            <>
+              <span className="inline-flex items-center gap-1.5 text-sm text-blue-700">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {session.progress_message || 'Running…'}
+              </span>
+              <button
+                onClick={() => {
+                  if (confirm('Stop this assessment? Progress so far will be discarded.'))
+                    cancelMutation.mutate()
+                }}
+                disabled={cancelMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors"
+              >
+                <StopCircle className="h-4 w-4" />
+                {cancelMutation.isPending ? 'Stopping…' : 'Stop Assessment'}
+              </button>
+            </>
           )}
           {session.status === 'completed' && (
             <span className="inline-flex items-center gap-1.5 text-sm text-emerald-700">
@@ -620,6 +642,11 @@ export default function FabricSessionDetailPage() {
           {session.status === 'failed' && (
             <span className="inline-flex items-center gap-1.5 text-sm text-red-700">
               <XCircle className="h-4 w-4" /> Failed — {session.error}
+            </span>
+          )}
+          {session.status === 'cancelled' && (
+            <span className="inline-flex items-center gap-1.5 text-sm text-slate-600">
+              <StopCircle className="h-4 w-4" /> Cancelled by user
             </span>
           )}
         </div>

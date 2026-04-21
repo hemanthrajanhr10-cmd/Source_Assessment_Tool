@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Zap, PlusCircle, CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Zap, PlusCircle, CheckCircle2, XCircle, Loader2, Clock, StopCircle } from 'lucide-react'
 import { api } from '../api/client'
 import type { FabricSessionRecord } from '../types/api'
 import Button from '../components/ui/Button'
@@ -18,6 +18,12 @@ function StatusBadge({ status }: { status: string }) {
         <XCircle className="h-3 w-3" /> Failed
       </span>
     )
+  if (status === 'cancelled')
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-300">
+        <StopCircle className="h-3 w-3" /> Cancelled
+      </span>
+    )
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
       <Loader2 className="h-3 w-3 animate-spin" /> Running
@@ -27,10 +33,17 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function FabricSessionsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['fabric-sessions'],
     queryFn: () => api.listFabricSessions().then((r) => r.data),
     refetchInterval: 10_000,
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: (sessionId: string) => api.cancelFabricSession(sessionId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fabric-sessions'] }),
   })
 
   return (
@@ -72,6 +85,7 @@ export default function FabricSessionsPage() {
                 <th className="text-left px-5 py-3 font-semibold text-slate-600">Status</th>
                 <th className="text-left px-5 py-3 font-semibold text-slate-600">Created</th>
                 <th className="text-left px-5 py-3 font-semibold text-slate-600">Completed</th>
+                <th className="px-5 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -98,6 +112,20 @@ export default function FabricSessionsPage() {
                   </td>
                   <td className="px-5 py-3 text-slate-500">
                     {s.completed_at ? new Date(s.completed_at).toLocaleString() : '—'}
+                  </td>
+                  <td className="px-5 py-3" onClick={e => e.stopPropagation()}>
+                    {s.status === 'running' && (
+                      <button
+                        onClick={() => {
+                          if (confirm('Stop this assessment?')) cancelMutation.mutate(s.fabric_session_id)
+                        }}
+                        disabled={cancelMutation.isPending}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition-colors"
+                      >
+                        <StopCircle className="h-3 w-3" />
+                        Stop
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

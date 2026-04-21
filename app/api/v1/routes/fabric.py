@@ -172,6 +172,34 @@ async def list_fabric_sessions(current_user=Depends(get_current_user)):
     return await run_in_threadpool(azure_store.list_fabric_sessions, user_id=current_user["user_id"])
 
 
+@router.post("/sessions/{fabric_session_id}/cancel", status_code=200)
+async def cancel_fabric_session(
+    fabric_session_id: str,
+    current_user=Depends(get_current_user),
+):
+    """
+    Request cancellation of a running Fabric assessment.
+    The background task checks for this signal at each workspace/report boundary
+    and stops gracefully, saving whatever partial results have been collected.
+    """
+    record = await run_in_threadpool(azure_store.get_fabric_session, fabric_session_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Fabric session not found")
+    if record.get("status") != "running":
+        return {"message": "Session is not running.", "status": record.get("status")}
+
+    fabric_service.request_cancel(fabric_session_id)
+    await run_in_threadpool(
+        azure_store.update_fabric_session,
+        fabric_session_id,
+        status="cancelled",
+        completed_at=datetime.now(timezone.utc),
+        progress_message="Cancelled by user.",
+    )
+    logger.info("Fabric session %s cancelled by user %s", fabric_session_id, current_user["user_id"])
+    return {"message": "Cancellation requested.", "status": "cancelled"}
+
+
 @router.get("/sessions/{fabric_session_id}")
 async def get_fabric_session(
     fabric_session_id: str,

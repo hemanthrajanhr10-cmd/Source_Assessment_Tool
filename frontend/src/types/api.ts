@@ -349,7 +349,7 @@ export interface FabricResults {
 export interface FabricSessionRecord {
   fabric_session_id: string
   label?: string
-  status: 'running' | 'completed' | 'failed'
+  status: 'running' | 'completed' | 'failed' | 'cancelled'
   created_at: string
   completed_at?: string
   error?: string

@@ -226,6 +226,31 @@ _auth: dict[str, dict] = {}
 _auth_lock = threading.Lock()
 _FALLBACK_CLIENT_ID = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"  # Azure CLI
 
+# ── Cancellation flags ────────────────────────────────────────────────────────
+# Maps fabric_session_id → threading.Event. Set the event to signal cancellation.
+_cancel_flags: dict[str, threading.Event] = {}
+_cancel_lock  = threading.Lock()
+
+
+def request_cancel(fabric_session_id: str) -> None:
+    """Signal a running assessment to stop at the next checkpoint."""
+    with _cancel_lock:
+        flag = _cancel_flags.get(fabric_session_id)
+        if flag:
+            flag.set()
+
+
+def _register_cancel_flag(fabric_session_id: str) -> threading.Event:
+    flag = threading.Event()
+    with _cancel_lock:
+        _cancel_flags[fabric_session_id] = flag
+    return flag
+
+
+def _deregister_cancel_flag(fabric_session_id: str) -> None:
+    with _cancel_lock:
+        _cancel_flags.pop(fabric_session_id, None)
+
 
 # ── Auth helpers ──────────────────────────────────────────────────────────────
 
@@ -1122,12 +1147,36 @@ def run_fabric_assessment(
       3. Paginated Reports  — metadata only (RDL format; no visual API support).
 
     Returns structured results dict (no _measure_dep_map keys in output).
+    Raises CancelledError if the assessment is stopped via request_cancel().
     """
+    cancel_flag = _register_cancel_flag(fabric_session_id)
+
+    def _check_cancel():
+        if cancel_flag.is_set():
+            raise RuntimeError("Assessment cancelled by user.")
+
     def _progress(msg: str):
+        _check_cancel()
         logger.info("[fabric:%s] %s", fabric_session_id, msg)
         if on_progress:
             on_progress(msg)
 
+    try:
+      return _run_assessment_inner(
+          fabric_session_id, auth_id, workspace_ids,
+          _progress, _check_cancel,
+      )
+    finally:
+        _deregister_cancel_flag(fabric_session_id)
+
+
+def _run_assessment_inner(
+    fabric_session_id: str,  # noqa: ARG001 — kept for logging context if needed
+    auth_id:           str,
+    workspace_ids:     Optional[list[str]],
+    _progress,
+    _check_cancel,
+) -> dict:
     token = _get_token(auth_id)
 
     # ── 1. Workspaces ─────────────────────────────────────────────────────────
@@ -1154,6 +1203,7 @@ def run_fabric_assessment(
     total_datasets    = 0
 
     for ws in raw_workspaces:
+        _check_cancel()
         ws_id   = ws.get("id",   "")
         ws_name = ws.get("name", "")
         _progress(f"Workspace: {ws_name}")
@@ -1267,6 +1317,7 @@ def run_fabric_assessment(
                 continue
 
             # Interactive report — full visual analysis
+            _check_cancel()
             total_reports += 1
             _progress(f"    Analysing report: {rpt_name}")
             try:

@@ -193,6 +193,9 @@ export const api = {
 
   getFabricSession: (sessionId: string) =>
     http.get<FabricSessionRecord>(`/api/v1/fabric/sessions/${sessionId}`),
+
+  cancelFabricSession: (sessionId: string) =>
+    http.post(`/api/v1/fabric/sessions/${sessionId}/cancel`),
 }
 
 export function getApiErrorMessage(err: unknown): string {

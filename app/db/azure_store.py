@@ -219,6 +219,98 @@ _SECTION_CONFIG: dict[str, tuple[str, list[str]]] = {
          "fulltext_installed", "clr_enabled", "xp_cmdshell_enabled",
          "ole_automation_enabled", "adhoc_distributed_queries"],
     ),
+    # Schema / Design checks
+    "trustworthy_databases": (
+        "assessment_trustworthy_databases",
+        ["database_name", "trustworthy_status", "cross_db_chaining", "state_desc", "recovery_model_desc"],
+    ),
+    "deprecated_data_types": (
+        "assessment_deprecated_data_types",
+        ["schema_name", "table_name", "column_name", "data_type", "recommendation"],
+    ),
+    "missing_primary_keys": (
+        "assessment_missing_primary_keys",
+        ["schema_name", "table_name", "row_count", "finding"],
+    ),
+    "heap_tables": (
+        "assessment_heap_tables",
+        ["schema_name", "table_name", "row_count", "size_mb", "finding"],
+    ),
+    "untrusted_constraints": (
+        "assessment_untrusted_constraints",
+        ["constraint_type", "schema_name", "table_name", "constraint_name",
+         "trust_status", "enabled_status", "finding"],
+    ),
+    "sp_naming_violations": (
+        "assessment_sp_naming_violations",
+        ["schema_name", "procedure_name", "finding"],
+    ),
+    "duplicate_indexes": (
+        "assessment_duplicate_indexes",
+        ["schema_name", "table_name", "index1_name", "index2_name",
+         "index_type", "shared_key_columns", "finding"],
+    ),
+    "database_options_audit": (
+        "assessment_database_options_audit",
+        ["database_name", "recovery_model_desc", "page_verify_option_desc",
+         "compatibility_level", "collation_name", "state_desc",
+         "auto_close", "auto_shrink", "page_verify_status",
+         "auto_update_stats", "auto_create_stats", "access_mode"],
+    ),
+    "object_permissions": (
+        "assessment_object_permissions",
+        ["permission_state", "permission_name", "object_class",
+         "object_name", "schema_name", "grantee", "grantee_type"],
+    ),
+    # Performance checks
+    "missing_indexes": (
+        "assessment_missing_indexes",
+        ["schema_name", "table_name", "equality_columns", "inequality_columns",
+         "included_columns", "improvement_score", "user_seeks", "user_scans",
+         "avg_impact_pct", "last_user_seek"],
+    ),
+    "index_usage_stats": (
+        "assessment_index_usage_stats",
+        ["schema_name", "table_name", "index_name", "type_desc",
+         "user_seeks", "user_scans", "user_lookups", "user_updates",
+         "last_user_seek", "last_user_update", "index_status"],
+    ),
+    "fragmentation_report": (
+        "assessment_fragmentation_report",
+        ["schema_name", "table_name", "index_name", "type_desc",
+         "fragmentation_pct", "page_count", "recommendation"],
+    ),
+    "statistics_health": (
+        "assessment_statistics_health",
+        ["schema_name", "table_name", "stat_name", "last_updated",
+         "rows", "rows_sampled", "sample_pct", "modification_counter", "status"],
+    ),
+    # Reliability / Config checks
+    "backup_history": (
+        "assessment_backup_history",
+        ["database_name", "last_full_backup", "last_diff_backup", "last_log_backup",
+         "hours_since_full_backup", "hours_since_log_backup",
+         "recovery_model_desc", "backup_status"],
+    ),
+    "server_configurations": (
+        "assessment_server_configurations",
+        ["config_name", "configured_value", "running_value",
+         "min_value", "max_value", "description", "recommendation"],
+    ),
+    "weak_sql_logins": (
+        "assessment_weak_sql_logins",
+        ["login_name", "type_desc", "login_status", "password_policy",
+         "expiration_policy", "password_last_set", "bad_password_count",
+         "days_until_expiration", "assessment"],
+    ),
+    "server_permissions": (
+        "assessment_server_permissions",
+        ["server_role", "member_name", "type_desc", "login_status", "member_since"],
+    ),
+    "deprecated_features_in_use": (
+        "assessment_deprecated_features_in_use",
+        ["deprecated_feature", "usage_count_since_restart"],
+    ),
 }
 
 
@@ -380,7 +472,7 @@ def list_jobs(user_id: Optional[str] = None) -> list[dict[str, Any]]:
 
 # ── Overview ──────────────────────────────────────────────────────────────────
 
-def save_overview(job_id: str, overview: Optional[dict[str, Any]]) -> None:
+def save_overview(job_id: str, overview: Optional[dict[str, Any]], access_level: Optional[str] = None) -> None:
     if not overview:
         return
     conn = _get_conn()
@@ -398,14 +490,15 @@ def save_overview(job_id: str, overview: Optional[dict[str, Any]]) -> None:
                     view_count         = ?,
                     stored_proc_count  = ?,
                     function_count     = ?,
-                    total_size_mb      = ?
+                    total_size_mb      = ?,
+                    access_level       = ?
                 WHERE job_id = ?
             ELSE
                 INSERT INTO dbo.assessment_overview
                     (job_id, database_name, connected_user, sql_server_version,
                      schema_count, table_count, view_count,
-                     stored_proc_count, function_count, total_size_mb)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     stored_proc_count, function_count, total_size_mb, access_level)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_id,
@@ -413,13 +506,13 @@ def save_overview(job_id: str, overview: Optional[dict[str, Any]]) -> None:
                 overview.get("sql_server_version"), overview.get("schema_count"),
                 overview.get("table_count"), overview.get("view_count"),
                 overview.get("stored_proc_count"), overview.get("function_count"),
-                overview.get("total_size_mb"), job_id,
+                overview.get("total_size_mb"), access_level, job_id,
                 job_id,
                 overview.get("database_name"), overview.get("connected_user"),
                 overview.get("sql_server_version"), overview.get("schema_count"),
                 overview.get("table_count"), overview.get("view_count"),
                 overview.get("stored_proc_count"), overview.get("function_count"),
-                overview.get("total_size_mb"),
+                overview.get("total_size_mb"), access_level,
             ),
         )
         conn.commit()
@@ -499,7 +592,11 @@ def load_full_results(job_id: str) -> dict[str, Any]:
     """Combine overview + all sections into a single results dict."""
     overview = load_overview(job_id)
     sections = load_sections(job_id)
-    return {"job_id": job_id, "overview": overview, **sections}
+    # Extract access_level from overview so the route can pass it to AssessmentResults
+    access_level: Optional[str] = None
+    if isinstance(overview, dict):
+        access_level = overview.pop("access_level", None)
+    return {"job_id": job_id, "access_level": access_level, "overview": overview, **sections}
 
 
 def save_excel_bytes(job_id: str, data: bytes) -> None:

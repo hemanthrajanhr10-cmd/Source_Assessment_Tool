@@ -563,3 +563,322 @@ IF OBJECT_ID('dbo.assessment_version_features', 'U') IS NULL
         CONSTRAINT FK_version_features_jobs FOREIGN KEY (job_id)
             REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
     );
+
+-- Migration: add access_level to assessment_overview
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.assessment_overview') AND name = 'access_level')
+    ALTER TABLE dbo.assessment_overview ADD access_level VARCHAR(50) NULL;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- NEW: SCHEMA / DESIGN CHECK TABLES
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- ─── 28. assessment_trustworthy_databases ────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_trustworthy_databases', 'U') IS NULL
+    CREATE TABLE dbo.assessment_trustworthy_databases (
+        id                  BIGINT IDENTITY(1,1) NOT NULL,
+        job_id              VARCHAR(36)          NOT NULL,
+        database_name       NVARCHAR(128)        NOT NULL,
+        trustworthy_status  NVARCHAR(20)         NULL,
+        cross_db_chaining   NVARCHAR(30)         NULL,
+        state_desc          NVARCHAR(60)         NULL,
+        recovery_model_desc NVARCHAR(30)         NULL,
+        CONSTRAINT PK_assessment_trustworthy_databases PRIMARY KEY (id),
+        CONSTRAINT FK_trustworthy_databases_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 29. assessment_deprecated_data_types ────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_deprecated_data_types', 'U') IS NULL
+    CREATE TABLE dbo.assessment_deprecated_data_types (
+        id             BIGINT IDENTITY(1,1) NOT NULL,
+        job_id         VARCHAR(36)          NOT NULL,
+        schema_name    NVARCHAR(128)        NOT NULL,
+        table_name     NVARCHAR(128)        NOT NULL,
+        column_name    NVARCHAR(128)        NOT NULL,
+        data_type      NVARCHAR(128)        NULL,
+        recommendation NVARCHAR(MAX)        NULL,
+        CONSTRAINT PK_assessment_deprecated_data_types PRIMARY KEY (id),
+        CONSTRAINT FK_deprecated_data_types_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 30. assessment_missing_primary_keys ─────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_missing_primary_keys', 'U') IS NULL
+    CREATE TABLE dbo.assessment_missing_primary_keys (
+        id          BIGINT IDENTITY(1,1) NOT NULL,
+        job_id      VARCHAR(36)          NOT NULL,
+        schema_name NVARCHAR(128)        NOT NULL,
+        table_name  NVARCHAR(128)        NOT NULL,
+        row_count   BIGINT               NULL,
+        finding     NVARCHAR(MAX)        NULL,
+        CONSTRAINT PK_assessment_missing_primary_keys PRIMARY KEY (id),
+        CONSTRAINT FK_missing_primary_keys_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 31. assessment_heap_tables ──────────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_heap_tables', 'U') IS NULL
+    CREATE TABLE dbo.assessment_heap_tables (
+        id          BIGINT IDENTITY(1,1) NOT NULL,
+        job_id      VARCHAR(36)          NOT NULL,
+        schema_name NVARCHAR(128)        NOT NULL,
+        table_name  NVARCHAR(128)        NOT NULL,
+        row_count   BIGINT               NULL,
+        size_mb     DECIMAL(18,2)        NULL,
+        finding     NVARCHAR(MAX)        NULL,
+        CONSTRAINT PK_assessment_heap_tables PRIMARY KEY (id),
+        CONSTRAINT FK_heap_tables_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 32. assessment_untrusted_constraints ────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_untrusted_constraints', 'U') IS NULL
+    CREATE TABLE dbo.assessment_untrusted_constraints (
+        id              BIGINT IDENTITY(1,1) NOT NULL,
+        job_id          VARCHAR(36)          NOT NULL,
+        constraint_type NVARCHAR(20)         NULL,
+        schema_name     NVARCHAR(128)        NOT NULL,
+        table_name      NVARCHAR(128)        NOT NULL,
+        constraint_name NVARCHAR(128)        NOT NULL,
+        trust_status    NVARCHAR(20)         NULL,
+        enabled_status  NVARCHAR(20)         NULL,
+        finding         NVARCHAR(MAX)        NULL,
+        CONSTRAINT PK_assessment_untrusted_constraints PRIMARY KEY (id),
+        CONSTRAINT FK_untrusted_constraints_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 33. assessment_sp_naming_violations ─────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_sp_naming_violations', 'U') IS NULL
+    CREATE TABLE dbo.assessment_sp_naming_violations (
+        id             BIGINT IDENTITY(1,1) NOT NULL,
+        job_id         VARCHAR(36)          NOT NULL,
+        schema_name    NVARCHAR(128)        NOT NULL,
+        procedure_name NVARCHAR(128)        NOT NULL,
+        finding        NVARCHAR(MAX)        NULL,
+        CONSTRAINT PK_assessment_sp_naming_violations PRIMARY KEY (id),
+        CONSTRAINT FK_sp_naming_violations_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 34. assessment_duplicate_indexes ────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_duplicate_indexes', 'U') IS NULL
+    CREATE TABLE dbo.assessment_duplicate_indexes (
+        id                 BIGINT IDENTITY(1,1) NOT NULL,
+        job_id             VARCHAR(36)          NOT NULL,
+        schema_name        NVARCHAR(128)        NOT NULL,
+        table_name         NVARCHAR(128)        NOT NULL,
+        index1_name        NVARCHAR(128)        NULL,
+        index2_name        NVARCHAR(128)        NULL,
+        index_type         NVARCHAR(60)         NULL,
+        shared_key_columns NVARCHAR(MAX)        NULL,
+        finding            NVARCHAR(MAX)        NULL,
+        CONSTRAINT PK_assessment_duplicate_indexes PRIMARY KEY (id),
+        CONSTRAINT FK_duplicate_indexes_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 35. assessment_database_options_audit ───────────────────────────────────
+IF OBJECT_ID('dbo.assessment_database_options_audit', 'U') IS NULL
+    CREATE TABLE dbo.assessment_database_options_audit (
+        id                     BIGINT IDENTITY(1,1) NOT NULL,
+        job_id                 VARCHAR(36)          NOT NULL,
+        database_name          NVARCHAR(128)        NOT NULL,
+        recovery_model_desc    NVARCHAR(30)         NULL,
+        page_verify_option_desc NVARCHAR(30)        NULL,
+        compatibility_level    INT                  NULL,
+        collation_name         NVARCHAR(128)        NULL,
+        state_desc             NVARCHAR(60)         NULL,
+        auto_close             NVARCHAR(30)         NULL,
+        auto_shrink            NVARCHAR(30)         NULL,
+        page_verify_status     NVARCHAR(30)         NULL,
+        auto_update_stats      NVARCHAR(20)         NULL,
+        auto_create_stats      NVARCHAR(20)         NULL,
+        access_mode            NVARCHAR(20)         NULL,
+        CONSTRAINT PK_assessment_database_options_audit PRIMARY KEY (id),
+        CONSTRAINT FK_database_options_audit_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 36. assessment_object_permissions ───────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_object_permissions', 'U') IS NULL
+    CREATE TABLE dbo.assessment_object_permissions (
+        id               BIGINT IDENTITY(1,1) NOT NULL,
+        job_id           VARCHAR(36)          NOT NULL,
+        permission_state NVARCHAR(20)         NULL,
+        permission_name  NVARCHAR(128)        NULL,
+        object_class     NVARCHAR(60)         NULL,
+        object_name      NVARCHAR(256)        NULL,
+        schema_name      NVARCHAR(128)        NULL,
+        grantee          NVARCHAR(128)        NULL,
+        grantee_type     NVARCHAR(60)         NULL,
+        CONSTRAINT PK_assessment_object_permissions PRIMARY KEY (id),
+        CONSTRAINT FK_object_permissions_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- NEW: PERFORMANCE CHECK TABLES
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- ─── 37. assessment_missing_indexes ──────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_missing_indexes', 'U') IS NULL
+    CREATE TABLE dbo.assessment_missing_indexes (
+        id                  BIGINT IDENTITY(1,1) NOT NULL,
+        job_id              VARCHAR(36)          NOT NULL,
+        schema_name         NVARCHAR(128)        NOT NULL,
+        table_name          NVARCHAR(128)        NOT NULL,
+        equality_columns    NVARCHAR(MAX)        NULL,
+        inequality_columns  NVARCHAR(MAX)        NULL,
+        included_columns    NVARCHAR(MAX)        NULL,
+        improvement_score   DECIMAL(18,2)        NULL,
+        user_seeks          BIGINT               NULL,
+        user_scans          BIGINT               NULL,
+        avg_impact_pct      DECIMAL(5,2)         NULL,
+        last_user_seek      NVARCHAR(30)         NULL,
+        CONSTRAINT PK_assessment_missing_indexes PRIMARY KEY (id),
+        CONSTRAINT FK_missing_indexes_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 38. assessment_index_usage_stats ────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_index_usage_stats', 'U') IS NULL
+    CREATE TABLE dbo.assessment_index_usage_stats (
+        id               BIGINT IDENTITY(1,1) NOT NULL,
+        job_id           VARCHAR(36)          NOT NULL,
+        schema_name      NVARCHAR(128)        NOT NULL,
+        table_name       NVARCHAR(128)        NOT NULL,
+        index_name       NVARCHAR(128)        NOT NULL,
+        type_desc        NVARCHAR(60)         NULL,
+        user_seeks       BIGINT               NULL,
+        user_scans       BIGINT               NULL,
+        user_lookups     BIGINT               NULL,
+        user_updates     BIGINT               NULL,
+        last_user_seek   NVARCHAR(30)         NULL,
+        last_user_update NVARCHAR(30)         NULL,
+        index_status     NVARCHAR(60)         NULL,
+        CONSTRAINT PK_assessment_index_usage_stats PRIMARY KEY (id),
+        CONSTRAINT FK_index_usage_stats_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 39. assessment_fragmentation_report ─────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_fragmentation_report', 'U') IS NULL
+    CREATE TABLE dbo.assessment_fragmentation_report (
+        id                BIGINT IDENTITY(1,1) NOT NULL,
+        job_id            VARCHAR(36)          NOT NULL,
+        schema_name       NVARCHAR(128)        NOT NULL,
+        table_name        NVARCHAR(128)        NOT NULL,
+        index_name        NVARCHAR(128)        NOT NULL,
+        type_desc         NVARCHAR(60)         NULL,
+        fragmentation_pct DECIMAL(5,2)         NULL,
+        page_count        BIGINT               NULL,
+        recommendation    NVARCHAR(60)         NULL,
+        CONSTRAINT PK_assessment_fragmentation_report PRIMARY KEY (id),
+        CONSTRAINT FK_fragmentation_report_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 40. assessment_statistics_health ────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_statistics_health', 'U') IS NULL
+    CREATE TABLE dbo.assessment_statistics_health (
+        id                   BIGINT IDENTITY(1,1) NOT NULL,
+        job_id               VARCHAR(36)          NOT NULL,
+        schema_name          NVARCHAR(128)        NOT NULL,
+        table_name           NVARCHAR(128)        NOT NULL,
+        stat_name            NVARCHAR(128)        NOT NULL,
+        last_updated         NVARCHAR(30)         NULL,
+        rows                 BIGINT               NULL,
+        rows_sampled         BIGINT               NULL,
+        sample_pct           DECIMAL(5,2)         NULL,
+        modification_counter BIGINT               NULL,
+        status               NVARCHAR(40)         NULL,
+        CONSTRAINT PK_assessment_statistics_health PRIMARY KEY (id),
+        CONSTRAINT FK_statistics_health_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- NEW: RELIABILITY / CONFIG CHECK TABLES
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- ─── 41. assessment_backup_history ───────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_backup_history', 'U') IS NULL
+    CREATE TABLE dbo.assessment_backup_history (
+        id                     BIGINT IDENTITY(1,1) NOT NULL,
+        job_id                 VARCHAR(36)          NOT NULL,
+        database_name          NVARCHAR(128)        NOT NULL,
+        last_full_backup       NVARCHAR(30)         NULL,
+        last_diff_backup       NVARCHAR(30)         NULL,
+        last_log_backup        NVARCHAR(30)         NULL,
+        hours_since_full_backup INT                 NULL,
+        hours_since_log_backup  INT                 NULL,
+        recovery_model_desc    NVARCHAR(30)         NULL,
+        backup_status          NVARCHAR(100)        NULL,
+        CONSTRAINT PK_assessment_backup_history PRIMARY KEY (id),
+        CONSTRAINT FK_backup_history_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 42. assessment_server_configurations ────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_server_configurations', 'U') IS NULL
+    CREATE TABLE dbo.assessment_server_configurations (
+        id               BIGINT IDENTITY(1,1) NOT NULL,
+        job_id           VARCHAR(36)          NOT NULL,
+        config_name      NVARCHAR(128)        NOT NULL,
+        configured_value BIGINT               NULL,
+        running_value    BIGINT               NULL,
+        min_value        BIGINT               NULL,
+        max_value        BIGINT               NULL,
+        description      NVARCHAR(MAX)        NULL,
+        recommendation   NVARCHAR(MAX)        NULL,
+        CONSTRAINT PK_assessment_server_configurations PRIMARY KEY (id),
+        CONSTRAINT FK_server_configurations_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 43. assessment_weak_sql_logins ──────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_weak_sql_logins', 'U') IS NULL
+    CREATE TABLE dbo.assessment_weak_sql_logins (
+        id                   BIGINT IDENTITY(1,1) NOT NULL,
+        job_id               VARCHAR(36)          NOT NULL,
+        login_name           NVARCHAR(128)        NOT NULL,
+        type_desc            NVARCHAR(60)         NULL,
+        login_status         NVARCHAR(20)         NULL,
+        password_policy      NVARCHAR(20)         NULL,
+        expiration_policy    NVARCHAR(20)         NULL,
+        password_last_set    NVARCHAR(30)         NULL,
+        bad_password_count   INT                  NULL,
+        days_until_expiration INT                 NULL,
+        assessment           NVARCHAR(MAX)        NULL,
+        CONSTRAINT PK_assessment_weak_sql_logins PRIMARY KEY (id),
+        CONSTRAINT FK_weak_sql_logins_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 44. assessment_server_permissions ───────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_server_permissions', 'U') IS NULL
+    CREATE TABLE dbo.assessment_server_permissions (
+        id          BIGINT IDENTITY(1,1) NOT NULL,
+        job_id      VARCHAR(36)          NOT NULL,
+        server_role NVARCHAR(128)        NOT NULL,
+        member_name NVARCHAR(128)        NOT NULL,
+        type_desc   NVARCHAR(60)         NULL,
+        login_status NVARCHAR(20)        NULL,
+        member_since NVARCHAR(30)        NULL,
+        CONSTRAINT PK_assessment_server_permissions PRIMARY KEY (id),
+        CONSTRAINT FK_server_permissions_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── 45. assessment_deprecated_features_in_use ───────────────────────────────
+IF OBJECT_ID('dbo.assessment_deprecated_features_in_use', 'U') IS NULL
+    CREATE TABLE dbo.assessment_deprecated_features_in_use (
+        id                        BIGINT IDENTITY(1,1) NOT NULL,
+        job_id                    VARCHAR(36)          NOT NULL,
+        deprecated_feature        NVARCHAR(256)        NOT NULL,
+        usage_count_since_restart BIGINT               NULL,
+        CONSTRAINT PK_assessment_deprecated_features_in_use PRIMARY KEY (id),
+        CONSTRAINT FK_deprecated_features_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );

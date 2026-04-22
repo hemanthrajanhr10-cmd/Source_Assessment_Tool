@@ -262,6 +262,7 @@ async def get_results(job_id: str, current_user: dict = Depends(get_current_user
     return AssessmentResults(
         job_id=job_id,
         overview=overview,
+        access_level=raw.get("access_level"),
         # Core metadata
         schemas=raw.get("schemas", []),
         tables=raw.get("tables", []),
@@ -290,6 +291,27 @@ async def get_results(job_id: str, current_user: dict = Depends(get_current_user
         replication_status=raw.get("replication_status", []),
         service_broker=raw.get("service_broker", []),
         version_features=raw.get("version_features", []),
+        # Schema / Design checks
+        trustworthy_databases=raw.get("trustworthy_databases", []),
+        deprecated_data_types=raw.get("deprecated_data_types", []),
+        missing_primary_keys=raw.get("missing_primary_keys", []),
+        heap_tables=raw.get("heap_tables", []),
+        untrusted_constraints=raw.get("untrusted_constraints", []),
+        sp_naming_violations=raw.get("sp_naming_violations", []),
+        duplicate_indexes=raw.get("duplicate_indexes", []),
+        database_options_audit=raw.get("database_options_audit", []),
+        object_permissions=raw.get("object_permissions", []),
+        # Performance checks
+        missing_indexes=raw.get("missing_indexes", []),
+        index_usage_stats=raw.get("index_usage_stats", []),
+        fragmentation_report=raw.get("fragmentation_report", []),
+        statistics_health=raw.get("statistics_health", []),
+        # Reliability / Config checks
+        backup_history=raw.get("backup_history", []),
+        server_configurations=raw.get("server_configurations", []),
+        weak_sql_logins=raw.get("weak_sql_logins", []),
+        server_permissions=raw.get("server_permissions", []),
+        deprecated_features_in_use=raw.get("deprecated_features_in_use", []),
     )
 
 

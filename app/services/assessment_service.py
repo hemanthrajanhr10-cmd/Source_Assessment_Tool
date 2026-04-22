@@ -337,7 +337,7 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
 
         job_store.update_job(job_id, progress_message="Persisting results to Azure SQL…")
         overview_dict = _extract_overview(raw.get("overview", []))
-        azure_store.save_overview(job_id, overview_dict)
+        azure_store.save_overview(job_id, overview_dict, access_level=access_level)
         azure_store.save_sections(job_id, raw)
 
         job_store.update_job(job_id, progress_message="Building Excel report…")

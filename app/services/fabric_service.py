@@ -46,8 +46,9 @@ logger = get_logger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-PBI_BASE  = "https://api.powerbi.com/v1.0/myorg"
-PBI_SCOPE = "https://analysis.windows.net/powerbi/api/.default"
+PBI_BASE    = "https://api.powerbi.com/v1.0/myorg"
+PBI_SCOPE   = "https://analysis.windows.net/powerbi/api/.default"
+FABRIC_BASE = "https://api.fabric.microsoft.com/v1"
 
 _INFO_STORAGE_MODE = {
     0: "Import",
@@ -436,6 +437,87 @@ def _val_bool(val, default: bool = False) -> bool:
     return bool(val)
 
 
+# ── Fabric REST API helpers ───────────────────────────────────────────────────
+
+def _fabric_lro(
+    token:   str,
+    url:     str,
+    body:    Optional[dict] = None,
+    timeout: int = 90,
+) -> Optional[dict]:
+    """
+    POST to a Fabric REST API endpoint that uses the long-running operation (LRO)
+    pattern (202 + Location header).  Polls until Succeeded, then fetches and
+    returns the final result dict.  Returns None on failure or timeout.
+
+    Works with the Power BI-scoped token (PBI_SCOPE) — Fabric REST API accepts it.
+    """
+    try:
+        resp = requests.post(
+            url,
+            headers=_headers(token),
+            json=body if body is not None else {},
+            timeout=30,
+        )
+    except Exception as exc:
+        logger.debug("Fabric LRO POST failed for %s: %s", url, exc)
+        return None
+
+    if resp.status_code == 200:
+        return resp.json()
+
+    if resp.status_code != 202:
+        logger.info(
+            "Fabric API HTTP %s for %s — needs Contributor access on the item",
+            resp.status_code, url,
+        )
+        return None
+
+    # 202 — async LRO: extract operation URL from Location header or body
+    op_url = resp.headers.get("Location", "")
+    if not op_url:
+        try:
+            op_id = resp.json().get("operationId", "")
+            if op_id:
+                op_url = f"https://api.fabric.microsoft.com/v1/operations/{op_id}"
+        except Exception:
+            pass
+
+    if not op_url:
+        return None
+
+    if not op_url.startswith("http"):
+        op_url = f"https://api.fabric.microsoft.com/v1/operations/{op_url}"
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        time.sleep(2)
+        try:
+            poll = requests.get(op_url, headers=_headers(token), timeout=15)
+            if poll.status_code not in (200, 202):
+                logger.debug("Fabric LRO poll HTTP %s", poll.status_code)
+                break
+            data   = poll.json()
+            status = data.get("status", "")
+            if status == "Succeeded":
+                # Attempt to retrieve result from the dedicated /result sub-resource
+                try:
+                    r2 = requests.get(f"{op_url}/result", headers=_headers(token), timeout=30)
+                    if r2.status_code == 200:
+                        return r2.json()
+                except Exception:
+                    pass
+                return data   # fallback: result embedded in final poll response
+            if status in ("Failed", "Cancelled"):
+                logger.debug("Fabric LRO %s for %s: %s", status, url, data.get("error"))
+                return None
+        except Exception as exc:
+            logger.debug("Fabric LRO poll error: %s", exc)
+
+    logger.warning("Fabric LRO timed out after %ds for %s", timeout, url)
+    return None
+
+
 # ── PBIX layout download & parsing ───────────────────────────────────────────
 
 # Hard wall-clock limit for a single PBIX download (seconds).
@@ -444,13 +526,18 @@ def _val_bool(val, default: bool = False) -> bool:
 _PBIX_WALL_TIMEOUT = 45
 
 
-def _download_report_layout(token: str, group_id: str, report_id: str) -> Optional[dict]:
+def _download_pbix_data(token: str, group_id: str, report_id: str) -> Optional[dict]:
     """
-    Download the PBIX file and return the parsed Report/Layout JSON.
-    Returns None if download fails, report is too large, or not a PBIX.
+    Download the report PBIX file and extract all useful artefacts in memory.
+    Nothing is written to disk.
 
-    A hard wall-clock timeout (_PBIX_WALL_TIMEOUT seconds) is enforced via a
-    thread pool so slow/large exports don't block the entire assessment.
+    Returns a dict with:
+      layout         – parsed Report/Layout JSON (required; None → whole call returns None)
+      connections    – parsed Connections JSON (semantic model link info), or {}
+      mashup_queries – list of M-query names found in DataMashup, or []
+
+    A hard wall-clock timeout (_PBIX_WALL_TIMEOUT seconds) is enforced so
+    slow exports don't block the whole assessment.
     """
 
     def _do_download() -> Optional[dict]:
@@ -459,7 +546,7 @@ def _download_report_layout(token: str, group_id: str, report_id: str) -> Option
             resp = requests.get(
                 url,
                 headers={"Authorization": f"Bearer {token}"},
-                timeout=(10, 30),   # (connect_s, per-chunk read_s)
+                timeout=(10, 30),
                 stream=True,
             )
             if resp.status_code != 200:
@@ -483,14 +570,45 @@ def _download_report_layout(token: str, group_id: str, report_id: str) -> Option
                     return None
             buf.seek(0)
 
+            result: dict = {"layout": None, "connections": {}, "mashup_queries": []}
+
             with zipfile.ZipFile(buf, "r") as z:
                 names_lower = {n.lower(): n for n in z.namelist()}
-                layout_key  = names_lower.get("report/layout")
+
+                # ── Report/Layout (required) ──────────────────────────────────
+                layout_key = names_lower.get("report/layout")
                 if not layout_key:
                     return None
                 raw  = z.read(layout_key)
                 text = raw.decode("utf-16-le", errors="replace")
-                return json.loads(text)
+                result["layout"] = json.loads(text)
+
+                # ── Connections (semantic model link) ─────────────────────────
+                conn_key = names_lower.get("connections")
+                if conn_key:
+                    try:
+                        result["connections"] = json.loads(z.read(conn_key))
+                    except Exception:
+                        pass
+
+                # ── DataMashup (M / Power Query code — nested ZIP) ────────────
+                mashup_key = names_lower.get("datamashup")
+                if mashup_key:
+                    try:
+                        mashup_buf = io.BytesIO(z.read(mashup_key))
+                        with zipfile.ZipFile(mashup_buf, "r") as mz:
+                            mnames = {n.lower(): n for n in mz.namelist()}
+                            section_key = mnames.get("formulas/section1.m")
+                            if section_key:
+                                m_code = mz.read(section_key).decode("utf-8", errors="replace")
+                                # Extract query names (shared/section items)
+                                result["mashup_queries"] = re.findall(
+                                    r"^shared\s+([^\s=]+)", m_code, re.MULTILINE
+                                )
+                    except Exception:
+                        pass
+
+            return result if result["layout"] is not None else None
 
         except zipfile.BadZipFile:
             logger.debug("PBIX is not a valid ZIP for report %s", report_id)
@@ -672,6 +790,340 @@ def _parse_layout_pages(
     return pages_out
 
 
+# ── Fabric getDefinition — export semantic model as TMDL ─────────────────────
+
+def _get_model_definition(
+    token:        str,
+    workspace_id: str,
+    model_id:     str,
+) -> dict[str, str]:
+    """
+    Export a Fabric semantic model definition via the Fabric REST API.
+    Returns {tmdl_path: utf8_content} for every TMDL part, or {} on failure.
+
+    Requires Contributor (or higher) access on the semantic model item.
+    Does NOT require Premium capacity or Fabric Admin role.
+    Files are processed entirely in memory — nothing is written to disk.
+    """
+    import base64
+
+    url    = f"{FABRIC_BASE}/workspaces/{workspace_id}/semanticModels/{model_id}/getDefinition"
+    result = _fabric_lro(token, url)
+    if not result:
+        return {}
+
+    parts = result.get("definition", {}).get("parts", [])
+    if not parts:
+        parts = result.get("parts", [])   # some API versions embed at top level
+
+    files: dict[str, str] = {}
+    for part in parts:
+        path    = part.get("path", "")
+        payload = part.get("payload", "")
+        if path and payload:
+            try:
+                content = base64.b64decode(payload).decode("utf-8", errors="replace")
+                files[path] = content
+            except Exception:
+                pass
+
+    if files:
+        logger.info(
+            "Fabric getDefinition: %d TMDL parts for model %s (workspace %s)",
+            len(files), model_id, workspace_id,
+        )
+    return files
+
+
+def _parse_tmdl_measures_and_cols(
+    content:  str,
+    tbl_name: str,
+) -> tuple[list[dict], list[dict], dict[str, dict]]:
+    """
+    Line-by-line TMDL parser for a single table file.
+
+    TMDL indentation conventions (spaces):
+      0  → table declaration
+      4  → column / measure / partition declarations
+      8  → property lines  (displayFolder:, formatString:, lineageTag:, …)
+      12 → expression continuation lines for multi-line measures
+
+    Returns (measures, calculated_columns, measure_dep_map).
+    """
+    measures:     list[dict] = []
+    calc_columns: list[dict] = []
+    dep_map:      dict[str, dict] = {}
+
+    _PROP_PREFIXES = (
+        "displayfolder:", "formatstring:", "lineagetag:", "annotation ",
+        "ishidden", "description:", "kpistatusdefinition", "kpitargetexpression",
+        "changedproperty", "summarizeby:", "datacategory:", "isavailableinmdx:",
+        "variations", "ishiddeninreport", "formatstringdefinition",
+    )
+
+    lines = content.splitlines()
+    i = 0
+    n = len(lines)
+
+    while i < n:
+        raw = lines[i]
+        s   = raw.strip()
+        ind = len(raw) - len(raw.lstrip()) if s else 0
+
+        # ── Measure at indent 4 ──────────────────────────────────────────────
+        if ind == 4 and s.startswith("measure "):
+            m = re.match(r"measure\s+'?(.+?)'?\s*=\s*(.*)", s)
+            if not m:
+                i += 1
+                continue
+
+            name        = m.group(1).strip()
+            inline_expr = m.group(2).strip()
+            display_folder = ""
+            expr_parts: list[str] = []
+            i += 1
+
+            if inline_expr:
+                # Single-line expression — properties follow at indent 8
+                expr_parts = [inline_expr]
+                while i < n:
+                    nraw = lines[i]
+                    ns   = nraw.strip()
+                    ni   = len(nraw) - len(nraw.lstrip()) if ns else 0
+                    if not ns:
+                        i += 1
+                        continue
+                    if ni <= 4:
+                        break
+                    if ni == 8 and ns.lower().startswith("displayfolder:"):
+                        display_folder = ns.split(":", 1)[1].strip().strip("'")
+                    i += 1
+            else:
+                # Multi-line expression — lines at indent ≥12 are DAX,
+                # lines at indent 8 are properties.
+                in_expr = True
+                while i < n:
+                    nraw = lines[i]
+                    ns   = nraw.strip()
+                    ni   = len(nraw) - len(nraw.lstrip()) if ns else 0
+                    if not ns:
+                        i += 1
+                        continue
+                    if ni <= 4:
+                        break
+                    if ni >= 12 and in_expr:
+                        expr_parts.append(ns)
+                    elif ni == 8:
+                        in_expr = False   # switched to property region
+                        if ns.lower().startswith("displayfolder:"):
+                            display_folder = ns.split(":", 1)[1].strip().strip("'")
+                    i += 1
+
+            expr       = "\n".join(expr_parts)
+            complexity = _score_measure_complexity(expr)
+            deps       = _extract_dax_dependencies(expr)
+            enriched   = {
+                "name":           name,
+                "table":          tbl_name,
+                "expression":     expr,
+                "display_folder": display_folder,
+                "complexity":     complexity,
+                "dependencies":   deps,
+            }
+            measures.append(enriched)
+            if name:
+                dep_map[name] = enriched
+            continue
+
+        # ── Column at indent 4 ──────────────────────────────────────────────
+        if ind == 4 and s.startswith("column "):
+            cm = re.match(r"column\s+'?(.+?)'?\s*$", s)
+            if not cm:
+                i += 1
+                continue
+
+            col_name = cm.group(1).strip()
+            is_calc  = False
+            col_expr = ""
+            i += 1
+
+            while i < n:
+                nraw = lines[i]
+                ns   = nraw.strip()
+                ni   = len(nraw) - len(nraw.lstrip()) if ns else 0
+                if not ns:
+                    i += 1
+                    continue
+                if ni <= 4:
+                    break
+                ns_l = ns.lower()
+                if ns_l == "columntype: calculated":
+                    is_calc = True
+                elif re.match(r"^expression\s*=\s*(.+)", ns, re.IGNORECASE):
+                    em = re.match(r"^expression\s*=\s*(.*)", ns, re.IGNORECASE)
+                    col_expr = em.group(1).strip() if em else ""
+                    is_calc  = True
+                i += 1
+
+            if is_calc and col_name:
+                calc_columns.append({
+                    "name":       col_name,
+                    "table":      tbl_name,
+                    "expression": col_expr,
+                })
+            continue
+
+        i += 1
+
+    return measures, calc_columns, dep_map
+
+
+def _parse_model_definition(tmdl_files: dict[str, str]) -> dict:
+    """
+    Parse the TMDL file dict returned by _get_model_definition() into the same
+    structure produced by _get_dataset_details() and _get_workspace_scanner_data().
+
+    Extracts: tables, measures (with DAX complexity), calculated columns/tables,
+    relationships (with cardinality/direction), RLS roles, and M/Power Query
+    expression names.  Everything stays in memory — no disk I/O.
+    """
+    tables_out:    list[dict] = []
+    all_measures:  list[dict] = []
+    all_calc_cols: list[dict] = []
+    calc_tables:   list[dict] = []
+    relationships: list[dict] = []
+    rls_roles:     list[str]  = []
+    m_expressions: list[dict] = []
+    measure_dep_map: dict[str, dict] = {}
+
+    # ── Relationships ─────────────────────────────────────────────────────────
+    rel_content = tmdl_files.get("definition/relationships.tmdl", "")
+    if rel_content:
+        for block in re.split(r"\nrelationship\s+\S+", rel_content)[1:]:
+            ft = re.search(r"fromTable:\s*'?([^'\n]+?)'?\s*$",  block, re.MULTILINE)
+            fc = re.search(r"fromColumn:\s*'?([^'\n]+?)'?\s*$", block, re.MULTILINE)
+            tt = re.search(r"toTable:\s*'?([^'\n]+?)'?\s*$",    block, re.MULTILINE)
+            tc = re.search(r"toColumn:\s*'?([^'\n]+?)'?\s*$",   block, re.MULTILINE)
+            xf = re.search(r"crossFilteringBehavior:\s*(\w+)",   block)
+            card = re.search(r"fromCardinality:\s*(\w+)",        block)
+            if ft and tt:
+                relationships.append({
+                    "from_table":   ft.group(1).strip(),
+                    "from_column":  fc.group(1).strip() if fc else "",
+                    "to_table":     tt.group(1).strip(),
+                    "to_column":    tc.group(1).strip() if tc else "",
+                    "cross_filter": xf.group(1) if xf else "oneDirection",
+                    "cardinality":  card.group(1) if card else "many",
+                })
+
+    # ── M / Power Query expression names ─────────────────────────────────────
+    expr_content = tmdl_files.get("definition/expressions.tmdl", "")
+    if expr_content:
+        for block in re.split(r"\nexpression\s+", expr_content)[1:]:
+            nm = re.match(r"'?([^'\n=]+)'?\s*=\s*", block)
+            km = re.search(r"\n\s+kind:\s*(\w+)", block)
+            if nm:
+                m_expressions.append({
+                    "name": nm.group(1).strip(),
+                    "kind": km.group(1) if km else "m",
+                })
+
+    # ── RLS Roles ─────────────────────────────────────────────────────────────
+    for path, content in tmdl_files.items():
+        if path.startswith("definition/roles/"):
+            rm = re.match(r"role\s+'?([^'\n]+?)'?\s*$",
+                          content.strip().splitlines()[0].strip() if content.strip() else "")
+            if rm:
+                rls_roles.append(rm.group(1).strip())
+
+    # ── Table files ───────────────────────────────────────────────────────────
+    _STORAGE_MODE_MAP = {
+        "import":       "Import",
+        "directquery":  "DirectQuery",
+        "dual":         "Composite",
+        "directlake":   "DirectLake",
+    }
+
+    for path, content in tmdl_files.items():
+        if not path.startswith("definition/tables/"):
+            continue
+
+        # Table name from file header line
+        first_line = content.strip().splitlines()[0].strip() if content.strip() else ""
+        th = re.match(r"table\s+'?(.+?)'?\s*$", first_line)
+        tbl_name = (
+            th.group(1).strip()
+            if th else
+            path.replace("definition/tables/", "").replace(".tmdl", "")
+        )
+
+        # Storage mode (at indent 4)
+        sm_m = re.search(r"^\s{4}storageMode:\s*(\w+)", content, re.MULTILINE)
+        storage_mode = _STORAGE_MODE_MAP.get(
+            (sm_m.group(1) if sm_m else "import").lower(), "Import"
+        )
+
+        is_hidden = bool(re.search(r"^\s{4}isHidden\b", content, re.MULTILINE))
+
+        # Calculated table: partition with mode=calculated
+        is_calc = bool(re.search(r"^\s+mode:\s*calculated\b", content, re.MULTILINE))
+        if is_calc:
+            # Try to extract the DAX expression from the partition source block
+            ce_m = re.search(
+                r"mode:\s*calculated.*?\n\s+source\s*\n((?:\s{12,}[^\n]+\n?)+)",
+                content, re.DOTALL,
+            )
+            calc_expr = ""
+            if ce_m:
+                calc_expr = "\n".join(
+                    ln.strip()
+                    for ln in ce_m.group(1).splitlines()
+                    if ln.strip()
+                )
+            calc_tables.append({"name": tbl_name, "expression": calc_expr})
+
+        tables_out.append({
+            "name":          tbl_name,
+            "storage_mode":  storage_mode,
+            "is_hidden":     is_hidden,
+            "is_calculated": is_calc,
+        })
+
+        # Parse measures and calculated columns from the table file
+        m_list, cc_list, m_dep = _parse_tmdl_measures_and_cols(content, tbl_name)
+        all_measures.extend(m_list)
+        all_calc_cols.extend(cc_list)
+        measure_dep_map.update(m_dep)
+
+    # ── Aggregate complexity score ────────────────────────────────────────────
+    vis_tables  = [t for t in tables_out if not t["is_hidden"]]
+    total_score = sum(m["complexity"]["score"] for m in all_measures)
+    model_score = min(100,
+        total_score
+        + len(all_calc_cols) * 2
+        + len(calc_tables)   * 3
+        + len(relationships)
+    )
+
+    return {
+        "tables":                  tables_out,
+        "measures":                all_measures,
+        "calculated_columns":      all_calc_cols,
+        "calculated_tables":       calc_tables,
+        "relationship_count":      len(relationships),
+        "relationships":           relationships,
+        "rls_roles":               rls_roles,
+        "m_expressions":           m_expressions,
+        "complexity_score":        model_score,
+        "table_count":             len(vis_tables),
+        "measure_count":           len(all_measures),
+        "calculated_column_count": len(all_calc_cols),
+        "calculated_table_count":  len(calc_tables),
+        "info_supported":          True,
+        "_measure_dep_map":        measure_dep_map,
+    }
+
+
 # ── Dataset details via DAX INFO.* ────────────────────────────────────────────
 
 def _empty_details() -> dict:
@@ -826,33 +1278,42 @@ def _get_report_visual_details(
     measure_dep_map: dict[str, dict],
 ) -> dict:
     """
-    Full report analysis:
-      - Download PBIX → parse visual types, titles, and field bindings per page
-      - Resolve Column, Measure, Aggregation, HierarchyLevel fields
-      - Enrich Measure fields with DAX expression, complexity, and column dependencies
-      - Fall back to pages API for page/visual counts if PBIX unavailable
+    Full report analysis via PBIX file export:
+      1. Download PBIX file entirely in memory (no disk storage).
+      2. Extract Report/Layout → parse visual types, titles, and field bindings per page.
+      3. Extract Connections → semantic model link info.
+      4. Extract DataMashup → M/Power Query query names (if embedded model present).
+      5. Enrich Measure fields with DAX expression, complexity, and column dependencies.
+      6. Fall back to pages REST API for page/visual counts if PBIX unavailable.
 
     Returns:
-        {page_count, visual_count, bookmark_count, pages: [...], layout_parsed: bool}
+        {page_count, visual_count, bookmark_count, pages, layout_parsed,
+         connections, mashup_queries}
     """
     page_count     = 0
     visual_count   = 0
     bookmark_count = 0
     pages: list[dict] = []
     layout_parsed  = False
+    connections:    dict  = {}
+    mashup_queries: list  = []
 
-    # ── Attempt full PBIX layout parse ────────────────────────────────────────
+    # ── Download PBIX and extract all artefacts ───────────────────────────────
     try:
-        layout = _download_report_layout(token, group_id, report_id)
-        if layout:
-            pages        = _parse_layout_pages(layout, measure_dep_map)
-            page_count   = len(pages)
-            visual_count = sum(p["visual_count"] for p in pages)
-            layout_parsed = True
+        pbix_data = _download_pbix_data(token, group_id, report_id)
+        if pbix_data:
+            layout = pbix_data.get("layout")
+            if layout:
+                pages         = _parse_layout_pages(layout, measure_dep_map)
+                page_count    = len(pages)
+                visual_count  = sum(p["visual_count"] for p in pages)
+                layout_parsed = True
+            connections    = pbix_data.get("connections", {})
+            mashup_queries = pbix_data.get("mashup_queries", [])
     except Exception as exc:
-        logger.debug("Layout parse failed for report %s: %s", report_id, exc)
+        logger.debug("PBIX parse failed for report %s: %s", report_id, exc)
 
-    # ── Fallback: pages REST API (counts only) ────────────────────────────────
+    # ── Fallback: pages REST API (counts only, no field detail) ──────────────
     if not layout_parsed:
         try:
             api_pages = _pbi_get(token, f"/groups/{group_id}/reports/{report_id}/pages")
@@ -874,7 +1335,7 @@ def _get_report_visual_details(
                                 "name":         page.get("displayName", page_name),
                                 "order":        page.get("order", 0),
                                 "visual_count": len(visuals),
-                                "visuals":      [],  # no field detail without PBIX
+                                "visuals":      [],
                             })
                     except Exception:
                         pass
@@ -890,11 +1351,13 @@ def _get_report_visual_details(
         pass
 
     return {
-        "page_count":    page_count,
-        "visual_count":  visual_count,
-        "bookmark_count": bookmark_count,
-        "pages":         pages,
-        "layout_parsed": layout_parsed,
+        "page_count":      page_count,
+        "visual_count":    visual_count,
+        "bookmark_count":  bookmark_count,
+        "pages":           pages,
+        "layout_parsed":   layout_parsed,
+        "connections":     connections,
+        "mashup_queries":  mashup_queries,
     }
 
 
@@ -1214,25 +1677,22 @@ def _run_assessment_inner(
         if not isinstance(raw_datasets, list):
             raw_datasets = []
 
-        # Pre-fetch scanner data for the whole workspace once.
-        # Metadata Scanning API works on any capacity (Pro/Premium/Fabric) for Fabric Admins.
-        # It returns tables, columns, measures with DAX, and relationships — everything
-        # executeQueries provides, but without the Premium-capacity requirement.
-        _progress(f"  Fetching model metadata via Scanner API for '{ws_name}'…")
-        scanner_data = _get_workspace_scanner_data(token, ws_id)
-        if scanner_data:
-            _progress(
-                f"  Scanner API returned metadata for {len(scanner_data)} model(s) — "
-                "DAX expressions and schema will be populated."
-            )
-        else:
-            _progress(
-                "  Scanner API unavailable (caller may not be Fabric Admin). "
-                "Trying executeQueries fallback…"
-            )
+        # Pre-fetch Scanner API data as a fallback for the whole workspace.
+        # This works for Fabric Admins on any capacity tier.
+        # It will be used only if the primary (getDefinition) approach fails.
+        scanner_data: dict[str, dict] = {}
+        try:
+            scanner_data = _get_workspace_scanner_data(token, ws_id)
+            if scanner_data:
+                _progress(
+                    f"  Scanner API: metadata ready for {len(scanner_data)} model(s) "
+                    "(used as fallback if getDefinition is unavailable)."
+                )
+        except Exception:
+            pass
 
         datasets:        list[dict] = []
-        ws_measure_deps: dict[str, dict] = {}   # workspace-level measure map for reports
+        ws_measure_deps: dict[str, dict] = {}   # workspace-level measure dep map for reports
 
         for ds in raw_datasets:
             ds_id   = ds.get("id",   "")
@@ -1241,18 +1701,48 @@ def _run_assessment_inner(
                 continue
             _progress(f"    Analysing model: {ds_name}")
 
-            # Prefer scanner data (works for any capacity); fall back to executeQueries
-            if ds_id in scanner_data:
+            # ── Priority 1: Fabric getDefinition (TMDL export) ────────────────
+            # Works without Premium capacity or Admin role — just Contributor access.
+            # Returns tables, measures with DAX, relationships, RLS roles, M expressions.
+            # Files processed entirely in memory, nothing stored to disk.
+            details: dict = {}
+            try:
+                tmdl_files = _get_model_definition(token, ws_id, ds_id)
+                if tmdl_files:
+                    details = _parse_model_definition(tmdl_files)
+                    logger.info(
+                        "getDefinition succeeded for '%s' (%d TMDL parts)",
+                        ds_name, len(tmdl_files),
+                    )
+                    _progress(f"      → TMDL export parsed ({details['table_count']} tables, "
+                              f"{details['measure_count']} measures)")
+            except Exception as exc:
+                logger.debug("getDefinition failed for %s: %s", ds_id, exc)
+
+            # ── Priority 2: Scanner API (admin-only, works any capacity) ─────
+            if not details and ds_id in scanner_data:
                 details = dict(scanner_data[ds_id])
-                logger.info("Using scanner metadata for dataset %s (%s)", ds_name, ds_id)
-            else:
+                logger.info("Using Scanner API metadata for '%s'", ds_name)
+                _progress(f"      → Scanner API data used ({details.get('table_count', 0)} tables)")
+
+            # ── Priority 3: DAX executeQueries (Premium capacity required) ───
+            if not details:
                 try:
                     details = _get_dataset_details(token, ws_id, ds_id)
+                    if details.get("info_supported"):
+                        logger.info("Using DAX INFO.* for '%s'", ds_name)
+                        _progress(f"      → DAX queries succeeded ({details.get('table_count', 0)} tables)")
+                    else:
+                        logger.info("All metadata methods unavailable for '%s'", ds_name)
+                        _progress(f"      → No metadata available (no Premium capacity or Admin role)")
                 except Exception as exc:
-                    logger.warning("Details failed for dataset %s: %s", ds_id, exc)
+                    logger.warning("All metadata methods failed for dataset %s: %s", ds_id, exc)
                     details = _empty_details()
 
-            # Accumulate workspace-level measure map
+            if not details:
+                details = _empty_details()
+
+            # Accumulate workspace-level measure map (used for visual field enrichment)
             ws_measure_deps.update(details.pop("_measure_dep_map", {}))
 
             total_measures    += details["measure_count"]
@@ -1330,6 +1820,7 @@ def _run_assessment_inner(
                 rpt_details = {
                     "page_count": None, "visual_count": 0,
                     "bookmark_count": 0, "pages": [], "layout_parsed": False,
+                    "connections": {}, "mashup_queries": [],
                 }
 
             reports.append({

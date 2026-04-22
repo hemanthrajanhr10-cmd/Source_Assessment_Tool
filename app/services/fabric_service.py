@@ -1991,22 +1991,36 @@ def _run_assessment_inner(
     except Exception:
         fabric_token = token   # fall back to PBI token; getDefinition may still work
 
-    # ── Progress counter state (shared across workspaces) ────────────────────
+    # ── Progress counters — thread-safe (shared across workspaces) ──────────
     _prog_state: dict = {
         "md": 0, "mt": 0,   # models done / total
         "rd": 0, "rt": 0,   # reports done / total
     }
+    _prog_lock = threading.Lock()
 
     def _progress_counted(msg: str) -> None:
         """Emit a JSON-encoded progress message that includes model/report counts."""
-        payload = json.dumps({
-            "msg": msg,
-            "md":  _prog_state["md"],
-            "mt":  _prog_state["mt"],
-            "rd":  _prog_state["rd"],
-            "rt":  _prog_state["rt"],
-        }, ensure_ascii=False)
+        with _prog_lock:
+            payload = json.dumps({
+                "msg": msg,
+                "md":  _prog_state["md"],
+                "mt":  _prog_state["mt"],
+                "rd":  _prog_state["rd"],
+                "rt":  _prog_state["rt"],
+            }, ensure_ascii=False)
         _progress(payload)
+
+    def _inc_prog(key: str) -> None:
+        """Thread-safely increment one progress counter."""
+        with _prog_lock:
+            _prog_state[key] += 1
+
+    # ── Parallel worker limits ────────────────────────────────────────────────
+    # Models:  each calls Fabric REST API (getDefinition LRO) — I/O bound.
+    # Reports: each downloads/parses a PBIX file via HTTP — I/O bound.
+    # 5 workers saturates the API rate limits without triggering throttling.
+    _MODEL_WORKERS  = 5
+    _REPORT_WORKERS = 5
 
     # ── 1. Workspaces ─────────────────────────────────────────────────────────
     _progress("Fetching workspaces…")
@@ -2043,15 +2057,14 @@ def _run_assessment_inner(
         if not isinstance(raw_datasets, list):
             raw_datasets = []
 
-        # Add this workspace's non-skipped models to the running total
-        ws_model_count = sum(
-            1 for d in raw_datasets if d.get("name", "") not in _SKIP_MODEL_NAMES
-        )
-        _prog_state["mt"] += ws_model_count
+        # Count non-skipped models for the progress bar
+        with _prog_lock:
+            _prog_state["mt"] += sum(
+                1 for d in raw_datasets if d.get("name", "") not in _SKIP_MODEL_NAMES
+            )
 
-        # Pre-fetch Scanner API data as a fallback for the whole workspace.
-        # This works for Fabric Admins on any capacity tier.
-        # It will be used only if the primary (getDefinition) approach fails.
+        # Scanner API: one admin call covers the whole workspace.
+        # Fetched once here; read-only in worker threads below.
         scanner_data: dict[str, dict] = {}
         try:
             scanner_data = _get_workspace_scanner_data(token, ws_id)
@@ -2063,21 +2076,20 @@ def _run_assessment_inner(
         except Exception:
             pass
 
-        datasets:        list[dict] = []
-        ws_measure_deps: dict[str, dict] = {}   # workspace-level measure dep map for reports
-
-        for ds in raw_datasets:
+        # ── Dataset worker — runs in thread pool ─────────────────────────────
+        def _process_dataset(ds: dict) -> Optional[dict]:
             ds_id   = ds.get("id",   "")
             ds_name = ds.get("name", "")
             if ds_name in _SKIP_MODEL_NAMES:
-                continue
+                return None
+            try:
+                _check_cancel()
+            except RuntimeError:
+                return None
+
             _progress_counted(f"Analysing model: {ds_name}")
 
-            # ── Priority 1: Fabric getDefinition (TMDL export) ────────────────
-            # Works without Premium capacity or Admin role — just Contributor access.
-            # Returns tables, measures with DAX, relationships, RLS roles, M expressions.
-            # Files processed entirely in memory, nothing stored to disk.
-            # Uses Fabric-scoped token for api.fabric.microsoft.com.
+            # Priority 1: Fabric getDefinition (TMDL) — no Premium required
             details: dict = {}
             try:
                 tmdl_files = _get_model_definition(fabric_token, ws_id, ds_id)
@@ -2087,49 +2099,32 @@ def _run_assessment_inner(
                         "getDefinition succeeded for '%s' (%d TMDL parts)",
                         ds_name, len(tmdl_files),
                     )
-                    _progress(f"      → TMDL export parsed ({details['table_count']} tables, "
-                              f"{details['measure_count']} measures)")
             except Exception as exc:
                 logger.debug("getDefinition failed for %s: %s", ds_id, exc)
 
-            # ── Priority 2: Scanner API (admin-only, works any capacity) ─────
+            # Priority 2: Scanner API (admin-only, any capacity)
             if not details and ds_id in scanner_data:
                 details = dict(scanner_data[ds_id])
                 logger.info("Using Scanner API metadata for '%s'", ds_name)
-                _progress(f"      → Scanner API data used ({details.get('table_count', 0)} tables)")
 
-            # ── Priority 3: DAX executeQueries (Premium capacity required) ───
+            # Priority 3: DAX executeQueries (Premium capacity required)
             if not details:
                 try:
                     details = _get_dataset_details(token, ws_id, ds_id)
-                    if details.get("info_supported"):
-                        logger.info("Using DAX INFO.* for '%s'", ds_name)
-                        _progress(f"      → DAX queries succeeded ({details.get('table_count', 0)} tables)")
-                    else:
-                        logger.info("All metadata methods unavailable for '%s'", ds_name)
-                        _progress(f"      → No metadata available (no Premium capacity or Admin role)")
+                    if not details.get("info_supported"):
+                        logger.info("No metadata available for '%s'", ds_name)
                 except Exception as exc:
-                    logger.warning("All metadata methods failed for dataset %s: %s", ds_id, exc)
+                    logger.warning("All metadata methods failed for %s: %s", ds_id, exc)
                     details = _empty_details()
 
             if not details:
                 details = _empty_details()
 
-            # Accumulate workspace-level measure map (used for visual field enrichment)
-            ws_measure_deps.update(details.pop("_measure_dep_map", {}))
+            dep_map = details.pop("_measure_dep_map", {})
 
-            total_measures    += details["measure_count"]
-            total_calc_tables += details["calculated_table_count"]
-            total_calc_cols   += details["calculated_column_count"]
-            total_rels        += details.get("relationship_count", 0)
-            total_datasets    += 1
-            _prog_state["md"] += 1
-
-            # Determine overall model storage mode
+            # Storage mode
             visible_modes = {
-                t["storage_mode"]
-                for t in details["tables"]
-                if not t.get("is_hidden")
+                t["storage_mode"] for t in details["tables"] if not t.get("is_hidden")
             }
             if len(visible_modes) > 1:
                 overall_mode = "Composite"
@@ -2139,16 +2134,54 @@ def _run_assessment_inner(
                 api_mode = (ds.get("storageMode") or ds.get("StorageMode") or "").strip()
                 overall_mode = api_mode if api_mode else "Import"
 
-            datasets.append({
-                "id":                       ds_id,
-                "name":                     ds_name,
-                "configured_by":            ds.get("configuredBy", ""),
-                "is_refreshable":           ds.get("isRefreshable", False),
-                "is_on_prem_gateway_required": ds.get("isOnPremGatewayRequired", False),
-                "web_url":                  ds.get("webUrl", ""),
-                "storage_mode":             overall_mode,
-                **details,
-            })
+            _inc_prog("md")
+
+            return {
+                "record": {
+                    "id":                          ds_id,
+                    "name":                        ds_name,
+                    "configured_by":               ds.get("configuredBy", ""),
+                    "is_refreshable":              ds.get("isRefreshable", False),
+                    "is_on_prem_gateway_required": ds.get("isOnPremGatewayRequired", False),
+                    "web_url":                     ds.get("webUrl", ""),
+                    "storage_mode":                overall_mode,
+                    **details,
+                },
+                "dep_map": dep_map,
+            }
+
+        # ── Run model analysis in parallel ───────────────────────────────────
+        datasets:        list[dict] = []
+        ws_measure_deps: dict[str, dict] = {}
+
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=_MODEL_WORKERS, thread_name_prefix="fabric-model"
+        ) as exe:
+            futs = {exe.submit(_process_dataset, ds): ds for ds in raw_datasets}
+            for fut in concurrent.futures.as_completed(futs):
+                if _prog_state.get("_cancelled"):
+                    break
+                try:
+                    result = fut.result()
+                    if result:
+                        datasets.append(result["record"])
+                        ws_measure_deps.update(result["dep_map"])
+                        rec = result["record"]
+                        total_measures    += rec.get("measure_count",           0)
+                        total_calc_tables += rec.get("calculated_table_count",  0)
+                        total_calc_cols   += rec.get("calculated_column_count", 0)
+                        total_rels        += rec.get("relationship_count",      0)
+                        total_datasets    += 1
+                except RuntimeError as exc:
+                    if "cancelled" in str(exc).lower():
+                        with _prog_lock:
+                            _prog_state["_cancelled"] = True
+                    else:
+                        logger.warning("Dataset processing error: %s", exc)
+                except Exception as exc:
+                    logger.warning("Dataset processing error: %s", exc)
+
+        _check_cancel()
 
         # ── 3. Reports (interactive + paginated) ─────────────────────────────
         _progress(f"  Fetching reports in '{ws_name}'…")
@@ -2156,47 +2189,46 @@ def _run_assessment_inner(
         if not isinstance(raw_reports, list):
             raw_reports = []
 
-        # Add this workspace's interactive reports to the running total
-        ws_interactive_reports = sum(
-            1 for r in raw_reports if r.get("reportType", "") != "PaginatedReport"
-        )
-        _prog_state["rt"] += ws_interactive_reports
+        # Count interactive reports for the progress bar
+        with _prog_lock:
+            _prog_state["rt"] += sum(
+                1 for r in raw_reports if r.get("reportType", "") != "PaginatedReport"
+            )
 
-        reports: list[dict] = []
-        for rpt in raw_reports:
-            rpt_id       = rpt.get("id",         "")
-            rpt_name     = rpt.get("name",        "")
-            is_paginated = rpt.get("reportType",  "") == "PaginatedReport"
+        # ws_measure_deps is now fully built — safe to read from report workers
+        _frozen_dep_map = dict(ws_measure_deps)
+
+        # ── Report worker — runs in thread pool ──────────────────────────────
+        def _process_report(rpt: dict) -> Optional[dict]:
+            rpt_id       = rpt.get("id",        "")
+            rpt_name     = rpt.get("name",       "")
+            is_paginated = rpt.get("reportType", "") == "PaginatedReport"
 
             if is_paginated:
-                total_paginated += 1
-                # Paginated reports (RDL): metadata only — no visual API
-                reports.append({
-                    "id":              rpt_id,
-                    "name":            rpt_name,
-                    "report_type":     "PaginatedReport",
-                    "is_paginated":    True,
-                    "dataset_id":      rpt.get("datasetId", ""),
-                    "web_url":         rpt.get("webUrl",    ""),
-                    "page_count":      None,
-                    "visual_count":    0,
-                    "bookmark_count":  0,
-                    "pages":           [],
-                    "layout_parsed":   False,
-                })
-                continue
+                return {
+                    "id":           rpt_id,
+                    "name":         rpt_name,
+                    "report_type":  "PaginatedReport",
+                    "is_paginated": True,
+                    "dataset_id":   rpt.get("datasetId", ""),
+                    "web_url":      rpt.get("webUrl",    ""),
+                    "page_count":   None,
+                    "visual_count": 0, "bookmark_count": 0,
+                    "pages":        [], "layout_parsed": False,
+                }
 
-            # Interactive report — full visual analysis
-            _check_cancel()
-            total_reports += 1
+            try:
+                _check_cancel()
+            except RuntimeError:
+                return None
+
             _progress_counted(f"Analysing report: {rpt_name}")
             try:
                 rpt_details = _get_report_visual_details(
-                    token, ws_id, rpt_id, ws_measure_deps,
+                    token, ws_id, rpt_id, _frozen_dep_map,
                     fabric_token=fabric_token,
                     workspace_id=ws_id,
                 )
-                total_visuals += rpt_details.get("visual_count", 0)
             except Exception as exc:
                 logger.debug("Report details failed for %s: %s", rpt_id, exc)
                 rpt_details = {
@@ -2204,17 +2236,48 @@ def _run_assessment_inner(
                     "bookmark_count": 0, "pages": [], "layout_parsed": False,
                     "connections": {}, "mashup_queries": [],
                 }
-            _prog_state["rd"] += 1
 
-            reports.append({
-                "id":             rpt_id,
-                "name":           rpt_name,
-                "report_type":    rpt.get("reportType", "PowerBIReport"),
-                "is_paginated":   False,
-                "dataset_id":     rpt.get("datasetId", ""),
-                "web_url":        rpt.get("webUrl",    ""),
+            _inc_prog("rd")
+
+            return {
+                "id":           rpt_id,
+                "name":         rpt_name,
+                "report_type":  rpt.get("reportType", "PowerBIReport"),
+                "is_paginated": False,
+                "dataset_id":   rpt.get("datasetId", ""),
+                "web_url":      rpt.get("webUrl",    ""),
                 **rpt_details,
-            })
+            }
+
+        # ── Run report analysis in parallel ──────────────────────────────────
+        reports: list[dict] = []
+
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=_REPORT_WORKERS, thread_name_prefix="fabric-report"
+        ) as exe:
+            futs = {exe.submit(_process_report, rpt): rpt for rpt in raw_reports}
+            for fut in concurrent.futures.as_completed(futs):
+                if _prog_state.get("_cancelled"):
+                    break
+                try:
+                    result = fut.result()
+                    if result:
+                        if result["is_paginated"]:
+                            total_paginated += 1
+                        else:
+                            total_reports += 1
+                            total_visuals += result.get("visual_count", 0)
+                        reports.append(result)
+                except RuntimeError as exc:
+                    if "cancelled" in str(exc).lower():
+                        with _prog_lock:
+                            _prog_state["_cancelled"] = True
+                    else:
+                        logger.warning("Report processing error: %s", exc)
+                except Exception as exc:
+                    logger.warning("Report processing error: %s", exc)
+
+        _check_cancel()
 
         workspaces.append({
             "id":                    ws_id,

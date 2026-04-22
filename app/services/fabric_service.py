@@ -46,9 +46,10 @@ logger = get_logger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-PBI_BASE    = "https://api.powerbi.com/v1.0/myorg"
-PBI_SCOPE   = "https://analysis.windows.net/powerbi/api/.default"
-FABRIC_BASE = "https://api.fabric.microsoft.com/v1"
+PBI_BASE     = "https://api.powerbi.com/v1.0/myorg"
+PBI_SCOPE    = "https://analysis.windows.net/powerbi/api/.default"
+FABRIC_BASE  = "https://api.fabric.microsoft.com/v1"
+FABRIC_SCOPE = "https://api.fabric.microsoft.com/.default"
 
 _INFO_STORAGE_MODE = {
     0: "Import",
@@ -332,6 +333,26 @@ def _get_token(auth_id: str) -> str:
     with _auth_lock:
         _auth[auth_id]["token"] = tok.token
     return tok.token
+
+
+def _get_fabric_token(auth_id: str) -> str:
+    """
+    Get a token scoped for the Fabric REST API (api.fabric.microsoft.com).
+    Uses the same credential as _get_token() — no extra login needed.
+    Falls back to the PBI-scoped token if the Fabric scope fails.
+    """
+    with _auth_lock:
+        entry = _auth.get(auth_id)
+    if not entry or entry["status"] != "ready":
+        raise RuntimeError("Fabric auth not ready")
+    cred: DeviceCodeCredential = entry["credential"]
+    try:
+        tok = cred.get_token(FABRIC_SCOPE)
+        return tok.token
+    except Exception as exc:
+        logger.debug("Fabric scope token failed (%s), falling back to PBI scope", exc)
+        tok = cred.get_token(PBI_SCOPE)
+        return tok.token
 
 
 # ── REST API helpers ──────────────────────────────────────────────────────────
@@ -804,10 +825,13 @@ def _get_model_definition(
     Requires Contributor (or higher) access on the semantic model item.
     Does NOT require Premium capacity or Fabric Admin role.
     Files are processed entirely in memory — nothing is written to disk.
+
+    NOTE: format=TMDL must be a query-string parameter, not a request body field.
     """
     import base64
 
-    url    = f"{FABRIC_BASE}/workspaces/{workspace_id}/semanticModels/{model_id}/getDefinition"
+    # format=TMDL must be a query string parameter per the Fabric REST API spec
+    url    = f"{FABRIC_BASE}/workspaces/{workspace_id}/semanticModels/{model_id}/getDefinition?format=TMDL"
     result = _fabric_lro(token, url)
     if not result:
         return {}
@@ -833,6 +857,164 @@ def _get_model_definition(
             len(files), model_id, workspace_id,
         )
     return files
+
+
+# ── Fabric report getDefinition — PBIR format ─────────────────────────────────
+
+def _get_report_definition(
+    token:        str,
+    workspace_id: str,
+    report_id:    str,
+) -> dict[str, Any]:
+    """
+    Export a Fabric-native report definition via the Fabric REST API.
+    Handles the PBIR format returned for reports in Fabric-capacity workspaces
+    where the classic PBIX /Export endpoint returns no Report/Layout.
+
+    Returns a dict with:
+      pages         – list of {name, order, visual_count, visuals}
+      page_count    – number of pages
+      visual_count  – total visuals across all pages
+      layout_parsed – True if parsing succeeded
+
+    Empty/default dict on failure.
+    """
+    import base64
+
+    url    = f"{FABRIC_BASE}/workspaces/{workspace_id}/reports/{report_id}/getDefinition"
+    result = _fabric_lro(token, url)
+    if not result:
+        return {}
+
+    parts = result.get("definition", {}).get("parts", [])
+    if not parts:
+        parts = result.get("parts", [])
+
+    # Build a path → parsed-JSON map for all PBIR files
+    pbir: dict[str, Any] = {}
+    for part in parts:
+        path    = part.get("path", "")
+        payload = part.get("payload", "")
+        if not path or not payload:
+            continue
+        try:
+            raw     = base64.b64decode(payload).decode("utf-8", errors="replace")
+            pbir[path] = json.loads(raw)
+        except Exception:
+            try:
+                pbir[path] = raw   # keep as string if not JSON
+            except Exception:
+                pass
+
+    if not pbir:
+        return {}
+
+    logger.info(
+        "Fabric report getDefinition: %d PBIR parts for report %s",
+        len(pbir), report_id,
+    )
+    return _parse_pbir_definition(pbir)
+
+
+def _parse_pbir_definition(pbir: dict[str, Any]) -> dict:
+    """
+    Parse PBIR file parts into the same page/visual structure used by
+    _parse_layout_pages() so it integrates cleanly into the rest of the pipeline.
+
+    PBIR structure (Power BI Report / .pbir):
+      report.json                        — report-level metadata
+      pages/<pageId>/page.json           — page metadata (name, order)
+      pages/<pageId>/visuals/<visId>/visual.json  — visual config (type, query)
+    """
+    pages_out: list[dict] = []
+
+    # Collect page definitions
+    page_files: dict[str, dict] = {}   # pageId → page.json content
+    visual_files: dict[str, list] = {} # pageId → list of visual.json contents
+
+    for path, content in pbir.items():
+        if not isinstance(content, dict):
+            continue
+        parts = path.replace("\\", "/").split("/")
+
+        # pages/<pageId>/page.json
+        if len(parts) == 3 and parts[0] == "pages" and parts[2] == "page.json":
+            page_id = parts[1]
+            page_files[page_id] = content
+
+        # pages/<pageId>/visuals/<visId>/visual.json
+        elif len(parts) == 5 and parts[0] == "pages" and parts[2] == "visuals" and parts[4] == "visual.json":
+            page_id = parts[1]
+            visual_files.setdefault(page_id, []).append(content)
+
+    for page_id, page_cfg in page_files.items():
+        page_name  = page_cfg.get("displayName") or page_cfg.get("name", page_id)
+        page_order = page_cfg.get("ordinal") or page_cfg.get("order", 0)
+        visuals_out: list[dict] = []
+
+        for vcfg in visual_files.get(page_id, []):
+            try:
+                sv = vcfg.get("visual", vcfg)  # some versions wrap in "visual" key
+                vtype = sv.get("visualType", sv.get("type", "unknown"))
+                if vtype in _SKIP_VISUAL_TYPES:
+                    continue
+
+                # Title
+                title = ""
+                try:
+                    title = (
+                        sv.get("vcObjects", {})
+                        .get("title", [{}])[0]
+                        .get("properties", {})
+                        .get("text", {})
+                        .get("expr", {})
+                        .get("Literal", {})
+                        .get("Value", "")
+                        .strip("'")
+                    )
+                except Exception:
+                    pass
+
+                # Fields from prototypeQuery (same structure as PBIX Layout)
+                proto    = sv.get("prototypeQuery", {})
+                from_map = {
+                    f.get("Name", ""): f.get("Entity", "")
+                    for f in proto.get("From", [])
+                    if f.get("Name") and f.get("Entity")
+                }
+                fields_out: list[dict] = []
+                seen_fields: set[tuple] = set()
+                for sel in proto.get("Select", []):
+                    fi = _resolve_select_item(sel, from_map, {})
+                    if fi:
+                        key = (fi["field_type"], fi["name"], fi.get("table", ""))
+                        if key not in seen_fields:
+                            seen_fields.add(key)
+                            fields_out.append(fi)
+
+                visuals_out.append({
+                    "type":        vtype,
+                    "title":       title,
+                    "field_count": len(fields_out),
+                    "fields":      fields_out,
+                })
+            except Exception as exc:
+                logger.debug("PBIR visual parse error: %s", exc)
+
+        pages_out.append({
+            "name":         page_name,
+            "order":        page_order,
+            "visual_count": len(visuals_out),
+            "visuals":      visuals_out,
+        })
+
+    pages_out.sort(key=lambda p: p["order"])
+    return {
+        "pages":         pages_out,
+        "page_count":    len(pages_out),
+        "visual_count":  sum(p["visual_count"] for p in pages_out),
+        "layout_parsed": bool(pages_out),
+    }
 
 
 def _parse_tmdl_measures_and_cols(
@@ -1276,15 +1458,20 @@ def _get_report_visual_details(
     group_id:        str,
     report_id:       str,
     measure_dep_map: dict[str, dict],
+    fabric_token:    str = "",
+    workspace_id:    str = "",
 ) -> dict:
     """
-    Full report analysis via PBIX file export:
-      1. Download PBIX file entirely in memory (no disk storage).
-      2. Extract Report/Layout → parse visual types, titles, and field bindings per page.
-      3. Extract Connections → semantic model link info.
-      4. Extract DataMashup → M/Power Query query names (if embedded model present).
-      5. Enrich Measure fields with DAX expression, complexity, and column dependencies.
-      6. Fall back to pages REST API for page/visual counts if PBIX unavailable.
+    Full report analysis — three-tier strategy, all in-memory:
+
+    1. PBIX export (/reports/{id}/Export) → parse Report/Layout JSON.
+       Works for classic Power BI reports stored in PBIX format.
+
+    2. Fabric getDefinition API → parse PBIR format.
+       Used for Fabric-native reports (.pbir) where PBIX export has no Layout.
+       Requires workspace_id and a Fabric-scoped token.
+
+    3. Pages REST API (counts only) — final fallback when both above fail.
 
     Returns:
         {page_count, visual_count, bookmark_count, pages, layout_parsed,
@@ -1298,7 +1485,7 @@ def _get_report_visual_details(
     connections:    dict  = {}
     mashup_queries: list  = []
 
-    # ── Download PBIX and extract all artefacts ───────────────────────────────
+    # ── Tier 1: Download PBIX and extract Report/Layout ──────────────────────
     try:
         pbix_data = _download_pbix_data(token, group_id, report_id)
         if pbix_data:
@@ -1313,7 +1500,20 @@ def _get_report_visual_details(
     except Exception as exc:
         logger.debug("PBIX parse failed for report %s: %s", report_id, exc)
 
-    # ── Fallback: pages REST API (counts only, no field detail) ──────────────
+    # ── Tier 2: Fabric getDefinition (PBIR format for Fabric-native reports) ──
+    if not layout_parsed and fabric_token and workspace_id:
+        try:
+            pbir_result = _get_report_definition(fabric_token, workspace_id, report_id)
+            if pbir_result.get("layout_parsed"):
+                pages         = pbir_result["pages"]
+                page_count    = pbir_result["page_count"]
+                visual_count  = pbir_result["visual_count"]
+                layout_parsed = True
+                logger.info("PBIR getDefinition succeeded for report %s", report_id)
+        except Exception as exc:
+            logger.debug("PBIR getDefinition failed for report %s: %s", report_id, exc)
+
+    # ── Tier 3: Pages REST API (counts only, no field detail) ────────────────
     if not layout_parsed:
         try:
             api_pages = _pbi_get(token, f"/groups/{group_id}/reports/{report_id}/pages")
@@ -1642,6 +1842,13 @@ def _run_assessment_inner(
 ) -> dict:
     token = _get_token(auth_id)
 
+    # Acquire a Fabric-scoped token once for getDefinition API calls.
+    # Uses the same credential — no extra login prompt.
+    try:
+        fabric_token = _get_fabric_token(auth_id)
+    except Exception:
+        fabric_token = token   # fall back to PBI token; getDefinition may still work
+
     # ── 1. Workspaces ─────────────────────────────────────────────────────────
     _progress("Fetching workspaces…")
     raw_workspaces = _fetch_all_workspaces(token)
@@ -1705,9 +1912,10 @@ def _run_assessment_inner(
             # Works without Premium capacity or Admin role — just Contributor access.
             # Returns tables, measures with DAX, relationships, RLS roles, M expressions.
             # Files processed entirely in memory, nothing stored to disk.
+            # Uses Fabric-scoped token for api.fabric.microsoft.com.
             details: dict = {}
             try:
-                tmdl_files = _get_model_definition(token, ws_id, ds_id)
+                tmdl_files = _get_model_definition(fabric_token, ws_id, ds_id)
                 if tmdl_files:
                     details = _parse_model_definition(tmdl_files)
                     logger.info(
@@ -1812,7 +2020,9 @@ def _run_assessment_inner(
             _progress(f"    Analysing report: {rpt_name}")
             try:
                 rpt_details = _get_report_visual_details(
-                    token, ws_id, rpt_id, ws_measure_deps
+                    token, ws_id, rpt_id, ws_measure_deps,
+                    fabric_token=fabric_token,
+                    workspace_id=ws_id,
                 )
                 total_visuals += rpt_details.get("visual_count", 0)
             except Exception as exc:

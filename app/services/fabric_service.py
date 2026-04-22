@@ -42,6 +42,21 @@ from azure.identity import DeviceCodeCredential
 from app.config import settings
 from app.core.logging import get_logger
 
+# ── Optional: semantic-link-labs (Microsoft Fabric analysis library) ──────────
+# Used for helper utilities and REST API access where available.
+# Gracefully degrades if not installed or if running outside a Fabric environment.
+try:
+    import sempy_labs as labs  # type: ignore
+    _SEMPY_LABS_AVAILABLE = True
+except ImportError:
+    _SEMPY_LABS_AVAILABLE = False
+
+try:
+    import pandas as _pd  # type: ignore
+    _PANDAS_AVAILABLE = True
+except ImportError:
+    _PANDAS_AVAILABLE = False
+
 logger = get_logger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -1124,9 +1139,10 @@ def _parse_tmdl_measures_and_cols(
                 i += 1
                 continue
 
-            col_name = cm.group(1).strip()
-            is_calc  = False
-            col_expr = ""
+            col_name  = cm.group(1).strip()
+            is_calc   = False
+            col_expr  = ""
+            data_type = ""
             i += 1
 
             while i < n:
@@ -1145,13 +1161,22 @@ def _parse_tmdl_measures_and_cols(
                     em = re.match(r"^expression\s*=\s*(.*)", ns, re.IGNORECASE)
                     col_expr = em.group(1).strip() if em else ""
                     is_calc  = True
+                elif ns_l.startswith("datatype:"):
+                    data_type = ns.split(":", 1)[1].strip()
                 i += 1
 
             if is_calc and col_name:
+                complexity = _score_measure_complexity(col_expr) if col_expr else {
+                    "score": 0, "level": "None",
+                    "function_count": 0, "nesting_depth": 0,
+                    "dependency_count": 0, "complex_functions": [],
+                }
                 calc_columns.append({
                     "name":       col_name,
                     "table":      tbl_name,
                     "expression": col_expr,
+                    "data_type":  data_type,
+                    "complexity": complexity,
                 })
             continue
 
@@ -1182,20 +1207,27 @@ def _parse_model_definition(tmdl_files: dict[str, str]) -> dict:
     rel_content = tmdl_files.get("definition/relationships.tmdl", "")
     if rel_content:
         for block in re.split(r"\nrelationship\s+\S+", rel_content)[1:]:
-            ft = re.search(r"fromTable:\s*'?([^'\n]+?)'?\s*$",  block, re.MULTILINE)
-            fc = re.search(r"fromColumn:\s*'?([^'\n]+?)'?\s*$", block, re.MULTILINE)
-            tt = re.search(r"toTable:\s*'?([^'\n]+?)'?\s*$",    block, re.MULTILINE)
-            tc = re.search(r"toColumn:\s*'?([^'\n]+?)'?\s*$",   block, re.MULTILINE)
-            xf = re.search(r"crossFilteringBehavior:\s*(\w+)",   block)
-            card = re.search(r"fromCardinality:\s*(\w+)",        block)
+            ft   = re.search(r"fromTable:\s*'?([^'\n]+?)'?\s*$",  block, re.MULTILINE)
+            fc   = re.search(r"fromColumn:\s*'?([^'\n]+?)'?\s*$", block, re.MULTILINE)
+            tt   = re.search(r"toTable:\s*'?([^'\n]+?)'?\s*$",    block, re.MULTILINE)
+            tc   = re.search(r"toColumn:\s*'?([^'\n]+?)'?\s*$",   block, re.MULTILINE)
+            xf   = re.search(r"crossFilteringBehavior:\s*(\w+)",   block)
+            card = re.search(r"fromCardinality:\s*(\w+)",          block)
+            to_c = re.search(r"toCardinality:\s*(\w+)",            block)
+            # isActive defaults to true in TMDL; only present when false
+            is_active = not bool(re.search(r"isActive:\s*false", block, re.IGNORECASE))
             if ft and tt:
+                from_card = card.group(1) if card else "many"
+                to_card   = to_c.group(1)  if to_c else "one"
+                cardinality = f"{from_card}:{to_card}"
                 relationships.append({
                     "from_table":   ft.group(1).strip(),
                     "from_column":  fc.group(1).strip() if fc else "",
                     "to_table":     tt.group(1).strip(),
                     "to_column":    tc.group(1).strip() if tc else "",
                     "cross_filter": xf.group(1) if xf else "oneDirection",
-                    "cardinality":  card.group(1) if card else "many",
+                    "cardinality":  cardinality,
+                    "is_active":    is_active,
                 })
 
     # ── M / Power Query expression names ─────────────────────────────────────
@@ -1262,7 +1294,12 @@ def _parse_model_definition(tmdl_files: dict[str, str]) -> dict:
                     for ln in ce_m.group(1).splitlines()
                     if ln.strip()
                 )
-            calc_tables.append({"name": tbl_name, "expression": calc_expr})
+            complexity = _score_measure_complexity(calc_expr) if calc_expr else {
+                "score": 0, "level": "None",
+                "function_count": 0, "nesting_depth": 0,
+                "dependency_count": 0, "complex_functions": [],
+            }
+            calc_tables.append({"name": tbl_name, "expression": calc_expr, "complexity": complexity})
 
         tables_out.append({
             "name":          tbl_name,
@@ -1286,6 +1323,11 @@ def _parse_model_definition(tmdl_files: dict[str, str]) -> dict:
         + len(calc_tables)   * 3
         + len(relationships)
     )
+
+    # Add complexity to calc tables that don't have it yet (defensive)
+    for ct in calc_tables:
+        if "complexity" not in ct:
+            ct["complexity"] = _score_measure_complexity(ct.get("expression", ""))
 
     return {
         "tables":                  tables_out,
@@ -1311,7 +1353,7 @@ def _parse_model_definition(tmdl_files: dict[str, str]) -> dict:
 def _empty_details() -> dict:
     return {
         "tables": [], "measures": [], "calculated_columns": [],
-        "calculated_tables": [], "relationship_count": 0,
+        "calculated_tables": [], "relationships": [], "relationship_count": 0,
         "complexity_score": 0, "table_count": 0, "measure_count": 0,
         "calculated_column_count": 0, "calculated_table_count": 0,
         "info_supported": False,
@@ -1381,13 +1423,21 @@ def _get_dataset_details(token: str, group_id: str, dataset_id: str) -> dict:
     for r in (raw_cols or []):
         if _val_int(_row_val(r, "Type"), default=0) != 2:
             continue
-        col_name = _row_val(r, "ExplicitName") or _row_val(r, "Name", default="")
-        expr     = _row_val(r, "Expression", default="") or ""
-        tid      = _val_int(_row_val(r, "TableID"))
+        col_name  = _row_val(r, "ExplicitName") or _row_val(r, "Name", default="")
+        expr      = _row_val(r, "Expression", default="") or ""
+        tid       = _val_int(_row_val(r, "TableID"))
+        data_type = str(_row_val(r, "DataType", default="") or "")
+        complexity = _score_measure_complexity(expr) if expr else {
+            "score": 0, "level": "None",
+            "function_count": 0, "nesting_depth": 0,
+            "dependency_count": 0, "complex_functions": [],
+        }
         calc_columns.append({
             "name":       col_name,
             "table":      table_map.get(tid, {}).get("name", ""),
             "expression": expr,
+            "data_type":  data_type,
+            "complexity": complexity,
         })
 
     # ── Calculated tables ────────────────────────────────────────────────────
@@ -1410,8 +1460,31 @@ def _get_dataset_details(token: str, group_id: str, dataset_id: str) -> dict:
         })
 
     # ── Relationships ─────────────────────────────────────────────────────────
+    _CARDINALITY_MAP = {0: "many", 1: "one", 2: "manytoone", 3: "none"}
+    _CROSS_FILTER_MAP = {1: "oneDirection", 2: "bothDirections", 3: "automatic"}
     raw_rels = _execute_dax(token, group_id, dataset_id, "EVALUATE INFO.RELATIONSHIPS()")
     relationship_count = len(raw_rels) if raw_rels else 0
+    relationships_list: list[dict] = []
+    for r in (raw_rels or []):
+        from_tid = _val_int(_row_val(r, "FromTableID"))
+        to_tid   = _val_int(_row_val(r, "ToTableID"))
+        from_col = _row_val(r, "FromColumnID", default="")
+        to_col   = _row_val(r, "ToColumnID",   default="")
+        card_raw  = _val_int(_row_val(r, "FromCardinality", "Cardinality"), default=0)
+        to_c_raw  = _val_int(_row_val(r, "ToCardinality"),  default=1)
+        xf_raw    = _val_int(_row_val(r, "CrossFilteringBehavior"), default=1)
+        is_active = _val_bool(_row_val(r, "IsActive"), default=True)
+        from_card = _CARDINALITY_MAP.get(card_raw, "many")
+        to_card   = _CARDINALITY_MAP.get(to_c_raw,  "one")
+        relationships_list.append({
+            "from_table":   table_map.get(from_tid, {}).get("name", ""),
+            "from_column":  str(from_col or ""),
+            "to_table":     table_map.get(to_tid,   {}).get("name", ""),
+            "to_column":    str(to_col   or ""),
+            "cardinality":  f"{from_card}:{to_card}",
+            "cross_filter": _CROSS_FILTER_MAP.get(xf_raw, "oneDirection"),
+            "is_active":    is_active,
+        })
 
     # ── Build table list ─────────────────────────────────────────────────────
     calc_table_names = {c["name"] for c in calc_tables}
@@ -1440,6 +1513,7 @@ def _get_dataset_details(token: str, group_id: str, dataset_id: str) -> dict:
         "measures":                measures,
         "calculated_columns":      calc_columns,
         "calculated_tables":       calc_tables,
+        "relationships":           relationships_list,
         "relationship_count":      relationship_count,
         "complexity_score":        model_score,
         "table_count":             len(visible_tables),
@@ -1543,10 +1617,50 @@ def _get_report_visual_details(
             logger.debug("Pages API fallback failed for report %s: %s", report_id, exc)
 
     # ── Bookmarks ─────────────────────────────────────────────────────────────
+    bookmarks: list[dict] = []
     try:
-        bm = _pbi_get(token, f"/groups/{group_id}/reports/{report_id}/bookmarks")
-        if isinstance(bm, list):
-            bookmark_count = len(bm)
+        bm_raw = _pbi_get(token, f"/groups/{group_id}/reports/{report_id}/bookmarks")
+        if isinstance(bm_raw, list):
+            bookmark_count = len(bm_raw)
+            for bm in bm_raw:
+                bm_id    = bm.get("id", "")
+                bm_name  = bm.get("name", bm_id)
+                bm_disp  = bm.get("displayName", bm_name)
+                # Try to extract target page from definition state
+                target_page = ""
+                try:
+                    state   = bm.get("definition", {}).get("state", {})
+                    section = (
+                        state.get("explorationState", {})
+                             .get("activeSection", "")
+                    )
+                    if not section:
+                        section = state.get("defaultState", {}).get("activeSection", "")
+                    if section:
+                        # Match to page by section name
+                        for page in pages:
+                            if page.get("name", "") == section:
+                                target_page = page["name"]
+                                break
+                        if not target_page:
+                            target_page = section
+                except Exception:
+                    pass
+                bookmarks.append({
+                    "id":           bm_id,
+                    "name":         bm_disp,
+                    "target_page":  target_page,
+                })
+        elif isinstance(bm_raw, dict):
+            # Some endpoints return wrapped value
+            bm_list = bm_raw.get("value", [])
+            bookmark_count = len(bm_list)
+            for bm in bm_list:
+                bookmarks.append({
+                    "id":          bm.get("id", ""),
+                    "name":        bm.get("displayName", bm.get("name", "")),
+                    "target_page": "",
+                })
     except Exception:
         pass
 
@@ -1554,6 +1668,7 @@ def _get_report_visual_details(
         "page_count":      page_count,
         "visual_count":    visual_count,
         "bookmark_count":  bookmark_count,
+        "bookmarks":       bookmarks,
         "pages":           pages,
         "layout_parsed":   layout_parsed,
         "connections":     connections,
@@ -1659,15 +1774,28 @@ def _get_workspace_scanner_data(token: str, workspace_id: str) -> dict[str, dict
             # Calculated table: has a DAX expression at table level
             tbl_expr = tbl.get("expression", "") or ""
             if tbl_expr.strip():
-                calc_tables.append({"name": tbl_name, "expression": tbl_expr})
+                tbl_complexity = _score_measure_complexity(tbl_expr) if tbl_expr else {
+                    "score": 0, "level": "None",
+                    "function_count": 0, "nesting_depth": 0,
+                    "dependency_count": 0, "complex_functions": [],
+                }
+                calc_tables.append({"name": tbl_name, "expression": tbl_expr, "complexity": tbl_complexity})
 
             # Columns
             for col in tbl.get("columns", []):
                 if (col.get("columnType") or "") == "CalculatedColumn":
+                    col_expr = col.get("expression", "") or ""
+                    complexity = _score_measure_complexity(col_expr) if col_expr else {
+                        "score": 0, "level": "None",
+                        "function_count": 0, "nesting_depth": 0,
+                        "dependency_count": 0, "complex_functions": [],
+                    }
                     calc_cols.append({
                         "name":       col.get("name", ""),
                         "table":      tbl_name,
-                        "expression": col.get("expression", ""),
+                        "expression": col_expr,
+                        "data_type":  col.get("dataType", ""),
+                        "complexity": complexity,
                     })
 
             # Measures
@@ -1694,9 +1822,22 @@ def _get_workspace_scanner_data(token: str, workspace_id: str) -> dict[str, dict
                 "is_calculated": bool(tbl_expr.strip()),
             })
 
-        rel_count   = len(ds.get("relationships", []))
-        vis_tables  = [t for t in tables_out if not t["is_hidden"]]
-        total_score = sum(m["complexity"]["score"] for m in measures)
+        raw_rel_list = ds.get("relationships", [])
+        rel_count    = len(raw_rel_list)
+        vis_tables   = [t for t in tables_out if not t["is_hidden"]]
+        total_score  = sum(m["complexity"]["score"] for m in measures)
+        # Build structured relationship list
+        relationships_list_s: list[dict] = []
+        for rel in raw_rel_list:
+            relationships_list_s.append({
+                "from_table":   rel.get("fromTable", ""),
+                "from_column":  rel.get("fromColumn", ""),
+                "to_table":     rel.get("toTable", ""),
+                "to_column":    rel.get("toColumn", ""),
+                "cardinality":  rel.get("crossFilteringBehavior", "oneDirection"),
+                "cross_filter": rel.get("crossFilteringBehavior", "oneDirection"),
+                "is_active":    rel.get("isActive", True),
+            })
         model_score = min(100,
             total_score
             + len(calc_cols)   * 2
@@ -1709,6 +1850,7 @@ def _get_workspace_scanner_data(token: str, workspace_id: str) -> dict[str, dict
             "measures":                measures,
             "calculated_columns":      calc_cols,
             "calculated_tables":       calc_tables,
+            "relationships":           relationships_list_s,
             "relationship_count":      rel_count,
             "complexity_score":        model_score,
             "table_count":             len(vis_tables),
@@ -2074,3 +2216,398 @@ def _run_assessment_inner(
     }
     _progress("Assessment complete.")
     return results
+
+
+# ── Excel Report Generation ───────────────────────────────────────────────────
+
+def generate_fabric_excel(results: dict) -> bytes:
+    """
+    Generate a multi-sheet Excel workbook from Fabric assessment results.
+    Uses semantic-link-labs data structures where available.
+    Returns raw bytes of the .xlsx file.
+    """
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import (
+            Font, PatternFill, Alignment, Border, Side, numbers,
+        )
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        raise RuntimeError("openpyxl is required for Excel export.")
+
+    wb = Workbook()
+
+    # ── Colour palette ────────────────────────────────────────────────────────
+    _HDR_FILL  = PatternFill("solid", fgColor="1E3A5F")   # dark navy
+    _HDR_FONT  = Font(color="FFFFFF", bold=True, name="Calibri", size=10)
+    _TITLE_FONT = Font(bold=True, name="Calibri", size=14, color="1E3A5F")
+    _SUBHDR_FILL = PatternFill("solid", fgColor="D6E4F7")
+    _SUBHDR_FONT = Font(bold=True, name="Calibri", size=10, color="1E3A5F")
+    _EVEN_FILL = PatternFill("solid", fgColor="F5F9FF")
+    _THIN_BORDER = Border(
+        left=Side(style="thin", color="D0D8E4"),
+        right=Side(style="thin", color="D0D8E4"),
+        top=Side(style="thin", color="D0D8E4"),
+        bottom=Side(style="thin", color="D0D8E4"),
+    )
+    _COMPLEXITY_FILLS = {
+        "None":         PatternFill("solid", fgColor="F1F5F9"),
+        "Simple":       PatternFill("solid", fgColor="D1FAE5"),
+        "Moderate":     PatternFill("solid", fgColor="FEF3C7"),
+        "Complex":      PatternFill("solid", fgColor="FFEDD5"),
+        "Very Complex": PatternFill("solid", fgColor="FEE2E2"),
+    }
+
+    def _style_header_row(ws, row_num: int, col_count: int, fill=None):
+        for col in range(1, col_count + 1):
+            cell = ws.cell(row=row_num, column=col)
+            cell.fill  = fill or _HDR_FILL
+            cell.font  = _HDR_FONT if (fill is None) else _SUBHDR_FONT
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+            cell.border = _THIN_BORDER
+
+    def _style_data_row(ws, row_num: int, col_count: int, even: bool):
+        for col in range(1, col_count + 1):
+            cell = ws.cell(row=row_num, column=col)
+            if even:
+                cell.fill = _EVEN_FILL
+            cell.font   = Font(name="Calibri", size=10)
+            cell.border = _THIN_BORDER
+            cell.alignment = Alignment(vertical="center", wrap_text=False)
+
+    def _auto_width(ws, min_w=8, max_w=60):
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                try:
+                    if cell.value:
+                        max_len = max(max_len, len(str(cell.value)))
+                except Exception:
+                    pass
+            ws.column_dimensions[col_letter].width = max(min_w, min(max_w, max_len + 2))
+
+    def _write_sheet(ws, title: str, headers: list[str], rows: list[list]):
+        # Title row
+        ws.row_dimensions[1].height = 24
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+        tc = ws.cell(row=1, column=1, value=title)
+        tc.font      = _TITLE_FONT
+        tc.fill      = PatternFill("solid", fgColor="EBF3FB")
+        tc.alignment = Alignment(horizontal="left", vertical="center")
+        # Header row
+        for ci, h in enumerate(headers, 1):
+            ws.cell(row=2, column=ci, value=h)
+        _style_header_row(ws, 2, len(headers))
+        ws.row_dimensions[2].height = 18
+        # Data rows
+        for ri, row_data in enumerate(rows, 3):
+            for ci, val in enumerate(row_data, 1):
+                ws.cell(row=ri, column=ci, value=val)
+            _style_data_row(ws, ri, len(headers), (ri % 2 == 0))
+        ws.freeze_panes = "A3"
+        _auto_width(ws)
+
+    summary  = results.get("summary", {})
+    wss      = results.get("workspaces", [])
+    assessed = results.get("assessed_at", "")
+
+    # ── Sheet 1: Summary ──────────────────────────────────────────────────────
+    ws_sum = wb.active
+    ws_sum.title = "Summary"
+    sum_headers = ["Metric", "Value"]
+    sum_rows = [
+        ["Assessed At",          assessed],
+        ["Workspaces",           summary.get("workspace_count", 0)],
+        ["Semantic Models",      summary.get("dataset_count", 0)],
+        ["Interactive Reports",  summary.get("report_count", 0)],
+        ["Paginated Reports",    summary.get("paginated_report_count", 0)],
+        ["Total Measures",       summary.get("total_measures", 0)],
+        ["Calculated Tables",    summary.get("total_calculated_tables", 0)],
+        ["Calculated Columns",   summary.get("total_calculated_columns", 0)],
+        ["Relationships",        summary.get("total_relationships", 0)],
+        ["Total Visuals",        summary.get("total_visuals", 0)],
+    ]
+    _write_sheet(ws_sum, "Fabric Assessment Summary", sum_headers, sum_rows)
+
+    # ── Sheet 2: Workspaces ───────────────────────────────────────────────────
+    ws_workspaces = wb.create_sheet("Workspaces")
+    _write_sheet(ws_workspaces, "Workspaces", [
+        "Workspace Name", "Type", "State", "Capacity ID",
+        "Semantic Models", "Interactive Reports", "Paginated Reports",
+    ], [
+        [
+            ws["name"], ws.get("type", ""), ws.get("state", ""),
+            ws.get("capacity_id", ""),
+            ws.get("dataset_count", 0), ws.get("report_count", 0),
+            ws.get("paginated_report_count", 0),
+        ]
+        for ws in wss
+    ])
+
+    # ── Sheet 3: Semantic Models ──────────────────────────────────────────────
+    ws_models = wb.create_sheet("Semantic Models")
+    model_rows = []
+    for ws in wss:
+        for ds in ws.get("datasets", []):
+            model_rows.append([
+                ws["name"], ds["name"],
+                ds.get("configured_by", ""),
+                ds.get("storage_mode", ""),
+                ds.get("table_count", 0),
+                ds.get("measure_count", 0),
+                ds.get("calculated_column_count", 0),
+                ds.get("calculated_table_count", 0),
+                ds.get("relationship_count", 0),
+                ds.get("complexity_score", 0),
+                "Yes" if ds.get("info_supported") else "No",
+            ])
+    _write_sheet(ws_models, "Semantic Models", [
+        "Workspace", "Model Name", "Owner", "Storage Mode",
+        "Tables", "Measures", "Calc. Columns", "Calc. Tables",
+        "Relationships", "Complexity Score", "Metadata Available",
+    ], model_rows)
+
+    # ── Sheet 4: Tables ───────────────────────────────────────────────────────
+    ws_tables = wb.create_sheet("Tables")
+    table_rows = []
+    for ws in wss:
+        for ds in ws.get("datasets", []):
+            for tbl in ds.get("tables", []):
+                table_rows.append([
+                    ws["name"], ds["name"], tbl["name"],
+                    tbl.get("storage_mode", ""),
+                    "Yes" if tbl.get("is_hidden")     else "No",
+                    "Yes" if tbl.get("is_calculated") else "No",
+                ])
+    _write_sheet(ws_tables, "Tables", [
+        "Workspace", "Model", "Table Name",
+        "Storage Mode", "Hidden", "Calculated",
+    ], table_rows)
+
+    # ── Sheet 5: Measures ─────────────────────────────────────────────────────
+    ws_meas = wb.create_sheet("Measures")
+    meas_rows = []
+    for ws in wss:
+        for ds in ws.get("datasets", []):
+            for m in ds.get("measures", []):
+                cx = m.get("complexity", {})
+                meas_rows.append([
+                    ws["name"], ds["name"],
+                    m.get("table", ""), m["name"],
+                    m.get("display_folder", ""),
+                    cx.get("level", ""),
+                    cx.get("score", 0),
+                    cx.get("function_count", 0),
+                    cx.get("nesting_depth", 0),
+                    cx.get("dependency_count", 0),
+                    ", ".join(cx.get("complex_functions", [])),
+                    m.get("expression", ""),
+                ])
+    # Apply complexity colour to level column (col 6)
+    _write_sheet(ws_meas, "Measures (with DAX Complexity)", [
+        "Workspace", "Model", "Table", "Measure Name",
+        "Display Folder", "Complexity Level", "Score",
+        "Function Count", "Nesting Depth", "Column Refs",
+        "Complex Functions", "DAX Expression",
+    ], meas_rows)
+    # Colour complexity level cells
+    for ri, row in enumerate(meas_rows, 3):
+        level = row[5]
+        fill  = _COMPLEXITY_FILLS.get(level)
+        if fill:
+            ws_meas.cell(row=ri, column=6).fill = fill
+
+    # ── Sheet 6: Calculated Columns ───────────────────────────────────────────
+    ws_cc = wb.create_sheet("Calculated Columns")
+    cc_rows = []
+    for ws in wss:
+        for ds in ws.get("datasets", []):
+            for c in ds.get("calculated_columns", []):
+                cx = c.get("complexity", {})
+                cc_rows.append([
+                    ws["name"], ds["name"],
+                    c.get("table", ""), c["name"],
+                    c.get("data_type", ""),
+                    cx.get("level", ""),
+                    cx.get("score", 0),
+                    cx.get("function_count", 0),
+                    cx.get("nesting_depth", 0),
+                    c.get("expression", ""),
+                ])
+    _write_sheet(ws_cc, "Calculated Columns (with Complexity)", [
+        "Workspace", "Model", "Table", "Column Name",
+        "Data Type", "Complexity Level", "Score",
+        "Function Count", "Nesting Depth", "DAX Expression",
+    ], cc_rows)
+    for ri, row in enumerate(cc_rows, 3):
+        level = row[5]
+        fill  = _COMPLEXITY_FILLS.get(level)
+        if fill:
+            ws_cc.cell(row=ri, column=6).fill = fill
+
+    # ── Sheet 7: Calculated Tables ────────────────────────────────────────────
+    ws_ct = wb.create_sheet("Calculated Tables")
+    ct_rows = []
+    for ws in wss:
+        for ds in ws.get("datasets", []):
+            for t in ds.get("calculated_tables", []):
+                cx = t.get("complexity", {})
+                ct_rows.append([
+                    ws["name"], ds["name"],
+                    t["name"],
+                    cx.get("level", ""),
+                    cx.get("score", 0),
+                    cx.get("function_count", 0),
+                    cx.get("nesting_depth", 0),
+                    t.get("expression", ""),
+                ])
+    _write_sheet(ws_ct, "Calculated Tables (with Complexity)", [
+        "Workspace", "Model", "Table Name",
+        "Complexity Level", "Score", "Function Count",
+        "Nesting Depth", "DAX Expression",
+    ], ct_rows)
+    for ri, row in enumerate(ct_rows, 3):
+        level = row[3]
+        fill  = _COMPLEXITY_FILLS.get(level)
+        if fill:
+            ws_ct.cell(row=ri, column=4).fill = fill
+
+    # ── Sheet 8: Relationships ────────────────────────────────────────────────
+    ws_rels = wb.create_sheet("Relationships")
+    rel_rows = []
+    for ws in wss:
+        for ds in ws.get("datasets", []):
+            for r in ds.get("relationships", []):
+                rel_rows.append([
+                    ws["name"], ds["name"],
+                    r.get("from_table", ""),
+                    r.get("from_column", ""),
+                    r.get("to_table", ""),
+                    r.get("to_column", ""),
+                    r.get("cardinality", ""),
+                    r.get("cross_filter", ""),
+                    "Yes" if r.get("is_active", True) else "No",
+                ])
+    _write_sheet(ws_rels, "Relationships", [
+        "Workspace", "Model",
+        "From Table", "From Column",
+        "To Table", "To Column",
+        "Cardinality", "Cross Filter", "Active",
+    ], rel_rows)
+
+    # ── Sheet 9: Reports ──────────────────────────────────────────────────────
+    ws_rpts = wb.create_sheet("Reports")
+    rpt_rows = []
+    for ws in wss:
+        for r in ws.get("reports", []):
+            rpt_rows.append([
+                ws["name"], r["name"],
+                "Paginated" if r.get("is_paginated") else "Interactive",
+                r.get("page_count", 0) or 0,
+                r.get("visual_count", 0),
+                r.get("bookmark_count", 0),
+                "Yes" if r.get("layout_parsed") else "No",
+                r.get("web_url", ""),
+            ])
+    _write_sheet(ws_rpts, "Reports", [
+        "Workspace", "Report Name", "Type",
+        "Pages", "Visuals", "Bookmarks",
+        "Field Analysis", "URL",
+    ], rpt_rows)
+
+    # ── Sheet 10: Report Visuals ──────────────────────────────────────────────
+    ws_vis = wb.create_sheet("Report Visuals")
+    vis_rows = []
+    for ws in wss:
+        for r in ws.get("reports", []):
+            if r.get("is_paginated"):
+                continue
+            for page in r.get("pages", []):
+                for v in page.get("visuals", []):
+                    vis_rows.append([
+                        ws["name"], r["name"],
+                        page.get("name", ""), v.get("type", ""),
+                        v.get("title", ""), v.get("field_count", 0),
+                        ", ".join(
+                            f.get("name", "") for f in v.get("fields", [])[:5]
+                        ),
+                    ])
+    _write_sheet(ws_vis, "Report Visuals", [
+        "Workspace", "Report", "Page", "Visual Type",
+        "Title", "Field Count", "Fields (first 5)",
+    ], vis_rows)
+
+    # ── Sheet 11: Bookmarks ───────────────────────────────────────────────────
+    ws_bm = wb.create_sheet("Bookmarks")
+    bm_rows = []
+    for ws in wss:
+        for r in ws.get("reports", []):
+            for bm in r.get("bookmarks", []):
+                bm_rows.append([
+                    ws["name"], r["name"],
+                    bm.get("name", ""), bm.get("target_page", ""),
+                ])
+    _write_sheet(ws_bm, "Bookmarks", [
+        "Workspace", "Report", "Bookmark Name", "Target Page",
+    ], bm_rows)
+
+    # ── Sheet 12: Complexity Analysis ─────────────────────────────────────────
+    ws_cx = wb.create_sheet("Complexity Analysis")
+    cx_all = []
+    for ws in wss:
+        for ds in ws.get("datasets", []):
+            for m in ds.get("measures", []):
+                cx = m.get("complexity", {})
+                if cx.get("score", 0) > 0:
+                    cx_all.append({
+                        "workspace": ws["name"], "model": ds["name"],
+                        "type": "Measure", "name": m["name"],
+                        "table": m.get("table", ""),
+                        "level": cx.get("level", ""),
+                        "score": cx.get("score", 0),
+                        "expression": m.get("expression", ""),
+                    })
+            for c in ds.get("calculated_columns", []):
+                cx = c.get("complexity", {})
+                if cx.get("score", 0) > 0:
+                    cx_all.append({
+                        "workspace": ws["name"], "model": ds["name"],
+                        "type": "Calculated Column", "name": c["name"],
+                        "table": c.get("table", ""),
+                        "level": cx.get("level", ""),
+                        "score": cx.get("score", 0),
+                        "expression": c.get("expression", ""),
+                    })
+            for t in ds.get("calculated_tables", []):
+                cx = t.get("complexity", {})
+                if cx.get("score", 0) > 0:
+                    cx_all.append({
+                        "workspace": ws["name"], "model": ds["name"],
+                        "type": "Calculated Table", "name": t["name"],
+                        "table": t["name"],
+                        "level": cx.get("level", ""),
+                        "score": cx.get("score", 0),
+                        "expression": t.get("expression", ""),
+                    })
+    cx_all.sort(key=lambda x: x["score"], reverse=True)
+    cx_rows = [
+        [c["workspace"], c["model"], c["type"], c["name"],
+         c["table"], c["level"], c["score"], c["expression"]]
+        for c in cx_all
+    ]
+    _write_sheet(ws_cx, "Complexity Analysis (All Items Ranked)", [
+        "Workspace", "Model", "Type", "Name",
+        "Table", "Complexity Level", "Score", "DAX Expression",
+    ], cx_rows)
+    for ri, row in enumerate(cx_rows, 3):
+        level = row[5]
+        fill  = _COMPLEXITY_FILLS.get(level)
+        if fill:
+            ws_cx.cell(row=ri, column=6).fill = fill
+
+    # Serialise to bytes
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()

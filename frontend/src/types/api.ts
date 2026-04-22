@@ -359,6 +359,36 @@ export interface FabricTable {
   is_calculated: boolean
 }
 
+export interface FabricCalculatedColumn {
+  name: string
+  table: string
+  expression: string
+  data_type?: string
+  complexity?: MeasureComplexity
+}
+
+export interface FabricCalculatedTable {
+  name: string
+  expression: string
+  complexity?: MeasureComplexity
+}
+
+export interface FabricRelationship {
+  from_table: string
+  from_column: string
+  to_table: string
+  to_column: string
+  cardinality: string
+  cross_filter: string
+  is_active: boolean
+}
+
+export interface FabricBookmark {
+  id: string
+  name: string
+  target_page: string
+}
+
 // ── Fabric: visual field types ────────────────────────────────────────────────
 
 export interface VisualField {
@@ -406,8 +436,9 @@ export interface FabricDataset {
   info_supported: boolean
   tables: FabricTable[]
   measures: FabricMeasure[]
-  calculated_columns: { name: string; table: string; expression: string }[]
-  calculated_tables: { name: string; expression: string }[]
+  calculated_columns: FabricCalculatedColumn[]
+  calculated_tables: FabricCalculatedTable[]
+  relationships: FabricRelationship[]
 }
 
 // ── Fabric: report ────────────────────────────────────────────────────────────
@@ -422,6 +453,7 @@ export interface FabricReport {
   page_count: number | null
   visual_count: number
   bookmark_count: number
+  bookmarks: FabricBookmark[]
   layout_parsed: boolean
   pages: ReportPage[]
 }

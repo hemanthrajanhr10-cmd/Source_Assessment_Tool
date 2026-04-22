@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import Response
 from starlette.concurrency import run_in_threadpool
 
 from app.core.dependencies import get_current_user
@@ -227,3 +228,46 @@ async def get_fabric_session(
         "progress_message": record.get("progress_message"),
         "results": results,
     }
+
+
+@router.get("/sessions/{fabric_session_id}/export/excel")
+async def export_fabric_excel(
+    fabric_session_id: str,
+    current_user=Depends(get_current_user),
+):
+    """
+    Export a completed Fabric assessment session as a multi-sheet Excel workbook.
+    Sheets: Summary, Workspaces, Semantic Models, Tables, Measures,
+            Calculated Columns, Calculated Tables, Relationships,
+            Reports, Report Visuals, Bookmarks, Complexity Analysis.
+    """
+    record = await run_in_threadpool(azure_store.get_fabric_session, fabric_session_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Fabric session not found")
+    if record.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Session is not completed yet.")
+
+    results = None
+    if record.get("results_json"):
+        try:
+            results = json.loads(record["results_json"])
+        except Exception:
+            raise HTTPException(status_code=500, detail="Failed to parse session results.")
+
+    if not results:
+        raise HTTPException(status_code=404, detail="No results found for this session.")
+
+    try:
+        xlsx_bytes = await run_in_threadpool(fabric_service.generate_fabric_excel, results)
+    except Exception as exc:
+        logger.error("Excel export failed for session %s: %s", fabric_session_id, exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Excel generation failed: {exc}")
+
+    label    = (record.get("label") or "fabric-assessment").replace(" ", "_")
+    filename = f"{label}_{fabric_session_id[:8]}.xlsx"
+
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

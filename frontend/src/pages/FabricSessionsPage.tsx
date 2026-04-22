@@ -101,7 +101,9 @@ export default function FabricSessionsPage() {
                       {s.label || <span className="text-slate-400 italic">Untitled</span>}
                     </span>
                     {s.progress_message && s.status === 'running' && (
-                      <p className="text-xs text-slate-400 mt-0.5">{s.progress_message}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {(() => { try { const p = JSON.parse(s.progress_message); return p?.msg ?? s.progress_message } catch { return s.progress_message } })()}
+                      </p>
                     )}
                   </td>
                   <td className="px-5 py-3"><StatusBadge status={s.status} /></td>

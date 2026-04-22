@@ -1991,6 +1991,23 @@ def _run_assessment_inner(
     except Exception:
         fabric_token = token   # fall back to PBI token; getDefinition may still work
 
+    # ── Progress counter state (shared across workspaces) ────────────────────
+    _prog_state: dict = {
+        "md": 0, "mt": 0,   # models done / total
+        "rd": 0, "rt": 0,   # reports done / total
+    }
+
+    def _progress_counted(msg: str) -> None:
+        """Emit a JSON-encoded progress message that includes model/report counts."""
+        payload = json.dumps({
+            "msg": msg,
+            "md":  _prog_state["md"],
+            "mt":  _prog_state["mt"],
+            "rd":  _prog_state["rd"],
+            "rt":  _prog_state["rt"],
+        }, ensure_ascii=False)
+        _progress(payload)
+
     # ── 1. Workspaces ─────────────────────────────────────────────────────────
     _progress("Fetching workspaces…")
     raw_workspaces = _fetch_all_workspaces(token)
@@ -2026,6 +2043,12 @@ def _run_assessment_inner(
         if not isinstance(raw_datasets, list):
             raw_datasets = []
 
+        # Add this workspace's non-skipped models to the running total
+        ws_model_count = sum(
+            1 for d in raw_datasets if d.get("name", "") not in _SKIP_MODEL_NAMES
+        )
+        _prog_state["mt"] += ws_model_count
+
         # Pre-fetch Scanner API data as a fallback for the whole workspace.
         # This works for Fabric Admins on any capacity tier.
         # It will be used only if the primary (getDefinition) approach fails.
@@ -2048,7 +2071,7 @@ def _run_assessment_inner(
             ds_name = ds.get("name", "")
             if ds_name in _SKIP_MODEL_NAMES:
                 continue
-            _progress(f"    Analysing model: {ds_name}")
+            _progress_counted(f"Analysing model: {ds_name}")
 
             # ── Priority 1: Fabric getDefinition (TMDL export) ────────────────
             # Works without Premium capacity or Admin role — just Contributor access.
@@ -2100,6 +2123,7 @@ def _run_assessment_inner(
             total_calc_cols   += details["calculated_column_count"]
             total_rels        += details.get("relationship_count", 0)
             total_datasets    += 1
+            _prog_state["md"] += 1
 
             # Determine overall model storage mode
             visible_modes = {
@@ -2132,6 +2156,12 @@ def _run_assessment_inner(
         if not isinstance(raw_reports, list):
             raw_reports = []
 
+        # Add this workspace's interactive reports to the running total
+        ws_interactive_reports = sum(
+            1 for r in raw_reports if r.get("reportType", "") != "PaginatedReport"
+        )
+        _prog_state["rt"] += ws_interactive_reports
+
         reports: list[dict] = []
         for rpt in raw_reports:
             rpt_id       = rpt.get("id",         "")
@@ -2159,7 +2189,7 @@ def _run_assessment_inner(
             # Interactive report — full visual analysis
             _check_cancel()
             total_reports += 1
-            _progress(f"    Analysing report: {rpt_name}")
+            _progress_counted(f"Analysing report: {rpt_name}")
             try:
                 rpt_details = _get_report_visual_details(
                     token, ws_id, rpt_id, ws_measure_deps,
@@ -2174,6 +2204,7 @@ def _run_assessment_inner(
                     "bookmark_count": 0, "pages": [], "layout_parsed": False,
                     "connections": {}, "mashup_queries": [],
                 }
+            _prog_state["rd"] += 1
 
             reports.append({
                 "id":             rpt_id,

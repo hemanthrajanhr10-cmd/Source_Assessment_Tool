@@ -80,6 +80,15 @@ _SKIP_MODEL_NAMES = frozenset({
     "Usage Metrics Report",
 })
 
+# Name fragments that identify Fabric-internal staging / lakehouse models which
+# do not expose any metadata API (getDefinition, Scanner, DAX executeQueries all fail).
+# Matched case-insensitively as substrings against the dataset name.
+_SKIP_MODEL_NAME_FRAGMENTS = (
+    "DataflowsStagingWarehouse",
+    "DataflowsStaging",
+    "StagingWarehouse",
+)
+
 # Non-data visual types to skip during field extraction
 _SKIP_VISUAL_TYPES = frozenset({
     "image", "textbox", "shape", "actionButton", "basicShape",
@@ -1951,7 +1960,9 @@ def list_workspace_items(auth_id: str, workspace_ids: list[str]) -> list[dict]:
             "datasets": [
                 {"id": ds["id"], "name": ds["name"]}
                 for ds in (datasets if isinstance(datasets, list) else [])
-                if ds.get("id") and ds.get("name") not in _SKIP_MODEL_NAMES
+                if ds.get("id")
+                and ds.get("name") not in _SKIP_MODEL_NAMES
+                and not any(frag.lower() in (ds.get("name") or "").lower() for frag in _SKIP_MODEL_NAME_FRAGMENTS)
             ],
             "reports": [
                 {
@@ -2139,6 +2150,9 @@ def _run_assessment_inner(
             ds_id   = ds.get("id",   "")
             ds_name = ds.get("name", "")
             if ds_name in _SKIP_MODEL_NAMES:
+                return None
+            if any(frag.lower() in ds_name.lower() for frag in _SKIP_MODEL_NAME_FRAGMENTS):
+                logger.info("Skipping Fabric staging model: '%s'", ds_name)
                 return None
             try:
                 _check_cancel()

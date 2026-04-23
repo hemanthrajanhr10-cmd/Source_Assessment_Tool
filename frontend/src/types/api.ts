@@ -369,11 +369,21 @@ export interface FabricMeasure {
   dependencies: MeasureDependency[]
 }
 
+export interface FabricTableColumn {
+  name: string
+  data_type: string
+  is_calculated: boolean
+  is_hidden: boolean
+  expression?: string
+  complexity?: MeasureComplexity
+}
+
 export interface FabricTable {
   name: string
   storage_mode: string
   is_hidden: boolean
   is_calculated: boolean
+  columns?: FabricTableColumn[]
 }
 
 export interface FabricCalculatedColumn {

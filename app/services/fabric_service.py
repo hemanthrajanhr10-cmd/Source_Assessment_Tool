@@ -1044,7 +1044,7 @@ def _parse_pbir_definition(pbir: dict[str, Any]) -> dict:
 def _parse_tmdl_measures_and_cols(
     content:  str,
     tbl_name: str,
-) -> tuple[list[dict], list[dict], dict[str, dict]]:
+) -> tuple[list[dict], list[dict], dict[str, dict], list[dict]]:
     """
     Line-by-line TMDL parser for a single table file.
 
@@ -1054,11 +1054,12 @@ def _parse_tmdl_measures_and_cols(
       8  → property lines  (displayFolder:, formatString:, lineageTag:, …)
       12 → expression continuation lines for multi-line measures
 
-    Returns (measures, calculated_columns, measure_dep_map).
+    Returns (measures, calculated_columns, measure_dep_map, all_columns).
     """
     measures:     list[dict] = []
     calc_columns: list[dict] = []
     dep_map:      dict[str, dict] = {}
+    all_columns:  list[dict] = []
 
     _PROP_PREFIXES = (
         "displayfolder:", "formatstring:", "lineagetag:", "annotation ",
@@ -1148,10 +1149,11 @@ def _parse_tmdl_measures_and_cols(
                 i += 1
                 continue
 
-            col_name  = cm.group(1).strip()
-            is_calc   = False
-            col_expr  = ""
-            data_type = ""
+            col_name   = cm.group(1).strip()
+            is_calc    = False
+            is_hidden  = False
+            col_expr   = ""
+            data_type  = ""
             i += 1
 
             while i < n:
@@ -1172,26 +1174,39 @@ def _parse_tmdl_measures_and_cols(
                     is_calc  = True
                 elif ns_l.startswith("datatype:"):
                     data_type = ns.split(":", 1)[1].strip()
+                elif ns_l == "ishidden":
+                    is_hidden = True
                 i += 1
 
-            if is_calc and col_name:
-                complexity = _score_measure_complexity(col_expr) if col_expr else {
+            if col_name:
+                _empty_cx = {
                     "score": 0, "level": "None",
                     "function_count": 0, "nesting_depth": 0,
                     "dependency_count": 0, "complex_functions": [],
                 }
-                calc_columns.append({
-                    "name":       col_name,
-                    "table":      tbl_name,
-                    "expression": col_expr,
-                    "data_type":  data_type,
-                    "complexity": complexity,
-                })
+                col_record: dict = {
+                    "name":          col_name,
+                    "data_type":     data_type,
+                    "is_calculated": is_calc,
+                    "is_hidden":     is_hidden,
+                }
+                if is_calc:
+                    complexity = _score_measure_complexity(col_expr) if col_expr else _empty_cx
+                    col_record["expression"] = col_expr
+                    col_record["complexity"] = complexity
+                    calc_columns.append({
+                        "name":       col_name,
+                        "table":      tbl_name,
+                        "expression": col_expr,
+                        "data_type":  data_type,
+                        "complexity": complexity,
+                    })
+                all_columns.append(col_record)
             continue
 
         i += 1
 
-    return measures, calc_columns, dep_map
+    return measures, calc_columns, dep_map, all_columns
 
 
 def _parse_model_definition(tmdl_files: dict[str, str]) -> dict:
@@ -1310,18 +1325,19 @@ def _parse_model_definition(tmdl_files: dict[str, str]) -> dict:
             }
             calc_tables.append({"name": tbl_name, "expression": calc_expr, "complexity": complexity})
 
+        # Parse measures, calculated columns, and ALL columns from the table file
+        m_list, cc_list, m_dep, tbl_cols = _parse_tmdl_measures_and_cols(content, tbl_name)
+        all_measures.extend(m_list)
+        all_calc_cols.extend(cc_list)
+        measure_dep_map.update(m_dep)
+
         tables_out.append({
             "name":          tbl_name,
             "storage_mode":  storage_mode,
             "is_hidden":     is_hidden,
             "is_calculated": is_calc,
+            "columns":       tbl_cols,
         })
-
-        # Parse measures and calculated columns from the table file
-        m_list, cc_list, m_dep = _parse_tmdl_measures_and_cols(content, tbl_name)
-        all_measures.extend(m_list)
-        all_calc_cols.extend(cc_list)
-        measure_dep_map.update(m_dep)
 
     # ── Aggregate complexity score ────────────────────────────────────────────
     vis_tables  = [t for t in tables_out if not t["is_hidden"]]
@@ -1426,28 +1442,42 @@ def _get_dataset_details(token: str, group_id: str, dataset_id: str) -> dict:
         if name:
             measure_dep_map[name] = enriched
 
-    # ── Calculated columns ───────────────────────────────────────────────────
+    # ── All columns (regular + calculated) ───────────────────────────────────
     raw_cols = _execute_dax(token, group_id, dataset_id, "EVALUATE INFO.COLUMNS()")
     calc_columns: list[dict] = []
+    # tid → list of column dicts (for attaching to table records)
+    cols_by_table: dict[int, list[dict]] = {}
     for r in (raw_cols or []):
-        if _val_int(_row_val(r, "Type"), default=0) != 2:
-            continue
+        col_type  = _val_int(_row_val(r, "Type"), default=0)
         col_name  = _row_val(r, "ExplicitName") or _row_val(r, "Name", default="")
         expr      = _row_val(r, "Expression", default="") or ""
         tid       = _val_int(_row_val(r, "TableID"))
         data_type = str(_row_val(r, "DataType", default="") or "")
-        complexity = _score_measure_complexity(expr) if expr else {
+        is_hidden = _val_bool(_row_val(r, "IsHidden"))
+        is_calc   = (col_type == 2)
+        _empty_cx = {
             "score": 0, "level": "None",
             "function_count": 0, "nesting_depth": 0,
             "dependency_count": 0, "complex_functions": [],
         }
-        calc_columns.append({
-            "name":       col_name,
-            "table":      table_map.get(tid, {}).get("name", ""),
-            "expression": expr,
-            "data_type":  data_type,
-            "complexity": complexity,
-        })
+        col_record: dict = {
+            "name":          col_name,
+            "data_type":     data_type,
+            "is_calculated": is_calc,
+            "is_hidden":     is_hidden,
+        }
+        if is_calc:
+            complexity = _score_measure_complexity(expr) if expr else _empty_cx
+            col_record["expression"] = expr
+            col_record["complexity"] = complexity
+            calc_columns.append({
+                "name":       col_name,
+                "table":      table_map.get(tid, {}).get("name", ""),
+                "expression": expr,
+                "data_type":  data_type,
+                "complexity": complexity,
+            })
+        cols_by_table.setdefault(tid, []).append(col_record)
 
     # ── Calculated tables ────────────────────────────────────────────────────
     raw_parts = _execute_dax(token, group_id, dataset_id, "EVALUATE INFO.PARTITIONS()")
@@ -1498,12 +1528,13 @@ def _get_dataset_details(token: str, group_id: str, dataset_id: str) -> dict:
     # ── Build table list ─────────────────────────────────────────────────────
     calc_table_names = {c["name"] for c in calc_tables}
     tables_out: list[dict] = []
-    for info in table_map.values():
+    for tid, info in table_map.items():
         tables_out.append({
             "name":          info["name"],
             "storage_mode":  info["storage_mode"],
             "is_hidden":     info["is_hidden"],
             "is_calculated": info["name"] in calc_table_names,
+            "columns":       cols_by_table.get(tid, []),
         })
 
     visible_tables = [t for t in tables_out if not t["is_hidden"]]
@@ -1790,22 +1821,36 @@ def _get_workspace_scanner_data(token: str, workspace_id: str) -> dict[str, dict
                 }
                 calc_tables.append({"name": tbl_name, "expression": tbl_expr, "complexity": tbl_complexity})
 
-            # Columns
+            # Columns — collect ALL columns, separate out calculated ones
+            tbl_cols: list[dict] = []
             for col in tbl.get("columns", []):
-                if (col.get("columnType") or "") == "CalculatedColumn":
-                    col_expr = col.get("expression", "") or ""
-                    complexity = _score_measure_complexity(col_expr) if col_expr else {
-                        "score": 0, "level": "None",
-                        "function_count": 0, "nesting_depth": 0,
-                        "dependency_count": 0, "complex_functions": [],
-                    }
+                col_name  = col.get("name", "")
+                is_calc   = (col.get("columnType") or "") == "CalculatedColumn"
+                col_expr  = col.get("expression", "") or ""
+                is_hidden_col = col.get("isHidden", False)
+                _empty_cx = {
+                    "score": 0, "level": "None",
+                    "function_count": 0, "nesting_depth": 0,
+                    "dependency_count": 0, "complex_functions": [],
+                }
+                col_record: dict = {
+                    "name":          col_name,
+                    "data_type":     col.get("dataType", ""),
+                    "is_calculated": is_calc,
+                    "is_hidden":     is_hidden_col,
+                }
+                if is_calc:
+                    complexity = _score_measure_complexity(col_expr) if col_expr else _empty_cx
+                    col_record["expression"] = col_expr
+                    col_record["complexity"] = complexity
                     calc_cols.append({
-                        "name":       col.get("name", ""),
+                        "name":       col_name,
                         "table":      tbl_name,
                         "expression": col_expr,
                         "data_type":  col.get("dataType", ""),
                         "complexity": complexity,
                     })
+                tbl_cols.append(col_record)
 
             # Measures
             for m in tbl.get("measures", []):
@@ -1829,6 +1874,7 @@ def _get_workspace_scanner_data(token: str, workspace_id: str) -> dict[str, dict
                 "storage_mode":  tbl.get("storageMode", "Import") or "Import",
                 "is_hidden":     is_hidden,
                 "is_calculated": bool(tbl_expr.strip()),
+                "columns":       tbl_cols,
             })
 
         raw_rel_list = ds.get("relationships", [])

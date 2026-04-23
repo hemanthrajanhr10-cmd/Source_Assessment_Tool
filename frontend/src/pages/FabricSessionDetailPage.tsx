@@ -13,6 +13,7 @@ import type {
   FabricDataset, FabricReport, FabricWorkspace,
   FabricMeasure, MeasureComplexity, ReportVisual, ReportPage, VisualField,
   FabricCalculatedColumn, FabricCalculatedTable, FabricRelationship, FabricBookmark,
+  FabricTable, FabricTableColumn,
 } from '../types/api'
 import { formatDateTime } from '../utils/dateTime'
 
@@ -406,6 +407,182 @@ function PageAccordion({ page }: { page: ReportPage }) {
   )
 }
 
+// ── Tables panel with expandable column drill-down ────────────────────────────
+
+const DATA_TYPE_COLORS: Record<string, string> = {
+  string:   'bg-sky-50 text-sky-700 border-sky-200',
+  int64:    'bg-violet-50 text-violet-700 border-violet-200',
+  double:   'bg-violet-50 text-violet-700 border-violet-200',
+  decimal:  'bg-violet-50 text-violet-700 border-violet-200',
+  boolean:  'bg-amber-50 text-amber-700 border-amber-200',
+  datetime: 'bg-teal-50 text-teal-700 border-teal-200',
+  binary:   'bg-slate-50 text-slate-600 border-slate-200',
+}
+
+function DataTypeBadge({ type }: { type: string }) {
+  const normalised = (type || 'unknown').toLowerCase().replace(/\s+/g, '')
+  const cls = DATA_TYPE_COLORS[normalised] ?? 'bg-slate-50 text-slate-500 border-slate-200'
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-mono border ${cls}`}>
+      {type || 'unknown'}
+    </span>
+  )
+}
+
+function ColumnRow({ col }: { col: FabricTableColumn }) {
+  const [open, setOpen] = useState(false)
+  const hasExpr = !!col.expression
+  return (
+    <div className={`border-b last:border-0 border-slate-100 ${col.is_hidden ? 'opacity-60' : ''}`}>
+      <div
+        className={`flex items-center gap-2 px-3 py-1.5 text-xs ${hasExpr ? 'cursor-pointer hover:bg-slate-50' : ''}`}
+        onClick={() => hasExpr && setOpen(o => !o)}
+      >
+        <span className="w-4 flex-shrink-0 text-slate-300">
+          {hasExpr ? (open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />) : null}
+        </span>
+        <span className="flex-1 font-mono text-slate-800 truncate">{col.name}</span>
+        <DataTypeBadge type={col.data_type} />
+        {col.is_calculated && (
+          <span className="px-1.5 py-0.5 rounded text-xs font-medium border bg-amber-50 text-amber-700 border-amber-200">Calc</span>
+        )}
+        {col.is_hidden && (
+          <span className="px-1.5 py-0.5 rounded text-xs font-medium border bg-slate-100 text-slate-500 border-slate-200">Hidden</span>
+        )}
+        {col.complexity && col.complexity.level !== 'None' && (
+          <ComplexityBadge c={col.complexity} small />
+        )}
+      </div>
+      {open && col.expression && (
+        <div className="ml-9 mr-3 mb-2 rounded bg-slate-900 text-emerald-300 font-mono text-xs p-2 overflow-x-auto">
+          {col.expression}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TableRow({ table }: { table: FabricTable }) {
+  const [open, setOpen] = useState(false)
+  const cols = table.columns ?? []
+  const visibleCols = cols.filter(c => !c.is_hidden)
+  const hiddenCols  = cols.filter(c => c.is_hidden)
+  const calcCols    = cols.filter(c => c.is_calculated)
+
+  return (
+    <div className="border border-slate-200 rounded-lg overflow-hidden">
+      {/* Table header row */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-3 px-4 py-2.5 text-left bg-white hover:bg-slate-50 transition-colors"
+      >
+        <span className="text-slate-400">{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</span>
+        <Table2 className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+        <span className="flex-1 font-mono text-sm font-medium text-slate-800">{table.name}</span>
+        <StorageBadge mode={table.storage_mode} />
+        {table.is_calculated && (
+          <span className="px-2 py-0.5 rounded-full text-xs font-medium border bg-amber-50 text-amber-700 border-amber-200">DAX Table</span>
+        )}
+        {table.is_hidden && (
+          <span className="px-2 py-0.5 rounded-full text-xs font-medium border bg-slate-100 text-slate-500 border-slate-200">Hidden</span>
+        )}
+        {cols.length > 0 && (
+          <span className="text-xs text-slate-400">{cols.length} col{cols.length !== 1 ? 's' : ''}</span>
+        )}
+        {calcCols.length > 0 && (
+          <span className="text-xs text-amber-600">{calcCols.length} calc</span>
+        )}
+      </button>
+
+      {/* Expanded columns panel */}
+      {open && (
+        <div className="border-t border-slate-200 bg-slate-50">
+          {cols.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-slate-400 italic">No column data available (metadata not retrieved via TMDL/Scanner).</p>
+          ) : (
+            <>
+              {/* Column list */}
+              <div className="divide-y divide-slate-100 bg-white mx-3 my-3 rounded-md border border-slate-200 overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500">
+                  <span className="w-4 flex-shrink-0" />
+                  <span className="flex-1">Column Name</span>
+                  <span className="w-28 text-right">Data Type</span>
+                  <span className="w-16 text-right">Flags</span>
+                  <span className="w-24 text-right">Complexity</span>
+                </div>
+                {visibleCols.map(c => <ColumnRow key={c.name} col={c} />)}
+                {hiddenCols.length > 0 && (
+                  <>
+                    <div className="px-3 py-1 bg-slate-50 text-xs text-slate-400 font-medium">
+                      Hidden columns ({hiddenCols.length})
+                    </div>
+                    {hiddenCols.map(c => <ColumnRow key={c.name} col={c} />)}
+                  </>
+                )}
+              </div>
+              {/* Summary chips */}
+              <div className="flex items-center gap-3 px-4 pb-3 text-xs text-slate-500">
+                <span>{visibleCols.length} visible</span>
+                {hiddenCols.length > 0 && <span>{hiddenCols.length} hidden</span>}
+                {calcCols.length > 0 && <span className="text-amber-600">{calcCols.length} calculated</span>}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TablesPanel({ tables }: { tables: FabricTable[] }) {
+  const [filter, setFilter] = useState('')
+  const filtered = tables.filter(t =>
+    !filter || t.name.toLowerCase().includes(filter.toLowerCase())
+  )
+  const visible   = filtered.filter(t => !t.is_hidden)
+  const hidden    = filtered.filter(t => t.is_hidden)
+
+  return (
+    <div className="space-y-3">
+      {/* Search */}
+      <div className="relative">
+        <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+        <input
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          placeholder="Filter tables…"
+          className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-300"
+        />
+      </div>
+
+      {/* Visible tables */}
+      {visible.length > 0 && (
+        <div className="space-y-2">
+          {visible.map(t => <TableRow key={t.name} table={t} />)}
+        </div>
+      )}
+
+      {/* Hidden tables (collapsed group) */}
+      {hidden.length > 0 && (
+        <details className="group">
+          <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600 list-none flex items-center gap-1 select-none">
+            <ChevronDown className="h-3.5 w-3.5 group-open:rotate-180 transition-transform" />
+            {hidden.length} hidden table{hidden.length !== 1 ? 's' : ''}
+          </summary>
+          <div className="mt-2 space-y-2">
+            {hidden.map(t => <TableRow key={t.name} table={t} />)}
+          </div>
+        </details>
+      )}
+
+      {filtered.length === 0 && (
+        <p className="text-xs text-slate-400 italic text-center py-4">No tables match "{filter}"</p>
+      )}
+    </div>
+  )
+}
+
 // ── Dataset section (for Models tab) ─────────────────────────────────────────
 
 type ModelSubTab = 'tables' | 'measures' | 'calc_cols' | 'calc_tables' | 'relationships'
@@ -514,32 +691,10 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
 
           {/* Sub-tab content */}
           <div className="p-4">
-            {/* Tables */}
+            {/* Tables — expandable with column drill-down */}
             {subTab === 'tables' && (
               ds.tables.length > 0
-                ? <div className="overflow-x-auto rounded-lg border border-slate-200">
-                    <table className="w-full text-xs">
-                      <thead className="bg-slate-50">
-                        <tr>{['Table Name', 'Storage Mode', 'Hidden', 'Calculated'].map(h => (
-                          <th key={h} className="text-left px-3 py-2 font-semibold text-slate-600">{h}</th>
-                        ))}</tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {ds.tables.map(t => (
-                          <tr key={t.name} className="hover:bg-slate-50">
-                            <td className="px-3 py-2 font-mono font-medium text-slate-800">{t.name}</td>
-                            <td className="px-3 py-2"><StorageBadge mode={t.storage_mode} /></td>
-                            <td className="px-3 py-2 text-slate-500">{t.is_hidden ? 'Yes' : 'No'}</td>
-                            <td className="px-3 py-2">
-                              {t.is_calculated
-                                ? <span className="text-amber-600 font-semibold">✓ Calculated</span>
-                                : <span className="text-slate-400">—</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                ? <TablesPanel tables={ds.tables} />
                 : <p className="text-xs text-slate-400 italic">No table data available.</p>
             )}
 

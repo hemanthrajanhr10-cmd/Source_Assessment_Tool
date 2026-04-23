@@ -315,6 +315,23 @@ export interface FabricWorkspaceInfo {
   report_count: number
 }
 
+export interface FabricWorkspaceItemEntry {
+  id: string
+  name: string
+}
+
+export interface FabricWorkspaceReportEntry {
+  id: string
+  name: string
+  report_type: string
+}
+
+export interface FabricWorkspaceItems {
+  workspace_id: string
+  datasets: FabricWorkspaceItemEntry[]
+  reports: FabricWorkspaceReportEntry[]
+}
+
 export interface FabricAuthStartResponse {
   auth_id: string
   user_code: string

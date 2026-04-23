@@ -1933,13 +1933,61 @@ def list_workspaces(auth_id: str) -> list[dict]:
     return workspaces
 
 
+# ── Workspace item listing (for pre-assessment picker) ───────────────────────
+
+def list_workspace_items(auth_id: str, workspace_ids: list[str]) -> list[dict]:
+    """
+    Return datasets and reports (id + name) for each selected workspace.
+    Used to populate the model/report picker before starting an assessment.
+    Fetches all selected workspaces in parallel.
+    """
+    token = _get_token(auth_id)
+
+    def _fetch(ws_id: str) -> dict:
+        datasets = _pbi_get(token, f"/groups/{ws_id}/datasets?$top=5000")
+        reports  = _pbi_get(token, f"/groups/{ws_id}/reports?$top=5000")
+        return {
+            "workspace_id": ws_id,
+            "datasets": [
+                {"id": ds["id"], "name": ds["name"]}
+                for ds in (datasets if isinstance(datasets, list) else [])
+                if ds.get("id") and ds.get("name") not in _SKIP_MODEL_NAMES
+            ],
+            "reports": [
+                {
+                    "id":          r["id"],
+                    "name":        r["name"],
+                    "report_type": r.get("reportType", "PowerBIReport"),
+                }
+                for r in (reports if isinstance(reports, list) else [])
+                if r.get("id")
+            ],
+        }
+
+    results: list[dict] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as exe:
+        futs = {exe.submit(_fetch, ws_id): ws_id for ws_id in workspace_ids}
+        for fut in concurrent.futures.as_completed(futs):
+            try:
+                results.append(fut.result())
+            except Exception as exc:
+                ws_id = futs[fut]
+                logger.warning("Failed to fetch items for workspace %s: %s", ws_id, exc)
+                results.append({"workspace_id": ws_id, "datasets": [], "reports": []})
+
+    results.sort(key=lambda x: x["workspace_id"])
+    return results
+
+
 # ── Main assessment runner ────────────────────────────────────────────────────
 
 def run_fabric_assessment(
-    fabric_session_id: str,
-    auth_id:           str,
-    workspace_ids:     Optional[list[str]] = None,
-    on_progress:       Optional[Any]       = None,
+    fabric_session_id:    str,
+    auth_id:              str,
+    workspace_ids:        Optional[list[str]] = None,
+    selected_dataset_ids: Optional[set[str]]  = None,
+    selected_report_ids:  Optional[set[str]]  = None,
+    on_progress:          Optional[Any]       = None,
 ) -> dict:
     """
     Full Fabric workspace assessment.
@@ -1950,6 +1998,9 @@ def run_fabric_assessment(
       2. Interactive Reports — PBIX download → page-by-page visual field analysis.
                                Falls back to pages API if PBIX unavailable.
       3. Paginated Reports  — metadata only (RDL format; no visual API support).
+
+    selected_dataset_ids / selected_report_ids: optional sets of IDs to assess.
+    When provided, only those models/reports are included; others are skipped.
 
     Returns structured results dict (no _measure_dep_map keys in output).
     Raises CancelledError if the assessment is stopped via request_cancel().
@@ -1967,18 +2018,21 @@ def run_fabric_assessment(
             on_progress(msg)
 
     try:
-      return _run_assessment_inner(
-          fabric_session_id, auth_id, workspace_ids,
-          _progress, _check_cancel,
-      )
+        return _run_assessment_inner(
+            fabric_session_id, auth_id, workspace_ids,
+            selected_dataset_ids, selected_report_ids,
+            _progress, _check_cancel,
+        )
     finally:
         _deregister_cancel_flag(fabric_session_id)
 
 
 def _run_assessment_inner(
-    fabric_session_id: str,  # noqa: ARG001 — kept for logging context if needed
-    auth_id:           str,
-    workspace_ids:     Optional[list[str]],
+    fabric_session_id:    str,  # noqa: ARG001 — kept for logging context if needed
+    auth_id:              str,
+    workspace_ids:        Optional[list[str]],
+    selected_dataset_ids: Optional[set[str]],
+    selected_report_ids:  Optional[set[str]],
     _progress,
     _check_cancel,
 ) -> dict:
@@ -2056,6 +2110,10 @@ def _run_assessment_inner(
         raw_datasets = _pbi_get(token, f"/groups/{ws_id}/datasets?$top=5000")
         if not isinstance(raw_datasets, list):
             raw_datasets = []
+
+        # Apply user-selected model filter
+        if selected_dataset_ids:
+            raw_datasets = [d for d in raw_datasets if d.get("id") in selected_dataset_ids]
 
         # Count non-skipped models for the progress bar
         with _prog_lock:
@@ -2188,6 +2246,10 @@ def _run_assessment_inner(
         raw_reports = _pbi_get(token, f"/groups/{ws_id}/reports?$top=5000")
         if not isinstance(raw_reports, list):
             raw_reports = []
+
+        # Apply user-selected report filter
+        if selected_report_ids:
+            raw_reports = [r for r in raw_reports if r.get("id") in selected_report_ids]
 
         # Count interactive reports for the progress bar
         with _prog_lock:

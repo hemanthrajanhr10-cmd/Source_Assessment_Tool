@@ -68,14 +68,46 @@ async def list_fabric_workspaces(auth_id: str, _user=Depends(get_current_user)):
         raise HTTPException(status_code=502, detail=str(exc))
 
 
+@router.post("/auth/{auth_id}/workspace-items")
+async def list_fabric_workspace_items(
+    auth_id: str,
+    body: dict,
+    _user=Depends(get_current_user),
+):
+    """
+    Return the datasets and reports inside each selected workspace.
+    Body: { "workspace_ids": ["<ws-id-1>", "<ws-id-2>"] }
+    Used to populate the model/report picker after workspace selection.
+    """
+    status = fabric_service.get_auth_status(auth_id)
+    if status.get("status") != "ready":
+        raise HTTPException(
+            status_code=400,
+            detail="Microsoft auth not completed yet.",
+        )
+    workspace_ids: list[str] = body.get("workspace_ids") or []
+    if not workspace_ids:
+        raise HTTPException(status_code=400, detail="workspace_ids is required.")
+    try:
+        items = await run_in_threadpool(
+            fabric_service.list_workspace_items, auth_id, workspace_ids
+        )
+        return items
+    except Exception as exc:
+        logger.error("Failed to list workspace items: %s", exc, exc_info=True)
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
 # ── Session endpoints ─────────────────────────────────────────────────────────
 
 def _run_fabric_assessment_task(
-    fabric_session_id: str,
-    auth_id: str,
-    workspace_ids: Optional[list[str]],
+    fabric_session_id:    str,
+    auth_id:              str,
+    workspace_ids:        Optional[list[str]],
+    selected_dataset_ids: Optional[set[str]],
+    selected_report_ids:  Optional[set[str]],
 ) -> None:
-    """Background task: run assessment for selected workspaces, persist results."""
+    """Background task: run assessment for selected workspaces/models/reports, persist results."""
     azure_store.update_fabric_session(
         fabric_session_id,
         status="running",
@@ -89,6 +121,8 @@ def _run_fabric_assessment_task(
             fabric_session_id=fabric_session_id,
             auth_id=auth_id,
             workspace_ids=workspace_ids or None,
+            selected_dataset_ids=selected_dataset_ids or None,
+            selected_report_ids=selected_report_ids or None,
             on_progress=_progress,
         )
         azure_store.update_fabric_session(
@@ -127,11 +161,19 @@ async def create_fabric_session(
     auth_id       = body.get("auth_id", "")
     label         = body.get("label") or None
     workspace_ids: list[str] = body.get("workspace_ids") or []
+    dataset_ids:  list[str] = body.get("dataset_ids") or []
+    report_ids:   list[str] = body.get("report_ids") or []
 
     if not workspace_ids:
         raise HTTPException(
             status_code=400,
             detail="workspace_ids is required. Fetch workspaces via GET /auth/{id}/workspaces and select at least one.",
+        )
+
+    if not dataset_ids and not report_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="Select at least one semantic model or report to assess.",
         )
 
     status = fabric_service.get_auth_status(auth_id)
@@ -158,12 +200,19 @@ async def create_fabric_session(
         fabric_session_id,
         auth_id,
         workspace_ids,
+        set(dataset_ids) if dataset_ids else None,
+        set(report_ids)  if report_ids  else None,
     )
 
+    model_count  = len(dataset_ids)
+    report_count = len(report_ids)
     return {
         "fabric_session_id": fabric_session_id,
         "status": "running",
-        "message": f"Fabric assessment started for {len(workspace_ids)} workspace(s).",
+        "message": (
+            f"Fabric assessment started: {model_count} model(s), "
+            f"{report_count} report(s) across {len(workspace_ids)} workspace(s)."
+        ),
     }
 
 

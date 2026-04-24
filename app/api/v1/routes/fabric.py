@@ -121,8 +121,8 @@ def _run_fabric_assessment_task(
             fabric_session_id=fabric_session_id,
             auth_id=auth_id,
             workspace_ids=workspace_ids or None,
-            selected_dataset_ids=selected_dataset_ids or None,
-            selected_report_ids=selected_report_ids or None,
+            selected_dataset_ids=selected_dataset_ids,  # preserve set() — do NOT coerce to None
+            selected_report_ids=selected_report_ids,    # preserve set() — do NOT coerce to None
             on_progress=_progress,
         )
         azure_store.update_fabric_session(

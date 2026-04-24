@@ -2179,8 +2179,8 @@ def _run_assessment_inner(
         if not isinstance(raw_datasets, list):
             raw_datasets = []
 
-        # Apply user-selected model filter
-        if selected_dataset_ids:
+        # Apply user-selected model filter (empty set = skip all models)
+        if selected_dataset_ids is not None:
             raw_datasets = [d for d in raw_datasets if d.get("id") in selected_dataset_ids]
 
         # Count non-skipped models for the progress bar
@@ -2318,8 +2318,8 @@ def _run_assessment_inner(
         if not isinstance(raw_reports, list):
             raw_reports = []
 
-        # Apply user-selected report filter
-        if selected_report_ids:
+        # Apply user-selected report filter (empty set = skip all reports)
+        if selected_report_ids is not None:
             raw_reports = [r for r in raw_reports if r.get("id") in selected_report_ids]
 
         # Count interactive reports for the progress bar

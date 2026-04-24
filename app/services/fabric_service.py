@@ -1584,16 +1584,14 @@ def _get_report_visual_details(
     workspace_id:    str = "",
 ) -> dict:
     """
-    Full report analysis — three-tier strategy, all in-memory:
+    Full report analysis — two-tier strategy, no file downloads:
 
-    1. PBIX export (/reports/{id}/Export) → parse Report/Layout JSON.
-       Works for classic Power BI reports stored in PBIX format.
-
-    2. Fabric getDefinition API → parse PBIR format.
-       Used for Fabric-native reports (.pbir) where PBIX export has no Layout.
+    1. Fabric getDefinition API → parse PBIR format.
+       Returns the report definition (pages + visual field bindings) via
+       a lightweight LRO — no large file download required.
        Requires workspace_id and a Fabric-scoped token.
 
-    3. Pages REST API (counts only) — final fallback when both above fail.
+    2. Pages REST API (counts only) — final fallback when getDefinition fails.
 
     Returns:
         {page_count, visual_count, bookmark_count, pages, layout_parsed,
@@ -1607,23 +1605,8 @@ def _get_report_visual_details(
     connections:    dict  = {}
     mashup_queries: list  = []
 
-    # ── Tier 1: Download PBIX and extract Report/Layout ──────────────────────
-    try:
-        pbix_data = _download_pbix_data(token, group_id, report_id)
-        if pbix_data:
-            layout = pbix_data.get("layout")
-            if layout:
-                pages         = _parse_layout_pages(layout, measure_dep_map)
-                page_count    = len(pages)
-                visual_count  = sum(p["visual_count"] for p in pages)
-                layout_parsed = True
-            connections    = pbix_data.get("connections", {})
-            mashup_queries = pbix_data.get("mashup_queries", [])
-    except Exception as exc:
-        logger.debug("PBIX parse failed for report %s: %s", report_id, exc)
-
-    # ── Tier 2: Fabric getDefinition (PBIR format for Fabric-native reports) ──
-    if not layout_parsed and fabric_token and workspace_id:
+    # ── Tier 1: Fabric getDefinition (PBIR — works for all Fabric reports) ───
+    if fabric_token and workspace_id:
         try:
             pbir_result = _get_report_definition(fabric_token, workspace_id, report_id)
             if pbir_result.get("layout_parsed"):
@@ -1635,7 +1618,7 @@ def _get_report_visual_details(
         except Exception as exc:
             logger.debug("PBIR getDefinition failed for report %s: %s", report_id, exc)
 
-    # ── Tier 3: Pages REST API (counts only, no field detail) ────────────────
+    # ── Tier 2: Pages REST API (counts only, no field detail) ────────────────
     if not layout_parsed:
         try:
             api_pages = _pbi_get(token, f"/groups/{group_id}/reports/{report_id}/pages")

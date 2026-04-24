@@ -195,13 +195,22 @@ async def create_fabric_session(
         logger.error("Failed to create fabric session record: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database error: {exc}")
 
+    # None means "no filter → assess all".
+    # If the user explicitly selected models but sent no report_ids,
+    # pass an empty set so the runner skips all reports rather than running all.
+    selected_datasets = set(dataset_ids) if dataset_ids else None
+    selected_reports  = (
+        set(report_ids) if report_ids          # explicit selection
+        else (set() if dataset_ids else None)  # models-only → skip reports
+    )
+
     background_tasks.add_task(
         _run_fabric_assessment_task,
         fabric_session_id,
         auth_id,
         workspace_ids,
-        set(dataset_ids) if dataset_ids else None,
-        set(report_ids)  if report_ids  else None,
+        selected_datasets,
+        selected_reports,
     )
 
     model_count  = len(dataset_ids)

@@ -1447,13 +1447,18 @@ def _get_dataset_details(token: str, group_id: str, dataset_id: str) -> dict:
     calc_columns: list[dict] = []
     # tid → list of column dicts (for attaching to table records)
     cols_by_table: dict[int, list[dict]] = {}
+    # col_id → col_name — used to resolve relationship FromColumnID / ToColumnID
+    col_id_map: dict[int, str] = {}
     for r in (raw_cols or []):
         col_type  = _val_int(_row_val(r, "Type"), default=0)
         col_name  = _row_val(r, "ExplicitName") or _row_val(r, "Name", default="")
         expr      = _row_val(r, "Expression", default="") or ""
         tid       = _val_int(_row_val(r, "TableID"))
+        col_id    = _val_int(_row_val(r, "ID"))
         data_type = str(_row_val(r, "DataType", default="") or "")
         is_hidden = _val_bool(_row_val(r, "IsHidden"))
+        if col_id and col_name:
+            col_id_map[col_id] = col_name
         is_calc   = (col_type == 2)
         _empty_cx = {
             "score": 0, "level": "None",
@@ -1499,27 +1504,30 @@ def _get_dataset_details(token: str, group_id: str, dataset_id: str) -> dict:
         })
 
     # ── Relationships ─────────────────────────────────────────────────────────
-    _CARDINALITY_MAP = {0: "many", 1: "one", 2: "manytoone", 3: "none"}
+    # INFO.RELATIONSHIPS() Multiplicity values:
+    #   1 = One-to-One  |  2 = Many-to-One  |  4 = Many-to-Many
+    _MULTIPLICITY_MAP = {1: ("one", "one"), 2: ("many", "one"), 4: ("many", "many")}
     _CROSS_FILTER_MAP = {1: "oneDirection", 2: "bothDirections", 3: "automatic"}
     raw_rels = _execute_dax(token, group_id, dataset_id, "EVALUATE INFO.RELATIONSHIPS()")
     relationship_count = len(raw_rels) if raw_rels else 0
     relationships_list: list[dict] = []
     for r in (raw_rels or []):
-        from_tid = _val_int(_row_val(r, "FromTableID"))
-        to_tid   = _val_int(_row_val(r, "ToTableID"))
-        from_col = _row_val(r, "FromColumnID", default="")
-        to_col   = _row_val(r, "ToColumnID",   default="")
-        card_raw  = _val_int(_row_val(r, "FromCardinality", "Cardinality"), default=0)
-        to_c_raw  = _val_int(_row_val(r, "ToCardinality"),  default=1)
-        xf_raw    = _val_int(_row_val(r, "CrossFilteringBehavior"), default=1)
-        is_active = _val_bool(_row_val(r, "IsActive"), default=True)
-        from_card = _CARDINALITY_MAP.get(card_raw, "many")
-        to_card   = _CARDINALITY_MAP.get(to_c_raw,  "one")
+        from_tid    = _val_int(_row_val(r, "FromTableID"))
+        to_tid      = _val_int(_row_val(r, "ToTableID"))
+        from_col_id = _val_int(_row_val(r, "FromColumnID"), default=0)
+        to_col_id   = _val_int(_row_val(r, "ToColumnID"),   default=0)
+        # Resolve column IDs → names using the map built from INFO.COLUMNS()
+        from_col    = col_id_map.get(from_col_id, "")
+        to_col      = col_id_map.get(to_col_id,   "")
+        mult        = _val_int(_row_val(r, "Multiplicity"), default=2)
+        xf_raw      = _val_int(_row_val(r, "CrossFilteringBehavior"), default=1)
+        is_active   = _val_bool(_row_val(r, "IsActive"), default=True)
+        from_card, to_card = _MULTIPLICITY_MAP.get(mult, ("many", "one"))
         relationships_list.append({
             "from_table":   table_map.get(from_tid, {}).get("name", ""),
-            "from_column":  str(from_col or ""),
+            "from_column":  from_col,
             "to_table":     table_map.get(to_tid,   {}).get("name", ""),
-            "to_column":    str(to_col   or ""),
+            "to_column":    to_col,
             "cardinality":  f"{from_card}:{to_card}",
             "cross_filter": _CROSS_FILTER_MAP.get(xf_raw, "oneDirection"),
             "is_active":    is_active,
@@ -1884,12 +1892,15 @@ def _get_workspace_scanner_data(token: str, workspace_id: str) -> dict[str, dict
         # Build structured relationship list
         relationships_list_s: list[dict] = []
         for rel in raw_rel_list:
+            # Scanner API returns fromCardinality/toCardinality as strings like "many"/"one"
+            from_card_s = (rel.get("fromCardinality") or "many").lower()
+            to_card_s   = (rel.get("toCardinality")   or "one").lower()
             relationships_list_s.append({
                 "from_table":   rel.get("fromTable", ""),
                 "from_column":  rel.get("fromColumn", ""),
                 "to_table":     rel.get("toTable", ""),
                 "to_column":    rel.get("toColumn", ""),
-                "cardinality":  rel.get("crossFilteringBehavior", "oneDirection"),
+                "cardinality":  f"{from_card_s}:{to_card_s}",
                 "cross_filter": rel.get("crossFilteringBehavior", "oneDirection"),
                 "is_active":    rel.get("isActive", True),
             })

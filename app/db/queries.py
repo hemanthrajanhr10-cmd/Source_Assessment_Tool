@@ -905,3 +905,398 @@ WHERE object_name LIKE '%Deprecated Features%'
   AND cntr_value > 0
 ORDER BY cntr_value DESC
 """
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SQL SERVER ENGINE — EXTENDED ASSESSMENT QUERIES
+# Added based on real-world assessment findings (SSIS, SSAS, scheduling, etc.)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ─────────────────────── SSIS Package Assessment ────────────────────────────
+
+SSIS_CATALOG_PACKAGES = """
+SELECT
+    f.name                                                  AS folder_name,
+    p.name                                                  AS project_name,
+    pk.name                                                 AS package_name,
+    ISNULL(pk.description, '')                              AS description,
+    CONVERT(VARCHAR, pk.last_deployed_time, 120)            AS last_deployed,
+    CASE pk.entry_type
+        WHEN 1 THEN 'Assembly'
+        WHEN 2 THEN 'File (dtsx)'
+        ELSE 'Unknown'
+    END                                                     AS entry_type,
+    pk.package_format_version
+FROM SSISDB.catalog.packages  pk
+JOIN SSISDB.catalog.projects   p  ON p.project_id  = pk.project_id
+JOIN SSISDB.catalog.folders    f  ON f.folder_id   = p.folder_id
+ORDER BY f.name, p.name, pk.name
+"""
+
+SSIS_EXECUTION_HISTORY = """
+SELECT TOP 200
+    e.folder_name,
+    e.project_name,
+    e.package_name,
+    CASE e.status
+        WHEN 1 THEN 'Created'
+        WHEN 2 THEN 'Running'
+        WHEN 3 THEN 'Cancelled'
+        WHEN 4 THEN 'Failed'
+        WHEN 5 THEN 'Pending'
+        WHEN 6 THEN 'Ended Unexpectedly'
+        WHEN 7 THEN 'Succeeded'
+        WHEN 8 THEN 'Stopping'
+        WHEN 9 THEN 'Completed'
+        ELSE 'Unknown'
+    END                                                     AS status,
+    CONVERT(VARCHAR, e.start_time, 120)                     AS start_time,
+    CONVERT(VARCHAR, e.end_time,   120)                     AS end_time,
+    DATEDIFF(SECOND, e.start_time, ISNULL(e.end_time, GETDATE())) AS duration_sec,
+    e.executed_as_name
+FROM SSISDB.catalog.executions e
+WHERE e.start_time >= DATEADD(DAY, -30, GETDATE())
+ORDER BY e.start_time DESC
+"""
+
+SSIS_MSDB_PACKAGES = """
+SELECT
+    ISNULL(sf.foldername, '(root)')                         AS folder_name,
+    sp.name                                                 AS package_name,
+    CONVERT(VARCHAR, sp.createdate, 120)                    AS create_date,
+    CASE sp.packagetype
+        WHEN 0 THEN 'SSIS Package (default)'
+        WHEN 1 THEN 'Configuration Wizard'
+        WHEN 2 THEN 'DTSDesigner80'
+        WHEN 3 THEN 'DTSPackageV100'
+        WHEN 5 THEN 'SSIS Designer'
+        WHEN 6 THEN 'Replication'
+        ELSE CAST(sp.packagetype AS VARCHAR)
+    END                                                     AS package_type,
+    sp.vermajor,
+    sp.verminor
+FROM msdb.dbo.sysssispackages        sp
+LEFT JOIN msdb.dbo.sysssispackagefolders sf ON sf.folderid = sp.folderid
+ORDER BY sf.foldername, sp.name
+"""
+
+# ─────────────────────── SQL Agent — Schedules & Steps ──────────────────────
+
+SQL_AGENT_JOB_SCHEDULES = """
+SELECT
+    j.name                                                  AS job_name,
+    CASE j.enabled WHEN 1 THEN 'Enabled' ELSE 'Disabled' END AS job_status,
+    s.name                                                  AS schedule_name,
+    CASE s.enabled WHEN 1 THEN 'Enabled' ELSE 'Disabled' END AS schedule_status,
+    CASE s.freq_type
+        WHEN 1   THEN 'Once'
+        WHEN 4   THEN 'Daily'
+        WHEN 8   THEN 'Weekly'
+        WHEN 16  THEN 'Monthly (Day)'
+        WHEN 32  THEN 'Monthly (Relative)'
+        WHEN 64  THEN 'Agent Start'
+        WHEN 128 THEN 'CPU Idle'
+        ELSE 'Unknown'
+    END                                                     AS frequency_type,
+    s.freq_interval,
+    CASE s.freq_subday_type
+        WHEN 1 THEN 'Once at start time'
+        WHEN 2 THEN 'Every ' + CAST(s.freq_subday_interval AS VARCHAR) + ' second(s)'
+        WHEN 4 THEN 'Every ' + CAST(s.freq_subday_interval AS VARCHAR) + ' minute(s)'
+        WHEN 8 THEN 'Every ' + CAST(s.freq_subday_interval AS VARCHAR) + ' hour(s)'
+        ELSE 'Once'
+    END                                                     AS intraday_frequency,
+    RIGHT('000000' + CAST(s.active_start_time AS VARCHAR), 6) AS active_start_time,
+    RIGHT('000000' + CAST(s.active_end_time   AS VARCHAR), 6) AS active_end_time,
+    CAST(js.next_run_date AS VARCHAR)                       AS next_run_date
+FROM msdb.dbo.sysjobs          j
+JOIN msdb.dbo.sysjobschedules  js ON js.job_id      = j.job_id
+JOIN msdb.dbo.sysschedules     s  ON s.schedule_id  = js.schedule_id
+ORDER BY j.name, s.name
+"""
+
+SQL_AGENT_JOB_STEPS = """
+SELECT
+    j.name                                                  AS job_name,
+    CASE j.enabled WHEN 1 THEN 'Enabled' ELSE 'Disabled' END AS job_status,
+    js.step_id,
+    js.step_name,
+    CASE js.subsystem
+        WHEN 'TSQL'            THEN 'T-SQL Script'
+        WHEN 'SSIS'            THEN 'SSIS Package'
+        WHEN 'CmdExec'         THEN 'OS Command'
+        WHEN 'PowerShell'      THEN 'PowerShell'
+        WHEN 'ANALYSISQUERY'   THEN 'SSAS MDX Query'
+        WHEN 'ANALYSISCOMMAND' THEN 'SSAS Command (Process Cube)'
+        WHEN 'ActiveScripting' THEN 'ActiveX Script'
+        WHEN 'Distribution'    THEN 'Replication Distributor'
+        WHEN 'LogReader'       THEN 'Replication Log Reader'
+        WHEN 'Snapshot'        THEN 'Replication Snapshot'
+        ELSE js.subsystem
+    END                                                     AS step_type,
+    ISNULL(js.database_name, '')                            AS database_name,
+    js.retry_attempts,
+    js.retry_interval                                       AS retry_interval_min,
+    CASE js.on_success_action
+        WHEN 1 THEN 'Quit — success'
+        WHEN 2 THEN 'Quit — failure'
+        WHEN 3 THEN 'Go to next step'
+        WHEN 4 THEN 'Go to step ' + CAST(js.on_success_step_id AS VARCHAR)
+        ELSE 'Unknown'
+    END                                                     AS on_success,
+    CASE js.on_fail_action
+        WHEN 1 THEN 'Quit — success'
+        WHEN 2 THEN 'Quit — failure'
+        WHEN 3 THEN 'Go to next step'
+        WHEN 4 THEN 'Go to step ' + CAST(js.on_fail_step_id AS VARCHAR)
+        ELSE 'Unknown'
+    END                                                     AS on_fail
+FROM msdb.dbo.sysjobs      j
+JOIN msdb.dbo.sysjobsteps  js ON js.job_id = j.job_id
+ORDER BY j.name, js.step_id
+"""
+
+# ─────────────────────── Database Files & Growth ────────────────────────────
+
+DATABASE_FILES = """
+SELECT
+    name                                                    AS file_name,
+    physical_name,
+    type_desc                                               AS file_type,
+    CAST(size * 8.0 / 1024         AS DECIMAL(18,2))       AS size_mb,
+    CASE max_size
+        WHEN -1 THEN 'Unlimited'
+        WHEN  0 THEN 'Fixed (no max)'
+        ELSE CAST(CAST(max_size * 8.0 / 1024 AS BIGINT) AS VARCHAR) + ' MB'
+    END                                                     AS max_size,
+    CASE
+        WHEN is_percent_growth = 1
+            THEN CAST(growth AS VARCHAR) + '% (proportional)'
+        WHEN growth = 0
+            THEN '0 — RISK: auto-growth disabled'
+        ELSE CAST(CAST(growth * 8.0 / 1024 AS DECIMAL(18,2)) AS VARCHAR) + ' MB'
+    END                                                     AS auto_growth,
+    state_desc                                              AS file_state,
+    CASE
+        WHEN growth = 0
+            THEN 'RISK: Auto-growth disabled — manual intervention required'
+        WHEN is_percent_growth = 1 AND growth >= 10
+            THEN 'CAUTION: Large % growth events — set fixed MB instead'
+        WHEN max_size = -1
+            THEN 'OK — unlimited max, monitor disk space'
+        ELSE 'OK'
+    END                                                     AS recommendation
+FROM sys.database_files
+ORDER BY type_desc, name
+"""
+
+# ─────────────────────── Object Complexity Analysis ─────────────────────────
+
+SP_COMPLEXITY = """
+SELECT
+    s.name                                                  AS schema_name,
+    p.name                                                  AS procedure_name,
+    CONVERT(VARCHAR, p.create_date, 120)                    AS create_date,
+    CONVERT(VARCHAR, p.modify_date, 120)                    AS modify_date,
+    (SELECT COUNT(*) FROM sys.parameters pm
+     WHERE pm.object_id = p.object_id)                      AS param_count,
+    LEN(m.definition)                                       AS char_length,
+    LEN(m.definition) - LEN(REPLACE(m.definition, CHAR(10), '')) AS line_count,
+    CASE WHEN m.definition LIKE '%CURSOR%'
+         THEN 'Yes' ELSE 'No' END                           AS uses_cursor,
+    CASE WHEN m.definition LIKE '%CREATE TABLE #%'
+          OR m.definition LIKE '%SELECT%INTO #%'
+         THEN 'Yes' ELSE 'No' END                           AS uses_temp_table,
+    CASE WHEN m.definition LIKE '%sp_executesql%'
+          OR m.definition LIKE '%EXEC (%'
+          OR m.definition LIKE '%EXECUTE (%'
+         THEN 'Yes' ELSE 'No' END                           AS uses_dynamic_sql,
+    CASE WHEN m.definition LIKE '%BEGIN TRY%'
+         THEN 'Yes' ELSE 'No' END                           AS has_error_handling,
+    CASE WHEN UPPER(m.definition) LIKE '%TRANSACTION%'
+         THEN 'Yes' ELSE 'No' END                           AS uses_transactions,
+    CASE
+        WHEN LEN(m.definition) > 10000 THEN 'HIGH — refactor candidate'
+        WHEN LEN(m.definition) >  3000 THEN 'MEDIUM'
+        ELSE 'LOW'
+    END                                                     AS complexity_level
+FROM sys.procedures  p
+JOIN sys.schemas     s ON s.schema_id  = p.schema_id
+JOIN sys.sql_modules m ON m.object_id  = p.object_id
+ORDER BY LEN(m.definition) DESC
+"""
+
+VIEW_COMPLEXITY = """
+SELECT
+    s.name                                                  AS schema_name,
+    v.name                                                  AS view_name,
+    CONVERT(VARCHAR, v.create_date, 120)                    AS create_date,
+    CONVERT(VARCHAR, v.modify_date, 120)                    AS modify_date,
+    LEN(m.definition)                                       AS char_length,
+    LEN(m.definition) - LEN(REPLACE(m.definition, CHAR(10), '')) AS line_count,
+    (LEN(UPPER(m.definition)) - LEN(REPLACE(UPPER(m.definition), 'JOIN', ''))) / 4
+                                                            AS join_count,
+    (LEN(UPPER(m.definition)) - LEN(REPLACE(UPPER(m.definition), 'SELECT', '')) - 6) / 6
+                                                            AS subquery_count,
+    CASE WHEN UPPER(m.definition) LIKE '%UNION%'
+         THEN 'Yes' ELSE 'No' END                           AS has_union,
+    CASE WHEN UPPER(m.definition) LIKE '%WITH%AS%SELECT%'
+         THEN 'Yes' ELSE 'No' END                           AS has_cte,
+    CASE
+        WHEN LEN(m.definition) > 5000 THEN 'HIGH — consider materializing'
+        WHEN LEN(m.definition) > 1500 THEN 'MEDIUM'
+        ELSE 'LOW'
+    END                                                     AS complexity_level
+FROM sys.views     v
+JOIN sys.schemas   s ON s.schema_id = v.schema_id
+JOIN sys.sql_modules m ON m.object_id = v.object_id
+ORDER BY LEN(m.definition) DESC
+"""
+
+# ─────────────────────── Schema / ETL Pattern Classification ────────────────
+
+SCHEMA_CLASSIFICATION = """
+SELECT
+    s.name                                                  AS schema_name,
+    COUNT(DISTINCT t.object_id)                             AS table_count,
+    COUNT(DISTINCT v.object_id)                             AS view_count,
+    COUNT(DISTINCT p.object_id)                             AS proc_count,
+    CASE
+        WHEN s.name IN ('stg','staging','stgsf','stg_sf','raw','bronze','landing')
+            THEN 'Staging / Landing'
+        WHEN s.name IN ('etl','ctrl','control','pipeline','meta','metadata')
+            THEN 'ETL Control'
+        WHEN s.name IN ('lkp','lookup','ref','reference','dim','config')
+            THEN 'Lookup / Reference'
+        WHEN s.name IN ('dbo','reporting','rpt','fact','mart','gold','silver')
+            THEN 'Business / Reporting'
+        WHEN s.name IN ('error','err','log','audit','trace','errlog')
+            THEN 'Error / Audit'
+        WHEN s.name IN ('bi','dwh','dw','warehouse','ods','datamart')
+            THEN 'Data Warehouse'
+        ELSE 'Other — review'
+    END                                                     AS schema_classification,
+    CASE
+        WHEN s.name IN ('stg','staging','stgsf','stg_sf','raw','bronze','landing')
+            THEN 'Transient staging — migrate pipelines to Fabric Bronze/Silver'
+        WHEN s.name IN ('etl','ctrl','control','pipeline','meta','metadata')
+            THEN 'ETL orchestration — replace with Fabric Data Pipelines'
+        WHEN s.name IN ('lkp','lookup','ref','reference','dim','config')
+            THEN 'Reference data — move to Fabric Gold layer'
+        WHEN s.name IN ('dbo','reporting','rpt','fact','mart','gold','silver')
+            THEN 'Core business logic — migrate to Fabric Gold Warehouse'
+        WHEN s.name IN ('error','err','log','audit','trace','errlog')
+            THEN 'Operational logs — replace with Fabric Monitor Hub'
+        WHEN s.name IN ('bi','dwh','dw','warehouse','ods','datamart')
+            THEN 'Data warehouse layer — migrate to Fabric Lakehouse'
+        ELSE 'Review and classify before migration planning'
+    END                                                     AS migration_recommendation
+FROM sys.schemas s
+LEFT JOIN sys.tables     t ON t.schema_id = s.schema_id AND t.is_ms_shipped = 0
+LEFT JOIN sys.views      v ON v.schema_id = s.schema_id
+LEFT JOIN sys.procedures p ON p.schema_id = s.schema_id
+WHERE s.name NOT IN (
+    'sys','INFORMATION_SCHEMA','guest','db_owner','db_accessadmin',
+    'db_securityadmin','db_ddladmin','db_backupoperator',
+    'db_datareader','db_datawriter','db_denydatareader','db_denydatawriter'
+)
+GROUP BY s.name
+ORDER BY schema_classification, s.name
+"""
+
+# ─────────────────────── SSAS Detection via Linked Servers ──────────────────
+
+SSAS_LINKED_SERVERS = """
+SELECT
+    s.name                                                  AS linked_server_name,
+    ISNULL(s.product,     '')                               AS product,
+    ISNULL(s.provider,    '')                               AS provider,
+    ISNULL(s.data_source, '')                               AS data_source,
+    CASE s.is_remote_login_enabled WHEN 1 THEN 'Yes' ELSE 'No' END
+                                                            AS remote_login_enabled,
+    CONVERT(VARCHAR, s.modify_date, 120)                    AS modify_date,
+    'SSAS / OLAP linked server — cube processing or MDX queries routed here' AS finding
+FROM sys.servers s
+WHERE s.is_linked = 1
+  AND (
+      s.provider LIKE '%MSOLAP%'
+      OR s.product LIKE '%Analysis Services%'
+      OR s.product LIKE '%SSAS%'
+  )
+ORDER BY s.name
+"""
+
+# ─────────────────────── Performance — Wait Statistics ──────────────────────
+
+WAIT_STATISTICS = """
+SELECT TOP 25
+    wait_type,
+    CAST(wait_time_ms / 1000.0     AS DECIMAL(18,2))        AS total_wait_sec,
+    CAST(max_wait_time_ms / 1000.0 AS DECIMAL(18,2))        AS max_wait_sec,
+    waiting_tasks_count,
+    CAST(
+        100.0 * wait_time_ms / NULLIF(SUM(wait_time_ms) OVER(), 0)
+    AS DECIMAL(5,2))                                         AS pct_total_wait,
+    CASE
+        WHEN wait_type LIKE 'LCK_%'
+            THEN 'Locking — blocking / deadlock pressure'
+        WHEN wait_type IN ('PAGEIOLATCH_SH','PAGEIOLATCH_EX','PAGEIOLATCH_UP')
+            THEN 'I/O — disk read bottleneck'
+        WHEN wait_type = 'RESOURCE_SEMAPHORE'
+            THEN 'Memory — query memory grant queuing'
+        WHEN wait_type IN ('CXPACKET','CXCONSUMER')
+            THEN 'Parallelism — skewed parallel plans (tune MAXDOP)'
+        WHEN wait_type = 'SOS_SCHEDULER_YIELD'
+            THEN 'CPU — high CPU pressure'
+        WHEN wait_type IN ('ASYNC_IO_COMPLETION','IO_COMPLETION')
+            THEN 'I/O — async I/O backlog'
+        WHEN wait_type = 'WRITELOG'
+            THEN 'Log — transaction log write latency (VLF or slow disk)'
+        WHEN wait_type = 'NETWORK_IO'
+            THEN 'Network — client consuming results slowly'
+        WHEN wait_type = 'OLEDB'
+            THEN 'Linked Server / SSAS OLEDB calls — review linked server usage'
+        ELSE 'Other — review'
+    END                                                      AS interpretation
+FROM sys.dm_os_wait_stats
+WHERE wait_type NOT IN (
+    'SLEEP_TASK','WAIT_XTP_OFFLINE_CKPT_NEW_LOG','DISPATCHER_QUEUE_SEMAPHORE',
+    'CLR_AUTO_EVENT','CLR_MANUAL_EVENT','DBMIRROR_EVENTS_QUEUE',
+    'SQLTRACE_BUFFER_FLUSH','SLEEP_DBSTARTUP','SLEEP_DCOMSTARTUP',
+    'SLEEP_MASTERDBREADY','SLEEP_MASTERMDREADY','SLEEP_MASTERUPGRADED',
+    'SLEEP_MSDBSTARTUP','SLEEP_SYSTEMTASK','SLEEP_TEMPDBSTARTUP',
+    'SNI_HTTP_ACCEPT','SP_SERVER_DIAGNOSTICS_SLEEP','WAITFOR',
+    'XE_DISPATCHER_WAIT','XE_TIMER_EVENT','BROKER_TO_FLUSH',
+    'HADR_WORK_QUEUE','ONDEMAND_TASK_MANAGER','REQUEST_FOR_DEADLOCK_SEARCH',
+    'RESOURCE_QUEUE','SERVER_IDLE_CHECK','BROKER_EVENTHANDLER',
+    'CHECKPOINT_QUEUE','SQLTRACE_INCREMENTAL_FLUSH_SLEEP'
+)
+  AND wait_time_ms > 0
+ORDER BY wait_time_ms DESC
+"""
+
+# ─────────────────────── Performance — Query Store Top Queries ───────────────
+
+QUERY_STORE_TOP_QUERIES = """
+SELECT TOP 25
+    qsq.query_id,
+    SUBSTRING(qt.query_sql_text, 1, 500)                    AS query_text,
+    CAST(AVG(qrs.avg_duration)        / 1000.0 AS DECIMAL(18,2)) AS avg_duration_ms,
+    CAST(MAX(qrs.max_duration)        / 1000.0 AS DECIMAL(18,2)) AS max_duration_ms,
+    CAST(AVG(qrs.avg_cpu_time)        / 1000.0 AS DECIMAL(18,2)) AS avg_cpu_ms,
+    CAST(AVG(qrs.avg_logical_io_reads) AS BIGINT)           AS avg_logical_reads,
+    SUM(qrs.count_executions)                               AS total_executions,
+    CONVERT(VARCHAR, MAX(qrs.last_execution_time), 120)     AS last_executed,
+    CASE
+        WHEN AVG(qrs.avg_duration) > 5000000 THEN 'CRITICAL: avg > 5 sec'
+        WHEN AVG(qrs.avg_duration) > 1000000 THEN 'WARNING: avg > 1 sec'
+        ELSE 'OK'
+    END                                                     AS performance_flag
+FROM sys.query_store_query          qsq
+JOIN sys.query_store_query_text     qt  ON qt.query_text_id = qsq.query_text_id
+JOIN sys.query_store_plan           qsp ON qsp.query_id     = qsq.query_id
+JOIN sys.query_store_runtime_stats  qrs ON qrs.plan_id      = qsp.plan_id
+WHERE qrs.last_execution_time >= DATEADD(DAY, -7, GETDATE())
+  AND qt.query_sql_text NOT LIKE '%sys.%'
+GROUP BY qsq.query_id, qt.query_sql_text
+ORDER BY AVG(qrs.avg_duration) DESC
+"""

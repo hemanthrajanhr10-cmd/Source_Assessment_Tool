@@ -75,6 +75,26 @@ _STEP_KEYS = [
     ("weak_sql_logins",           "WEAK_SQL_LOGINS",           "Weak SQL logins",               "sysadmin"),
     ("server_permissions",        "SERVER_PERMISSIONS",        "Server role members",           "sysadmin"),
     ("deprecated_features_in_use","DEPRECATED_FEATURES_IN_USE","Deprecated features in use",   "sysadmin"),
+    # ── Extended: SQL Server Engine Assessment ────────────────────────────────
+    # Schema / ETL pattern classification — db_datareader
+    ("schema_classification",   "SCHEMA_CLASSIFICATION",   "Schema / ETL classification",     "db_datareader"),
+    # Object complexity — db_datareader
+    ("sp_complexity",           "SP_COMPLEXITY",           "Stored procedure complexity",      "db_datareader"),
+    ("view_complexity",         "VIEW_COMPLEXITY",         "View complexity",                  "db_datareader"),
+    # Database files & growth — db_datareader
+    ("database_files",          "DATABASE_FILES",          "Database files & growth",          "db_datareader"),
+    # SSIS assessment — db_datareader (gracefully fails if SSISDB absent)
+    ("ssis_catalog_packages",   "SSIS_CATALOG_PACKAGES",   "SSIS catalog packages",            "db_datareader"),
+    ("ssis_execution_history",  "SSIS_EXECUTION_HISTORY",  "SSIS execution history (30d)",     "db_datareader"),
+    # SSIS legacy (msdb) & SQL Agent scheduling — sysadmin
+    ("ssis_msdb_packages",      "SSIS_MSDB_PACKAGES",      "SSIS msdb packages (legacy)",      "sysadmin"),
+    ("sql_agent_job_schedules", "SQL_AGENT_JOB_SCHEDULES", "SQL Agent job schedules",          "sysadmin"),
+    ("sql_agent_job_steps",     "SQL_AGENT_JOB_STEPS",     "SQL Agent job steps",              "sysadmin"),
+    # SSAS detection via linked servers — sysadmin
+    ("ssas_linked_servers",     "SSAS_LINKED_SERVERS",     "SSAS linked server detection",     "sysadmin"),
+    # Performance — view_database_state
+    ("wait_statistics",         "WAIT_STATISTICS",         "Wait statistics",                  "view_database_state"),
+    ("query_store_top_queries", "QUERY_STORE_TOP_QUERIES", "Query Store top queries (7d)",     "view_database_state"),
 ]
 
 _QUERY_MODULE = {
@@ -396,6 +416,19 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
             "weak_sql_logins":            raw.get("weak_sql_logins", []),
             "server_permissions":         raw.get("server_permissions", []),
             "deprecated_features_in_use": raw.get("deprecated_features_in_use", []),
+            # Extended: SQL Server Engine Assessment
+            "schema_classification":      raw.get("schema_classification", []),
+            "sp_complexity":              raw.get("sp_complexity", []),
+            "view_complexity":            raw.get("view_complexity", []),
+            "database_files":             raw.get("database_files", []),
+            "ssis_catalog_packages":      raw.get("ssis_catalog_packages", []),
+            "ssis_execution_history":     raw.get("ssis_execution_history", []),
+            "ssis_msdb_packages":         raw.get("ssis_msdb_packages", []),
+            "sql_agent_job_schedules":    raw.get("sql_agent_job_schedules", []),
+            "sql_agent_job_steps":        raw.get("sql_agent_job_steps", []),
+            "ssas_linked_servers":        raw.get("ssas_linked_servers", []),
+            "wait_statistics":            raw.get("wait_statistics", []),
+            "query_store_top_queries":    raw.get("query_store_top_queries", []),
         }
 
         logger.info("Assessment completed", extra=extra)

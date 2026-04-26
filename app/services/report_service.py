@@ -892,6 +892,298 @@ def _build_version_features_sheet(wb: Workbook, rows: list[dict[str, Any]]):
     _auto_width(ws)
 
 
+# ─────────────────── Extended Engine Assessment Sheets ──────────────────────
+
+def _build_schema_classification_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Eng-Schema Class")
+    _set_tab_color(ws, "7030A0")
+    headers = ["schema_name", "table_count", "view_count", "proc_count",
+               "schema_classification", "migration_recommendation"]
+    labels  = ["Schema", "Tables", "Views", "Procs", "Classification", "Migration Recommendation"]
+    _section_title(ws, 1, 1, "  SCHEMA / ETL PATTERN CLASSIFICATION", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl, bg="7030A0")
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    CLASS_COLORS = {
+        "Staging / Landing":    LIGHT_ORANGE,
+        "ETL Control":          LIGHT_RED,
+        "Lookup / Reference":   LIGHT_GREEN,
+        "Business / Reporting": LIGHT_BLUE,
+        "Error / Audit":        LIGHT_GRAY,
+        "Data Warehouse":       ACCENT_BLUE,
+    }
+    for ri, row in enumerate(rows, start=3):
+        cls = row.get("schema_classification", "")
+        bg = CLASS_COLORS.get(cls, WHITE)
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if 1 < ci < 5 else "left", wrap=True)
+    _auto_width(ws)
+
+
+def _build_sp_complexity_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Eng-SP Complexity")
+    _set_tab_color(ws, ORANGE)
+    headers = ["schema_name", "procedure_name", "param_count", "line_count", "char_length",
+               "uses_cursor", "uses_temp_table", "uses_dynamic_sql",
+               "has_error_handling", "uses_transactions", "complexity_level",
+               "create_date", "modify_date"]
+    labels  = ["Schema", "Procedure", "Params", "Lines", "Chars",
+               "Cursor?", "Temp Table?", "Dynamic SQL?",
+               "Error Handling?", "Transactions?", "Complexity",
+               "Created", "Modified"]
+    _section_title(ws, 1, 1, "  STORED PROCEDURE COMPLEXITY ANALYSIS", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl, bg=ORANGE)
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    for ri, row in enumerate(rows, start=3):
+        lvl = row.get("complexity_level", "")
+        bg = LIGHT_RED if "HIGH" in str(lvl) else (LIGHT_ORANGE if "MEDIUM" in str(lvl) else WHITE)
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 2 else "left", wrap=True)
+            if key in ("uses_cursor", "uses_dynamic_sql") and val == "Yes":
+                c.font = _font(bold=True, color=RED)
+    _auto_width(ws)
+
+
+def _build_view_complexity_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Eng-View Complexity")
+    _set_tab_color(ws, "ED7D31")
+    headers = ["schema_name", "view_name", "line_count", "char_length",
+               "join_count", "subquery_count", "has_union", "has_cte",
+               "complexity_level", "create_date", "modify_date"]
+    labels  = ["Schema", "View", "Lines", "Chars",
+               "JOINs", "Subqueries", "UNION?", "CTE?",
+               "Complexity", "Created", "Modified"]
+    _section_title(ws, 1, 1, "  VIEW COMPLEXITY ANALYSIS", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl, bg="ED7D31")
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    for ri, row in enumerate(rows, start=3):
+        lvl = row.get("complexity_level", "")
+        bg = LIGHT_RED if "HIGH" in str(lvl) else (LIGHT_ORANGE if "MEDIUM" in str(lvl) else WHITE)
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 2 else "left", wrap=True)
+    _auto_width(ws)
+
+
+def _build_database_files_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Eng-DB Files")
+    _set_tab_color(ws, MID_BLUE)
+    headers = ["file_name", "file_type", "size_mb", "max_size", "auto_growth",
+               "file_state", "recommendation", "physical_name"]
+    labels  = ["File Name", "Type", "Size (MB)", "Max Size", "Auto-Growth",
+               "State", "Recommendation", "Physical Path"]
+    _section_title(ws, 1, 1, "  DATABASE FILES & GROWTH SETTINGS", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl)
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    for ri, row in enumerate(rows, start=3):
+        rec = str(row.get("recommendation", ""))
+        bg = LIGHT_RED if "RISK" in rec else (LIGHT_ORANGE if "CAUTION" in rec else WHITE)
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("left" if ci in (1, 7, 8) else "center", wrap=True)
+    _auto_width(ws)
+
+
+def _build_ssis_catalog_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    _write_generic_sheet(
+        wb, "SSIS-Catalog Pkgs", "00B050",
+        "SSIS CATALOG PACKAGES (Project Deployment Model)",
+        ["folder_name", "project_name", "package_name", "entry_type",
+         "package_format_version", "last_deployed", "description"],
+        rows, header_bg="00B050",
+    )
+
+
+def _build_ssis_execution_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("SSIS-Exec History")
+    _set_tab_color(ws, "375623")
+    headers = ["folder_name", "project_name", "package_name", "status",
+               "start_time", "end_time", "duration_sec", "executed_as_name"]
+    labels  = ["Folder", "Project", "Package", "Status",
+               "Start Time", "End Time", "Duration (sec)", "Executed As"]
+    _section_title(ws, 1, 1, "  SSIS EXECUTION HISTORY — LAST 30 DAYS", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl, bg="375623")
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    for ri, row in enumerate(rows, start=3):
+        status = str(row.get("status", ""))
+        bg = LIGHT_RED if status == "Failed" else (LIGHT_GREEN if status == "Succeeded" else WHITE)
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 3 else "left", wrap=True)
+            if key == "status" and status == "Failed":
+                c.font = _font(bold=True, color=RED)
+    _auto_width(ws)
+
+
+def _build_ssis_msdb_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    _write_generic_sheet(
+        wb, "SSIS-msdb Pkgs", "548235",
+        "SSIS MSDB PACKAGES (Legacy Package Deployment Model)",
+        ["folder_name", "package_name", "package_type", "create_date", "vermajor", "verminor"],
+        rows, header_bg="548235",
+    )
+
+
+def _build_agent_schedules_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Agent-Schedules")
+    _set_tab_color(ws, MID_BLUE)
+    headers = ["job_name", "job_status", "schedule_name", "schedule_status",
+               "frequency_type", "freq_interval", "intraday_frequency",
+               "active_start_time", "active_end_time", "next_run_date"]
+    labels  = ["Job Name", "Job Status", "Schedule Name", "Schedule Status",
+               "Frequency", "Interval", "Intraday",
+               "Start Time", "End Time", "Next Run"]
+    _section_title(ws, 1, 1, "  SQL AGENT JOB SCHEDULES", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl)
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    for ri, row in enumerate(rows, start=3):
+        bg = LIGHT_GRAY if ri % 2 == 0 else WHITE
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 1 else "left", wrap=True)
+            if key == "job_status" and val == "Disabled":
+                c.font = _font(color=MED_GRAY, italic=True)
+    _auto_width(ws)
+
+
+def _build_agent_steps_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Agent-Steps")
+    _set_tab_color(ws, "2E75B6")
+    headers = ["job_name", "job_status", "step_id", "step_name", "step_type",
+               "database_name", "retry_attempts", "on_success", "on_fail"]
+    labels  = ["Job Name", "Job Status", "Step#", "Step Name", "Step Type",
+               "Database", "Retries", "On Success", "On Fail"]
+    _section_title(ws, 1, 1, "  SQL AGENT JOB STEPS", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl, bg="2E75B6")
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    STEP_COLORS = {
+        "SSIS Package":           LIGHT_GREEN,
+        "SSAS MDX Query":         LIGHT_BLUE,
+        "SSAS Command (Process Cube)": LIGHT_BLUE,
+        "T-SQL Script":           WHITE,
+        "OS Command":             LIGHT_ORANGE,
+        "PowerShell":             LIGHT_ORANGE,
+    }
+    for ri, row in enumerate(rows, start=3):
+        stype = row.get("step_type", "")
+        bg = STEP_COLORS.get(stype, LIGHT_GRAY if ri % 2 == 0 else WHITE)
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("center" if ci > 2 else "left", wrap=True)
+    _auto_width(ws)
+
+
+def _build_ssas_linked_servers_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    _write_generic_sheet(
+        wb, "SSAS-LinkedSvr", LIGHT_BLUE,
+        "SSAS / OLAP LINKED SERVER DETECTION",
+        ["linked_server_name", "product", "provider", "data_source",
+         "remote_login_enabled", "modify_date", "finding"],
+        rows, header_bg=MID_BLUE,
+    )
+
+
+def _build_wait_statistics_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Perf-Wait Stats")
+    _set_tab_color(ws, RED)
+    headers = ["wait_type", "total_wait_sec", "max_wait_sec",
+               "waiting_tasks_count", "pct_total_wait", "interpretation"]
+    labels  = ["Wait Type", "Total Wait (sec)", "Max Wait (sec)",
+               "Tasks Waiting", "% of Total", "Interpretation"]
+    _section_title(ws, 1, 1, "  SERVER WAIT STATISTICS (Top 25)", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl, bg=RED)
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    INTERP_COLORS = {
+        "Locking":      LIGHT_RED,
+        "I/O":          LIGHT_ORANGE,
+        "Memory":       LIGHT_ORANGE,
+        "CPU":          LIGHT_RED,
+        "Parallelism":  LIGHT_ORANGE,
+        "Log":          LIGHT_ORANGE,
+    }
+    for ri, row in enumerate(rows, start=3):
+        interp = str(row.get("interpretation", ""))
+        bg = next((v for k, v in INTERP_COLORS.items() if interp.startswith(k)), WHITE)
+        pct = row.get("pct_total_wait", 0) or 0
+        if pct > 20:
+            bg = LIGHT_RED
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("left" if ci in (1, 6) else "center", wrap=True)
+            if key == "pct_total_wait" and (val or 0) > 20:
+                c.font = _font(bold=True, color=RED)
+    _auto_width(ws)
+
+
+def _build_query_store_sheet(wb: Workbook, rows: list[dict[str, Any]]):
+    ws = wb.create_sheet("Perf-Query Store")
+    _set_tab_color(ws, "C00000")
+    headers = ["query_id", "query_text", "avg_duration_ms", "max_duration_ms",
+               "avg_cpu_ms", "avg_logical_reads", "total_executions",
+               "last_executed", "performance_flag"]
+    labels  = ["Query ID", "Query Text", "Avg Duration (ms)", "Max Duration (ms)",
+               "Avg CPU (ms)", "Avg Logical Reads", "Total Executions",
+               "Last Executed", "Flag"]
+    _section_title(ws, 1, 1, "  QUERY STORE — TOP RESOURCE QUERIES (7 DAYS)", span=len(labels))
+    for ci, lbl in enumerate(labels, 1):
+        _header_cell(ws, 2, ci, lbl, bg="C00000")
+    ws.auto_filter.ref = f"A2:{get_column_letter(len(labels))}2"
+    ws.freeze_panes = "A3"
+    for ri, row in enumerate(rows, start=3):
+        flag = str(row.get("performance_flag", ""))
+        bg = LIGHT_RED if "CRITICAL" in flag else (LIGHT_ORANGE if "WARNING" in flag else WHITE)
+        for ci, key in enumerate(headers, 1):
+            val = row.get(key, "")
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.fill = _fill(bg)
+            c.border = _border()
+            c.alignment = _align("left" if key == "query_text" else "center", wrap=True)
+            if key == "performance_flag" and "CRITICAL" in str(val):
+                c.font = _font(bold=True, color=RED)
+    _auto_width(ws)
+
+
 # ─────────────────────────── Public entry point ─────────────────────────────
 
 def build_report(job_id: str, raw: dict[str, Any]) -> str:
@@ -932,6 +1224,19 @@ def build_report(job_id: str, raw: dict[str, Any]) -> str:
     _build_replication_sheet(wb, raw.get("replication_status", []))
     _build_service_broker_sheet(wb, raw.get("service_broker", []))
     _build_version_features_sheet(wb, raw.get("version_features", []))
+    # ── Extended: SQL Server Engine Assessment sheets ────────────────────────
+    _build_schema_classification_sheet(wb, raw.get("schema_classification", []))
+    _build_sp_complexity_sheet(wb, raw.get("sp_complexity", []))
+    _build_view_complexity_sheet(wb, raw.get("view_complexity", []))
+    _build_database_files_sheet(wb, raw.get("database_files", []))
+    _build_ssis_catalog_sheet(wb, raw.get("ssis_catalog_packages", []))
+    _build_ssis_execution_sheet(wb, raw.get("ssis_execution_history", []))
+    _build_ssis_msdb_sheet(wb, raw.get("ssis_msdb_packages", []))
+    _build_agent_schedules_sheet(wb, raw.get("sql_agent_job_schedules", []))
+    _build_agent_steps_sheet(wb, raw.get("sql_agent_job_steps", []))
+    _build_ssas_linked_servers_sheet(wb, raw.get("ssas_linked_servers", []))
+    _build_wait_statistics_sheet(wb, raw.get("wait_statistics", []))
+    _build_query_store_sheet(wb, raw.get("query_store_top_queries", []))
 
     wb.save(str(output_path))
     logger.info("Report saved: %s", output_path)

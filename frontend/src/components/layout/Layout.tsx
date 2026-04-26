@@ -6,16 +6,16 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-zinc-950">
       <Header />
       <main className="flex-1">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
           {children}
         </div>
       </main>
-      <footer className="border-t border-slate-100 py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-400">
-          Source Assessment Tool — SQL Server Schema Analyzer
+      <footer className="border-t border-zinc-900 py-4">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[11px] text-zinc-700 tracking-wide">
+          Source Assessment Tool — SQL Server Intelligence Platform
         </div>
       </footer>
     </div>

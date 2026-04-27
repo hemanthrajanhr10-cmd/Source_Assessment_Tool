@@ -129,7 +129,7 @@ export default function DataTable({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16 text-slate-400">
-        <Spinner size="lg" className="text-indigo-500" />
+        <Spinner size="lg" className="text-amber-500" />
       </div>
     )
   }
@@ -198,9 +198,9 @@ export default function DataTable({
                           <select
                             value={activeVal}
                             onChange={(e) => setColFilter(col.key, e.target.value)}
-                            className={`flex-1 min-w-0 text-xs rounded border py-0.5 px-1 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 bg-white ${
+                            className={`flex-1 min-w-0 text-xs rounded border py-0.5 px-1 focus:outline-none focus:ring-1 focus:ring-amber-500/40 bg-white ${
                               isActive
-                                ? 'border-indigo-400 text-indigo-700 font-medium'
+                                ? 'border-amber-400 text-amber-800 font-medium'
                                 : 'border-slate-200 text-slate-500'
                             }`}
                           >
@@ -215,9 +215,9 @@ export default function DataTable({
                             placeholder="Filter…"
                             value={activeVal}
                             onChange={(e) => setColFilter(col.key, e.target.value)}
-                            className={`flex-1 min-w-0 text-xs rounded border py-0.5 px-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500/40 bg-white ${
+                            className={`flex-1 min-w-0 text-xs rounded border py-0.5 px-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/40 bg-white ${
                               isActive
-                                ? 'border-indigo-400 text-indigo-700'
+                                ? 'border-amber-400 text-amber-800'
                                 : 'border-slate-200 text-slate-500'
                             }`}
                           />

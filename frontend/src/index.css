@@ -2,12 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Type-scale tokens ───────────────────────────────────────────────────────── */
+
+:root {
+  --text-display:  clamp(1.5rem, 3vw, 2.5rem);
+  --text-headline: 1.25rem;
+  --text-title:    0.9375rem;
+  --text-body:     0.875rem;
+  --text-label:    0.6875rem;
+  --text-mono:     0.8125rem;
+
+  --font-display: 'Syne', system-ui, sans-serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Easing curves */
+  --ease-out-expo:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* ── Metric-matched fallbacks — reduce CLS before web fonts arrive ─────────── */
+
+@font-face {
+  font-family: 'Syne Fallback';
+  src: local('Arial');
+  size-adjust: 94%;
+  ascent-override: 88%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'DM Sans Fallback';
+  src: local('Arial');
+  size-adjust: 100%;
+  ascent-override: 95%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
   }
 
   html {
+    font-size: 100%;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     color-scheme: light;
@@ -16,12 +56,19 @@
 
   body {
     @apply bg-slate-50 text-slate-900 font-sans;
+    font-size: var(--text-body);
+    line-height: 1.6;
     min-height: 100vh;
   }
 
+  /* Tabular numerals everywhere mono is used */
+  .font-mono, code, pre {
+    font-variant-numeric: tabular-nums;
+  }
+
   ::selection {
-    background: rgba(79, 70, 229, 0.15);
-    color: #1e1b4b;
+    background: rgba(245, 158, 11, 0.15);
+    color: #78350f;
   }
 
   ::-webkit-scrollbar {
@@ -53,13 +100,13 @@
   .form-input {
     @apply block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5
            text-sm text-slate-900 placeholder-slate-400
-           focus:outline-none focus:border-indigo-500
+           focus:outline-none focus:border-amber-500
            disabled:opacity-40 disabled:cursor-not-allowed
            transition-all duration-150;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   }
   .form-input:focus {
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12), 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
   .form-label {
@@ -81,7 +128,7 @@
   /* ── Section labels ──────────────────────────────────────────────────────── */
 
   .section-title {
-    @apply text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em];
+    @apply text-[10px] font-bold text-slate-500 uppercase tracking-[0.14em];
   }
 
   /* ── Page header ─────────────────────────────────────────────────────────── */
@@ -118,19 +165,19 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: theme('colors.indigo.600');
+    background: theme('colors.amber.500');
     border-radius: 1px 1px 0 0;
   }
 
-  /* ── Indigo glow ─────────────────────────────────────────────────────────── */
+  /* ── Amber glow (primary signal color) ──────────────────────────────────── */
 
-  .glow-indigo {
-    box-shadow: 0 0 24px rgba(79, 70, 229, 0.15);
+  .glow-amber {
+    box-shadow: 0 0 24px rgba(245, 158, 11, 0.18);
   }
 
-  /* ── Legacy: kept for backward compatibility (not used in new design) ─────── */
-  .glow-amber {
-    box-shadow: 0 0 24px rgba(245, 158, 11, 0.15);
+  /* ── Legacy alias kept for backward compat ──────────────────────────────── */
+  .glow-indigo {
+    box-shadow: 0 0 24px rgba(245, 158, 11, 0.18);
   }
 
   /* ── Code blocks ─────────────────────────────────────────────────────────── */
@@ -147,17 +194,23 @@
   .alert-warning { @apply rounded-xl border border-amber-200 bg-amber-50 text-amber-700; }
   .alert-info    { @apply rounded-xl border border-blue-200 bg-blue-50 text-blue-700; }
 
+  /* ── Page entry: used on main content wrapper ───────────────────────────── */
+
+  .page-enter {
+    animation: pageEnter 0.32s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
+  }
+
   /* ── Stagger animation children ─────────────────────────────────────────── */
 
   .stagger > * {
-    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: slideUp 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  .stagger > *:nth-child(1) { animation-delay: 0ms; }
-  .stagger > *:nth-child(2) { animation-delay: 50ms; }
-  .stagger > *:nth-child(3) { animation-delay: 100ms; }
-  .stagger > *:nth-child(4) { animation-delay: 150ms; }
-  .stagger > *:nth-child(5) { animation-delay: 200ms; }
-  .stagger > *:nth-child(6) { animation-delay: 250ms; }
+  .stagger > *:nth-child(1) { animation-delay:  0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 45ms; }
+  .stagger > *:nth-child(3) { animation-delay: 90ms; }
+  .stagger > *:nth-child(4) { animation-delay: 135ms; }
+  .stagger > *:nth-child(5) { animation-delay: 180ms; }
+  .stagger > *:nth-child(6) { animation-delay: 225ms; }
 
   /* ── Sidebar nav item ────────────────────────────────────────────────────── */
 
@@ -169,11 +222,10 @@
     @apply bg-slate-100 text-slate-900;
   }
   .nav-item.active {
-    @apply bg-indigo-50 text-indigo-700;
-    box-shadow: inset 2px 0 0 theme('colors.indigo.600');
+    @apply bg-amber-50 text-amber-800 border border-amber-200/60;
   }
   .nav-item.active .nav-icon {
-    @apply text-indigo-600;
+    @apply text-amber-600;
   }
 
   /* ── Surface elevation helpers ───────────────────────────────────────────── */
@@ -206,11 +258,11 @@
   /* ── Stagger delays for .stagger-children ────────────────────────────────── */
 
   .stagger-children > *:nth-child(1) { animation-delay:   0ms; }
-  .stagger-children > *:nth-child(2) { animation-delay:  80ms; }
-  .stagger-children > *:nth-child(3) { animation-delay: 160ms; }
-  .stagger-children > *:nth-child(4) { animation-delay: 240ms; }
-  .stagger-children > *:nth-child(5) { animation-delay: 320ms; }
-  .stagger-children > *:nth-child(6) { animation-delay: 400ms; }
+  .stagger-children > *:nth-child(2) { animation-delay:  60ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 300ms; }
 }
 
 /* ── Accessibility: honour reduced-motion preference ─────────────────────────── */

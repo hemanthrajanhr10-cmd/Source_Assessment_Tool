@@ -46,7 +46,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
       {/* Page title */}
       <div className="flex-1 min-w-0">
-        <h2 className="text-sm font-semibold text-slate-900 truncate">{pageTitle}</h2>
+        <h2 className="text-base font-bold text-slate-900 truncate font-display tracking-tight leading-tight">
+          {pageTitle}
+        </h2>
       </div>
 
       {/* Right actions */}

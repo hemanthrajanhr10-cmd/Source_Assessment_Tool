@@ -63,7 +63,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         <div
           className="fixed inset-0 z-30 bg-slate-900/30 backdrop-blur-sm lg:hidden"
           onClick={onClose}
-          aria-hidden="true"
+          onKeyDown={(e) => (e.key === 'Escape' || e.key === 'Enter') && onClose()}
+          role="button"
+          tabIndex={-1}
+          aria-label="Close navigation"
         />
       )}
 
@@ -129,17 +132,18 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
                           isActive
-                            ? 'bg-indigo-50 text-indigo-700'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200/60'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-transparent'
                         }`
                       }
+                      aria-current={undefined}
                     >
                       {({ isActive }) => (
                         <>
-                          <Icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                          <Icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? 'text-amber-600' : 'text-slate-400'}`} />
                           <span>{label}</span>
                           {isActive && (
-                            <span className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-500 shrink-0" />
+                            <span className="ml-auto h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
                           )}
                         </>
                       )}

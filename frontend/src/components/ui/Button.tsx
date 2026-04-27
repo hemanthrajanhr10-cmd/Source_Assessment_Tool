@@ -14,9 +14,9 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<Variant, string> = {
   primary: [
-    'bg-indigo-600 text-white font-semibold',
-    'hover:bg-indigo-700',
-    'shadow-sm hover:shadow-md hover:shadow-indigo-200/60',
+    'bg-amber-500 text-white font-semibold',
+    'hover:bg-amber-600',
+    'shadow-sm hover:shadow-md hover:shadow-amber-200/60',
     'disabled:opacity-40',
   ].join(' '),
   secondary: [
@@ -54,8 +54,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={`
           inline-flex items-center justify-center font-medium
           transition-all duration-200 cursor-pointer
-          focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white
-          disabled:cursor-not-allowed select-none active:scale-[0.97]
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white
+          disabled:cursor-not-allowed select-none
+          ${!isDisabled ? 'active:scale-[0.97]' : ''}
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${className}

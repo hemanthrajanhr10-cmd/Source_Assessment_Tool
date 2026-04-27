@@ -136,7 +136,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
             <div>
               <p className="text-sm font-bold text-slate-900 leading-tight font-display tracking-tight">
-                Source<span className="gradient-text">SAT</span>
+                Source<span className="text-violet-600 font-extrabold">SAT</span>
               </p>
               <p className="text-[9px] text-slate-400 leading-tight tracking-widest uppercase mt-0.5">
                 Assessment Tool
@@ -180,24 +180,18 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                       end={exact}
                       onClick={() => onClose()}
                       className={({ isActive }) =>
-                        `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                        `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm
                          focus-visible:ring-2 focus-visible:ring-violet-500/40 focus-visible:outline-none
                          transition-all duration-150
                          ${isActive
-                           ? 'text-violet-800 border border-violet-200/40 border-l-[2.5px] border-l-violet-500'
-                           : 'text-slate-600 hover:text-slate-900 border border-transparent hover:bg-violet-50/60'
+                           ? 'bg-violet-50 text-violet-800 font-semibold border border-violet-100'
+                           : 'font-medium text-slate-600 hover:text-slate-900 border border-transparent hover:bg-violet-50/50'
                          }`
                       }
                       style={({ isActive }) => ({
-                        background: isActive
-                          ? 'linear-gradient(90deg, rgba(124,58,237,0.10) 0%, rgba(99,102,241,0.04) 100%)'
-                          : undefined,
-                        boxShadow: isActive
-                          ? 'var(--elevation-1), inset 0 1px 0 rgba(255,255,255,0.85), 0 0 0 1px rgba(124,58,237,0.04)'
-                          : undefined,
-                        paddingLeft: isActive ? 'calc(0.75rem - 1.5px)' : undefined,
+                        boxShadow: isActive ? 'var(--elevation-1)' : undefined,
                         transform: 'translateX(0)',
-                        transition: 'transform 120ms cubic-bezier(0.4,0,0.2,1), background-color 120ms, color 120ms, box-shadow 120ms',
+                        transition: 'transform 120ms cubic-bezier(0.4,0,0.2,1), background-color 120ms, color 120ms',
                       })}
                       onMouseEnter={(e) => {
                         const el = e.currentTarget as HTMLAnchorElement

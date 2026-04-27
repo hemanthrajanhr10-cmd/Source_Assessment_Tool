@@ -13,8 +13,8 @@
   --text-label:    0.6875rem;
   --text-mono:     0.8125rem;
 
-  --font-display: 'Syne', system-ui, sans-serif;
-  --font-body:    'DM Sans', system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-body:    'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 
   /* ── Elevation — 6-level ambient + key light system ─────────────────────── */
@@ -104,23 +104,14 @@
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-/* ── Metric-matched fallbacks — reduce CLS before web fonts arrive ─────────── */
+/* ── Metric-matched fallback — reduce CLS before web font arrives ───────────── */
 
 @font-face {
-  font-family: 'Syne Fallback';
+  font-family: 'PJSFallback';
   src: local('Arial');
-  size-adjust: 94%;
-  ascent-override: 88%;
+  size-adjust: 97%;
+  ascent-override: 94%;
   descent-override: 22%;
-  line-gap-override: 0%;
-}
-
-@font-face {
-  font-family: 'DM Sans Fallback';
-  src: local('Arial');
-  size-adjust: 100%;
-  ascent-override: 95%;
-  descent-override: 25%;
   line-gap-override: 0%;
 }
 
@@ -306,22 +297,6 @@
     -webkit-backdrop-filter: blur(20px) saturate(200%) !important;
     border-bottom-color: rgba(226, 230, 234, 0.5) !important;
     box-shadow: var(--elevation-2), 0 0 0 1px rgba(124,58,237,0.04) !important;
-  }
-
-  /* ══ Gradient Text ════════════════════════════════════════════════════════ */
-
-  .gradient-text {
-    background: var(--brand-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .gradient-text-warm {
-    background: linear-gradient(135deg, #f59e0b, #ef4444);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
   }
 
   /* ══ Form controls ═══════════════════════════════════════════════════════ */

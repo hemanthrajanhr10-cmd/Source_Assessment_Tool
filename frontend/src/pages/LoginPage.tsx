@@ -162,7 +162,7 @@ export default function LoginPage() {
             </div>
             <div>
               <p className="text-lg font-bold text-slate-900 font-display tracking-tight">
-                Source<span className="gradient-text">SAT</span>
+                Source<span className="text-violet-600 font-extrabold">SAT</span>
               </p>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Assessment Tool</p>
             </div>
@@ -182,7 +182,7 @@ export default function LoginPage() {
               style={{ letterSpacing: '-0.04em' }}
             >
               SQL Server<br />
-              <span className="gradient-text">Intelligence</span>{' '}
+              <span className="text-indigo-600 font-black">Intelligence</span>{' '}
               <span className="text-slate-700">Platform</span>
             </h1>
             <p className="text-slate-500 text-sm leading-relaxed max-w-xs">
@@ -248,7 +248,7 @@ export default function LoginPage() {
             <Database className="h-7 w-7 text-white" aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-black text-slate-900 font-display tracking-tight">
-            Source<span className="gradient-text">SAT</span>
+            Source<span className="text-violet-600 font-extrabold">SAT</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1 tracking-widest uppercase">Assessment Tool</p>
         </div>

@@ -1,397 +1,408 @@
+/**
+ * HybridConnectionPage
+ *
+ * Replaces the old Gateway Agent workflow. Explains how Azure App Service
+ * Hybrid Connections let the hosted app reach on-premises SQL Servers through
+ * the Azure Hybrid Connection Manager (HCM) running on the user's VPN-connected
+ * machine — no custom Python agent required.
+ */
+
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Radio, Plus, Download, Copy, Check, Wifi, WifiOff,
-  Clock, AlertCircle, Info, Terminal, Zap, X, ChevronDown, ChevronUp,
+  Globe, Share2, Laptop, Database, Network,
+  CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
+  ExternalLink, Search, Wifi, WifiOff, Info,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
-import type { Gateway } from '../types/api'
 import Button from '../components/ui/Button'
-import Spinner from '../components/ui/Spinner'
-import { timeAgo } from '../utils/dateTime'
 
-function GatewayStatusBadge({ status }: { status: Gateway['status'] }) {
-  return status === 'online' ? (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
-      <Wifi className="h-3 w-3" /> Online
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 ring-1 ring-slate-200">
-      <WifiOff className="h-3 w-3" /> Offline
-    </span>
-  )
-}
+// ── Connection topology ───────────────────────────────────────────────────────
 
-function RegisterGateway({ onRegistered }: { onRegistered: () => void }) {
-  const [name, setName] = useState('')
-  const [newKey, setNewKey] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const mutation = useMutation({
-    mutationFn: () => api.registerGateway(name.trim()),
-    onSuccess: ({ data }) => {
-      setNewKey(data.gateway_key)
-      setName('')
-      onRegistered()
-    },
-    onError: (err) => setError(getApiErrorMessage(err)),
-  })
-
-  const copyKey = () => {
-    if (!newKey) return
-    navigator.clipboard.writeText(newKey)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
+function TopologyNode({
+  icon: Icon,
+  label,
+  sublabel,
+  highlight,
+}: {
+  icon: React.ElementType
+  label: string
+  sublabel?: string
+  highlight?: boolean
+}) {
   return (
-    <div className="card overflow-hidden">
-      <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
-        <Plus className="h-4 w-4 text-indigo-500" />
-        <h2 className="text-sm font-semibold text-slate-700">Register New Gateway</h2>
+    <div className="flex flex-col items-center gap-2 min-w-0">
+      <div
+        className={`
+          relative flex items-center justify-center w-14 h-14 rounded-xl
+          transition-all duration-200
+          ${highlight
+            ? 'bg-amber-50 border-2 border-amber-300 shadow-md shadow-amber-100/60'
+            : 'bg-white border border-slate-200 shadow-sm'}
+        `}
+      >
+        <Icon className={`w-6 h-6 ${highlight ? 'text-amber-500' : 'text-slate-500'}`} />
+        {highlight && (
+          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+            <span className="animate-pulse-ring absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500" />
+          </span>
+        )}
       </div>
-      <div className="p-6 space-y-4">
-        <p className="text-sm text-slate-500">
-          Give the gateway a name, then download the agent and run it inside the client's network.
+      <div className="text-center">
+        <p className={`text-xs font-semibold leading-tight ${highlight ? 'text-amber-700' : 'text-slate-700'}`}>
+          {label}
         </p>
-
-        <div className="flex gap-3">
-          <input
-            type="text"
-            className="form-input flex-1"
-            placeholder="e.g. Acme Corp — HQ"
-            value={name}
-            onChange={(e) => { setName(e.target.value); setError(null) }}
-            maxLength={100}
-            onKeyDown={(e) => e.key === 'Enter' && name.trim() && mutation.mutate()}
-          />
-          <Button
-            onClick={() => mutation.mutate()}
-            loading={mutation.isPending}
-            disabled={!name.trim()}
-          >
-            Register
-          </Button>
-        </div>
-
-        {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
-            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {newKey && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
-            <p className="text-sm font-semibold text-emerald-700">Gateway registered! Copy your key:</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 rounded-lg bg-white border border-slate-200 px-3 py-2 text-sm font-mono text-slate-700 select-all break-all">
-                {newKey}
-              </code>
-              <button
-                onClick={copyKey}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 hover:bg-white text-sm font-medium text-slate-600 hover:text-slate-800 transition-colors"
-              >
-                {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
-            </div>
-            <p className="text-xs text-slate-500">
-              Set this as the <code className="font-mono bg-slate-100 px-1 rounded text-slate-700">GATEWAY_KEY</code> environment
-              variable when running the agent.
-            </p>
-          </div>
+        {sublabel && (
+          <p className="text-[10px] text-slate-400 leading-tight mt-0.5">{sublabel}</p>
         )}
       </div>
     </div>
   )
 }
 
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
+function ConnectionDiagram() {
   return (
-    <button
-      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-      className="ml-auto shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-xs text-slate-400 hover:text-slate-700 hover:bg-slate-700 transition-colors"
-      title="Copy"
-    >
-      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-      {copied ? 'Copied' : 'Copy'}
-    </button>
-  )
-}
-
-function DownloadAgent() {
-  return (
-    <div className="card overflow-hidden">
-      <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
-        <Download className="h-4 w-4 text-indigo-500" />
-        <h2 className="text-sm font-semibold text-slate-700">Download Agent</h2>
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6 overflow-x-auto">
+      <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-5">Connection path</p>
+      <div className="flex items-center justify-between min-w-[480px]">
+        <TopologyNode icon={Globe}   label="Azure App"       sublabel="App Service" />
+        <div className="signal-line flex-1 mx-3" style={{ minWidth: '48px' }} />
+        <TopologyNode icon={Share2}  label="Azure Relay"     sublabel="Service Bus" />
+        <div className="signal-line flex-1 mx-3" style={{ minWidth: '48px' }} />
+        <TopologyNode icon={Laptop}  label="HCM"             sublabel="Your laptop" highlight />
+        <div className="signal-line flex-1 mx-3" style={{ minWidth: '48px' }} />
+        <TopologyNode icon={Database} label="SQL Server"     sublabel="On-premises" />
       </div>
-      <div className="p-6 space-y-5">
-
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm space-y-1">
-            <div className="flex items-center gap-2 font-semibold text-violet-700">
-              <Zap className="h-4 w-4" /> Azure Relay Hybrid Connection
-            </div>
-            <p className="text-xs text-violet-600">
-              Real-time via outbound WebSocket (port 443). No inbound ports needed.
-            </p>
-          </div>
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm space-y-1">
-            <div className="flex items-center gap-2 font-semibold text-blue-700">
-              <Info className="h-4 w-4" /> Azure Service Bus (alternative)
-            </div>
-            <p className="text-xs text-blue-600">
-              Queue-based delivery via outbound HTTPS port 443. Works through corporate VPNs.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-slate-700">Step 1 — Download the agent</p>
-          <a
-            href={api.getAgentDownloadUrl()}
-            download="sat_agent.py"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
-          >
-            <Download className="h-4 w-4" />
-            Download sat_agent.py
-          </a>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-slate-700">Step 2 — Install dependencies</p>
-          <div className="code-block flex items-center gap-2">
-            <Terminal className="h-4 w-4 shrink-0 text-slate-500" />
-            <span className="flex-1">pip install pymssql requests websockets</span>
-            <CopyButton text="pip install pymssql requests websockets" />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
-            <Zap className="h-4 w-4 text-violet-600" />
-            Step 3a — Azure Relay mode (recommended)
-          </p>
-          <ol className="text-xs text-slate-500 list-decimal list-inside space-y-1 pl-1">
-            <li>Create a <strong className="text-slate-700">Relay</strong> namespace in Azure Portal</li>
-            <li>Create a <strong className="text-slate-700">Hybrid Connection</strong> with Listen + Send policy</li>
-            <li>Copy the <strong className="text-slate-700">Primary connection string</strong></li>
-            <li>Paste below and run the agent:</li>
-          </ol>
-          <div className="code-block space-y-2 text-xs">
-            <div className="text-slate-500"># Windows — Command Prompt</div>
-            <div className="break-all">set RELAY_CONNECTION_STRING=<span className="text-amber-400">Endpoint=sb://my-relay.servicebus.windows.net/;...</span></div>
-            <div className="break-all">set SAT_SERVER_URL=<span className="text-amber-400">https://your-sat-app.azurewebsites.net</span></div>
-            <div>set GATEWAY_KEY=<span className="text-amber-400">&lt;your-gateway-key&gt;</span></div>
-            <div className="flex items-center gap-2">
-              <span className="flex-1">python sat_agent.py</span>
-              <CopyButton text="python sat_agent.py" />
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
-            <Info className="h-4 w-4 text-blue-600" />
-            Step 3b — Service Bus mode (alternative)
-          </p>
-          <div className="code-block space-y-2 text-xs">
-            <div className="text-slate-500"># Windows — Command Prompt</div>
-            <div className="break-all">set SERVICE_BUS_CONNECTION_STRING=<span className="text-amber-400">Endpoint=sb://sat-servicebus.servicebus.windows.net/;...</span></div>
-            <div>python sat_agent.py</div>
-          </div>
-          <p className="text-xs text-slate-400">
-            Add <code className="font-mono bg-slate-100 px-1 rounded text-slate-700">azure-servicebus</code> to your pip install when using this mode.
-          </p>
-        </div>
-      </div>
+      <p className="text-[11px] text-slate-400 mt-5 text-center">
+        Outbound-only relay — no inbound firewall rules required on either end.
+      </p>
     </div>
   )
 }
 
-function RelayConfigPanel({ gw, onSaved }: { gw: Gateway; onSaved: () => void }) {
-  const [open, setOpen] = useState(false)
-  const [connStr, setConnStr] = useState(gw.relay_connection_string ?? '')
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+// ── Setup steps ───────────────────────────────────────────────────────────────
 
-  const mutation = useMutation({
-    mutationFn: () => api.setGatewayRelay(gw.gateway_key, connStr.trim()),
-    onSuccess: () => {
-      setSaved(true)
-      setError(null)
-      setTimeout(() => setSaved(false), 3000)
-      onSaved()
-    },
-    onError: (err) => setError(getApiErrorMessage(err)),
-  })
+interface Step {
+  n: number
+  title: string
+  body: React.ReactNode
+}
 
-  const isConfigured = !!gw.relay_connection_string
+const STEPS: Step[] = [
+  {
+    n: 1,
+    title: 'Prerequisites',
+    body: (
+      <ul className="space-y-2 text-sm text-slate-600">
+        {[
+          'Azure subscription with this App Service deployed',
+          'On-premises SQL Server reachable from your laptop',
+          'VPN client installed, configured, and working',
+          'Windows 7+ or Windows Server 2008 R2+ on the HCM machine',
+        ].map((item) => (
+          <li key={item} className="flex items-start gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    ),
+  },
+  {
+    n: 2,
+    title: 'Create a Hybrid Connection in Azure Portal',
+    body: (
+      <ol className="space-y-3 text-sm text-slate-600 list-decimal list-inside">
+        <li>Open <strong className="text-slate-800">App Service</strong> in Azure Portal and select this application.</li>
+        <li>Navigate to <strong className="text-slate-800">Networking</strong> in the left menu.</li>
+        <li>Under <em>Outbound traffic</em>, click <strong className="text-slate-800">Hybrid connections</strong>.</li>
+        <li>Click <strong className="text-slate-800">Add hybrid connection</strong> and then <strong className="text-slate-800">Create new hybrid connection</strong>.</li>
+        <li>
+          Fill in:
+          <ul className="mt-2 ml-4 space-y-1 list-disc list-inside text-slate-500">
+            <li><strong className="text-slate-700">Hybrid connection name</strong> — e.g. <code className="font-mono text-xs bg-slate-100 px-1 rounded">sat-onprem-sql</code></li>
+            <li><strong className="text-slate-700">Endpoint host</strong> — the SQL Server hostname or IP visible from your VPN-connected laptop</li>
+            <li><strong className="text-slate-700">Endpoint port</strong> — <code className="font-mono text-xs bg-slate-100 px-1 rounded">1433</code></li>
+            <li><strong className="text-slate-700">Service Bus Namespace</strong> — create new or reuse existing</li>
+          </ul>
+        </li>
+        <li>Click <strong className="text-slate-800">OK</strong> to save. The connection will appear as <em>Not connected</em> until HCM is installed.</li>
+      </ol>
+    ),
+  },
+  {
+    n: 3,
+    title: 'Install Hybrid Connection Manager on your laptop',
+    body: (
+      <div className="space-y-3 text-sm text-slate-600">
+        <p>The HCM creates an outbound relay from your laptop to Azure.</p>
+        <ol className="space-y-2 list-decimal list-inside">
+          <li>
+            On the Hybrid connections page in Azure Portal, click{' '}
+            <strong className="text-slate-800">Download connection manager</strong>.
+          </li>
+          <li>Run the installer on the machine that has VPN access to the SQL Server (your laptop).</li>
+          <li>After install, open <strong className="text-slate-800">Hybrid Connection Manager UI</strong> from the Start menu.</li>
+        </ol>
+        <a
+          href="https://learn.microsoft.com/en-us/azure/app-service/app-service-hybrid-connections"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Official HCM documentation
+        </a>
+      </div>
+    ),
+  },
+  {
+    n: 4,
+    title: 'Connect your laptop to the VPN',
+    body: (
+      <div className="space-y-2 text-sm text-slate-600">
+        <p>
+          Connect your VPN client to the network that hosts the on-premises SQL Server.
+          Verify access by pinging or connecting to the SQL Server from your laptop before proceeding.
+        </p>
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
+          <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-700">
+            The Azure app can only reach the SQL Server while your laptop remains on the VPN and HCM is running.
+            Disconnect either, and assessments will fail with a connection error.
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    n: 5,
+    title: 'Add the connection in HCM and verify',
+    body: (
+      <ol className="space-y-3 text-sm text-slate-600 list-decimal list-inside">
+        <li>In Hybrid Connection Manager UI, click <strong className="text-slate-800">Add a new Hybrid Connection</strong>.</li>
+        <li>Sign in with the same Azure account used to create the connection.</li>
+        <li>Select the Hybrid Connection you created in Step 2 and click <strong className="text-slate-800">Save</strong>.</li>
+        <li>
+          Back in Azure Portal, the connection status should change to{' '}
+          <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+            <Wifi className="h-3.5 w-3.5" /> Connected
+          </span>.
+        </li>
+        <li>
+          Use the connectivity test below to confirm the Azure app can reach the SQL Server through the relay.
+        </li>
+      </ol>
+    ),
+  },
+]
+
+function SetupStep({ step, defaultOpen }: { step: Step; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
 
   return (
-    <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/50 overflow-hidden">
+    <div className="card overflow-hidden animate-fade-slide">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-violet-50 transition-colors"
+        className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-slate-50 transition-colors"
+        aria-expanded={open}
       >
-        <Zap className="h-3.5 w-3.5 text-violet-600 shrink-0" />
-        <span className="text-xs font-semibold text-violet-700 flex-1">
-          Azure Relay Config
-          {isConfigured && (
-            <span className="ml-2 inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full text-[10px]">
-              <Check className="h-2.5 w-2.5" /> Configured
-            </span>
-          )}
-        </span>
-        {open ? <ChevronUp className="h-3.5 w-3.5 text-violet-400" /> : <ChevronDown className="h-3.5 w-3.5 text-violet-400" />}
+        <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold">
+          {step.n}
+        </div>
+        <span className="flex-1 text-sm font-semibold text-slate-800">{step.title}</span>
+        {open
+          ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0" />
+          : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
       </button>
-
       {open && (
-        <div className="px-4 pb-4 pt-1 space-y-3 border-t border-violet-200">
-          <p className="text-xs text-violet-600">
-            Paste the Azure Relay Hybrid Connection string (must include <code className="font-mono bg-violet-100 px-1 rounded">EntityPath=</code>).
-          </p>
-          <textarea
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 resize-none"
-            rows={3}
-            placeholder="Endpoint=sb://my-relay.servicebus.windows.net/;SharedAccessKeyName=...;SharedAccessKey=...;EntityPath=sat-gateway-xyz"
-            value={connStr}
-            onChange={(e) => { setConnStr(e.target.value); setError(null) }}
-          />
-          {error && (
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => mutation.mutate()}
-              loading={mutation.isPending}
-            >
-              {saved ? <><Check className="h-3.5 w-3.5" /> Saved</> : 'Save'}
-            </Button>
-            {isConfigured && (
-              <button
-                onClick={() => { setConnStr(''); mutation.mutate() }}
-                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition-colors"
-              >
-                <X className="h-3 w-3" /> Clear
-              </button>
-            )}
-          </div>
+        <div className="px-5 pb-5 pt-1 border-t border-slate-100 animate-slide-down">
+          {step.body}
         </div>
       )}
     </div>
   )
 }
 
-function GatewayList({ gateways, isLoading, onRelayUpdate }: {
-  gateways: Gateway[]
-  isLoading: boolean
-  onRelayUpdate: () => void
-}) {
-  const [copiedKey, setCopiedKey] = useState<string | null>(null)
+// ── Connectivity test ─────────────────────────────────────────────────────────
 
-  const copyKey = (key: string) => {
-    navigator.clipboard.writeText(key)
-    setCopiedKey(key)
-    setTimeout(() => setCopiedKey(null), 2000)
+function ConnectivityTest() {
+  const [server, setServer] = useState('')
+  const [port, setPort] = useState('1433')
+  const [result, setResult] = useState<{ reachable: boolean; latency_ms: number | null } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleTest = async () => {
+    if (!server.trim()) return
+    setResult(null)
+    setError(null)
+    setLoading(true)
+    try {
+      const { data } = await api.detectConnectivity([{
+        server: server.trim(),
+        port: parseInt(port, 10) || 1433,
+      }])
+      setResult({ reachable: data[0].reachable, latency_ms: data[0].latency_ms })
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
   }
-
-  if (isLoading) return (
-    <div className="flex justify-center py-10">
-      <Spinner className="text-indigo-500" />
-    </div>
-  )
-
-  if (!gateways.length) return (
-    <div className="card p-8 text-center">
-      <Radio className="h-8 w-8 text-slate-300 mx-auto mb-3" />
-      <p className="text-sm font-medium text-slate-600">No gateways registered yet</p>
-      <p className="text-xs text-slate-400 mt-1">Register one above and download the agent to get started.</p>
-    </div>
-  )
 
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
-        <Radio className="h-4 w-4 text-indigo-500" />
-        <h2 className="text-sm font-semibold text-slate-700">Registered Gateways</h2>
-        <span className="ml-auto text-xs text-slate-400">{gateways.length} total</span>
+        <Network className="h-4 w-4 text-indigo-500" />
+        <h2 className="text-sm font-semibold text-slate-700">Test Connectivity</h2>
+        <span className="ml-auto text-xs text-slate-400">
+          Verify the Azure app can reach your SQL Server through HCM
+        </span>
       </div>
-      <ul className="divide-y divide-slate-100">
-        {gateways.map((gw) => (
-          <li key={gw.gateway_key} className="px-6 py-4 hover:bg-slate-50 transition-colors">
-            <div className="flex items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-slate-800 truncate">{gw.name}</span>
-                  <GatewayStatusBadge status={gw.status} />
-                  {gw.relay_connection_string && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-violet-50 text-violet-700 ring-1 ring-violet-200">
-                      <Zap className="h-2.5 w-2.5" /> Relay
-                    </span>
-                  )}
-                </div>
-                <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
-                  <span className="font-mono truncate max-w-[200px]" title={gw.gateway_key}>
-                    {gw.gateway_key.substring(0, 8)}…{gw.gateway_key.substring(gw.gateway_key.length - 6)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {gw.status === 'online' ? 'Last seen ' : ''}{timeAgo(gw.last_seen_at)}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => copyKey(gw.gateway_key)}
-                className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
-                title="Copy gateway key"
-              >
-                {copiedKey === gw.gateway_key ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                {copiedKey === gw.gateway_key ? 'Copied' : 'Key'}
-              </button>
+      <div className="p-6 space-y-4">
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Database className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              className="form-input pl-10"
+              placeholder="SQL Server hostname or IP"
+              value={server}
+              onChange={(e) => { setServer(e.target.value); setResult(null); setError(null) }}
+              onKeyDown={(e) => e.key === 'Enter' && server.trim() && handleTest()}
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+          <input
+            type="number"
+            className="form-input w-24"
+            min={1}
+            max={65535}
+            value={port}
+            onChange={(e) => { setPort(e.target.value); setResult(null) }}
+            title="Port"
+          />
+          <Button
+            onClick={handleTest}
+            loading={loading}
+            disabled={!server.trim()}
+            leftIcon={loading ? undefined : <Search className="h-4 w-4" />}
+          >
+            Test
+          </Button>
+        </div>
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 animate-slide-down">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {result && (
+          <div className={`animate-slide-down rounded-xl border px-4 py-3 ${
+            result.reachable
+              ? 'border-emerald-200 bg-emerald-50'
+              : 'border-red-200 bg-red-50'
+          }`}>
+            <div className={`flex items-center gap-2 text-sm font-semibold ${
+              result.reachable ? 'text-emerald-700' : 'text-red-700'
+            }`}>
+              {result.reachable
+                ? <><Wifi className="h-4 w-4" /> Reachable{result.latency_ms != null ? ` — ${result.latency_ms} ms` : ''}</>
+                : <><WifiOff className="h-4 w-4" /> Not reachable</>}
             </div>
-            <RelayConfigPanel gw={gw} onSaved={onRelayUpdate} />
-          </li>
-        ))}
-      </ul>
+            {!result.reachable && (
+              <p className="mt-1.5 text-xs text-red-600">
+                Ensure HCM is running on a machine connected to the VPN, the Hybrid Connection is configured in Azure Portal,
+                and the endpoint host matches the SQL Server hostname exactly.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-export default function GatewayPage() {
-  const queryClient = useQueryClient()
+// ── Page ──────────────────────────────────────────────────────────────────────
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['gateways'],
-    queryFn: () => api.listGateways().then((r) => r.data),
-    refetchInterval: 10_000,
-  })
-
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['gateways'] })
-
+export default function HybridConnectionPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 font-display">Gateway Manager</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Connect to on-premises SQL Servers through a lightweight agent inside the client's network.
-            Uses Azure Relay Hybrid Connection for VPN-compatible job delivery.
+          <h1 className="text-2xl font-bold text-slate-900 font-display">
+            Azure Hybrid Connection
+          </h1>
+          <p className="mt-1 text-sm text-slate-500 max-w-xl">
+            Connect this hosted application to your on-premises SQL Server through the
+            Azure Hybrid Connection Manager running on your VPN-connected laptop.
+            No inbound firewall rules or Python agent required.
           </p>
         </div>
       </div>
 
-      <RegisterGateway onRegistered={refresh} />
-      <DownloadAgent />
-      <GatewayList gateways={data ?? []} isLoading={isLoading} onRelayUpdate={refresh} />
+      {/* How it works — 3 bullets */}
+      <div className="grid sm:grid-cols-3 gap-3 stagger-children">
+        {[
+          {
+            icon: Laptop,
+            title: 'HCM on your laptop',
+            body: 'Install the Hybrid Connection Manager. It makes one outbound connection to Azure Relay — no inbound ports needed.',
+          },
+          {
+            icon: Share2,
+            title: 'Azure relays the traffic',
+            body: 'The App Service sends SQL connections through the relay to HCM, which forwards them to the on-prem SQL Server.',
+          },
+          {
+            icon: Database,
+            title: 'Assessment runs in the cloud',
+            body: 'The app connects to the SQL Server as if it were local. No gateway agent, no polling — just configure and run.',
+          },
+        ].map(({ icon: Icon, title, body }) => (
+          <div key={title} className="card p-4 animate-fade-slide">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                <Icon className="h-4 w-4 text-indigo-500" />
+              </div>
+              <p className="text-sm font-semibold text-slate-800">{title}</p>
+            </div>
+            <p className="text-xs text-slate-500 leading-relaxed">{body}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Topology diagram */}
+      <ConnectionDiagram />
+
+      {/* Setup steps */}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-700 mb-3">Setup Guide</h2>
+        <div className="space-y-2 stagger-children">
+          {STEPS.map((step, i) => (
+            <SetupStep key={step.n} step={step} defaultOpen={i === 0} />
+          ))}
+        </div>
+      </div>
+
+      {/* Connectivity test */}
+      <ConnectivityTest />
+
+      {/* Running assessment note */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-start gap-3">
+        <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+        <div className="text-sm text-blue-700">
+          <strong>Running an assessment:</strong> Once HCM is active, go to{' '}
+          <strong>New Assessment</strong>, enter the on-prem SQL Server hostname exactly
+          as configured in the Hybrid Connection endpoint, and run normally.
+          The app reaches the server through the relay transparently.
+        </div>
+      </div>
     </div>
   )
 }

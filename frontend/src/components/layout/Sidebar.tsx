@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Database, Layers, List, Radio, Zap,
+  Database, Layers, List, Network, Zap,
   PlusCircle, LogOut, Shield, ChevronDown,
   X, BarChart3,
 } from 'lucide-react'
@@ -11,10 +11,10 @@ const NAV_GROUPS = [
   {
     label: 'SQL Server',
     items: [
-      { to: '/',          label: 'New Assessment', icon: PlusCircle, exact: true },
-      { to: '/sessions',  label: 'Sessions',       icon: Layers  },
-      { to: '/jobs',      label: 'Jobs',           icon: List    },
-      { to: '/gateway',   label: 'Gateway',        icon: Radio   },
+      { to: '/',                   label: 'New Assessment',    icon: PlusCircle, exact: true },
+      { to: '/sessions',           label: 'Sessions',          icon: Layers  },
+      { to: '/jobs',               label: 'Jobs',              icon: List    },
+      { to: '/hybrid-connection',  label: 'Hybrid Connection', icon: Network },
     ],
   },
   {

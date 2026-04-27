@@ -1,14 +1,13 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import {
   Server, Database, User, Lock, Eye, EyeOff,
   Plus, Trash2, ChevronDown, ChevronUp, Wifi, WifiOff,
   CheckCircle2, AlertCircle, ArrowRight, Tag, Zap,
-  RefreshCw, Radio, Search, ShieldCheck,
+  RefreshCw, Search, ShieldCheck, Info, Network,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
-import type { AccessLevel, DatabaseInfo, DbType, Gateway } from '../types/api'
+import type { AccessLevel, DatabaseInfo, DbType } from '../types/api'
 import { ACCESS_LEVEL_OPTIONS } from '../types/api'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
@@ -37,8 +36,6 @@ interface ServerEntry {
   show_password: boolean
   trust_server_certificate: boolean
   encrypt: boolean
-  use_gateway: boolean
-  gateway_key: string
   access_level: AccessLevel
   connectivity: null | { reachable: boolean; latency_ms: number | null }
   connectivity_loading: boolean
@@ -61,8 +58,6 @@ function makeServer(): ServerEntry {
     show_password: false,
     trust_server_certificate: true,
     encrypt: true,
-    use_gateway: false,
-    gateway_key: '',
     access_level: 'db_datareader',
     connectivity: null,
     connectivity_loading: false,
@@ -105,14 +100,13 @@ function Toggle({
 }
 
 function ServerCard({
-  entry, index, onUpdate, onRemove, canRemove, gateways,
+  entry, index, onUpdate, onRemove, canRemove,
 }: {
   entry: ServerEntry
   index: number
   onUpdate: (id: string, patch: Partial<ServerEntry>) => void
   onRemove: (id: string) => void
   canRemove: boolean
-  gateways: Gateway[]
 }) {
   const set = (patch: Partial<ServerEntry>) => onUpdate(entry.id, patch)
 
@@ -123,9 +117,6 @@ function ServerCard({
       const { data } = await api.detectConnectivity([{ server: entry.server, port: entry.port }])
       const result = data[0]
       set({ connectivity: { reachable: result.reachable, latency_ms: result.latency_ms }, connectivity_loading: false })
-      if (!result.reachable && !entry.use_gateway) {
-        set({ use_gateway: true })
-      }
     } catch {
       set({ connectivity_loading: false })
     }
@@ -198,14 +189,14 @@ function ServerCard({
         </div>
 
         {connStatus && (
-          <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+          <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium animate-scale-in ${
             connStatus.reachable
               ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
               : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
           }`}>
             {connStatus.reachable
-              ? <><Wifi className="h-3 w-3" /> Cloud ({connStatus.latency_ms}ms)</>
-              : <><WifiOff className="h-3 w-3" /> On-Premises</>
+              ? <><Wifi className="h-3 w-3" /> Reachable ({connStatus.latency_ms}ms)</>
+              : <><WifiOff className="h-3 w-3" /> Not directly reachable</>
             }
           </span>
         )}
@@ -410,60 +401,27 @@ function ServerCard({
             )}
           </div>
 
-          {/* Connection mode */}
-          <div className="space-y-3">
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => set({ use_gateway: false, gateway_key: '' })}
-                className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
-                  !entry.use_gateway ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                  <Wifi className="h-3.5 w-3.5 text-emerald-600" /> Direct Connection
+          {/* Azure Hybrid Connection callout — shown when server is not directly reachable */}
+          {connStatus && !connStatus.reachable && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 animate-slide-down">
+              <Network className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+              <div className="text-xs text-blue-700 space-y-1">
+                <p className="font-semibold text-blue-800">Server not directly reachable from Azure</p>
+                <p>
+                  If this is an on-premises SQL Server, ensure the{' '}
+                  <strong>Azure Hybrid Connection Manager</strong> is running on a machine connected
+                  to the same network as the server.
                 </p>
-                <p className="text-xs text-slate-400 mt-0.5">Server reachable from internet</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => set({ use_gateway: true })}
-                className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
-                  entry.use_gateway ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                <p className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
-                  <Radio className="h-3.5 w-3.5 text-indigo-500" /> Via Gateway Agent
-                </p>
-                <p className="text-xs text-slate-400 mt-0.5">Behind corporate firewall</p>
-              </button>
-            </div>
-
-            {entry.use_gateway && (
-              <div>
-                <label className="form-label">Select Gateway <span className="text-red-500">*</span></label>
-                {gateways.length === 0 ? (
-                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
-                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    No gateways registered. Go to <strong>Gateway Manager</strong> to register one.
-                  </div>
-                ) : (
-                  <select
-                    className="form-input"
-                    value={entry.gateway_key}
-                    onChange={(e) => set({ gateway_key: e.target.value })}
-                  >
-                    <option value="">— Choose a gateway —</option>
-                    {gateways.map((gw) => (
-                      <option key={gw.gateway_key} value={gw.gateway_key}>
-                        {gw.name} {gw.status === 'online' ? '● Online' : '○ Offline'}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                <a
+                  href="/hybrid-connection"
+                  className="inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:text-blue-900 transition-colors"
+                >
+                  <Info className="h-3 w-3" />
+                  Hybrid Connection setup guide
+                </a>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Database browser */}
           <div className="space-y-3">
@@ -581,12 +539,6 @@ export default function NewAssessmentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { data: gateways = [] } = useQuery({
-    queryKey: ['gateways'],
-    queryFn: () => api.listGateways().then((r) => r.data),
-    refetchInterval: 15_000,
-  })
-
   const updateServer = useCallback((id: string, patch: Partial<ServerEntry>) => {
     setServers((prev) => prev.map((s) => s.id === id ? { ...s, ...patch } : s))
   }, [])
@@ -615,10 +567,6 @@ export default function NewAssessmentPage() {
         setError(`Server "${srv.server}": no databases selected. Click "Browse Databases" and select at least one.`)
         return
       }
-      if (srv.use_gateway && !srv.gateway_key) {
-        setError(`Server "${srv.server}": please select a gateway agent.`)
-        return
-      }
     }
 
     if (totalDbs === 0) {
@@ -638,8 +586,7 @@ export default function NewAssessmentPage() {
           password: srv.password,
           trust_server_certificate: srv.trust_server_certificate,
           encrypt: srv.encrypt,
-          use_gateway: srv.use_gateway,
-          gateway_key: srv.use_gateway ? srv.gateway_key : undefined,
+          use_gateway: false,
           access_level: srv.db_type === 'mssql' ? srv.access_level : undefined,
           databases: srv.selected_dbs.map((db) => ({
             name: db.name,
@@ -709,7 +656,6 @@ export default function NewAssessmentPage() {
               onUpdate={updateServer}
               onRemove={removeServer}
               canRemove={servers.length > 1}
-              gateways={gateways}
             />
           ))}
 

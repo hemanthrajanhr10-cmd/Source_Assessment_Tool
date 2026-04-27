@@ -4,7 +4,7 @@ import Layout from './components/layout/Layout'
 import NewAssessmentPage from './pages/NewAssessmentPage'
 import JobsPage from './pages/JobsPage'
 import JobDetailPage from './pages/JobDetailPage'
-import GatewayPage from './pages/GatewayPage'
+import HybridConnectionPage from './pages/GatewayPage'
 import SessionsPage from './pages/SessionsPage'
 import SessionDetailPage from './pages/SessionDetailPage'
 import FabricAssessmentPage from './pages/FabricAssessmentPage'
@@ -59,7 +59,8 @@ function AppRoutes() {
                 <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />
                 <Route path="/jobs" element={<JobsPage />} />
                 <Route path="/jobs/:jobId" element={<JobDetailPage />} />
-                <Route path="/gateway" element={<GatewayPage />} />
+                <Route path="/gateway" element={<HybridConnectionPage />} />
+                <Route path="/hybrid-connection" element={<HybridConnectionPage />} />
                 <Route path="/fabric/new" element={<FabricAssessmentPage />} />
                 <Route path="/fabric/sessions" element={<FabricSessionsPage />} />
                 <Route path="/fabric/sessions/:sessionId" element={<FabricSessionDetailPage />} />

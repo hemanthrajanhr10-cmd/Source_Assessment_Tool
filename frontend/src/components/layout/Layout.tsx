@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import { Database } from 'lucide-react'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -10,7 +11,10 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div
+      className="min-h-screen flex"
+      style={{ background: 'var(--color-canvas)' }}
+    >
       {/* Sidebar */}
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -26,13 +30,36 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </main>
 
-        {/* Footer */}
-        <footer className="border-t border-slate-200 py-4 bg-white">
+        {/* Footer — gradient accent line top */}
+        <footer
+          className="border-t border-slate-200/60 py-4 shrink-0"
+          style={{ background: 'linear-gradient(180deg, #FAFAFE 0%, #ffffff 100%)' }}
+        >
           <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-            <span className="text-[11px] text-slate-400 tracking-wide">
-              Source Assessment Tool — SQL Server Intelligence Platform
+            <div className="flex items-center gap-2">
+              <div
+                className="h-5 w-5 rounded-md flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #6366f1)' }}
+                aria-hidden="true"
+              >
+                <Database className="h-3 w-3 text-white" />
+              </div>
+              <span className="text-[11px] text-slate-400 tracking-wide">
+                Source Assessment Tool
+                <span className="text-slate-300 mx-1.5">·</span>
+                SQL Server Intelligence Platform
+              </span>
+            </div>
+            <span
+              className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md"
+              style={{
+                background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(99,102,241,0.06))',
+                color: '#7c3aed',
+                border: '1px solid rgba(196,181,253,0.30)',
+              }}
+            >
+              v2.0
             </span>
-            <span className="text-[11px] text-slate-300 font-mono">v2.0</span>
           </div>
         </footer>
       </div>

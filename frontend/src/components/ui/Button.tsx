@@ -12,20 +12,20 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   rightIcon?: React.ReactNode
 }
 
+/* Tailwind classes per variant */
 const variantStyles: Record<Variant, string> = {
   primary: [
-    'bg-amber-500 text-white font-semibold',
-    'hover:bg-amber-600',
+    'text-white font-semibold',
     'disabled:opacity-40',
   ].join(' '),
   secondary: [
-    'bg-white text-slate-700 border border-slate-300',
-    'hover:bg-slate-50 hover:text-slate-900 hover:border-slate-400',
+    'bg-white text-slate-700 border border-slate-200',
+    'hover:border-violet-200 hover:text-violet-700 hover:bg-violet-50/60',
     'disabled:opacity-40',
   ].join(' '),
   ghost: [
     'text-slate-600',
-    'hover:text-slate-900 hover:bg-slate-100',
+    'hover:text-violet-700 hover:bg-violet-50/60',
     'disabled:opacity-40',
   ].join(' '),
   danger: [
@@ -35,26 +35,27 @@ const variantStyles: Record<Variant, string> = {
   ].join(' '),
 }
 
-/* Resting box-shadows per variant */
-const variantShadow: Record<Variant, string> = {
-  primary:   'var(--elevation-2), var(--elevation-border-1)',
-  secondary: 'var(--elevation-1), var(--elevation-border-1)',
-  ghost:     'none',
-  danger:    'var(--elevation-1), var(--elevation-border-1)',
-}
-
-/* Hover box-shadows per variant (applied via CSS, not JS) */
-const variantHoverShadow: Record<Variant, string> = {
-  primary:   'var(--elevation-3)',
-  secondary: 'var(--elevation-2)',
-  ghost:     'none',
-  danger:    'var(--elevation-2)',
+/* Inline styles per variant */
+const variantInlineStyle: Record<Variant, React.CSSProperties> = {
+  primary: {
+    background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+    boxShadow: '0 4px 16px rgba(124, 58, 237, 0.32), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
+  },
+  secondary: {
+    boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
+  },
+  ghost: {
+    boxShadow: 'none',
+  },
+  danger: {
+    boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
+  },
 }
 
 const sizeStyles: Record<Size, string> = {
   sm: 'px-3 py-1.5 text-xs gap-1.5 rounded-lg',
-  md: 'px-4 py-2    text-sm gap-2   rounded-lg',
-  lg: 'px-5 py-2.5  text-sm gap-2   rounded-lg',
+  md: 'px-4 py-2    text-sm gap-2   rounded-xl',
+  lg: 'px-5 py-2.5  text-sm gap-2   rounded-xl',
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
@@ -72,19 +73,16 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={`
           inline-flex items-center justify-center font-medium select-none
           focus:outline-none
-          focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white
+          focus-visible:ring-2 focus-visible:ring-violet-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white
           disabled:cursor-not-allowed
           ${!isDisabled ? 'btn-physics' : ''}
+          ${variant === 'primary' && !isDisabled ? 'btn-shimmer' : ''}
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${className}
         `}
         style={{
-          /* Press-physics shadows are animated via CSS btn-physics class.
-             Box-shadow is set here and overridden with :hover/:active in CSS. */
-          boxShadow: isDisabled ? 'none' : variantShadow[variant],
-          /* Pass a CSS var so the hover rule can override it */
-          ['--btn-hover-shadow' as string]: variantHoverShadow[variant],
+          ...(isDisabled ? { opacity: 0.5 } : variantInlineStyle[variant]),
           ...style,
         }}
         {...props}
@@ -92,7 +90,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {loading ? (
           <Spinner
             size={size === 'sm' ? 'sm' : 'md'}
-            className={variant === 'primary' ? 'text-white/80' : 'text-slate-500'}
+            className={variant === 'primary' ? 'text-white/80' : 'text-violet-500'}
           />
         ) : (
           leftIcon

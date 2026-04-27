@@ -521,8 +521,8 @@
 }
 
 @keyframes glowPulse {
-  '0%, 100%': { box-shadow: 0 0 16px rgba(245, 158, 11, 0.08); }
-  '50%':      { box-shadow: 0 0 32px rgba(245, 158, 11, 0.22); }
+  0%, 100% { box-shadow: 0 0 16px rgba(245, 158, 11, 0.08); }
+  50%      { box-shadow: 0 0 32px rgba(245, 158, 11, 0.22); }
 }
 
 @keyframes pulseRing {

@@ -99,14 +99,20 @@
       "Bash(python -m py_compile app/services/fabric_service.py)",
       "Bash(node \"C:\\\\Users\\\\hemanth.rajan\\\\.claude\\\\plugins\\\\marketplaces\\\\impeccable\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\load-context.mjs\")",
       "Bash(node -e ':*)",
-      "Bash(node)"
+      "Bash(node)",
+      "Bash(mkdir -p .claude/skills)",
+      "Bash(unzip -o azure-hybrid-connection.skill -d .claude/skills/)",
+      "Bash(node .claude/skills/impeccable/scripts/load-context.mjs)",
+      "Bash(node \"C:\\\\Users\\\\hemanth.rajan\\\\.claude\\\\plugins\\\\marketplaces\\\\impeccable\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\load-context.mjs\" \"c:\\\\Users\\\\hemanth.rajan\\\\Documents\\\\Source_Assessment_Tool\")",
+      "Edit(/.claude/skills/3d-light-ui-transform/**)"
     ],
     "additionalDirectories": [
-      "C:\\Users\\hemanth.rajan\\.claude\\projects\\c--Users-hemanth-rajan-Documents-Source-Assessment-Tool"
+      "C:\\Users\\hemanth.rajan\\.claude\\projects\\c--Users-hemanth-rajan-Documents-Source-Assessment-Tool",
+      "c:\\Users\\hemanth.rajan\\Documents\\Source_Assessment_Tool\\.claude\\skills"
     ]
   },
   "enabledPlugins": {
-    "frontend-design@claude-code-plugins": true,
+    "frontend-design@claude-code-plugins": false,
     "impeccable@impeccable": true
   }
 }

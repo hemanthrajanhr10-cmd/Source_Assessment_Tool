@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Menu, PlusCircle, Bell } from 'lucide-react'
 import Button from '../ui/Button'
@@ -12,9 +13,7 @@ const ROUTE_LABELS: Record<string, string> = {
 }
 
 function getBreadcrumb(pathname: string): string {
-  // Exact match
   if (ROUTE_LABELS[pathname]) return ROUTE_LABELS[pathname]
-  // Detail pages
   if (pathname.startsWith('/sessions/')) return 'Session Detail'
   if (pathname.startsWith('/jobs/'))     return 'Job Detail'
   if (pathname.startsWith('/fabric/sessions/')) return 'Fabric Session Detail'
@@ -30,15 +29,46 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const location = useLocation()
   const pageTitle = getBreadcrumb(location.pathname)
 
+  /* Glass morphism activates after 60px scroll */
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const mainEl = document.querySelector('main') ?? window
+    let ticking = false
+
+    function onScroll() {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const scrollY =
+            mainEl instanceof Window
+              ? mainEl.scrollY
+              : (mainEl as Element).scrollTop
+          setScrolled(scrollY > 60)
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    mainEl.addEventListener('scroll', onScroll, { passive: true })
+    return () => mainEl.removeEventListener('scroll', onScroll)
+  }, [])
+
   return (
     <header
-      className="sticky top-0 z-20 flex items-center h-14 px-4 sm:px-6 lg:px-8 bg-white border-b border-slate-200"
-      style={{ boxShadow: '0 1px 0 0 #e2e8f0' }}
+      className={`
+        sticky top-0 z-20 flex items-center h-14 px-4 sm:px-6 lg:px-8
+        bg-white border-b border-slate-200/80
+        transition-[background,backdrop-filter,box-shadow,border-color]
+        duration-300
+        ${scrolled ? 'glass-nav' : ''}
+      `}
     >
       {/* Mobile hamburger */}
       <button
         onClick={onMenuClick}
-        className="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors mr-3"
+        className="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700
+                   transition-colors mr-3 focus-visible:ring-2 focus-visible:ring-amber-500/40"
         aria-label="Open navigation"
       >
         <Menu className="h-5 w-5" />
@@ -53,9 +83,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
       {/* Right actions */}
       <div className="flex items-center gap-2 shrink-0">
-        {/* Notification placeholder — visual weight only */}
         <button
-          className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors relative"
+          className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600
+                     transition-colors relative focus-visible:ring-2 focus-visible:ring-amber-500/40"
           aria-label="Notifications"
           title="Notifications"
         >

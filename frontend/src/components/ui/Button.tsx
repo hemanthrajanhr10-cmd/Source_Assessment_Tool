@@ -16,13 +16,11 @@ const variantStyles: Record<Variant, string> = {
   primary: [
     'bg-amber-500 text-white font-semibold',
     'hover:bg-amber-600',
-    'shadow-sm hover:shadow-md hover:shadow-amber-200/60',
     'disabled:opacity-40',
   ].join(' '),
   secondary: [
     'bg-white text-slate-700 border border-slate-300',
     'hover:bg-slate-50 hover:text-slate-900 hover:border-slate-400',
-    'shadow-sm',
     'disabled:opacity-40',
   ].join(' '),
   ghost: [
@@ -33,9 +31,24 @@ const variantStyles: Record<Variant, string> = {
   danger: [
     'bg-red-50 text-red-600 border border-red-200',
     'hover:bg-red-100 hover:text-red-700 hover:border-red-300',
-    'shadow-sm',
     'disabled:opacity-40',
   ].join(' '),
+}
+
+/* Resting box-shadows per variant */
+const variantShadow: Record<Variant, string> = {
+  primary:   'var(--elevation-2), var(--elevation-border-1)',
+  secondary: 'var(--elevation-1), var(--elevation-border-1)',
+  ghost:     'none',
+  danger:    'var(--elevation-1), var(--elevation-border-1)',
+}
+
+/* Hover box-shadows per variant (applied via CSS, not JS) */
+const variantHoverShadow: Record<Variant, string> = {
+  primary:   'var(--elevation-3)',
+  secondary: 'var(--elevation-2)',
+  ghost:     'none',
+  danger:    'var(--elevation-2)',
 }
 
 const sizeStyles: Record<Size, string> = {
@@ -45,22 +58,35 @@ const sizeStyles: Record<Size, string> = {
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'primary', size = 'md', loading, leftIcon, rightIcon, children, className = '', disabled, ...props }, ref) => {
+  (
+    { variant = 'primary', size = 'md', loading, leftIcon, rightIcon,
+      children, className = '', disabled, style, ...props },
+    ref
+  ) => {
     const isDisabled = disabled || loading
+
     return (
       <button
         ref={ref}
         disabled={isDisabled}
         className={`
-          inline-flex items-center justify-center font-medium
-          transition-all duration-200 cursor-pointer
-          focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white
-          disabled:cursor-not-allowed select-none
-          ${!isDisabled ? 'active:scale-[0.97]' : ''}
+          inline-flex items-center justify-center font-medium select-none
+          focus:outline-none
+          focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white
+          disabled:cursor-not-allowed
+          ${!isDisabled ? 'btn-physics' : ''}
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${className}
         `}
+        style={{
+          /* Press-physics shadows are animated via CSS btn-physics class.
+             Box-shadow is set here and overridden with :hover/:active in CSS. */
+          boxShadow: isDisabled ? 'none' : variantShadow[variant],
+          /* Pass a CSS var so the hover rule can override it */
+          ['--btn-hover-shadow' as string]: variantHoverShadow[variant],
+          ...style,
+        }}
         {...props}
       >
         {loading ? (
@@ -75,7 +101,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {!loading && rightIcon}
       </button>
     )
-  },
+  }
 )
 
 Button.displayName = 'Button'

@@ -104,7 +104,9 @@
       "Bash(unzip -o azure-hybrid-connection.skill -d .claude/skills/)",
       "Bash(node .claude/skills/impeccable/scripts/load-context.mjs)",
       "Bash(node \"C:\\\\Users\\\\hemanth.rajan\\\\.claude\\\\plugins\\\\marketplaces\\\\impeccable\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\load-context.mjs\" \"c:\\\\Users\\\\hemanth.rajan\\\\Documents\\\\Source_Assessment_Tool\")",
-      "Edit(/.claude/skills/3d-light-ui-transform/**)"
+      "Edit(/.claude/skills/3d-light-ui-transform/**)",
+      "Bash(gh run:*)",
+      "Bash(gh auth:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\hemanth.rajan\\.claude\\projects\\c--Users-hemanth-rajan-Documents-Source-Assessment-Tool",

@@ -14,26 +14,26 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantStyles: Record<Variant, string> = {
   primary: [
-    'bg-amber-500 text-zinc-950 font-semibold',
-    'hover:bg-amber-400',
-    'shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)]',
-    'hover:shadow-[0_4px_16px_rgba(245,158,11,0.3)]',
+    'bg-indigo-600 text-white font-semibold',
+    'hover:bg-indigo-700',
+    'shadow-sm hover:shadow-md hover:shadow-indigo-200/60',
     'disabled:opacity-40',
   ].join(' '),
   secondary: [
-    'bg-zinc-800 text-zinc-200 border border-zinc-700/80',
-    'hover:bg-zinc-700 hover:text-zinc-100 hover:border-zinc-600',
-    'shadow-[0_1px_2px_rgba(0,0,0,0.3)]',
+    'bg-white text-slate-700 border border-slate-300',
+    'hover:bg-slate-50 hover:text-slate-900 hover:border-slate-400',
+    'shadow-sm',
     'disabled:opacity-40',
   ].join(' '),
   ghost: [
-    'text-zinc-400',
-    'hover:text-zinc-100 hover:bg-zinc-800/60',
+    'text-slate-600',
+    'hover:text-slate-900 hover:bg-slate-100',
     'disabled:opacity-40',
   ].join(' '),
   danger: [
-    'bg-red-500/10 text-red-400 border border-red-500/20',
-    'hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40',
+    'bg-red-50 text-red-600 border border-red-200',
+    'hover:bg-red-100 hover:text-red-700 hover:border-red-300',
+    'shadow-sm',
     'disabled:opacity-40',
   ].join(' '),
 }
@@ -54,7 +54,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={`
           inline-flex items-center justify-center font-medium
           transition-all duration-200 cursor-pointer
-          focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white
           disabled:cursor-not-allowed select-none active:scale-[0.97]
           ${variantStyles[variant]}
           ${sizeStyles[size]}
@@ -63,7 +63,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading ? (
-          <Spinner size={size === 'sm' ? 'sm' : 'md'} className={variant === 'primary' ? 'text-zinc-900' : 'text-zinc-400'} />
+          <Spinner
+            size={size === 'sm' ? 'sm' : 'md'}
+            className={variant === 'primary' ? 'text-white/80' : 'text-slate-500'}
+          />
         ) : (
           leftIcon
         )}

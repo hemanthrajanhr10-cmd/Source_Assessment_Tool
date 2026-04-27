@@ -7,4 +7,8 @@ reports/
 *.xlsx
 *.docx
 generate_docs.py
-generate_code_docs.py
+*.log
+DESIGN.json
+DESIGN.md
+PRODUCT.md
+SAT_Presentation_Content.txt

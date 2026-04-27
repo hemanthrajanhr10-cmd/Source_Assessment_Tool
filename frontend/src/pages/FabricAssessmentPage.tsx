@@ -250,11 +250,11 @@ export default function FabricAssessmentPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-zinc-50 font-display flex items-center gap-2.5">
-          <Zap className="h-6 w-6 text-amber-400" />
+        <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-2.5">
+          <Zap className="h-6 w-6 text-indigo-500" />
           Fabric Workspace Assessment
         </h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-slate-500">
           Assess Power BI / Fabric workspaces — semantic models, reports, measures, and complexity.
         </p>
       </div>
@@ -263,21 +263,21 @@ export default function FabricAssessmentPage() {
 
         {/* ── Step 1 — Sign in ─────────────────────────────────────────────── */}
         <div className={`card overflow-hidden border-2 transition-colors ${
-          !authDone ? 'border-amber-500/30' : 'border-zinc-800/70'
+          !authDone ? 'border-indigo-300' : 'border-slate-200'
         }`}>
-          <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-800/60 bg-zinc-900/60">
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
             <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold
-              ${authDone ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-zinc-950'}`}>
+              ${authDone ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'}`}>
               {authDone ? <CheckCircle2 className="h-4 w-4" /> : '1'}
             </span>
-            <h2 className="text-sm font-semibold text-zinc-100">Sign in with Microsoft</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Sign in with Microsoft</h2>
           </div>
           <div className="p-6">
             {step === 'start' && (
               <div className="space-y-4">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-slate-500">
                   Click below to start a secure Microsoft device-code login. You will be given a short
-                  code to enter at <strong className="text-zinc-300">microsoft.com/devicelogin</strong>.
+                  code to enter at <strong className="text-slate-700">microsoft.com/devicelogin</strong>.
                   No passwords are stored — the token is held in memory only for this session.
                 </p>
                 <Button leftIcon={<MonitorSmartphone className="h-4 w-4" />} onClick={handleStartAuth}>
@@ -287,44 +287,44 @@ export default function FabricAssessmentPage() {
             )}
 
             {step === 'waiting' && !userCode && (
-              <div className="flex items-center gap-3 text-sm text-zinc-400">
-                <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+              <div className="flex items-center gap-3 text-sm text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
                 Requesting device code from Microsoft…
               </div>
             )}
 
             {step === 'waiting' && userCode && (
               <div className="space-y-4">
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-slate-500">
                   Open the link below in any browser and enter the code to authenticate:
                 </p>
                 <a
                   href={verificationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm font-medium text-amber-400 hover:text-amber-300 hover:underline transition-colors"
+                  className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
                 >
                   <ExternalLink className="h-4 w-4 shrink-0" />
                   {verificationUrl}
                 </a>
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 rounded-xl border-2 border-amber-500/30 bg-amber-500/5 px-5 py-3 text-center">
-                    <p className="text-xs text-amber-500/70 font-medium mb-0.5">Your code</p>
-                    <p className="text-2xl font-mono font-bold tracking-widest text-amber-400">{userCode}</p>
+                  <div className="flex-1 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-5 py-3 text-center">
+                    <p className="text-xs text-indigo-500/70 font-medium mb-0.5">Your code</p>
+                    <p className="text-2xl font-mono font-bold tracking-widest text-indigo-600">{userCode}</p>
                   </div>
                   <button
                     onClick={handleCopy}
-                    className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg border border-zinc-700 text-xs text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300 transition-colors"
+                    className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 transition-colors"
                   >
                     <Copy className="h-4 w-4" />
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-zinc-500">
+                <div className="flex items-center gap-2 text-sm text-slate-500">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Waiting for you to sign in…
                   {expiresAt && (
-                    <span className="text-xs text-zinc-600">
+                    <span className="text-xs text-slate-400">
                       (expires {formatTime(expiresAt)})
                     </span>
                   )}
@@ -333,7 +333,7 @@ export default function FabricAssessmentPage() {
             )}
 
             {authDone && (
-              <div className="flex items-center gap-2 text-sm text-emerald-400">
+              <div className="flex items-center gap-2 text-sm text-emerald-700">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 Successfully authenticated with Microsoft
               </div>
@@ -344,16 +344,16 @@ export default function FabricAssessmentPage() {
         {/* ── Step 2 — Select Workspaces ───────────────────────────────────── */}
         {(step === 'picking' || wsDone) && (
           <div className={`card overflow-hidden border-2 transition-colors ${
-            !wsDone ? 'border-amber-500/30' : 'border-zinc-800/70'
+            !wsDone ? 'border-indigo-300' : 'border-slate-200'
           }`}>
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-800/60 bg-zinc-900/60">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
               <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold
-                ${wsDone ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-zinc-950'}`}>
+                ${wsDone ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'}`}>
                 {wsDone ? <CheckCircle2 className="h-4 w-4" /> : '2'}
               </span>
-              <h2 className="text-sm font-semibold text-zinc-100">Select Workspaces</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Select Workspaces</h2>
               {selectedWsIds.size > 0 && (
-                <span className="ml-auto text-xs text-amber-400 font-medium">
+                <span className="ml-auto text-xs text-indigo-600 font-medium">
                   {selectedWsIds.size} selected
                 </span>
               )}
@@ -361,24 +361,24 @@ export default function FabricAssessmentPage() {
 
             <div className="p-6 space-y-4">
               {workspacesLoading ? (
-                <div className="flex items-center gap-3 text-sm text-zinc-400">
-                  <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+                <div className="flex items-center gap-3 text-sm text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
                   Loading accessible workspaces…
                 </div>
               ) : wsDone ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-400">
+                <div className="flex items-center gap-2 text-sm text-emerald-700">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                   {selectedWsIds.size} workspace{selectedWsIds.size !== 1 ? 's' : ''} selected
                 </div>
               ) : (
                 <>
                   {workspaces.length === 0 ? (
-                    <p className="text-sm text-zinc-500">No accessible workspaces found for this account.</p>
+                    <p className="text-sm text-slate-500">No accessible workspaces found for this account.</p>
                   ) : (
                     <>
                       <div className="flex items-center gap-3">
                         <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
                           <input
                             type="text"
                             className="form-input pl-9 py-1.5 text-sm"
@@ -389,7 +389,7 @@ export default function FabricAssessmentPage() {
                         </div>
                         <button
                           onClick={toggleAllWorkspaces}
-                          className="shrink-0 text-xs text-amber-400 hover:text-amber-300 hover:underline font-medium transition-colors"
+                          className="shrink-0 text-xs text-indigo-600 hover:text-indigo-700 hover:underline font-medium transition-colors"
                         >
                           {filteredWorkspaces.every(w => selectedWsIds.has(w.id))
                             ? 'Deselect all'
@@ -397,22 +397,22 @@ export default function FabricAssessmentPage() {
                         </button>
                       </div>
 
-                      <div className="max-h-72 overflow-y-auto rounded-xl border border-zinc-800/50 divide-y divide-zinc-800/40">
+                      <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-50">
                         {filteredWorkspaces.map(ws => (
                           <label
                             key={ws.id}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/30 cursor-pointer transition-colors"
+                            className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors"
                           >
                             <input
                               type="checkbox"
-                              className="h-4 w-4 rounded border-zinc-600 text-amber-500 focus:ring-amber-500/50 bg-zinc-800"
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/50 bg-white"
                               checked={selectedWsIds.has(ws.id)}
                               onChange={() => toggleWorkspace(ws.id)}
                             />
-                            <Building2 className="h-4 w-4 text-zinc-500 shrink-0" />
+                            <Building2 className="h-4 w-4 text-slate-500 shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-zinc-200 truncate">{ws.name}</p>
-                              <div className="flex items-center gap-3 mt-0.5 text-xs text-zinc-500">
+                              <p className="text-sm font-medium text-slate-800 truncate">{ws.name}</p>
+                              <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
                                 <span className="flex items-center gap-1">
                                   <Database className="h-3 w-3" />
                                   {ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''}
@@ -422,7 +422,7 @@ export default function FabricAssessmentPage() {
                                   {ws.report_count} report{ws.report_count !== 1 ? 's' : ''}
                                 </span>
                                 {ws.state !== 'Active' && (
-                                  <span className="text-amber-500">{ws.state}</span>
+                                  <span className="text-indigo-500">{ws.state}</span>
                                 )}
                               </div>
                             </div>
@@ -430,7 +430,7 @@ export default function FabricAssessmentPage() {
                         ))}
 
                         {filteredWorkspaces.length === 0 && (
-                          <div className="px-4 py-6 text-center text-sm text-zinc-600">
+                          <div className="px-4 py-6 text-center text-sm text-slate-400">
                             No workspaces match "{wsFilter}"
                           </div>
                         )}
@@ -455,16 +455,16 @@ export default function FabricAssessmentPage() {
         {/* ── Step 3 — Select Models & Reports ────────────────────────────── */}
         {(step === 'picking-items' || itemsDone) && (
           <div className={`card overflow-hidden border-2 transition-colors ${
-            !itemsDone ? 'border-amber-500/30' : 'border-zinc-800/70'
+            !itemsDone ? 'border-indigo-300' : 'border-slate-200'
           }`}>
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-800/60 bg-zinc-900/60">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
               <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold
-                ${itemsDone ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-zinc-950'}`}>
+                ${itemsDone ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'}`}>
                 {itemsDone ? <CheckCircle2 className="h-4 w-4" /> : '3'}
               </span>
-              <h2 className="text-sm font-semibold text-zinc-100">Select Models &amp; Reports</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Select Models &amp; Reports</h2>
               {selectedItemCount > 0 && (
-                <span className="ml-auto text-xs text-amber-400 font-medium">
+                <span className="ml-auto text-xs text-indigo-600 font-medium">
                   {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''},{' '}
                   {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}
                 </span>
@@ -473,12 +473,12 @@ export default function FabricAssessmentPage() {
 
             <div className="p-6 space-y-4">
               {itemsLoading ? (
-                <div className="flex items-center gap-3 text-sm text-zinc-400">
-                  <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+                <div className="flex items-center gap-3 text-sm text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
                   Loading models and reports…
                 </div>
               ) : itemsDone ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-400">
+                <div className="flex items-center gap-2 text-sm text-emerald-700">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                   {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''} and{' '}
                   {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''} selected
@@ -486,13 +486,13 @@ export default function FabricAssessmentPage() {
               ) : (
                 <>
                   {totalItems === 0 ? (
-                    <p className="text-sm text-zinc-500">No models or reports found in the selected workspaces.</p>
+                    <p className="text-sm text-slate-500">No models or reports found in the selected workspaces.</p>
                   ) : (
                     <>
                       {/* Search + global toggle */}
                       <div className="flex items-center gap-3">
                         <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
                           <input
                             type="text"
                             className="form-input pl-9 py-1.5 text-sm"
@@ -503,14 +503,14 @@ export default function FabricAssessmentPage() {
                         </div>
                         <button
                           onClick={toggleAllItems}
-                          className="shrink-0 text-xs text-amber-400 hover:text-amber-300 hover:underline font-medium transition-colors"
+                          className="shrink-0 text-xs text-indigo-600 hover:text-indigo-700 hover:underline font-medium transition-colors"
                         >
                           {allItemsSelected ? 'Deselect all' : 'Select all'}
                         </button>
                       </div>
 
                       {/* Workspace-grouped item list */}
-                      <div className="max-h-96 overflow-y-auto rounded-xl border border-zinc-800/50 divide-y divide-zinc-800/40">
+                      <div className="max-h-96 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-50">
                         {filteredItems.map(ws => {
                           const wsName     = wsNameMap[ws.workspace_id] || ws.workspace_id
                           const expanded   = expandedWorkspaces.has(ws.workspace_id)
@@ -521,31 +521,31 @@ export default function FabricAssessmentPage() {
                             <div key={ws.workspace_id}>
                               {/* Workspace header row */}
                               <button
-                                className="w-full flex items-center gap-2 px-4 py-2.5 bg-zinc-900/50 hover:bg-zinc-800/50 transition-colors text-left"
+                                className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-100/60 hover:bg-slate-100 transition-colors text-left"
                                 onClick={() => toggleWsExpand(ws.workspace_id)}
                               >
                                 {expanded
-                                  ? <ChevronDown className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                  : <ChevronRight className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                                  ? <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                                  : <ChevronRight className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                                 }
-                                <Building2 className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-                                <span className="flex-1 text-xs font-semibold text-zinc-300 truncate">{wsName}</span>
-                                <span className="text-xs text-zinc-600">
+                                <Building2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                                <span className="flex-1 text-xs font-semibold text-slate-700 truncate">{wsName}</span>
+                                <span className="text-xs text-slate-400">
                                   {dsSelected}/{ws.datasets.length} models · {rptSelected}/{ws.reports.length} reports
                                 </span>
                               </button>
 
                               {expanded && (
-                                <div className="divide-y divide-zinc-800/30">
+                                <div className="divide-y divide-slate-200">
                                   {/* Models sub-section */}
                                   {ws.datasets.length > 0 && (
                                     <div>
-                                      <div className="flex items-center gap-2 px-5 py-1.5 bg-zinc-900/40">
-                                        <Database className="h-3 w-3 text-amber-500/70 shrink-0" />
-                                        <span className="text-xs font-medium text-zinc-500 flex-1">Semantic Models</span>
+                                      <div className="flex items-center gap-2 px-5 py-1.5 bg-slate-50/40">
+                                        <Database className="h-3 w-3 text-indigo-400 shrink-0" />
+                                        <span className="text-xs font-medium text-slate-500 flex-1">Semantic Models</span>
                                         <button
                                           onClick={() => toggleWorkspaceDatasets(ws)}
-                                          className="text-xs text-amber-400 hover:text-amber-300 hover:underline transition-colors"
+                                          className="text-xs text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
                                         >
                                           {ws.datasets.every(d => selectedDatasetIds.has(d.id)) ? 'Deselect' : 'Select'} all
                                         </button>
@@ -555,15 +555,15 @@ export default function FabricAssessmentPage() {
                                       ).map(ds => (
                                         <label
                                           key={ds.id}
-                                          className="flex items-center gap-3 px-6 py-2 hover:bg-zinc-800/30 cursor-pointer transition-colors"
+                                          className="flex items-center gap-3 px-6 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
                                         >
                                           <input
                                             type="checkbox"
-                                            className="h-3.5 w-3.5 rounded border-zinc-600 text-amber-500 focus:ring-amber-500/50 bg-zinc-800"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/50 bg-white"
                                             checked={selectedDatasetIds.has(ds.id)}
                                             onChange={() => toggleDataset(ds.id)}
                                           />
-                                          <span className="text-sm text-zinc-300 truncate">{ds.name}</span>
+                                          <span className="text-sm text-slate-700 truncate">{ds.name}</span>
                                         </label>
                                       ))}
                                     </div>
@@ -572,12 +572,12 @@ export default function FabricAssessmentPage() {
                                   {/* Reports sub-section */}
                                   {ws.reports.length > 0 && (
                                     <div>
-                                      <div className="flex items-center gap-2 px-5 py-1.5 bg-zinc-900/40">
+                                      <div className="flex items-center gap-2 px-5 py-1.5 bg-slate-50/40">
                                         <FileText className="h-3 w-3 text-indigo-400/70 shrink-0" />
-                                        <span className="text-xs font-medium text-zinc-500 flex-1">Reports</span>
+                                        <span className="text-xs font-medium text-slate-500 flex-1">Reports</span>
                                         <button
                                           onClick={() => toggleWorkspaceReports(ws)}
-                                          className="text-xs text-amber-400 hover:text-amber-300 hover:underline transition-colors"
+                                          className="text-xs text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
                                         >
                                           {ws.reports.every(r => selectedReportIds.has(r.id)) ? 'Deselect' : 'Select'} all
                                         </button>
@@ -587,17 +587,17 @@ export default function FabricAssessmentPage() {
                                       ).map(rpt => (
                                         <label
                                           key={rpt.id}
-                                          className="flex items-center gap-3 px-6 py-2 hover:bg-zinc-800/30 cursor-pointer transition-colors"
+                                          className="flex items-center gap-3 px-6 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
                                         >
                                           <input
                                             type="checkbox"
-                                            className="h-3.5 w-3.5 rounded border-zinc-600 text-amber-500 focus:ring-amber-500/50 bg-zinc-800"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/50 bg-white"
                                             checked={selectedReportIds.has(rpt.id)}
                                             onChange={() => toggleReport(rpt.id)}
                                           />
-                                          <span className="flex-1 text-sm text-zinc-300 truncate">{rpt.name}</span>
+                                          <span className="flex-1 text-sm text-slate-700 truncate">{rpt.name}</span>
                                           {rpt.report_type === 'PaginatedReport' && (
-                                            <span className="text-xs text-zinc-600 shrink-0">Paginated</span>
+                                            <span className="text-xs text-slate-400 shrink-0">Paginated</span>
                                           )}
                                         </label>
                                       ))}
@@ -610,7 +610,7 @@ export default function FabricAssessmentPage() {
                         })}
 
                         {filteredItems.length === 0 && (
-                          <div className="px-4 py-6 text-center text-sm text-zinc-600">
+                          <div className="px-4 py-6 text-center text-sm text-slate-400">
                             No items match "{itemFilter}"
                           </div>
                         )}
@@ -634,18 +634,18 @@ export default function FabricAssessmentPage() {
 
         {/* ── Step 4 — Label & Run ─────────────────────────────────────────── */}
         {itemsDone && (
-          <div className="card overflow-hidden border-2 border-amber-500/30">
-            <div className="flex items-center gap-3 px-6 py-4 border-b border-zinc-800/60 bg-zinc-900/60">
-              <span className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold bg-amber-500 text-zinc-950">
+          <div className="card overflow-hidden border-2 border-indigo-300">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
+              <span className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold bg-indigo-600 text-white">
                 4
               </span>
-              <h2 className="text-sm font-semibold text-zinc-100">Label &amp; Start Assessment</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Label &amp; Start Assessment</h2>
             </div>
             <div className="p-6 space-y-4">
               <div>
                 <label className="form-label">Assessment Label</label>
                 <div className="relative">
-                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
                   <input
                     type="text"
                     className="form-input pl-10"
@@ -656,14 +656,14 @@ export default function FabricAssessmentPage() {
                     disabled={step === 'submitting'}
                   />
                 </div>
-                <p className="mt-1 text-xs text-zinc-600">Optional. Used as the session name.</p>
+                <p className="mt-1 text-xs text-slate-400">Optional. Used as the session name.</p>
               </div>
-              <p className="text-sm text-zinc-400">
+              <p className="text-sm text-slate-500">
                 Will assess{' '}
-                <strong className="text-zinc-200">{selectedDatasetIds.size} semantic model{selectedDatasetIds.size !== 1 ? 's' : ''}</strong>{' '}
+                <strong className="text-slate-800">{selectedDatasetIds.size} semantic model{selectedDatasetIds.size !== 1 ? 's' : ''}</strong>{' '}
                 and{' '}
-                <strong className="text-zinc-200">{selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}</strong>{' '}
-                across <strong className="text-zinc-200">{selectedWsIds.size} workspace{selectedWsIds.size !== 1 ? 's' : ''}</strong>.
+                <strong className="text-slate-800">{selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}</strong>{' '}
+                across <strong className="text-slate-800">{selectedWsIds.size} workspace{selectedWsIds.size !== 1 ? 's' : ''}</strong>.
               </p>
               <Button
                 size="lg"
@@ -680,7 +680,7 @@ export default function FabricAssessmentPage() {
 
         {/* Error */}
         {error && (
-          <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
             <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>

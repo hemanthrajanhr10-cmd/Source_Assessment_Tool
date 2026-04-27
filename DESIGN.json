@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-04-27T00:00:00.000Z",
+  "title": "Design System: Source Assessment Tool",
+  "extensions": {
+    "colorMeta": {
+      "void-black":               { "role": "neutral",   "displayName": "Void Black",               "canonical": "#09090b", "tonalRamp": ["#09090b", "#0f0f11", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa"] },
+      "charcoal-surface":         { "role": "neutral",   "displayName": "Charcoal Surface",         "canonical": "#18181b", "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8"] },
+      "charcoal-raised":          { "role": "neutral",   "displayName": "Charcoal Raised",          "canonical": "#27272a", "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8"] },
+      "charcoal-border":          { "role": "neutral",   "displayName": "Charcoal Border",          "canonical": "#3f3f46", "tonalRamp": ["#09090b", "#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8"] },
+      "ash-primary":              { "role": "neutral",   "displayName": "Ash Primary",              "canonical": "#f4f4f5", "tonalRamp": ["#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#f4f4f5", "#fafafa", "#ffffff", "#ffffff"] },
+      "ash-secondary":            { "role": "neutral",   "displayName": "Ash Secondary",            "canonical": "#a1a1aa", "tonalRamp": ["#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7", "#f4f4f5"] },
+      "ash-muted":                { "role": "neutral",   "displayName": "Ash Muted",                "canonical": "#71717a", "tonalRamp": ["#18181b", "#27272a", "#3f3f46", "#52525b", "#71717a", "#a1a1aa", "#d4d4d8", "#e4e4e7"] },
+      "intelligence-amber":       { "role": "primary",   "displayName": "Intelligence Amber",       "canonical": "#f59e0b", "tonalRamp": ["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a"] },
+      "intelligence-amber-bright":{ "role": "primary",   "displayName": "Intelligence Amber Bright","canonical": "#fbbf24", "tonalRamp": ["#78350f", "#92400e", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fcd34d", "#fde68a"] },
+      "status-emerald":           { "role": "tertiary",  "displayName": "Status Emerald",           "canonical": "#34d399", "tonalRamp": ["#064e3b", "#065f46", "#047857", "#059669", "#10b981", "#34d399", "#6ee7b7", "#a7f3d0"] },
+      "status-red":               { "role": "tertiary",  "displayName": "Status Red",               "canonical": "#f87171", "tonalRamp": ["#7f1d1d", "#991b1b", "#b91c1c", "#dc2626", "#ef4444", "#f87171", "#fca5a5", "#fecaca"] },
+      "status-blue":              { "role": "tertiary",  "displayName": "Status Blue",              "canonical": "#60a5fa", "tonalRamp": ["#1e3a5f", "#1e40af", "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display",  "purpose": "Page titles and primary session or job headings. One per primary view." },
+      "headline": { "displayName": "Headline", "purpose": "Section headers, panel titles, modal headings." },
+      "title":    { "displayName": "Title",    "purpose": "Sub-section headers, expandable panel titles, table column groups." },
+      "body":     { "displayName": "Body",     "purpose": "All description text and prose content. Maximum line length: 70ch." },
+      "label":    { "displayName": "Label",    "purpose": "Form field labels, section category tags, data table column headers. Instrument panel markings." },
+      "mono":     { "displayName": "Mono",     "purpose": "All numeric metric values, connection strings, host names, query output, and system-discovered data." }
+    },
+    "shadows": [
+      { "name": "card-ambient",    "value": "0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.03)", "purpose": "Applied to all card and panel surfaces at rest. Structural, always present." },
+      { "name": "card-elevated",   "value": "0 4px 12px rgba(0,0,0,0.45), 0 2px 4px rgba(0,0,0,0.3)",                                        "purpose": "Hover state elevation for interactive card surfaces." },
+      { "name": "glow-amber",      "value": "0 0 24px rgba(245,158,11,0.18)",                                                                  "purpose": "Applied to the single active primary action element per view." },
+      { "name": "glow-amber-strong","value": "0 0 48px rgba(245,158,11,0.3)",                                                                  "purpose": "Progress completion states and prominent empty-state CTAs." },
+      { "name": "dropdown",        "value": "0 8px 32px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)",                                          "purpose": "Floating menus and autocomplete panels." },
+      { "name": "inner-highlight", "value": "inset 0 1px 0 rgba(255,255,255,0.05)",                                                            "purpose": "Top-edge material cue on card and surface containers." }
+    ],
+    "motion": [
+      { "name": "ease-out-standard",  "value": "cubic-bezier(0.16, 1, 0.3, 1)",   "purpose": "Slide-up and slide-in entrances. Fast in, graceful out." },
+      { "name": "ease-out-state",     "value": "cubic-bezier(0.4, 0, 0.2, 1)",    "purpose": "State transitions: hover, focus, active. 150-200ms." },
+      { "name": "ease-out-fade",      "value": "ease-out",                         "purpose": "Opacity fades and fade-in entrances. 350ms." },
+      { "name": "duration-fast",      "value": "150ms",                            "purpose": "Hover and micro-interactions." },
+      { "name": "duration-standard",  "value": "200ms",                            "purpose": "State changes, color transitions." },
+      { "name": "duration-enter",     "value": "350-400ms",                        "purpose": "Page and panel entrance animations." }
+    ],
+    "breakpoints": [
+      { "name": "sm",  "value": "640px" },
+      { "name": "md",  "value": "768px" },
+      { "name": "lg",  "value": "1024px" },
+      { "name": "xl",  "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action. Used for assessment submission, confirmation, and key navigation.",
+      "html": "<button class=\"ds-btn-primary\"><svg class=\"ds-btn-icon\" viewBox=\"0 0 16 16\" fill=\"none\"><path d=\"M8 3v10M3 8h10\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>New Assessment</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #f59e0b; color: #09090b; font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15); transition: background 150ms ease-out, box-shadow 150ms ease-out, transform 100ms ease-out; user-select: none; } .ds-btn-primary:hover { background: #fbbf24; box-shadow: 0 4px 16px rgba(245,158,11,0.3); } .ds-btn-primary:focus-visible { outline: 2px solid rgba(245,158,11,0.5); outline-offset: 2px; } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; } .ds-btn-icon { width: 14px; height: 14px; flex-shrink: 0; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary action. Used alongside primary buttons or for less prominent actions.",
+      "html": "<button class=\"ds-btn-secondary\">View Sessions</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #27272a; color: #f4f4f5; font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; padding: 8px 16px; border: 1px solid #3f3f46; border-radius: 8px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.3); transition: background 150ms ease-out, border-color 150ms ease-out; } .ds-btn-secondary:hover { background: #303033; border-color: #52525b; color: #fafafa; } .ds-btn-secondary:focus-visible { outline: 2px solid rgba(245,158,11,0.5); outline-offset: 2px; } .ds-btn-secondary:active { transform: scale(0.97); } .ds-btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Tertiary action. Used for in-context controls where a bordered button would add noise.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: transparent; color: #a1a1aa; font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; padding: 8px 12px; border: none; border-radius: 8px; cursor: pointer; transition: background 150ms ease-out, color 150ms ease-out; } .ds-btn-ghost:hover { background: rgba(39,39,42,0.6); color: #f4f4f5; } .ds-btn-ghost:focus-visible { outline: 2px solid rgba(245,158,11,0.5); outline-offset: 2px; } .ds-btn-ghost:active { transform: scale(0.97); } .ds-btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Status Badge — Success",
+      "kind": "chip",
+      "refersTo": "badge-success",
+      "description": "Indicates a completed or successful state. Always icon-paired.",
+      "html": "<span class=\"ds-badge ds-badge-success\"><svg class=\"ds-badge-icon\" viewBox=\"0 0 12 12\" fill=\"none\"><path d=\"M2 6l2.5 2.5L10 3.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>Completed</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 9999px; font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.6875rem; font-weight: 500; } .ds-badge-icon { width: 12px; height: 12px; flex-shrink: 0; } .ds-badge-success { background: rgba(52,211,153,0.10); color: #34d399; box-shadow: 0 0 0 1px rgba(52,211,153,0.20); } .ds-badge-error { background: rgba(248,113,113,0.10); color: #f87171; box-shadow: 0 0 0 1px rgba(248,113,113,0.20); } .ds-badge-info { background: rgba(96,165,250,0.10); color: #60a5fa; box-shadow: 0 0 0 1px rgba(96,165,250,0.20); } .ds-badge-warning { background: rgba(245,158,11,0.10); color: #f59e0b; box-shadow: 0 0 0 1px rgba(245,158,11,0.20); } .ds-badge-neutral { background: rgba(39,39,42,0.80); color: #a1a1aa; box-shadow: 0 0 0 1px rgba(63,63,70,0.50); }"
+    },
+    {
+      "name": "Standard Card",
+      "kind": "card",
+      "refersTo": "button-primary",
+      "description": "Primary content container. Used for assessment panels, session details, and section groupings.",
+      "html": "<div class=\"ds-card\"><p class=\"ds-card-label\">Assessment Results</p><p class=\"ds-card-body\">Connected to PROD-SQL-01. Found 342 tables across 4 databases. Complexity score: 78/100.</p></div>",
+      "css": ".ds-card { background: #18181b; border: 1px solid rgba(39,39,42,0.70); border-radius: 12px; padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.03); } .ds-card-label { font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #71717a; margin: 0 0 12px 0; } .ds-card-body { font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.875rem; font-weight: 400; color: #a1a1aa; line-height: 1.6; margin: 0; max-width: 70ch; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "button-ghost",
+      "description": "Standard form field. Used for server host, port, credentials, and configuration.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-input-host\">Host</label><input class=\"ds-input\" id=\"ds-input-host\" type=\"text\" placeholder=\"sql-prod-01.corp.local\" /></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; } .ds-field-label { font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #71717a; } .ds-input { font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.875rem; font-weight: 400; color: #f4f4f5; background: rgba(24,24,27,0.70); border: 1px solid #27272a; border-radius: 8px; padding: 10px 14px; width: 100%; box-shadow: inset 0 1px 2px rgba(0,0,0,0.20); transition: border-color 150ms ease-out, box-shadow 150ms ease-out; } .ds-input::placeholder { color: #52525b; } .ds-input:focus { outline: none; border-color: rgba(245,158,11,0.60); box-shadow: 0 0 0 3px rgba(245,158,11,0.10), inset 0 1px 2px rgba(0,0,0,0.20); } .ds-input:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Navigation Item",
+      "kind": "nav",
+      "refersTo": "button-ghost",
+      "description": "Top navigation link. Active state uses amber fill and border.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-active\" href=\"#\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 14 14\" fill=\"none\"><path d=\"M1 7l6-5 6 5M2.5 6v5.5h3v-3h3v3h3V6\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>Sessions</a><a class=\"ds-nav-item\" href=\"#\"><svg class=\"ds-nav-icon\" viewBox=\"0 0 14 14\" fill=\"none\"><path d=\"M2 4h10M2 7h10M2 10h6\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linecap=\"round\"/></svg>Jobs</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 2px; } .ds-nav-item { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.75rem; font-weight: 500; color: #71717a; text-decoration: none; border: 1px solid transparent; transition: color 150ms ease-out, background 150ms ease-out, border-color 150ms ease-out; } .ds-nav-item:hover { color: #e4e4e7; background: rgba(39,39,42,0.50); } .ds-nav-active { color: #f59e0b !important; background: rgba(245,158,11,0.10) !important; border-color: rgba(245,158,11,0.20) !important; } .ds-nav-icon { width: 14px; height: 14px; flex-shrink: 0; }"
+    },
+    {
+      "name": "Data Table Row",
+      "kind": "custom",
+      "refersTo": "button-ghost",
+      "description": "Assessment output table. Primary surface for discovered schema, metrics, and findings.",
+      "html": "<div class=\"ds-table-wrap\"><table class=\"ds-table\"><thead><tr><th class=\"ds-th\">Table Name</th><th class=\"ds-th ds-th-right\">Row Count</th><th class=\"ds-th ds-th-right\">Columns</th><th class=\"ds-th\">Status</th></tr></thead><tbody><tr class=\"ds-tr\"><td class=\"ds-td\"><span class=\"ds-mono\">dbo.Customers</span></td><td class=\"ds-td ds-td-right\"><span class=\"ds-mono\">1,482,943</span></td><td class=\"ds-td ds-td-right\"><span class=\"ds-mono\">34</span></td><td class=\"ds-td\"><span class=\"ds-badge ds-badge-success\"><svg class=\"ds-badge-icon\" viewBox=\"0 0 12 12\" fill=\"none\"><path d=\"M2 6l2.5 2.5L10 3.5\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>Analyzed</span></td></tr><tr class=\"ds-tr\"><td class=\"ds-td\"><span class=\"ds-mono\">dbo.Orders</span></td><td class=\"ds-td ds-td-right\"><span class=\"ds-mono\">28,104,012</span></td><td class=\"ds-td ds-td-right\"><span class=\"ds-mono\">19</span></td><td class=\"ds-td\"><span class=\"ds-badge ds-badge-warning\"><svg class=\"ds-badge-icon\" viewBox=\"0 0 12 12\" fill=\"none\"><path d=\"M6 3v4M6 9h.01\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>Warning</span></td></tr></tbody></table></div>",
+      "css": ".ds-table-wrap { background: #18181b; border: 1px solid #27272a; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03); } .ds-table { width: 100%; border-collapse: collapse; font-family: 'DM Sans', system-ui, sans-serif; } .ds-th { padding: 10px 16px; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #71717a; text-align: left; border-bottom: 1px solid #27272a; white-space: nowrap; } .ds-th-right { text-align: right; } .ds-tr:hover td { background: rgba(39,39,42,0.30); } .ds-td { padding: 11px 16px; font-size: 0.875rem; color: #a1a1aa; border-bottom: 1px solid rgba(39,39,42,0.60); transition: background 150ms ease-out; } .ds-td-right { text-align: right; } .ds-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: #d4d4d8; } .ds-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 9999px; font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.6875rem; font-weight: 500; } .ds-badge-icon { width: 12px; height: 12px; flex-shrink: 0; } .ds-badge-success { background: rgba(52,211,153,0.10); color: #34d399; box-shadow: 0 0 0 1px rgba(52,211,153,0.20); } .ds-badge-warning { background: rgba(245,158,11,0.10); color: #f59e0b; box-shadow: 0 0 0 1px rgba(245,158,11,0.20); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Intelligence Brief",
+    "overview": "SAT's visual language is structured like a classified intelligence report: dense with fact, stripped of decoration, formatted for rapid scanning under pressure. A consultant sharing their screen with a client's data team doesn't need the UI to impress anyone. It needs to project that every number on screen is real, defensible, and arrived at by a system that knew exactly what it was looking for.\n\nThe dark surface (void-black base, #09090b) earns its keep. SAT is operated in meeting rooms and on shared screens where ambient-lit SaaS gradients would signal \"beta tool.\" The near-black ground with precise amber signals reads as instrumentation. Surfaces layer from void to surface to raised, each step carrying its own containment logic.\n\nAmber is the intelligence signal. It marks brand identity, active navigation states, primary actions, and interactive affordances. It appears deliberately. The rest of the palette is disciplined grey and semantic status color only.",
+    "keyCharacteristics": [
+      "Three-tier dark surface system (void-black, charcoal-surface, charcoal-raised)",
+      "Single accent color (intelligence-amber) carrying both identity and interactivity",
+      "Syne display type: geometric weight, technical confidence",
+      "DM Sans body type: humanist warmth that holds up across dense data tables",
+      "JetBrains Mono for all numeric and technical data output",
+      "Status signals use icon plus color always; color is never the sole signal",
+      "Shadows are structural: depth communicates containment, not just state"
+    ],
+    "rules": [
+      { "name": "The Signal Rule",             "body": "Intelligence-amber is the only accent hue in the system. It shares no stage with secondary brand colors, decorative gradients, or other hue families. When amber appears, it means something.",                                                    "section": "colors" },
+      { "name": "The Icon-Plus-Color Rule",     "body": "Every status signal uses an icon alongside the color. No state is communicated by color alone. Success is emerald plus CheckCircle. Error is red plus XCircle. Running is blue plus Loader2. Cancelled is zinc plus StopCircle.", "section": "colors" },
+      { "name": "The Mono Data Rule",           "body": "All numeric values in data tables, metric displays, connection strings, and query outputs use JetBrains Mono with font-variant-numeric: tabular-nums. Non-monospace rendering of tabular data is a readability failure.",          "section": "typography" },
+      { "name": "The Label-as-Instrument Rule", "body": "Form labels are written as instrument panel markings: short, uppercase, minimal. HOST not Enter the server host name. PORT not What port should we connect on? The tool speaks in the user's register.",                        "section": "typography" },
+      { "name": "The Structural Depth Rule",    "body": "Containers carry their ambient shadow at rest. Shadows in SAT indicate structure and containment, not interaction state alone. An unshadowed card is a design error.",                                                             "section": "elevation" },
+      { "name": "The Glow Discipline Rule",     "body": "Amber glow is applied to exactly one primary interactive element per view. Its rarity is what makes it directional. Multiple glowing elements cancel each other out.",                                                           "section": "elevation" },
+      { "name": "The No-Nested-Cards Rule",     "body": "Cards never contain cards. Sub-sections within a card use dividers, tonal background shifts, or section labels, not nested card components.",                                                                                     "section": "components" }
+    ],
+    "dos": [
+      "Do use intelligence-amber only for brand identity, active/selected states, primary CTAs, and focus rings. Its rarity is the signal.",
+      "Do pair every status color with a matching icon. Color is never the sole signal for status.",
+      "Do use JetBrains Mono with tabular-nums for all numeric and technical data in tables and metric displays.",
+      "Do use rounded-xl (12px) for card containers and rounded-lg (8px) for controls. Keep the hierarchy consistent.",
+      "Do allow surfaces to carry their ambient shadow at rest. Depth is structural here, not earned by hover alone.",
+      "Do write form labels as instrument markings: short, uppercase, direct.",
+      "Do keep body text within 70ch line length on description and explanation copy.",
+      "Do use the three-tier surface system (void, surface, raised) to communicate containment before adding any other visual treatment."
+    ],
+    "donts": [
+      "Don't use hero-metric templates: big number, small label, gradient accent background, surrounding stats.",
+      "Don't use gradient text (no background-clip: text with a gradient fill). The .text-gradient-amber utility in index.css is a legacy helper; do not use it in new components.",
+      "Don't use side-stripe borders (no border-left or border-right greater than 1px) as colored accents on cards, list items, callouts, or alerts.",
+      "Don't nest cards inside cards. Ever. Dividers and tonal shifts handle internal card structure.",
+      "Don't build cluttered data grids: every table needs column hierarchy, consistent null handling, row hover states, and breathing room above the first data row.",
+      "Don't use rounded corners beyond rounded-xl (12px) for containers. Pill-shaped containers signal consumer applications, not intelligence tooling.",
+      "Don't write playful or cheerful empty states. Empty state copy is informative and direct.",
+      "Don't use glassmorphism decoratively. The glass card surface exists for overlays and floating panels only.",
+      "Don't reach for a modal as the first solution. Inline expansion and contextual detail views handle most cases without blocking the primary view.",
+      "Don't apply amber glow to more than one element per view. Competing glows lose all directional value.",
+      "Don't let status colors appear without their paired icon. A red badge with no icon is inaccessible and ambiguous."
+    ]
+  }
+}

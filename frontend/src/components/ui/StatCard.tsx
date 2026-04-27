@@ -4,6 +4,7 @@ interface StatCardProps {
   icon?: React.ReactNode
   sub?: string
   accent?: string
+  trend?: 'up' | 'down' | 'neutral'
 }
 
 export default function StatCard({
@@ -11,7 +12,7 @@ export default function StatCard({
   value,
   icon,
   sub,
-  accent = 'bg-amber-500/10 text-amber-400',
+  accent = 'bg-indigo-50 text-indigo-600',
 }: StatCardProps) {
   const strValue = typeof value === 'number' ? value.toLocaleString() : String(value)
   const valueFontClass =
@@ -21,21 +22,21 @@ export default function StatCard({
     strValue.length > 5  ? 'text-xl'   : 'text-2xl'
 
   return (
-    <div className="card p-4 flex items-start gap-3 hover:border-zinc-700/80 transition-colors duration-200">
+    <div className="card p-5 flex items-start gap-4 hover:border-slate-300 transition-all duration-200 group">
       {icon && (
-        <div className={`flex-shrink-0 rounded-lg p-2 ${accent}`}>
+        <div className={`flex-shrink-0 rounded-xl p-2.5 ${accent} transition-transform duration-200 group-hover:scale-105`}>
           {icon}
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest truncate">{label}</p>
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest truncate">{label}</p>
         <p
-          className={`mt-1 font-bold text-zinc-50 font-display leading-snug break-words tabular-nums ${valueFontClass}`}
+          className={`mt-1.5 font-bold text-slate-900 font-display leading-snug break-words tabular-nums ${valueFontClass}`}
           title={strValue}
         >
           {strValue}
         </p>
-        {sub && <p className="mt-1 text-xs text-zinc-600 truncate">{sub}</p>}
+        {sub && <p className="mt-1 text-xs text-slate-500 truncate">{sub}</p>}
       </div>
     </div>
   )

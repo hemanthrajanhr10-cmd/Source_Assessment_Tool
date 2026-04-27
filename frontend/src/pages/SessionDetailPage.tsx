@@ -59,23 +59,23 @@ function ProgressDetails({ job }: { job: SessionJobInfo }) {
   const total = ASSESSMENT_STEPS.length
 
   return (
-    <div className="mt-3 border border-zinc-800/70 rounded-xl overflow-hidden">
+    <div className="mt-3 border border-slate-200 rounded-xl overflow-hidden">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2 px-4 py-2.5 bg-zinc-900/60 hover:bg-zinc-800/40 transition-colors text-left"
+        className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100/40 transition-colors text-left"
       >
-        <ListChecks className="h-4 w-4 text-amber-500/70 shrink-0" />
-        <span className="text-xs font-semibold text-zinc-300 flex-1">
+        <ListChecks className="h-4 w-4 text-indigo-500 shrink-0" />
+        <span className="text-xs font-semibold text-slate-700 flex-1">
           Assessment Progress — {completedCount} / {total} steps done
         </span>
-        <span className="text-xs text-zinc-600 tabular-nums mr-2">
+        <span className="text-xs text-slate-400 tabular-nums mr-2">
           {Math.round((completedCount / total) * 100)}%
         </span>
-        {open ? <ChevronUp className="h-3.5 w-3.5 text-zinc-600" /> : <ChevronDown className="h-3.5 w-3.5 text-zinc-600" />}
+        {open ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
       </button>
 
       {open && (
-        <div className="px-4 py-3 bg-zinc-950/40 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
+        <div className="px-4 py-3 bg-slate-50/40 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
           {ASSESSMENT_STEPS.map((step, i) => {
             const done = i < completedCount
             const active = i === completedCount && job.status === 'running'
@@ -86,12 +86,12 @@ function ProgressDetails({ job }: { job: SessionJobInfo }) {
                 ) : active ? (
                   <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin shrink-0" />
                 ) : (
-                  <div className="h-3.5 w-3.5 rounded-full border border-zinc-700 shrink-0" />
+                  <div className="h-3.5 w-3.5 rounded-full border border-slate-300 shrink-0" />
                 )}
                 <span className={`text-xs truncate ${
                   done   ? 'text-emerald-400 font-medium' :
                   active ? 'text-blue-400 font-medium' :
-                           'text-zinc-600'
+                           'text-slate-400'
                 }`}>
                   {step.label}
                 </span>
@@ -109,8 +109,8 @@ function JobStatusIcon({ status }: { status: JobStatus }) {
     case 'completed':  return <CheckCircle2 className="h-4 w-4 text-emerald-400" />
     case 'failed':     return <XCircle className="h-4 w-4 text-red-400" />
     case 'running':    return <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
-    case 'cancelled':  return <StopCircle className="h-4 w-4 text-zinc-500" />
-    default:           return <Clock className="h-4 w-4 text-zinc-500" />
+    case 'cancelled':  return <StopCircle className="h-4 w-4 text-slate-500" />
+    default:           return <Clock className="h-4 w-4 text-slate-500" />
   }
 }
 
@@ -119,8 +119,8 @@ function JobStatusBadge({ status }: { status: JobStatus }) {
     completed:  'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20',
     failed:     'bg-red-500/10    text-red-400    ring-1 ring-red-500/20',
     running:    'bg-blue-500/10   text-blue-400   ring-1 ring-blue-500/20',
-    pending:    'bg-zinc-800      text-zinc-400   ring-1 ring-zinc-700/50',
-    cancelled:  'bg-zinc-800      text-zinc-500   ring-1 ring-zinc-700/50',
+    pending:    'bg-slate-100 text-slate-500 ring-1 ring-slate-200',
+    cancelled:  'bg-slate-100 text-slate-500 ring-1 ring-slate-200',
   }
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${map[status]}`}>
@@ -135,12 +135,12 @@ function SessionBanner({ status, completed, total, failed }: {
 }) {
   const pct = total > 0 ? Math.round(((completed + failed) / total) * 100) : 0
   const config: Record<SessionStatus, { border: string; text: string; bg: string; icon: React.ReactNode }> = {
-    pending:   { bg: 'bg-zinc-900/60',    border: 'border-zinc-800',     text: 'text-zinc-400',   icon: <Clock className="h-5 w-5" /> },
-    running:   { bg: 'bg-blue-500/5',     border: 'border-blue-500/20',  text: 'text-blue-400',   icon: <Loader2 className="h-5 w-5 animate-spin" /> },
-    completed: { bg: 'bg-emerald-500/5',  border: 'border-emerald-500/20', text: 'text-emerald-400', icon: <CheckCircle2 className="h-5 w-5" /> },
-    partial:   { bg: 'bg-amber-500/5',    border: 'border-amber-500/20', text: 'text-amber-400',  icon: <AlertTriangle className="h-5 w-5" /> },
-    failed:    { bg: 'bg-red-500/5',      border: 'border-red-500/20',   text: 'text-red-400',    icon: <XCircle className="h-5 w-5" /> },
-    cancelled: { bg: 'bg-zinc-900/60',    border: 'border-zinc-800',     text: 'text-zinc-500',   icon: <StopCircle className="h-5 w-5" /> },
+    pending:   { bg: 'bg-slate-50',    border: 'border-slate-200',     text: 'text-slate-500',   icon: <Clock className="h-5 w-5" /> },
+    running:   { bg: 'bg-blue-50',         border: 'border-blue-200',      text: 'text-blue-700',   icon: <Loader2 className="h-5 w-5 animate-spin" /> },
+    completed: { bg: 'bg-emerald-50',     border: 'border-emerald-200',   text: 'text-emerald-700', icon: <CheckCircle2 className="h-5 w-5" /> },
+    partial:   { bg: 'bg-amber-50',       border: 'border-amber-200',     text: 'text-amber-700',  icon: <AlertTriangle className="h-5 w-5" /> },
+    failed:    { bg: 'bg-red-50',         border: 'border-red-200',       text: 'text-red-700',    icon: <XCircle className="h-5 w-5" /> },
+    cancelled: { bg: 'bg-slate-100',    border: 'border-slate-200',     text: 'text-slate-500',   icon: <StopCircle className="h-5 w-5" /> },
   }
   const { bg, border, text, icon } = config[status]
 
@@ -159,7 +159,7 @@ function SessionBanner({ status, completed, total, failed }: {
       </div>
       {total > 0 && (
         <div className="space-y-1">
-          <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden flex">
+          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden flex">
             <div className="h-full bg-emerald-500/70 transition-all duration-500" style={{ width: `${(completed / total) * 100}%` }} />
             <div className="h-full bg-red-500/70 transition-all duration-500" style={{ width: `${(failed / total) * 100}%` }} />
           </div>
@@ -172,33 +172,33 @@ function SessionBanner({ status, completed, total, failed }: {
 
 function DurationCell({ job }: { job: SessionJobInfo }) {
   if (job.status === 'pending') {
-    return <span className="text-zinc-700">—</span>
+    return <span className="text-slate-300">—</span>
   }
   if (job.status === 'running') {
     const e = elapsed(job.started_at ?? undefined, undefined)
     return <span className="text-blue-400 tabular-nums">{e === '—' ? 'Starting…' : `${e} elapsed`}</span>
   }
-  return <span className="tabular-nums text-zinc-500">{elapsed(job.started_at ?? undefined, job.completed_at ?? undefined)}</span>
+  return <span className="tabular-nums text-slate-500">{elapsed(job.started_at ?? undefined, job.completed_at ?? undefined)}</span>
 }
 
 function JobRow({ job, onNavigate }: { job: SessionJobInfo; onNavigate: (jobId: string) => void }) {
   return (
     <tr
-      className="hover:bg-zinc-800/30 transition-colors cursor-pointer"
+      className="hover:bg-slate-50 transition-colors cursor-pointer"
       onClick={() => onNavigate(job.job_id)}
     >
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-2">
-          <Server className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
-          <span className="text-sm font-medium text-zinc-200 truncate max-w-[160px]" title={job.server}>
+          <Server className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+          <span className="text-sm font-medium text-slate-800 truncate max-w-[160px]" title={job.server}>
             {job.server || '—'}
           </span>
         </div>
       </td>
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-2">
-          <Database className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
-          <span className="text-sm text-zinc-300 truncate max-w-[160px]" title={job.database}>
+          <Database className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+          <span className="text-sm text-slate-700 truncate max-w-[160px]" title={job.database}>
             {job.database || '—'}
           </span>
         </div>
@@ -206,7 +206,7 @@ function JobRow({ job, onNavigate }: { job: SessionJobInfo; onNavigate: (jobId: 
       <td className="px-5 py-3.5">
         <JobStatusBadge status={job.status} />
         {job.progress_message && job.status === 'running' && (
-          <p className="text-xs text-zinc-600 mt-1 max-w-[180px] truncate">{job.progress_message}</p>
+          <p className="text-xs text-slate-400 mt-1 max-w-[180px] truncate">{job.progress_message}</p>
         )}
         {job.error && (
           <p className="text-xs text-red-400 mt-1 max-w-[220px] truncate" title={job.error}>
@@ -264,7 +264,7 @@ export default function SessionDetailPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <Spinner size="xl" className="text-amber-500" />
+        <Spinner size="xl" className="text-indigo-500" />
       </div>
     )
   }
@@ -274,7 +274,7 @@ export default function SessionDetailPage() {
       <div className="max-w-3xl mx-auto">
         <button
           onClick={() => navigate('/sessions')}
-          className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 mb-6 transition-colors"
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Sessions
         </button>
@@ -291,18 +291,18 @@ export default function SessionDetailPage() {
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
       <button
         onClick={() => navigate('/sessions')}
-        className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" /> Back to Sessions
       </button>
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50 font-display">
+          <h1 className="text-2xl font-bold text-slate-900 font-display">
             {session.label || 'Assessment Session'}
           </h1>
-          <p className="mt-1 text-sm text-zinc-600 font-mono">{session.session_id}</p>
-          <p className="mt-0.5 text-xs text-zinc-600">Created {formatDateTime(session.created_at)}</p>
+          <p className="mt-1 text-sm text-slate-400 font-mono">{session.session_id}</p>
+          <p className="mt-0.5 text-xs text-slate-400">Created {formatDateTime(session.created_at)}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {isActive && (
@@ -325,8 +325,8 @@ export default function SessionDetailPage() {
                   Stop
                 </Button>
               ) : (
-                <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5">
-                  <span className="text-xs text-red-400 font-medium">Stop all jobs?</span>
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5">
+                  <span className="text-xs text-red-700 font-medium">Stop all jobs?</span>
                   <button
                     onClick={() => cancelMutation.mutate()}
                     disabled={cancelMutation.isPending}
@@ -336,7 +336,7 @@ export default function SessionDetailPage() {
                   </button>
                   <button
                     onClick={() => setShowCancelConfirm(false)}
-                    className="text-xs text-zinc-500 hover:text-zinc-300"
+                    className="text-xs text-slate-500 hover:text-slate-700"
                   >
                     No
                   </button>
@@ -368,26 +368,26 @@ export default function SessionDetailPage() {
 
       {session.jobs.length > 0 && (
         <div className="card overflow-hidden">
-          <div className="flex items-center gap-2.5 px-6 py-4 border-b border-zinc-800/60 bg-zinc-900/60">
-            <Database className="h-4 w-4 text-amber-400" />
-            <h2 className="text-sm font-semibold text-zinc-200">Databases</h2>
-            <span className="ml-auto text-xs text-zinc-600">{session.jobs.length} total</span>
+          <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
+            <Database className="h-4 w-4 text-indigo-500" />
+            <h2 className="text-sm font-semibold text-slate-800">Databases</h2>
+            <span className="ml-auto text-xs text-slate-400">{session.jobs.length} total</span>
           </div>
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="min-w-full divide-y divide-zinc-800/50 text-sm">
-              <thead className="bg-zinc-900/80">
+            <table className="min-w-full divide-y divide-slate-100 text-sm">
+              <thead className="bg-slate-50">
                 <tr>
                   {['Server', 'Database', 'Status', 'Duration'].map((h) => (
                     <th
                       key={h}
-                      className="px-5 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-widest whitespace-nowrap"
+                      className="px-5 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap"
                     >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800/40">
+              <tbody className="divide-y divide-slate-50">
                 {session.jobs.map((job) => (
                   <JobRow key={job.job_id} job={job} onNavigate={(id) => navigate(`/jobs/${id}`)} />
                 ))}

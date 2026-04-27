@@ -24,10 +24,10 @@ import { formatDateTime, elapsed } from '../utils/dateTime'
 function AccessLevelBadge({ level }: { level: AccessLevel }) {
   const opt = ACCESS_LEVEL_OPTIONS.find((o) => o.value === level)
   const colors: Record<AccessLevel, string> = {
-    db_datareader:       'bg-zinc-800 text-zinc-400 ring-1 ring-zinc-700/50',
-    view_database_state: 'bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/20',
-    db_owner:            'bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20',
-    sysadmin:            'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20',
+    db_datareader:       'bg-slate-100 text-slate-600 ring-1 ring-slate-200',
+    view_database_state: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+    db_owner:            'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
+    sysadmin:            'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
   }
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[level]}`}>
@@ -41,29 +41,29 @@ function LockedTabOverlay({ requiredLevel, currentLevel }: { requiredLevel: Acce
   const opt = ACCESS_LEVEL_OPTIONS.find((o) => o.value === requiredLevel)
   return (
     <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-      <div className="flex items-center justify-center h-14 w-14 rounded-full bg-zinc-800/80 border border-zinc-700/50">
-        <Lock className="h-6 w-6 text-zinc-600" />
+      <div className="flex items-center justify-center h-14 w-14 rounded-full bg-slate-100 border border-slate-200">
+        <Lock className="h-6 w-6 text-slate-400" />
       </div>
       <div>
-        <p className="text-sm font-semibold text-zinc-300">Assessment skipped</p>
-        <p className="text-xs text-zinc-600 mt-1 max-w-xs">
-          Requires <span className="font-semibold text-zinc-400">{opt?.label ?? requiredLevel}</span> access.
-          Run with <span className="font-semibold text-zinc-400">{currentLevel}</span>.
+        <p className="text-sm font-semibold text-slate-700">Assessment skipped</p>
+        <p className="text-xs text-slate-400 mt-1 max-w-xs">
+          Requires <span className="font-semibold text-slate-500">{opt?.label ?? requiredLevel}</span> access.
+          Run with <span className="font-semibold text-slate-500">{currentLevel}</span>.
         </p>
       </div>
-      <p className="text-xs text-zinc-600">Re-run with a higher access level to unlock.</p>
+      <p className="text-xs text-slate-400">Re-run with a higher access level to unlock.</p>
     </div>
   )
 }
 
 function pctCell(value: unknown) {
   const n = Number(value)
-  if (isNaN(n)) return <span className="text-zinc-700">—</span>
+  if (isNaN(n)) return <span className="text-slate-300">—</span>
   const pct = n.toFixed(1) + '%'
   const cls =
-    n > 75 ? 'bg-red-500/10 text-red-400'   :
-    n > 25 ? 'bg-amber-500/10 text-amber-400' :
-              'bg-emerald-500/10 text-emerald-400'
+    n > 75 ? 'bg-red-50 text-red-700'   :
+    n > 25 ? 'bg-amber-50 text-amber-700' :
+              'bg-emerald-50 text-emerald-700'
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
       {pct}
@@ -242,16 +242,16 @@ export default function JobDetailPage() {
   if (statusLoading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <Spinner size="xl" className="text-amber-500" />
+        <Spinner size="xl" className="text-indigo-500" />
       </div>
     )
   }
 
   if (!status) {
     return (
-      <div className="card p-10 text-center text-zinc-500">
+      <div className="card p-10 text-center text-slate-500">
         <p className="font-medium">Job not found.</p>
-        <Link to="/jobs" className="mt-2 inline-block text-sm text-amber-400 hover:text-amber-300">
+        <Link to="/jobs" className="mt-2 inline-block text-sm text-indigo-600 hover:text-indigo-700">
           Back to Jobs
         </Link>
       </div>
@@ -263,10 +263,10 @@ export default function JobDetailPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-1.5 text-sm text-zinc-600" aria-label="Breadcrumb">
-        <Link to="/jobs" className="hover:text-zinc-300 transition-colors">Jobs</Link>
+      <nav className="flex items-center gap-1.5 text-sm text-slate-400" aria-label="Breadcrumb">
+        <Link to="/jobs" className="hover:text-slate-700 transition-colors">Jobs</Link>
         <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-        <span className="text-zinc-400 font-medium truncate max-w-xs">
+        <span className="text-slate-500 font-medium truncate max-w-xs">
           {status.label ?? <span className="font-mono text-xs">{jobId?.slice(0, 8)}…</span>}
         </span>
       </nav>
@@ -276,12 +276,12 @@ export default function JobDetailPage() {
         <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-zinc-50 font-display">
+              <h1 className="text-xl font-bold text-slate-900 font-display">
                 {status.label ?? 'Unlabeled Assessment'}
               </h1>
               <StatusBadge status={status.status} />
             </div>
-            <p className="text-xs text-zinc-600 font-mono">{jobId}</p>
+            <p className="text-xs text-slate-400 font-mono">{jobId}</p>
           </div>
 
           {status.status === 'completed' && (
@@ -309,7 +309,7 @@ export default function JobDetailPage() {
         </div>
 
         {/* Timestamps */}
-        <div className="border-t border-zinc-800/60 px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 bg-zinc-900/40 text-sm">
+        <div className="border-t border-slate-200 px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4 bg-slate-50/40 text-sm">
           {[
             { label: 'Created',   value: formatDateTime(status.created_at) },
             { label: 'Started',   value: formatDateTime(status.started_at) },
@@ -325,11 +325,11 @@ export default function JobDetailPage() {
             },
           ].map(({ label, value }) => (
             <div key={label}>
-              <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest flex items-center gap-1 mb-0.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1 mb-0.5">
                 <Clock className="h-3 w-3" />
                 {label}
               </p>
-              <p className="text-zinc-300">{value}</p>
+              <p className="text-slate-700">{value}</p>
             </div>
           ))}
         </div>
@@ -340,16 +340,16 @@ export default function JobDetailPage() {
         <div className="card px-6 py-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <Spinner size="sm" className="text-amber-500" />
-              <span className="text-sm font-medium text-zinc-300">
+              <Spinner size="sm" className="text-indigo-500" />
+              <span className="text-sm font-medium text-slate-700">
                 {status.status === 'pending' ? 'Queued — waiting to start…' : (status.progress_message ?? 'Running…')}
               </span>
             </div>
-            <span className="text-xs font-medium text-zinc-600 tabular-nums">{progress}%</span>
+            <span className="text-xs font-medium text-slate-400 tabular-nums">{progress}%</span>
           </div>
-          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-amber-500 rounded-full transition-all duration-700 ease-out"
+              className="h-full bg-indigo-500 rounded-full transition-all duration-700 ease-out"
               style={{ width: `${progress}%` }}
               role="progressbar"
               aria-valuenow={progress}
@@ -357,7 +357,7 @@ export default function JobDetailPage() {
               aria-valuemax={100}
             />
           </div>
-          <p className="text-xs text-zinc-700">This page auto-refreshes every 2 seconds.</p>
+          <p className="text-xs text-slate-300">This page auto-refreshes every 2 seconds.</p>
         </div>
       )}
 
@@ -375,9 +375,9 @@ export default function JobDetailPage() {
       {/* Success banner + KPIs */}
       {status.status === 'completed' && overview && (
         <>
-          <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
-            <p className="text-sm font-medium text-emerald-400 flex-1">
+          <div className="flex items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            <p className="text-sm font-medium text-emerald-700 flex-1">
               Assessment complete — <span className="font-bold">{overview.database_name}</span> on{' '}
               {overview.sql_server_version?.split('\n')[0]}
             </p>
@@ -390,7 +390,7 @@ export default function JobDetailPage() {
             <StatCard label="Tables"      value={overview.table_count}      icon={<Table2 className="h-4 w-4" />} />
             <StatCard label="Views"       value={overview.view_count}       icon={<Eye className="h-4 w-4" />}    accent="bg-purple-500/10 text-purple-400" />
             <StatCard label="Schemas"     value={overview.schema_count}     icon={<Database className="h-4 w-4" />} accent="bg-indigo-500/10 text-indigo-400" />
-            <StatCard label="Stored Procs" value={overview.stored_proc_count} icon={<Code2 className="h-4 w-4" />} accent="bg-amber-500/10 text-amber-400" />
+            <StatCard label="Stored Procs" value={overview.stored_proc_count} icon={<Code2 className="h-4 w-4" />} accent="bg-amber-50 text-amber-700" />
             <StatCard label="Functions"   value={overview.function_count}   icon={<FunctionSquare className="h-4 w-4" />} accent="bg-orange-500/10 text-orange-400" />
             <StatCard
               label="Total Size"
@@ -407,7 +407,7 @@ export default function JobDetailPage() {
         <div className="card overflow-hidden flex" style={{ minHeight: '600px' }}>
           {/* Left sidebar */}
           <nav
-            className="w-56 flex-shrink-0 border-r border-zinc-800/60 bg-zinc-950/50 overflow-y-auto scrollbar-thin"
+            className="w-56 flex-shrink-0 border-r border-slate-200 bg-slate-50/40 overflow-y-auto scrollbar-thin"
             aria-label="Assessment sections"
           >
             {TAB_GROUPS.map((group) => {
@@ -415,7 +415,7 @@ export default function JobDetailPage() {
               const accessRank = ACCESS_LEVEL_RANK[accessLevel] ?? 1
               return (
                 <div key={group.label}>
-                  <p className="px-4 pt-4 pb-1 text-[10px] font-bold text-zinc-600 uppercase tracking-[0.12em]">
+                  <p className="px-4 pt-4 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-[0.12em]">
                     {group.label}
                   </p>
                   {group.ids.map((id) => {
@@ -431,21 +431,21 @@ export default function JobDetailPage() {
                         onClick={() => setActiveTab(id)}
                         className={`w-full flex items-center gap-2 px-4 py-1.5 text-xs transition-colors duration-100 ${
                           isActive
-                            ? 'bg-amber-500/10 text-amber-400 border-r-2 border-amber-500'
+                            ? 'bg-indigo-50 text-indigo-600 border-r-2 border-indigo-500'
                             : isLocked
-                              ? 'text-zinc-700'
-                              : 'text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-300'
+                              ? 'text-slate-300'
+                              : 'text-slate-500 hover:bg-slate-100/40 hover:text-slate-700'
                         }`}
                         aria-selected={isActive}
                         role="tab"
                       >
-                        <span className={`shrink-0 ${isLocked ? 'text-zinc-700' : ''}`}>{tab.icon}</span>
+                        <span className={`shrink-0 ${isLocked ? 'text-slate-300' : ''}`}>{tab.icon}</span>
                         <span className="truncate flex-1 text-left">{tab.label}</span>
                         {isLocked ? (
-                          <Lock className="h-3 w-3 text-zinc-700 shrink-0" />
+                          <Lock className="h-3 w-3 text-slate-300 shrink-0" />
                         ) : count !== null ? (
                           <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold shrink-0 ${
-                            isActive ? 'bg-amber-500/20 text-amber-400' : 'bg-zinc-800 text-zinc-500'
+                            isActive ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
                           }`}>
                             {count > 9999 ? `${(count / 1000).toFixed(1)}k` : count.toLocaleString()}
                           </span>
@@ -462,7 +462,7 @@ export default function JobDetailPage() {
           <div className="flex-1 min-w-0 p-5 overflow-auto">
             {resultsLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Spinner size="lg" className="text-amber-500" />
+                <Spinner size="lg" className="text-indigo-500" />
               </div>
             ) : results ? (
               (() => {
@@ -484,13 +484,13 @@ export default function JobDetailPage() {
                 return (
                   <>
                     <div className="flex items-center gap-2 mb-4 flex-wrap">
-                      <span className="text-zinc-600">{tab.icon}</span>
-                      <h2 className="text-sm font-semibold text-zinc-200">{tab.label}</h2>
-                      <span className="text-xs text-zinc-600 tabular-nums">
+                      <span className="text-slate-400">{tab.icon}</span>
+                      <h2 className="text-sm font-semibold text-slate-800">{tab.label}</h2>
+                      <span className="text-xs text-slate-400 tabular-nums">
                         ({data.length.toLocaleString()} row{data.length !== 1 ? 's' : ''})
                       </span>
                       {minRank > 1 && (
-                        <span className="ml-auto text-xs text-zinc-600 flex items-center gap-1">
+                        <span className="ml-auto text-xs text-slate-400 flex items-center gap-1">
                           <ShieldCheck className="h-3 w-3" />
                           Requires {minLevel}
                         </span>

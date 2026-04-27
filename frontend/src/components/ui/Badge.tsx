@@ -11,21 +11,21 @@ interface BadgeProps {
 }
 
 const variantStyles: Record<Variant, string> = {
-  default: 'bg-zinc-800/80 text-zinc-300 ring-1 ring-zinc-700/50',
-  success: 'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20',
-  warning: 'bg-amber-500/10  text-amber-400  ring-1 ring-amber-500/20',
-  error:   'bg-red-500/10    text-red-400    ring-1 ring-red-500/20',
-  info:    'bg-blue-500/10   text-blue-400   ring-1 ring-blue-500/20',
-  neutral: 'bg-zinc-800/60   text-zinc-400   ring-1 ring-zinc-700/50',
+  default: 'bg-slate-100     text-slate-600   ring-1 ring-slate-200',
+  success: 'bg-emerald-50    text-emerald-700  ring-1 ring-emerald-200',
+  warning: 'bg-amber-50      text-amber-700    ring-1 ring-amber-200',
+  error:   'bg-red-50        text-red-700      ring-1 ring-red-200',
+  info:    'bg-blue-50       text-blue-700     ring-1 ring-blue-200',
+  neutral: 'bg-slate-100     text-slate-500    ring-1 ring-slate-200',
 }
 
 const dotStyles: Record<Variant, string> = {
-  default: 'bg-zinc-400',
-  success: 'bg-emerald-400',
-  warning: 'bg-amber-400',
-  error:   'bg-red-400',
-  info:    'bg-blue-400',
-  neutral: 'bg-zinc-500',
+  default: 'bg-slate-400',
+  success: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+  error:   'bg-red-500',
+  info:    'bg-blue-500',
+  neutral: 'bg-slate-400',
 }
 
 export function Badge({ children, variant = 'default', dot = false, className = '' }: BadgeProps) {

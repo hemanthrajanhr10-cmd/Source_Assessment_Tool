@@ -15,6 +15,9 @@ mssql-python==1.4.0
 openpyxl==3.1.5
 et_xmlfile==2.0.0
 
+# Word report generation
+python-docx==1.1.2
+
 # Request parsing
 python-multipart==0.0.22
 
@@ -27,6 +30,9 @@ cryptography==46.0.6
 cffi==2.0.0
 pycparser==3.0
 PyJWT==2.12.1
+
+# Azure Service Bus (gateway agent messaging)
+azure-servicebus==7.14.2
 
 # HTTP / utilities
 requests==2.33.1
@@ -41,6 +47,25 @@ httptools==0.7.1
 watchfiles==1.1.1
 websockets==16.0
 h11==0.16.0
+
+# Auth (password hashing, TOTP MFA)
+email-validator==2.2.0
+bcrypt==4.2.1
+passlib[bcrypt]==1.7.4
+pyotp==2.9.0
+python-jose[cryptography]==3.3.0
+qrcode[pil]==8.0
+Pillow==11.2.1
+
+# PostgreSQL + MySQL + Oracle drivers
+psycopg2-binary==2.9.10
+pymysql==1.1.1
+oracledb==2.5.1
+
+# Microsoft Fabric / semantic model analysis
+semantic-link-labs>=0.9.0
+pandas>=2.2.0
+pyarrow>=16.0.0
 
 # Misc
 annotated-doc==0.0.4

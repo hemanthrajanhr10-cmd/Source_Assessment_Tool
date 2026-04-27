@@ -5,3 +5,6 @@ __pycache__/
 *.pyo
 reports/
 *.xlsx
+*.docx
+generate_docs.py
+generate_code_docs.py

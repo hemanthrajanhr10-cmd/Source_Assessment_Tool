@@ -1,0 +1,48 @@
+name: Build & Push to ACR
+
+# Triggers on push to dev or main
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  build-and-push:
+    name: Build Image & Push to ACR
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # 1. Checkout source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Log in to Azure Container Registry
+      - name: Log in to ACR
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login "${{ secrets.ACR_LOGIN_SERVER }}" \
+            -u "${{ secrets.ACR_USERNAME }}" --password-stdin
+
+      # 3. Build the combined image (React + FastAPI in one)
+      #    root Dockerfile: node-builder → py-deps → runtime
+      - name: Build image
+        run: |
+          docker build \
+            -t "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:latest" \
+            -t "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}" \
+            -f Dockerfile \
+            .
+
+      # 4. Push both tags to ACR
+      #    Pushing :latest triggers the ACR webhook → Azure Web App auto-restarts
+      - name: Push image to ACR
+        run: |
+          docker push "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:latest"
+          docker push "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}"
+
+      # 5. Print the deployed image info
+      - name: Summary
+        run: |
+          echo "Image pushed: ${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}"
+          echo "Azure Web App will restart automatically via ACR webhook."

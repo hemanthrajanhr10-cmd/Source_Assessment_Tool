@@ -1,0 +1,4 @@
+pymssql
+requests
+azure-servicebus
+pyinstaller

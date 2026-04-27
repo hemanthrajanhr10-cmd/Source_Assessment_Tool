@@ -17,3 +17,9 @@ class JobRecord:
     progress_message: Optional[str] = None
     report_path: Optional[str] = None
     results: Optional[dict[str, Any]] = None
+    # Session context — None for standalone single-server jobs
+    session_id: Optional[str] = None
+    server_name: Optional[str] = None
+    database_name: Optional[str] = None
+    # Owning user — None for legacy/unauthenticated jobs
+    user_id: Optional[str] = None

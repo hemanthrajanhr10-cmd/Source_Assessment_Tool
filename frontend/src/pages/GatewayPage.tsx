@@ -1,19 +1,20 @@
 /**
  * HybridConnectionPage
  *
- * Replaces the old Gateway Agent workflow. Explains how Azure App Service
- * Hybrid Connections let the hosted app reach on-premises SQL Servers through
- * the Azure Hybrid Connection Manager (HCM) running on the user's VPN-connected
- * machine — no custom Python agent required.
+ * Top section: Create a new Hybrid Connection (form → API → stored per-user).
+ * Middle section: Your Connections — user-specific list with status + delete.
+ * Bottom section: Setup guide, topology diagram, connectivity test.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Globe, Share2, Laptop, Database, Network,
   CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
   ExternalLink, Search, Wifi, WifiOff, Info,
+  Plus, Trash2, Terminal, RefreshCw, Server,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
+import type { HybridConnection } from '../types/api'
 import Button from '../components/ui/Button'
 
 // ── Connection topology ───────────────────────────────────────────────────────
@@ -65,18 +66,394 @@ function ConnectionDiagram() {
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6 overflow-x-auto">
       <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-5">Connection path</p>
       <div className="flex items-center justify-between min-w-[480px]">
-        <TopologyNode icon={Globe}   label="Azure App"       sublabel="App Service" />
+        <TopologyNode icon={Globe}    label="Azure App"    sublabel="App Service" />
         <div className="signal-line flex-1 mx-3" style={{ minWidth: '48px' }} />
-        <TopologyNode icon={Share2}  label="Azure Relay"     sublabel="Service Bus" />
+        <TopologyNode icon={Share2}   label="Azure Relay"  sublabel="Service Bus" />
         <div className="signal-line flex-1 mx-3" style={{ minWidth: '48px' }} />
-        <TopologyNode icon={Laptop}  label="HCM"             sublabel="Your laptop" highlight />
+        <TopologyNode icon={Laptop}   label="HCM"          sublabel="Your laptop" highlight />
         <div className="signal-line flex-1 mx-3" style={{ minWidth: '48px' }} />
-        <TopologyNode icon={Database} label="SQL Server"     sublabel="On-premises" />
+        <TopologyNode icon={Database} label="SQL Server"   sublabel="On-premises" />
       </div>
       <p className="text-[11px] text-slate-400 mt-5 text-center">
         Outbound-only relay — no inbound firewall rules required on either end.
       </p>
     </div>
+  )
+}
+
+// ── Create Hybrid Connection form ─────────────────────────────────────────────
+
+function CreateConnectionForm({ onCreated }: { onCreated: (hc: HybridConnection) => void }) {
+  const [name, setName]               = useState('')
+  const [host, setHost]               = useState('')
+  const [port, setPort]               = useState('1433')
+  const [namespace, setNamespace]     = useState('')
+  const [loading, setLoading]         = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const [cliCmds, setCliCmds]         = useState<string[] | null>(null)
+
+  const valid = name.trim() && host.trim() && namespace.trim() && parseInt(port) > 0
+
+  const handleCreate = async () => {
+    if (!valid) return
+    setError(null)
+    setCliCmds(null)
+    setLoading(true)
+    try {
+      const { data } = await api.createHybridConnection({
+        name: name.trim(),
+        endpoint_host: host.trim(),
+        endpoint_port: parseInt(port, 10) || 1433,
+        service_bus_namespace: namespace.trim(),
+      })
+      onCreated(data)
+      if (data.cli_commands?.length) setCliCmds(data.cli_commands)
+      // Reset fields
+      setName(''); setHost(''); setPort('1433'); setNamespace('')
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
+        <Plus className="h-4 w-4 text-indigo-500" />
+        <h2 className="text-sm font-semibold text-slate-700">Create Hybrid Connection</h2>
+        <span className="ml-auto text-xs text-slate-400">Saved to your account</span>
+      </div>
+
+      <div className="p-6 space-y-4">
+        <div className="grid sm:grid-cols-2 gap-4">
+          {/* Name */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-600">Hybrid connection name</label>
+            <input
+              type="text"
+              className="form-input w-full"
+              placeholder="e.g. sat-onprem-sql"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+
+          {/* Service Bus Namespace */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-600">Service Bus Namespace</label>
+            <input
+              type="text"
+              className="form-input w-full"
+              placeholder="e.g. myns or myns.servicebus.windows.net"
+              value={namespace}
+              onChange={(e) => setNamespace(e.target.value)}
+              spellCheck={false}
+              autoComplete="off"
+            />
+          </div>
+
+          {/* Endpoint host */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-600">Endpoint host</label>
+            <div className="relative">
+              <Server className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                className="form-input pl-10 w-full"
+                placeholder="SQL Server hostname or IP"
+                value={host}
+                onChange={(e) => setHost(e.target.value)}
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+          {/* Endpoint port */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-600">Endpoint port</label>
+            <input
+              type="number"
+              className="form-input w-full"
+              min={1}
+              max={65535}
+              value={port}
+              onChange={(e) => setPort(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <Button
+          onClick={handleCreate}
+          loading={loading}
+          disabled={!valid}
+          leftIcon={loading ? undefined : <Plus className="h-4 w-4" />}
+          className="w-full sm:w-auto"
+        >
+          Create Connection
+        </Button>
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 animate-slide-down">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {cliCmds && (
+          <div className="animate-slide-down rounded-xl border border-slate-200 bg-slate-900 overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-700">
+              <Terminal className="h-3.5 w-3.5 text-slate-400" />
+              <span className="text-xs font-semibold text-slate-300">
+                Azure CLI commands — run these to provision the connection
+              </span>
+            </div>
+            <pre className="px-4 py-3 text-[11px] text-emerald-300 leading-relaxed overflow-x-auto">
+              {cliCmds.join('\n')}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Status badge ──────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: HybridConnection['status'] }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    provisioned:     { label: 'Provisioned',   cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    created:         { label: 'Created',        cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+    cli_unavailable: { label: 'CLI not set up', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+    cli_error:       { label: 'CLI error',      cls: 'bg-red-50 text-red-700 border-red-200' },
+  }
+  const { label, cls } = map[status] ?? { label: status, cls: 'bg-slate-50 text-slate-600 border-slate-200' }
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${cls}`}>
+      {label}
+    </span>
+  )
+}
+
+// ── My Connections list ───────────────────────────────────────────────────────
+
+function MyConnectionsList() {
+  const [connections, setConnections] = useState<HybridConnection[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState<string | null>(null)
+  const [deleting, setDeleting]       = useState<string | null>(null)
+
+  const load = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { data } = await api.listHybridConnections()
+      setConnections(data)
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const handleDelete = async (id: string) => {
+    setDeleting(id)
+    try {
+      await api.deleteHybridConnection(id)
+      setConnections((prev) => prev.filter((c) => c.connection_id !== id))
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
+        <Share2 className="h-4 w-4 text-indigo-500" />
+        <h2 className="text-sm font-semibold text-slate-700">My Hybrid Connections</h2>
+        <button
+          onClick={load}
+          className="ml-auto p-1.5 rounded-lg hover:bg-slate-200 transition-colors text-slate-500"
+          title="Refresh"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 m-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {loading && connections.length === 0 ? (
+        <div className="py-10 flex items-center justify-center">
+          <RefreshCw className="h-5 w-5 animate-spin text-slate-400" />
+        </div>
+      ) : connections.length === 0 ? (
+        <div className="py-10 text-center text-sm text-slate-400">
+          No hybrid connections yet. Create one above.
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-100">
+          {connections.map((hc) => (
+            <div key={hc.connection_id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
+              <div className="h-9 w-9 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                <Share2 className="h-4 w-4 text-indigo-500" />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800 truncate">{hc.name}</p>
+                <p className="text-xs text-slate-500 truncate">
+                  {hc.endpoint_host}:{hc.endpoint_port}
+                  <span className="mx-1.5 text-slate-300">·</span>
+                  {hc.service_bus_namespace}.servicebus.windows.net
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <StatusBadge status={hc.status} />
+                <span className="text-[11px] text-slate-400 hidden sm:block">
+                  {hc.created_at ? new Date(hc.created_at).toLocaleDateString() : '—'}
+                </span>
+                <button
+                  onClick={() => handleDelete(hc.connection_id)}
+                  disabled={deleting === hc.connection_id}
+                  className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors disabled:opacity-50"
+                  title="Delete"
+                >
+                  {deleting === hc.connection_id
+                    ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    : <Trash2 className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── MyConnectionsList that accepts an external "new item" prop ─────────────────
+
+function MyConnectionsListControlled() {
+  const [connections, setConnections] = useState<HybridConnection[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [error, setError]             = useState<string | null>(null)
+  const [deleting, setDeleting]       = useState<string | null>(null)
+
+  const load = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const { data } = await api.listHybridConnections()
+      setConnections(data)
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [])
+
+  const handleCreated = (hc: HybridConnection) => {
+    // Optimistically prepend; full data will come from next load
+    setConnections((prev) => [hc, ...prev])
+  }
+
+  const handleDelete = async (id: string) => {
+    setDeleting(id)
+    try {
+      await api.deleteHybridConnection(id)
+      setConnections((prev) => prev.filter((c) => c.connection_id !== id))
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  return (
+    <>
+      <CreateConnectionForm onCreated={handleCreated} />
+
+      <div className="card overflow-hidden">
+        <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
+          <Share2 className="h-4 w-4 text-indigo-500" />
+          <h2 className="text-sm font-semibold text-slate-700">My Hybrid Connections</h2>
+          <button
+            onClick={load}
+            className="ml-auto p-1.5 rounded-lg hover:bg-slate-200 transition-colors text-slate-500"
+            title="Refresh"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="flex items-start gap-2 m-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {loading && connections.length === 0 ? (
+          <div className="py-10 flex items-center justify-center">
+            <RefreshCw className="h-5 w-5 animate-spin text-slate-400" />
+          </div>
+        ) : connections.length === 0 ? (
+          <div className="py-10 text-center text-sm text-slate-400">
+            No hybrid connections yet. Create one above.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {connections.map((hc) => (
+              <div key={hc.connection_id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
+                <div className="h-9 w-9 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                  <Share2 className="h-4 w-4 text-indigo-500" />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{hc.name}</p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {hc.endpoint_host}:{hc.endpoint_port}
+                    <span className="mx-1.5 text-slate-300">·</span>
+                    {hc.service_bus_namespace}.servicebus.windows.net
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <StatusBadge status={hc.status} />
+                  <span className="text-[11px] text-slate-400 hidden sm:block">
+                    {hc.created_at ? new Date(hc.created_at).toLocaleDateString() : '—'}
+                  </span>
+                  <button
+                    onClick={() => handleDelete(hc.connection_id)}
+                    disabled={deleting === hc.connection_id}
+                    className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors disabled:opacity-50"
+                    title="Delete"
+                  >
+                    {deleting === hc.connection_id
+                      ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      : <Trash2 className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -110,24 +487,22 @@ const STEPS: Step[] = [
   },
   {
     n: 2,
-    title: 'Create a Hybrid Connection in Azure Portal',
+    title: 'Create a Hybrid Connection (use the form above or Azure Portal)',
     body: (
-      <ol className="space-y-3 text-sm text-slate-600 list-decimal list-inside">
-        <li>Open <strong className="text-slate-800">App Service</strong> in Azure Portal and select this application.</li>
-        <li>Navigate to <strong className="text-slate-800">Networking</strong> in the left menu.</li>
-        <li>Under <em>Outbound traffic</em>, click <strong className="text-slate-800">Hybrid connections</strong>.</li>
-        <li>Click <strong className="text-slate-800">Add hybrid connection</strong> and then <strong className="text-slate-800">Create new hybrid connection</strong>.</li>
-        <li>
-          Fill in:
-          <ul className="mt-2 ml-4 space-y-1 list-disc list-inside text-slate-500">
-            <li><strong className="text-slate-700">Hybrid connection name</strong> — e.g. <code className="font-mono text-xs bg-slate-100 px-1 rounded">sat-onprem-sql</code></li>
-            <li><strong className="text-slate-700">Endpoint host</strong> — the SQL Server hostname or IP visible from your VPN-connected laptop</li>
-            <li><strong className="text-slate-700">Endpoint port</strong> — <code className="font-mono text-xs bg-slate-100 px-1 rounded">1433</code></li>
-            <li><strong className="text-slate-700">Service Bus Namespace</strong> — create new or reuse existing</li>
-          </ul>
-        </li>
-        <li>Click <strong className="text-slate-800">OK</strong> to save. The connection will appear as <em>Not connected</em> until HCM is installed.</li>
-      </ol>
+      <div className="space-y-3 text-sm text-slate-600">
+        <p>
+          Use the <strong className="text-slate-800">Create Hybrid Connection</strong> form above to register the
+          connection in this tool. If the server has the Azure CLI configured with your subscription,
+          the relay entity and App Service binding are provisioned automatically. Otherwise, the form
+          returns CLI commands to run manually.
+        </p>
+        <p>Alternatively, create the connection directly in Azure Portal:</p>
+        <ol className="space-y-2 list-decimal list-inside text-slate-500">
+          <li>Open <strong className="text-slate-700">App Service → Networking → Hybrid connections</strong>.</li>
+          <li>Click <strong className="text-slate-700">Add hybrid connection → Create new hybrid connection</strong>.</li>
+          <li>Fill in name, endpoint host/port, and Service Bus namespace.</li>
+        </ol>
+      </div>
     ),
   },
   {
@@ -182,7 +557,7 @@ const STEPS: Step[] = [
       <ol className="space-y-3 text-sm text-slate-600 list-decimal list-inside">
         <li>In Hybrid Connection Manager UI, click <strong className="text-slate-800">Add a new Hybrid Connection</strong>.</li>
         <li>Sign in with the same Azure account used to create the connection.</li>
-        <li>Select the Hybrid Connection you created in Step 2 and click <strong className="text-slate-800">Save</strong>.</li>
+        <li>Select the Hybrid Connection you created and click <strong className="text-slate-800">Save</strong>.</li>
         <li>
           Back in Azure Portal, the connection status should change to{' '}
           <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
@@ -228,10 +603,10 @@ function SetupStep({ step, defaultOpen }: { step: Step; defaultOpen: boolean }) 
 
 function ConnectivityTest() {
   const [server, setServer] = useState('')
-  const [port, setPort] = useState('1433')
+  const [port, setPort]     = useState('1433')
   const [result, setResult] = useState<{ reachable: boolean; latency_ms: number | null } | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]   = useState<string | null>(null)
 
   const handleTest = async () => {
     if (!server.trim()) return
@@ -379,6 +754,9 @@ export default function HybridConnectionPage() {
 
       {/* Topology diagram */}
       <ConnectionDiagram />
+
+      {/* ── Create form + My Connections ── */}
+      <MyConnectionsListControlled />
 
       {/* Setup steps */}
       <div>

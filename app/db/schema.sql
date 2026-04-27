@@ -882,3 +882,19 @@ IF OBJECT_ID('dbo.assessment_deprecated_features_in_use', 'U') IS NULL
         CONSTRAINT FK_deprecated_features_jobs FOREIGN KEY (job_id)
             REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
     );
+
+-- ─── hybrid_connections (user-created Azure Hybrid Connections) ───────────────
+IF OBJECT_ID('dbo.hybrid_connections', 'U') IS NULL
+    CREATE TABLE dbo.hybrid_connections (
+        connection_id           VARCHAR(36)    NOT NULL,
+        user_id                 VARCHAR(36)    NOT NULL,
+        name                    NVARCHAR(200)  NOT NULL,
+        endpoint_host           NVARCHAR(500)  NOT NULL,
+        endpoint_port           INT            NOT NULL DEFAULT 1433,
+        service_bus_namespace   NVARCHAR(500)  NOT NULL,
+        status                  VARCHAR(50)    NOT NULL DEFAULT 'created',
+        created_at              DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_hybrid_connections PRIMARY KEY (connection_id)
+    );
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_hybrid_connections_user')
+    CREATE INDEX IX_hybrid_connections_user ON dbo.hybrid_connections (user_id, created_at DESC);

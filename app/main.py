@@ -15,6 +15,7 @@ from app.api.v1.routes.assessment import router as assessment_router
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.fabric import router as fabric_router
 from app.api.v1.routes.gateway import router as gateway_router
+from app.api.v1.routes.hybrid_connections import router as hybrid_connections_router
 from app.api.v1.routes.sessions import router as sessions_router
 from app.config import settings
 from app.core.logging import get_logger
@@ -72,13 +73,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(assessment_router, prefix="/api/v1", tags=["Assessment"])
 app.include_router(gateway_router, prefix="/api/v1/gateway", tags=["Gateway"])
+app.include_router(hybrid_connections_router, prefix="/api/v1/hybrid-connections", tags=["Hybrid Connections"])
 app.include_router(sessions_router, prefix="/api/v1", tags=["Sessions"])
 app.include_router(fabric_router, prefix="/api/v1/fabric", tags=["Fabric"])
 

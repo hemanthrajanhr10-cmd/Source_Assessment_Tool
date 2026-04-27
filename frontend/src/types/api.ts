@@ -256,6 +256,26 @@ export interface GatewayRegisterResponse {
   message: string
 }
 
+// ── Hybrid Connections ────────────────────────────────────────────────────────
+
+export interface HybridConnection {
+  connection_id: string
+  name: string
+  endpoint_host: string
+  endpoint_port: number
+  service_bus_namespace: string
+  status: 'created' | 'provisioned' | 'cli_unavailable' | 'cli_error'
+  created_at: string
+  cli_commands?: string[] | null
+}
+
+export interface CreateHybridConnectionRequest {
+  name: string
+  endpoint_host: string
+  endpoint_port: number
+  service_bus_namespace: string
+}
+
 // ── Multi-server session ──────────────────────────────────────────────────────
 
 export interface DatabaseTarget {

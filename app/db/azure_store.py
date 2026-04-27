@@ -1026,3 +1026,84 @@ def list_session_jobs(session_id: str) -> list[dict[str, Any]]:
         return rows
     finally:
         conn.close()
+
+
+# ── Hybrid Connections ─────────────────────────────────────────────────────────
+
+def create_hybrid_connection(
+    connection_id: str,
+    user_id: str,
+    name: str,
+    endpoint_host: str,
+    endpoint_port: int,
+    service_bus_namespace: str,
+    status: str = "created",
+) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO dbo.hybrid_connections
+               (connection_id, user_id, name, endpoint_host, endpoint_port,
+                service_bus_namespace, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (connection_id, user_id, name, endpoint_host, endpoint_port,
+             service_bus_namespace, status),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_hybrid_connections(user_id: str) -> list[dict]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT connection_id, user_id, name, endpoint_host, endpoint_port,
+                      service_bus_namespace, status, created_at
+               FROM dbo.hybrid_connections
+               WHERE user_id = ?
+               ORDER BY created_at DESC""",
+            (user_id,),
+        )
+        cols = [d[0] for d in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            for k, v in d.items():
+                if isinstance(v, datetime):
+                    d[k] = v.isoformat()
+            rows.append(d)
+        return rows
+    finally:
+        conn.close()
+
+
+def delete_hybrid_connection(connection_id: str, user_id: str) -> bool:
+    """Delete a hybrid connection. Returns True if a row was deleted."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM dbo.hybrid_connections WHERE connection_id = ? AND user_id = ?",
+            (connection_id, user_id),
+        )
+        deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+    finally:
+        conn.close()
+
+
+def update_hybrid_connection_status(connection_id: str, status: str) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.hybrid_connections SET status = ? WHERE connection_id = ?",
+            (status, connection_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()

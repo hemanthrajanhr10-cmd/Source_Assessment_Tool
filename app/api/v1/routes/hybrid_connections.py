@@ -1,19 +1,23 @@
 """
 Hybrid Connections API routes.
 
-Allows authenticated users to register Azure Hybrid Connection details,
-list their own connections, and delete them.
-
-POST   /api/v1/hybrid-connections           — create a new record (+ optional CLI provisioning)
+POST   /api/v1/hybrid-connections           — create + auto-provision in Azure
 GET    /api/v1/hybrid-connections           — list connections for the current user
-DELETE /api/v1/hybrid-connections/{id}      — delete a connection (owner only)
-POST   /api/v1/hybrid-connections/{id}/test — test TCP reachability via the relay endpoint
+DELETE /api/v1/hybrid-connections/{id}      — delete (owner only)
+
+Auto-provisioning uses the Azure SDK with DefaultAzureCredential (Managed Identity
+on App Service, or AZURE_CLIENT_ID/SECRET/TENANT_ID for local dev).
+
+Required environment variables for provisioning:
+    AZURE_SUBSCRIPTION_ID   — Azure subscription ID
+    AZURE_RESOURCE_GROUP    — Resource group containing the App Service
+    AZURE_APP_SERVICE_NAME  — Name of the App Service
 """
 
 import asyncio
-import shutil
-import subprocess
+import os
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -33,7 +37,7 @@ class CreateHybridConnectionRequest(BaseModel):
     name: str = Field(..., description="Hybrid connection name, e.g. sat-onprem-sql")
     endpoint_host: str = Field(..., description="SQL Server hostname or IP visible from VPN laptop")
     endpoint_port: int = Field(1433, ge=1, le=65535, description="SQL Server port")
-    service_bus_namespace: str = Field(..., description="Service Bus namespace, e.g. myns or myns.servicebus.windows.net")
+    service_bus_namespace: str = Field(..., description="Service Bus namespace short name or FQDN")
 
 
 class HybridConnectionResponse(BaseModel):
@@ -44,84 +48,105 @@ class HybridConnectionResponse(BaseModel):
     service_bus_namespace: str
     status: str
     created_at: str
-    cli_commands: Optional[list[str]] = None
+    error_detail: Optional[str] = None
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def _normalise_namespace(ns: str) -> str:
-    """Strip the .servicebus.windows.net suffix if present — store just the short name."""
+    """Keep only the short namespace name (strip .servicebus.windows.net if present)."""
     return ns.replace(".servicebus.windows.net", "").strip()
 
 
-def _build_cli_commands(name: str, endpoint_host: str, endpoint_port: int, namespace: str) -> list[str]:
-    """Return the Azure CLI commands the user (or CI) can run to provision the HC."""
-    return [
-        "# 1. Create the Relay Hybrid Connection entity",
-        f"az relay hyco create \\",
-        f"  --resource-group <YOUR_RESOURCE_GROUP> \\",
-        f"  --namespace-name {namespace} \\",
-        f"  --name {name} \\",
-        f"  --requires-client-authorization true",
-        "",
-        "# 2. Attach it to the App Service",
-        f"az webapp hybrid-connection add \\",
-        f"  --resource-group <YOUR_RESOURCE_GROUP> \\",
-        f"  --name <YOUR_APP_SERVICE_NAME> \\",
-        f"  --namespace {namespace} \\",
-        f"  --hybrid-connection {name}",
-        "",
-        "# 3. (On your laptop) install HCM, then add the connection via the HCM UI",
-        f"# Endpoint that HCM must forward: {endpoint_host}:{endpoint_port}",
-    ]
-
-
-def _try_cli_provision(name: str, namespace: str) -> str:
+def _provision_hybrid_connection(
+    name: str,
+    endpoint_host: str,
+    endpoint_port: int,
+    namespace: str,
+) -> tuple[str, Optional[str]]:
     """
-    Attempt to run az CLI to provision the Hybrid Connection.
-    Returns 'provisioned' on success, 'cli_unavailable' if az is not installed,
-    or 'cli_error' if the command fails.
+    Use the Azure SDK to:
+      1. Create the Relay Hybrid Connection entity in the given namespace.
+      2. Attach it to the App Service.
 
-    Requires AZURE_RESOURCE_GROUP and AZURE_APP_SERVICE_NAME environment variables.
+    Returns (status, error_detail).
+    status is one of: 'provisioned' | 'config_missing' | 'error'
     """
-    import os
-    if not shutil.which("az"):
-        logger.info("az CLI not found — skipping auto-provision for HC '%s'", name)
-        return "cli_unavailable"
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    resource_group  = os.environ.get("AZURE_RESOURCE_GROUP", "").strip()
+    app_service     = os.environ.get("AZURE_APP_SERVICE_NAME", "").strip()
 
-    rg = os.environ.get("AZURE_RESOURCE_GROUP", "")
-    app = os.environ.get("AZURE_APP_SERVICE_NAME", "")
-    if not rg or not app:
-        logger.info("AZURE_RESOURCE_GROUP/AZURE_APP_SERVICE_NAME not set — skipping auto-provision")
-        return "cli_unavailable"
+    if not subscription_id or not resource_group or not app_service:
+        logger.info(
+            "Hybrid Connection auto-provision skipped: "
+            "AZURE_SUBSCRIPTION_ID / AZURE_RESOURCE_GROUP / AZURE_APP_SERVICE_NAME not set"
+        )
+        return "config_missing", (
+            "Set AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP, and AZURE_APP_SERVICE_NAME "
+            "environment variables on the App Service to enable automatic provisioning."
+        )
 
     try:
-        # Create relay hybrid connection entity
-        subprocess.run(
-            ["az", "relay", "hyco", "create",
-             "--resource-group", rg,
-             "--namespace-name", namespace,
-             "--name", name,
-             "--requires-client-authorization", "true"],
-            check=True, capture_output=True, text=True, timeout=60,
+        from azure.identity import DefaultAzureCredential
+        from azure.mgmt.relay import RelayManagementClient
+        from azure.mgmt.relay.models import HybridConnection
+        from azure.mgmt.web import WebSiteManagementClient
+        from azure.mgmt.web.models import HybridConnection as WebHybridConnection
+
+        credential = DefaultAzureCredential()
+
+        # ── 1. Create the Hybrid Connection entity in the Relay namespace ──────
+        relay_client = RelayManagementClient(credential, subscription_id)
+
+        relay_client.hybrid_connections.create_or_update(
+            resource_group_name=resource_group,
+            namespace_name=namespace,
+            hybrid_connection_name=name,
+            parameters=HybridConnection(
+                requires_client_authorization=True,
+            ),
         )
-        # Attach to App Service
-        subprocess.run(
-            ["az", "webapp", "hybrid-connection", "add",
-             "--resource-group", rg,
-             "--name", app,
-             "--namespace", namespace,
-             "--hybrid-connection", name],
-            check=True, capture_output=True, text=True, timeout=60,
+        logger.info("Relay HC entity '%s' created in namespace '%s'", name, namespace)
+
+        # ── 2. Retrieve the relay send key (needed for App Service binding) ───
+        keys = relay_client.hybrid_connections.list_keys(
+            resource_group_name=resource_group,
+            namespace_name=namespace,
+            hybrid_connection_name=name,
+            authorization_rule_name="defaultListener",
         )
-        logger.info("Auto-provisioned Hybrid Connection '%s' via az CLI", name)
-        return "provisioned"
-    except subprocess.CalledProcessError as exc:
-        logger.warning("az CLI provisioning failed for HC '%s': %s", name, exc.stderr)
-        return "cli_error"
+
+        relay_arm_uri = (
+            f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
+            f"/providers/Microsoft.Relay/namespaces/{namespace}"
+            f"/hybridConnections/{name}"
+        )
+
+        # ── 3. Attach to App Service ───────────────────────────────────────────
+        web_client = WebSiteManagementClient(credential, subscription_id)
+
+        web_client.web_apps.create_or_update_hybrid_connection(
+            resource_group_name=resource_group,
+            name=app_service,
+            namespace_name=namespace,
+            relay_name=name,
+            connection_envelope=WebHybridConnection(
+                relay_arm_uri=relay_arm_uri,
+                hostname=endpoint_host,
+                port=endpoint_port,
+                send_key_name="defaultSender",
+                send_key_value=keys.primary_key,
+            ),
+        )
+        logger.info(
+            "Hybrid Connection '%s' attached to App Service '%s'", name, app_service
+        )
+
+        return "provisioned", None
+
     except Exception as exc:
-        logger.warning("az CLI provisioning exception for HC '%s': %s", name, exc)
-        return "cli_error"
+        logger.warning("Hybrid Connection provisioning failed for '%s': %s", name, exc)
+        return "error", str(exc)
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -129,28 +154,35 @@ def _try_cli_provision(name: str, namespace: str) -> str:
 @router.post(
     "",
     response_model=HybridConnectionResponse,
-    summary="Create a Hybrid Connection record",
+    summary="Create and auto-provision a Hybrid Connection",
 )
 async def create_hybrid_connection(
     body: CreateHybridConnectionRequest,
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Stores the hybrid connection details for the logged-in user.
-    If the Azure CLI is configured on the server (AZURE_RESOURCE_GROUP +
-    AZURE_APP_SERVICE_NAME env vars and `az` in PATH), the relay entity and
-    App-Service binding are provisioned automatically.
-    Otherwise the connection is saved with status='created' and the CLI
-    commands to run manually are returned in the response.
+    Saves the Hybrid Connection details for the logged-in user and
+    immediately provisions it in Azure using the SDK (Managed Identity or
+    service-principal credentials).
+
+    Status values:
+    - provisioned    : Azure relay entity created + App Service binding done
+    - config_missing : env vars not configured on the server
+    - error          : provisioning attempted but failed (detail in error_detail)
     """
     connection_id = str(uuid.uuid4())
-    user_id = current_user["user_id"]
-    namespace = _normalise_namespace(body.service_bus_namespace)
+    user_id       = current_user["user_id"]
+    namespace     = _normalise_namespace(body.service_bus_namespace)
 
-    # Attempt CLI provisioning in a thread (non-blocking for the request)
+    # Run SDK provisioning in a thread so we don't block the event loop
     loop = asyncio.get_event_loop()
-    status = await loop.run_in_executor(
-        None, _try_cli_provision, body.name, namespace
+    status, error_detail = await loop.run_in_executor(
+        None,
+        _provision_hybrid_connection,
+        body.name,
+        body.endpoint_host,
+        body.endpoint_port,
+        namespace,
     )
 
     azure_store.create_hybrid_connection(
@@ -160,16 +192,12 @@ async def create_hybrid_connection(
         endpoint_host=body.endpoint_host,
         endpoint_port=body.endpoint_port,
         service_bus_namespace=namespace,
-        status=status if status == "provisioned" else "created",
+        status=status,
     )
 
     logger.info(
         "User %s created Hybrid Connection '%s' (id=%s, status=%s)",
         user_id, body.name, connection_id, status,
-    )
-
-    cli_commands = None if status == "provisioned" else _build_cli_commands(
-        body.name, body.endpoint_host, body.endpoint_port, namespace
     )
 
     return HybridConnectionResponse(
@@ -178,9 +206,9 @@ async def create_hybrid_connection(
         endpoint_host=body.endpoint_host,
         endpoint_port=body.endpoint_port,
         service_bus_namespace=namespace,
-        status=status if status == "provisioned" else "created",
-        created_at="",   # will be set by DB default; returned from list endpoint
-        cli_commands=cli_commands,
+        status=status,
+        created_at=datetime.now(timezone.utc).isoformat(),
+        error_detail=error_detail,
     )
 
 

@@ -264,9 +264,9 @@ export interface HybridConnection {
   endpoint_host: string
   endpoint_port: number
   service_bus_namespace: string
-  status: 'created' | 'provisioned' | 'cli_unavailable' | 'cli_error'
+  status: 'created' | 'provisioned' | 'config_missing' | 'error'
   created_at: string
-  cli_commands?: string[] | null
+  error_detail?: string | null
 }
 
 export interface CreateHybridConnectionRequest {

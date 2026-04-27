@@ -11,7 +11,7 @@ import {
   Globe, Share2, Laptop, Database, Network,
   CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
   ExternalLink, Search, Wifi, WifiOff, Info,
-  Plus, Trash2, Terminal, RefreshCw, Server,
+  Plus, Trash2, RefreshCw, Server,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { HybridConnection } from '../types/api'
@@ -83,21 +83,27 @@ function ConnectionDiagram() {
 
 // ── Create Hybrid Connection form ─────────────────────────────────────────────
 
-function CreateConnectionForm({ onCreated }: { onCreated: (hc: HybridConnection) => void }) {
+interface CreateResult {
+  status: string
+  errorDetail: string | null
+  name: string
+}
+
+function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName]               = useState('')
   const [host, setHost]               = useState('')
   const [port, setPort]               = useState('1433')
   const [namespace, setNamespace]     = useState('')
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState<string | null>(null)
-  const [cliCmds, setCliCmds]         = useState<string[] | null>(null)
+  const [result, setResult]           = useState<CreateResult | null>(null)
 
   const valid = name.trim() && host.trim() && namespace.trim() && parseInt(port) > 0
 
   const handleCreate = async () => {
     if (!valid) return
     setError(null)
-    setCliCmds(null)
+    setResult(null)
     setLoading(true)
     try {
       const { data } = await api.createHybridConnection({
@@ -106,10 +112,9 @@ function CreateConnectionForm({ onCreated }: { onCreated: (hc: HybridConnection)
         endpoint_port: parseInt(port, 10) || 1433,
         service_bus_namespace: namespace.trim(),
       })
-      onCreated(data)
-      if (data.cli_commands?.length) setCliCmds(data.cli_commands)
-      // Reset fields
+      setResult({ status: data.status, errorDetail: data.error_detail ?? null, name: data.name })
       setName(''); setHost(''); setPort('1433'); setNamespace('')
+      onCreated()
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {
@@ -135,7 +140,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: (hc: HybridConnection)
               className="form-input w-full"
               placeholder="e.g. sat-onprem-sql"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); setResult(null) }}
               spellCheck={false}
               autoComplete="off"
             />
@@ -149,7 +154,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: (hc: HybridConnection)
               className="form-input w-full"
               placeholder="e.g. myns or myns.servicebus.windows.net"
               value={namespace}
-              onChange={(e) => setNamespace(e.target.value)}
+              onChange={(e) => { setNamespace(e.target.value); setResult(null) }}
               spellCheck={false}
               autoComplete="off"
             />
@@ -165,7 +170,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: (hc: HybridConnection)
                 className="form-input pl-10 w-full"
                 placeholder="SQL Server hostname or IP"
                 value={host}
-                onChange={(e) => setHost(e.target.value)}
+                onChange={(e) => { setHost(e.target.value); setResult(null) }}
                 spellCheck={false}
                 autoComplete="off"
               />
@@ -181,7 +186,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: (hc: HybridConnection)
               min={1}
               max={65535}
               value={port}
-              onChange={(e) => setPort(e.target.value)}
+              onChange={(e) => { setPort(e.target.value); setResult(null) }}
             />
           </div>
         </div>
@@ -203,17 +208,30 @@ function CreateConnectionForm({ onCreated }: { onCreated: (hc: HybridConnection)
           </div>
         )}
 
-        {cliCmds && (
-          <div className="animate-slide-down rounded-xl border border-slate-200 bg-slate-900 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-700">
-              <Terminal className="h-3.5 w-3.5 text-slate-400" />
-              <span className="text-xs font-semibold text-slate-300">
-                Azure CLI commands — run these to provision the connection
-              </span>
+        {result && result.status === 'provisioned' && (
+          <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700 animate-slide-down">
+            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              <strong>{result.name}</strong> was created and provisioned automatically in Azure.
+            </span>
+          </div>
+        )}
+
+        {result && result.status !== 'provisioned' && (
+          <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-700 animate-slide-down">
+            <Info className="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              <p>
+                <strong>{result.name}</strong> was saved to your account.
+                Azure auto-provisioning could not complete on this server.
+              </p>
+              {result.errorDetail && (
+                <p className="mt-1 text-xs text-blue-600">{result.errorDetail}</p>
+              )}
+              <p className="mt-1 text-xs text-blue-600">
+                You can complete setup manually via the Azure Portal — see the guide below.
+              </p>
             </div>
-            <pre className="px-4 py-3 text-[11px] text-emerald-300 leading-relaxed overflow-x-auto">
-              {cliCmds.join('\n')}
-            </pre>
           </div>
         )}
       </div>
@@ -223,12 +241,12 @@ function CreateConnectionForm({ onCreated }: { onCreated: (hc: HybridConnection)
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: HybridConnection['status'] }) {
+function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     provisioned:     { label: 'Provisioned',   cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    created:         { label: 'Created',        cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-    cli_unavailable: { label: 'CLI not set up', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-    cli_error:       { label: 'CLI error',      cls: 'bg-red-50 text-red-700 border-red-200' },
+    created:         { label: 'Saved',          cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+    config_missing:  { label: 'Saved (manual setup needed)', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+    error:           { label: 'Provision failed', cls: 'bg-red-50 text-red-700 border-red-200' },
   }
   const { label, cls } = map[status] ?? { label: status, cls: 'bg-slate-50 text-slate-600 border-slate-200' }
   return (
@@ -261,9 +279,9 @@ function MyConnectionsListControlled() {
 
   useEffect(() => { load() }, [])
 
-  const handleCreated = (hc: HybridConnection) => {
-    // Optimistically prepend; full data will come from next load
-    setConnections((prev) => [hc, ...prev])
+  const handleCreated = () => {
+    // Reload the list from the server to get accurate data (including created_at)
+    load()
   }
 
   const handleDelete = async (id: string) => {
@@ -382,20 +400,21 @@ const STEPS: Step[] = [
   },
   {
     n: 2,
-    title: 'Create a Hybrid Connection (use the form above or Azure Portal)',
+    title: 'Create a Hybrid Connection',
     body: (
       <div className="space-y-3 text-sm text-slate-600">
         <p>
-          Use the <strong className="text-slate-800">Create Hybrid Connection</strong> form above to register the
-          connection in this tool. If the server has the Azure CLI configured with your subscription,
-          the relay entity and App Service binding are provisioned automatically. Otherwise, the form
-          returns CLI commands to run manually.
+          Fill in the <strong className="text-slate-800">Create Hybrid Connection</strong> form above and click
+          {' '}<strong className="text-slate-800">Create Connection</strong>. The connection is saved to your account
+          and provisioned automatically in Azure when the server is configured with the required Azure credentials.
         </p>
-        <p>Alternatively, create the connection directly in Azure Portal:</p>
+        <p>
+          If auto-provisioning is not available on your deployment, you can create the connection directly in Azure Portal:
+        </p>
         <ol className="space-y-2 list-decimal list-inside text-slate-500">
           <li>Open <strong className="text-slate-700">App Service → Networking → Hybrid connections</strong>.</li>
           <li>Click <strong className="text-slate-700">Add hybrid connection → Create new hybrid connection</strong>.</li>
-          <li>Fill in name, endpoint host/port, and Service Bus namespace.</li>
+          <li>Enter the same name, endpoint host/port, and Service Bus namespace you used above.</li>
         </ol>
       </div>
     ),

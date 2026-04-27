@@ -1,13 +1,13 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Server, Database, User, Lock, Eye, EyeOff,
   Plus, Trash2, ChevronDown, ChevronUp, Wifi, WifiOff,
   CheckCircle2, AlertCircle, ArrowRight, Tag, Zap,
-  RefreshCw, Search, ShieldCheck, Info, Network,
+  RefreshCw, Search, ShieldCheck, Info, Network, Share2,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
-import type { AccessLevel, DatabaseInfo, DbType } from '../types/api'
+import type { AccessLevel, DatabaseInfo, DbType, HybridConnection } from '../types/api'
 import { ACCESS_LEVEL_OPTIONS } from '../types/api'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
@@ -45,6 +45,112 @@ interface ServerEntry {
   selected_dbs: SelectedDb[]
   expanded: boolean
 }
+
+// ── Hybrid Connection Picker ───────────────────────────────────────────────────
+
+function HybridConnectionPicker({
+  onSelect,
+}: {
+  onSelect: (host: string, port: number) => void
+}) {
+  const [open, setOpen]               = useState(false)
+  const [connections, setConnections] = useState<HybridConnection[]>([])
+  const [loading, setLoading]         = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleOpen = async () => {
+    setOpen(true)
+    if (connections.length > 0) return
+    setLoading(true)
+    setError(null)
+    try {
+      const { data } = await api.listHybridConnections()
+      setConnections(data)
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePick = (hc: HybridConnection) => {
+    onSelect(hc.endpoint_host, hc.endpoint_port)
+    setOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={handleOpen}
+        className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-40 transition-colors"
+        title="Pick from your saved Hybrid Connections"
+      >
+        <Share2 className="h-3.5 w-3.5" />
+        Hybrid
+      </button>
+
+      {open && (
+        <div className="absolute top-full mt-1.5 left-0 z-50 w-72 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden animate-slide-down">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50">
+            <Share2 className="h-3.5 w-3.5 text-indigo-500" />
+            <span className="text-xs font-semibold text-slate-700">Your Hybrid Connections</span>
+          </div>
+
+          {loading && (
+            <div className="flex items-center justify-center py-6">
+              <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
+            </div>
+          )}
+
+          {error && (
+            <div className="px-3 py-3 text-xs text-red-600">{error}</div>
+          )}
+
+          {!loading && !error && connections.length === 0 && (
+            <div className="px-3 py-4 text-xs text-slate-400 text-center">
+              No saved connections.{' '}
+              <a href="/hybrid-connection" className="text-indigo-600 underline underline-offset-2">
+                Create one
+              </a>{' '}
+              first.
+            </div>
+          )}
+
+          {!loading && connections.map((hc) => (
+            <button
+              key={hc.connection_id}
+              type="button"
+              onClick={() => handlePick(hc)}
+              className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0"
+            >
+              <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Share2 className="h-3.5 w-3.5 text-indigo-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-800 truncate">{hc.name}</p>
+                <p className="text-[11px] text-slate-500 truncate">
+                  {hc.endpoint_host}:{hc.endpoint_port}
+                </p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function makeServer(): ServerEntry {
   return {
@@ -291,6 +397,9 @@ function ServerCard({
                   value={entry.port}
                   onChange={(e) => set({ port: parseInt(e.target.value, 10) || 1433, connectivity: null })}
                   title="Port"
+                />
+                <HybridConnectionPicker
+                  onSelect={(host, port) => set({ server: host, port, connectivity: null })}
                 />
                 <button
                   type="button"

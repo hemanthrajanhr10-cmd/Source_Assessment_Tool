@@ -1107,3 +1107,136 @@ def update_hybrid_connection_status(connection_id: str, status: str) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+# ── UserConnections CRUD ───────────────────────────────────────────────────────
+# Credentials (database_name_enc, sql_username_enc, sql_password_enc) are stored
+# already encrypted by the caller.  This layer never touches plaintext.
+
+def create_user_connection(
+    connection_id: str,
+    user_id: str,
+    display_name: str,
+    tunnel_host: str,
+    tunnel_port: int,
+    database_name_enc: str,
+    sql_username_enc: str,
+    sql_password_enc: str,
+) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO dbo.user_connections
+               (connection_id, user_id, display_name, tunnel_host, tunnel_port,
+                database_name_enc, sql_username_enc, sql_password_enc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (connection_id, user_id, display_name, tunnel_host, tunnel_port,
+             database_name_enc, sql_username_enc, sql_password_enc),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_user_connection(connection_id: str, user_id: str) -> Optional[dict[str, Any]]:
+    """Return a single connection row scoped to the owning user, or None."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT connection_id, user_id, display_name, tunnel_host, tunnel_port,
+                      database_name_enc, sql_username_enc, sql_password_enc,
+                      created_at, updated_at
+               FROM dbo.user_connections
+               WHERE connection_id = ? AND user_id = ?""",
+            (connection_id, user_id),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [d[0] for d in cur.description]
+        result = dict(zip(cols, row))
+        for k, v in result.items():
+            if isinstance(v, datetime):
+                result[k] = v.isoformat()
+        return result
+    finally:
+        conn.close()
+
+
+def list_user_connections(user_id: str) -> list[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT connection_id, user_id, display_name, tunnel_host, tunnel_port,
+                      database_name_enc, sql_username_enc, sql_password_enc,
+                      created_at, updated_at
+               FROM dbo.user_connections
+               WHERE user_id = ?
+               ORDER BY created_at DESC""",
+            (user_id,),
+        )
+        cols = [d[0] for d in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            for k, v in d.items():
+                if isinstance(v, datetime):
+                    d[k] = v.isoformat()
+            rows.append(d)
+        return rows
+    finally:
+        conn.close()
+
+
+def update_user_connection(
+    connection_id: str,
+    user_id: str,
+    display_name: str,
+    tunnel_host: str,
+    tunnel_port: int,
+    database_name_enc: str,
+    sql_username_enc: str,
+    sql_password_enc: str,
+) -> bool:
+    """Update a connection. Returns True if a row was updated (owner match)."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """UPDATE dbo.user_connections
+               SET display_name      = ?,
+                   tunnel_host       = ?,
+                   tunnel_port       = ?,
+                   database_name_enc = ?,
+                   sql_username_enc  = ?,
+                   sql_password_enc  = ?,
+                   updated_at        = SYSUTCDATETIME()
+               WHERE connection_id = ? AND user_id = ?""",
+            (display_name, tunnel_host, tunnel_port,
+             database_name_enc, sql_username_enc, sql_password_enc,
+             connection_id, user_id),
+        )
+        updated = cur.rowcount > 0
+        conn.commit()
+        return updated
+    finally:
+        conn.close()
+
+
+def delete_user_connection(connection_id: str, user_id: str) -> bool:
+    """Delete a connection. Returns True if a row was deleted (owner match)."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM dbo.user_connections WHERE connection_id = ? AND user_id = ?",
+            (connection_id, user_id),
+        )
+        deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+    finally:
+        conn.close()

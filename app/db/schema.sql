@@ -898,3 +898,23 @@ IF OBJECT_ID('dbo.hybrid_connections', 'U') IS NULL
     );
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_hybrid_connections_user')
     CREATE INDEX IX_hybrid_connections_user ON dbo.hybrid_connections (user_id, created_at DESC);
+
+-- ─── user_connections (Cloudflare Tunnel per-user SQL connection configs) ──────
+-- Credentials are AES-256-GCM encrypted before storage; the key lives in
+-- Azure Key Vault and is never written to this table.
+IF OBJECT_ID('dbo.user_connections', 'U') IS NULL
+    CREATE TABLE dbo.user_connections (
+        connection_id     VARCHAR(36)    NOT NULL,
+        user_id           VARCHAR(36)    NOT NULL,
+        display_name      NVARCHAR(200)  NOT NULL,
+        tunnel_host       NVARCHAR(500)  NOT NULL,
+        tunnel_port       INT            NOT NULL DEFAULT 1433,
+        database_name_enc NVARCHAR(MAX)  NOT NULL,   -- AES-256-GCM ciphertext (base64)
+        sql_username_enc  NVARCHAR(MAX)  NOT NULL,   -- AES-256-GCM ciphertext (base64)
+        sql_password_enc  NVARCHAR(MAX)  NOT NULL,   -- AES-256-GCM ciphertext (base64)
+        created_at        DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        updated_at        DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_user_connections PRIMARY KEY (connection_id)
+    );
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_user_connections_user')
+    CREATE INDEX IX_user_connections_user ON dbo.user_connections (user_id, created_at DESC);

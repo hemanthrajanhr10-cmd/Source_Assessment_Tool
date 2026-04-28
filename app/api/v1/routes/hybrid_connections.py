@@ -88,15 +88,21 @@ def _provision_hybrid_connection(
 
     try:
         from azure.identity import DefaultAzureCredential
-        from azure.mgmt.relay import RelayManagementClient
         from azure.mgmt.relay.models import HybridConnection
         from azure.mgmt.web import WebSiteManagementClient
         from azure.mgmt.web.models import HybridConnection as WebHybridConnection
 
+        # azure-mgmt-relay 1.1.0 renamed the client to RelayAPI; fall back to
+        # the old RelayManagementClient name found in 0.x releases.
+        try:
+            from azure.mgmt.relay import RelayAPI as _RelayClient
+        except ImportError:
+            from azure.mgmt.relay import RelayManagementClient as _RelayClient  # type: ignore[no-redef]
+
         credential = DefaultAzureCredential()
 
         # ── 1. Create the Hybrid Connection entity in the Relay namespace ──────
-        relay_client = RelayManagementClient(credential, subscription_id)
+        relay_client = _RelayClient(credential, subscription_id)
 
         relay_client.hybrid_connections.create_or_update(
             resource_group_name=resource_group,

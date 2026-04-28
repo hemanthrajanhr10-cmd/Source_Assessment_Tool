@@ -34,6 +34,23 @@ class Settings(BaseSettings):
     fabric_client_id: str = ""        # Azure AD app Client ID
     fabric_tenant_id: str = "common"  # Tenant ID or "common" for multi-tenant
 
+    # ── OAuth SSO (Microsoft Entra ID + Google) ───────────────────────────────
+    # Microsoft OAuth — register an app at https://portal.azure.com
+    #   Redirect URI: {backend_url}/api/v1/auth/oauth/microsoft/callback
+    oauth_microsoft_client_id: str = ""
+    oauth_microsoft_client_secret: SecretStr = SecretStr("")
+    oauth_microsoft_tenant_id: str = "common"
+    oauth_microsoft_redirect_uri: str = "http://localhost:8000/api/v1/auth/oauth/microsoft/callback"
+
+    # Google OAuth — register an app at https://console.cloud.google.com
+    #   Redirect URI: {backend_url}/api/v1/auth/oauth/google/callback
+    oauth_google_client_id: str = ""
+    oauth_google_client_secret: SecretStr = SecretStr("")
+    oauth_google_redirect_uri: str = "http://localhost:8000/api/v1/auth/oauth/google/callback"
+
+    # Frontend base URL — used to redirect back after OAuth callback
+    frontend_url: str = "http://localhost:5173"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

@@ -2,25 +2,27 @@ import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/layout/Layout'
+import SplashScreen from './components/ui/SplashScreen'
 import Spinner from './components/ui/Spinner'
 
-const NewAssessmentPage      = lazy(() => import('./pages/NewAssessmentPage'))
-const JobsPage               = lazy(() => import('./pages/JobsPage'))
-const JobDetailPage          = lazy(() => import('./pages/JobDetailPage'))
-const HybridConnectionPage   = lazy(() => import('./pages/GatewayPage'))
-const SessionsPage           = lazy(() => import('./pages/SessionsPage'))
-const SessionDetailPage      = lazy(() => import('./pages/SessionDetailPage'))
-const FabricAssessmentPage   = lazy(() => import('./pages/FabricAssessmentPage'))
-const FabricSessionsPage     = lazy(() => import('./pages/FabricSessionsPage'))
+const NewAssessmentPage       = lazy(() => import('./pages/NewAssessmentPage'))
+const JobsPage                = lazy(() => import('./pages/JobsPage'))
+const JobDetailPage           = lazy(() => import('./pages/JobDetailPage'))
+const HybridConnectionPage    = lazy(() => import('./pages/GatewayPage'))
+const SessionsPage            = lazy(() => import('./pages/SessionsPage'))
+const SessionDetailPage       = lazy(() => import('./pages/SessionDetailPage'))
+const FabricAssessmentPage    = lazy(() => import('./pages/FabricAssessmentPage'))
+const FabricSessionsPage      = lazy(() => import('./pages/FabricSessionsPage'))
 const FabricSessionDetailPage = lazy(() => import('./pages/FabricSessionDetailPage'))
-const LoginPage              = lazy(() => import('./pages/LoginPage'))
-const RegisterPage           = lazy(() => import('./pages/RegisterPage'))
-const MFASetupPage           = lazy(() => import('./pages/MFASetupPage'))
+const LoginPage               = lazy(() => import('./pages/LoginPage'))
+const RegisterPage            = lazy(() => import('./pages/RegisterPage'))
+const MFASetupPage            = lazy(() => import('./pages/MFASetupPage'))
+const OAuthCallbackPage       = lazy(() => import('./pages/OAuthCallbackPage'))
 
 function PageFallback() {
   return (
     <div className="flex items-center justify-center min-h-[40vh]">
-      <Spinner size="lg" className="text-amber-500" />
+      <Spinner size="lg" className="text-violet-600" />
     </div>
   )
 }
@@ -29,11 +31,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth()
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <Spinner size="lg" className="text-amber-500" />
-      </div>
-    )
+    return <SplashScreen />
   }
 
   if (!token) {
@@ -50,6 +48,9 @@ function AppRoutes() {
         {/* Public auth routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+
+        {/* OAuth SSO callback — public, processes ?token= from backend redirect */}
+        <Route path="/auth/callback" element={<OAuthCallbackPage />} />
 
         {/* Protected routes */}
         <Route

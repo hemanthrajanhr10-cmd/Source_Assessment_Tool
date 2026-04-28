@@ -1,22 +1,30 @@
 """
 Auth routes.
 
-POST /api/v1/auth/register        — create account
-POST /api/v1/auth/login           — email + password → JWT (or MFA challenge)
-POST /api/v1/auth/verify-mfa      — submit TOTP code → JWT
-POST /api/v1/auth/setup-mfa       — generate TOTP secret + QR URI
-POST /api/v1/auth/confirm-mfa     — verify code and enable MFA
-GET  /api/v1/auth/me              — current user profile
+POST /api/v1/auth/register                     — create account
+POST /api/v1/auth/login                        — email + password → JWT (or MFA challenge)
+POST /api/v1/auth/verify-mfa                   — submit TOTP code → JWT
+POST /api/v1/auth/setup-mfa                    — generate TOTP secret + QR URI
+POST /api/v1/auth/confirm-mfa                  — verify code and enable MFA
+GET  /api/v1/auth/me                           — current user profile
+GET  /api/v1/auth/oauth/microsoft              — start Microsoft OAuth flow
+GET  /api/v1/auth/oauth/microsoft/callback     — Microsoft OAuth callback
+GET  /api/v1/auth/oauth/google                 — start Google OAuth flow
+GET  /api/v1/auth/oauth/google/callback        — Google OAuth callback
 """
 
 import base64
 import io
+import urllib.parse
 from typing import Optional
 
 import qrcode
-from fastapi import APIRouter, Depends, HTTPException, status
+import requests as http_requests
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 
+from app.config import settings
 from app.core.auth import (
     create_access_token,
     generate_mfa_secret,
@@ -151,3 +159,164 @@ async def me(current_user: dict = Depends(get_current_user)):
         "mfa_enabled": bool(current_user.get("mfa_enabled")),
         "created_at": str(current_user.get("created_at", "")),
     }
+
+
+# ── OAuth helpers ─────────────────────────────────────────────────────────────
+
+def _oauth_upsert_user(email: str, full_name: Optional[str]) -> dict:
+    """Find or create an OAuth user (no password). Returns user dict."""
+    user = azure_store.get_user_by_email(email)
+    if not user:
+        user_id = new_user_id()
+        # password_hash = "" marks this as an OAuth-only account
+        azure_store.create_user(user_id, email, full_name, "")
+        user = azure_store.get_user_by_id(user_id)
+    return user
+
+
+def _oauth_error_redirect(reason: str) -> RedirectResponse:
+    fe = settings.frontend_url.rstrip("/")
+    return RedirectResponse(f"{fe}/login?oauth_error={urllib.parse.quote(reason)}")
+
+
+# ── Microsoft OAuth ───────────────────────────────────────────────────────────
+
+@router.get("/oauth/microsoft", include_in_schema=False)
+async def oauth_microsoft_start():
+    """Redirect the browser to Microsoft Entra ID for sign-in."""
+    if not settings.oauth_microsoft_client_id:
+        raise HTTPException(status_code=501, detail="Microsoft OAuth is not configured on this server.")
+
+    tenant = settings.oauth_microsoft_tenant_id
+    params = urllib.parse.urlencode({
+        "client_id": settings.oauth_microsoft_client_id,
+        "response_type": "code",
+        "redirect_uri": settings.oauth_microsoft_redirect_uri,
+        "response_mode": "query",
+        "scope": "openid email profile User.Read",
+    })
+    return RedirectResponse(
+        f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize?{params}"
+    )
+
+
+@router.get("/oauth/microsoft/callback", include_in_schema=False)
+async def oauth_microsoft_callback(
+    code: Optional[str] = Query(default=None),
+    error: Optional[str] = Query(default=None),
+):
+    """Exchange the Microsoft auth code for a SourceSAT JWT and redirect to the frontend."""
+    if error or not code:
+        return _oauth_error_redirect(error or "access_denied")
+
+    tenant = settings.oauth_microsoft_tenant_id
+    # Exchange code for tokens
+    token_resp = http_requests.post(
+        f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token",
+        data={
+            "client_id": settings.oauth_microsoft_client_id,
+            "client_secret": settings.oauth_microsoft_client_secret.get_secret_value(),
+            "code": code,
+            "redirect_uri": settings.oauth_microsoft_redirect_uri,
+            "grant_type": "authorization_code",
+        },
+        timeout=15,
+    )
+    if not token_resp.ok:
+        return _oauth_error_redirect("token_exchange_failed")
+
+    ms_access_token = token_resp.json().get("access_token", "")
+
+    # Fetch user profile from Microsoft Graph
+    graph_resp = http_requests.get(
+        "https://graph.microsoft.com/v1.0/me",
+        headers={"Authorization": f"Bearer {ms_access_token}"},
+        timeout=10,
+    )
+    if not graph_resp.ok:
+        return _oauth_error_redirect("userinfo_failed")
+
+    ms_user = graph_resp.json()
+    email = (ms_user.get("mail") or ms_user.get("userPrincipalName") or "").lower().strip()
+    full_name = ms_user.get("displayName")
+
+    if not email:
+        return _oauth_error_redirect("no_email_returned")
+
+    user = _oauth_upsert_user(email, full_name)
+    if not user or not user.get("is_active"):
+        return _oauth_error_redirect("account_inactive")
+
+    jwt_token = create_access_token(user["user_id"], user["email"])
+    fe = settings.frontend_url.rstrip("/")
+    return RedirectResponse(f"{fe}/auth/callback?token={jwt_token}")
+
+
+# ── Google OAuth ──────────────────────────────────────────────────────────────
+
+@router.get("/oauth/google", include_in_schema=False)
+async def oauth_google_start():
+    """Redirect the browser to Google for sign-in."""
+    if not settings.oauth_google_client_id:
+        raise HTTPException(status_code=501, detail="Google OAuth is not configured on this server.")
+
+    params = urllib.parse.urlencode({
+        "client_id": settings.oauth_google_client_id,
+        "redirect_uri": settings.oauth_google_redirect_uri,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "online",
+        "prompt": "select_account",
+    })
+    return RedirectResponse(f"https://accounts.google.com/o/oauth2/v2/auth?{params}")
+
+
+@router.get("/oauth/google/callback", include_in_schema=False)
+async def oauth_google_callback(
+    code: Optional[str] = Query(default=None),
+    error: Optional[str] = Query(default=None),
+):
+    """Exchange the Google auth code for a SourceSAT JWT and redirect to the frontend."""
+    if error or not code:
+        return _oauth_error_redirect(error or "access_denied")
+
+    # Exchange code for tokens
+    token_resp = http_requests.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "client_id": settings.oauth_google_client_id,
+            "client_secret": settings.oauth_google_client_secret.get_secret_value(),
+            "code": code,
+            "redirect_uri": settings.oauth_google_redirect_uri,
+            "grant_type": "authorization_code",
+        },
+        timeout=15,
+    )
+    if not token_resp.ok:
+        return _oauth_error_redirect("token_exchange_failed")
+
+    google_access_token = token_resp.json().get("access_token", "")
+
+    # Fetch user profile
+    userinfo_resp = http_requests.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={"Authorization": f"Bearer {google_access_token}"},
+        timeout=10,
+    )
+    if not userinfo_resp.ok:
+        return _oauth_error_redirect("userinfo_failed")
+
+    g_user = userinfo_resp.json()
+    email = (g_user.get("email") or "").lower().strip()
+    full_name = g_user.get("name")
+
+    if not email:
+        return _oauth_error_redirect("no_email_returned")
+
+    user = _oauth_upsert_user(email, full_name)
+    if not user or not user.get("is_active"):
+        return _oauth_error_redirect("account_inactive")
+
+    jwt_token = create_access_token(user["user_id"], user["email"])
+    fe = settings.frontend_url.rstrip("/")
+    return RedirectResponse(f"{fe}/auth/callback?token={jwt_token}")

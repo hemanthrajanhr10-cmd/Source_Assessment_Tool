@@ -90,7 +90,7 @@ def _ensure_user_namespace(
         except ImportError:
             from azure.mgmt.relay import RelayManagementClient as _RelayClient  # type: ignore[no-redef]
 
-        from azure.mgmt.relay.models import RelayNamespace, Sku, SkuTier
+        from azure.mgmt.relay.models import RelayNamespace, Sku
 
         credential = DefaultAzureCredential()
         relay_client = _RelayClient(credential, subscription_id)
@@ -100,7 +100,7 @@ def _ensure_user_namespace(
             namespace_name=namespace,
             parameters=RelayNamespace(
                 location=location,
-                sku=Sku(name="Standard", tier=SkuTier.STANDARD),
+                sku=Sku(name="Standard", tier="Standard"),
             ),
         )
         poller.result()  # wait for provisioning to complete

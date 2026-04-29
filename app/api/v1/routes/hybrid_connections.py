@@ -163,12 +163,15 @@ def _provision_hybrid_connection(
         relay_client = _RelayClient(credential, subscription_id)
 
         # ── 1. Create the Hybrid Connection entity in the Relay namespace ──────
+        import json as _json
+        endpoint_metadata = _json.dumps([{"key": "endpoint", "value": f"{endpoint_host}:{endpoint_port}"}])
         relay_client.hybrid_connections.create_or_update(
             resource_group_name=resource_group,
             namespace_name=namespace,
             hybrid_connection_name=name,
             parameters=HybridConnection(
                 requires_client_authorization=True,
+                user_metadata=endpoint_metadata,
             ),
         )
         logger.info("Relay HC entity '%s' created in namespace '%s'", name, namespace)

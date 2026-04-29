@@ -63,6 +63,39 @@ def _namespace_name_for_user(user_id: str) -> str:
     return f"sat-{hex_id}"
 
 
+def _wait_for_namespace_ready(
+    relay_client,
+    resource_group: str,
+    namespace: str,
+    max_wait_secs: int = 90,
+    poll_interval: int = 5,
+) -> None:
+    """
+    Azure ARM reports a namespace as 'Succeeded' before it is fully propagated
+    internally.  Poll namespaces.get() until the call succeeds and the
+    provisioning state is Succeeded — or raise after max_wait_secs.
+    """
+    import time
+
+    deadline = time.monotonic() + max_wait_secs
+    last_exc: Optional[Exception] = None
+    while time.monotonic() < deadline:
+        try:
+            ns = relay_client.namespaces.get(resource_group, namespace)
+            state = (ns.provisioning_state or "").lower()
+            if state == "succeeded":
+                return
+            logger.debug("Namespace '%s' provisioning_state=%s, waiting…", namespace, state)
+        except Exception as exc:
+            last_exc = exc
+            logger.debug("Namespace '%s' not yet reachable: %s", namespace, exc)
+        time.sleep(poll_interval)
+    raise RuntimeError(
+        f"Namespace '{namespace}' not accessible after {max_wait_secs}s. "
+        f"Last error: {last_exc}"
+    )
+
+
 def _ensure_user_namespace(
     user_id: str,
     subscription_id: str,
@@ -70,14 +103,10 @@ def _ensure_user_namespace(
 ) -> tuple[str, Optional[str]]:
     """
     Return (namespace_name, error_detail).
-    If the user already has a namespace stored, return it immediately.
-    Otherwise, provision a new one in Azure and persist it.
+    If the user already has a namespace stored, verify it exists in Azure first.
+    If not found (stale cache or never created), provision it and wait until ready.
     """
     from app.db import azure_store
-
-    existing = azure_store.get_user_relay_namespace(user_id)
-    if existing:
-        return existing, None
 
     namespace = _namespace_name_for_user(user_id)
     location = os.environ.get("AZURE_RELAY_LOCATION", "eastus").strip()
@@ -95,6 +124,27 @@ def _ensure_user_namespace(
         credential = DefaultAzureCredential()
         relay_client = _RelayClient(credential, subscription_id)
 
+        existing = azure_store.get_user_relay_namespace(user_id)
+        if existing:
+            # Verify the cached namespace actually exists in Azure before trusting it.
+            try:
+                ns = relay_client.namespaces.get(resource_group, existing)
+                state = (ns.provisioning_state or "").lower()
+                if state == "succeeded":
+                    logger.debug("Cached namespace '%s' verified in Azure.", existing)
+                    return existing, None
+                logger.warning(
+                    "Cached namespace '%s' has provisioning_state=%s — re-provisioning.",
+                    existing, state,
+                )
+            except Exception as verify_exc:
+                logger.warning(
+                    "Cached namespace '%s' not found in Azure (%s) — re-provisioning.",
+                    existing, verify_exc,
+                )
+            # Clear stale cache and fall through to (re)provision.
+            azure_store.set_user_relay_namespace(user_id, "")
+
         poller = relay_client.namespaces.begin_create_or_update(
             resource_group_name=resource_group,
             namespace_name=namespace,
@@ -103,7 +153,11 @@ def _ensure_user_namespace(
                 sku=Sku(name="Standard", tier="Standard"),
             ),
         )
-        poller.result()  # wait for provisioning to complete
+        poller.result()  # wait for ARM LRO to complete
+
+        # ARM says Succeeded, but internal propagation can still lag.
+        # Poll until the namespace is actually reachable.
+        _wait_for_namespace_ready(relay_client, resource_group, namespace)
 
         azure_store.set_user_relay_namespace(user_id, namespace)
         logger.info("Provisioned Relay namespace '%s' for user %s", namespace, user_id)
@@ -149,6 +203,9 @@ def _provision_hybrid_connection(
         )
 
     try:
+        import json as _json
+        import time
+
         from azure.identity import DefaultAzureCredential
         from azure.mgmt.relay.models import AccessRights, AuthorizationRule, HybridConnection
 
@@ -163,17 +220,35 @@ def _provision_hybrid_connection(
         relay_client = _RelayClient(credential, subscription_id)
 
         # ── 1. Create the Hybrid Connection entity in the Relay namespace ──────
-        import json as _json
+        # Retry with backoff: Azure may report the namespace as ready before all
+        # internal RP replicas have caught up, causing ParentResourceNotFound.
+        _HC_CREATE_RETRIES = 4
+        _HC_RETRY_DELAYS = [5, 10, 20]  # seconds between attempts
+
         endpoint_metadata = _json.dumps([{"key": "endpoint", "value": f"{endpoint_host}:{endpoint_port}"}])
-        relay_client.hybrid_connections.create_or_update(
-            resource_group_name=resource_group,
-            namespace_name=namespace,
-            hybrid_connection_name=name,
-            parameters=HybridConnection(
-                requires_client_authorization=True,
-                user_metadata=endpoint_metadata,
-            ),
-        )
+        for _attempt in range(1, _HC_CREATE_RETRIES + 1):
+            try:
+                relay_client.hybrid_connections.create_or_update(
+                    resource_group_name=resource_group,
+                    namespace_name=namespace,
+                    hybrid_connection_name=name,
+                    parameters=HybridConnection(
+                        requires_client_authorization=True,
+                        user_metadata=endpoint_metadata,
+                    ),
+                )
+                break  # success
+            except Exception as _hc_exc:
+                if "ParentResourceNotFound" in str(_hc_exc) and _attempt < _HC_CREATE_RETRIES:
+                    _delay = _HC_RETRY_DELAYS[min(_attempt - 1, len(_HC_RETRY_DELAYS) - 1)]
+                    logger.warning(
+                        "ParentResourceNotFound creating HC '%s' in namespace '%s' "
+                        "(attempt %d/%d) — waiting %ds before retry",
+                        name, namespace, _attempt, _HC_CREATE_RETRIES, _delay,
+                    )
+                    time.sleep(_delay)
+                else:
+                    raise
         logger.info("Relay HC entity '%s' created in namespace '%s'", name, namespace)
 
         # ── 2. Create authorization rules (Listen for HCM, Send for App Service) ─
@@ -252,7 +327,7 @@ def _provision_hybrid_connection(
 
     except Exception as exc:
         logger.warning("Hybrid Connection provisioning failed for '%s': %s", name, exc)
-        return "error", None, str(exc)
+        raise
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -303,15 +378,55 @@ async def create_hybrid_connection(
         listener_connection_string = None
         error_detail = f"Relay namespace could not be provisioned: {ns_error}"
     else:
-        # Step 2: provision the Hybrid Connection entity inside that namespace
-        status, listener_connection_string, error_detail = await loop.run_in_executor(
-            None,
-            _provision_hybrid_connection,
-            body.name,
-            body.endpoint_host,
-            body.endpoint_port,
-            namespace,
-        )
+        # Step 2: provision the Hybrid Connection entity inside that namespace.
+        # If Azure returns ParentResourceNotFound it means the namespace was cached
+        # locally but never actually created (or was deleted). Clear the cache,
+        # re-provision the namespace, and retry once.
+        try:
+            status, listener_connection_string, error_detail = await loop.run_in_executor(
+                None,
+                _provision_hybrid_connection,
+                body.name,
+                body.endpoint_host,
+                body.endpoint_port,
+                namespace,
+            )
+        except Exception as exc:
+            if "ParentResourceNotFound" in str(exc) and subscription_id and resource_group:
+                logger.warning(
+                    "ParentResourceNotFound for namespace '%s' — clearing cache and re-provisioning",
+                    namespace,
+                )
+                azure_store.set_user_relay_namespace(user_id, "")  # clear stale cache
+                namespace, ns_error = await loop.run_in_executor(
+                    None,
+                    _ensure_user_namespace,
+                    user_id,
+                    subscription_id,
+                    resource_group,
+                )
+                if ns_error:
+                    status = "error"
+                    listener_connection_string = None
+                    error_detail = f"Relay namespace re-provision failed: {ns_error}"
+                else:
+                    try:
+                        status, listener_connection_string, error_detail = await loop.run_in_executor(
+                            None,
+                            _provision_hybrid_connection,
+                            body.name,
+                            body.endpoint_host,
+                            body.endpoint_port,
+                            namespace,
+                        )
+                    except Exception as retry_exc:
+                        status = "error"
+                        listener_connection_string = None
+                        error_detail = str(retry_exc)
+            else:
+                status = "error"
+                listener_connection_string = None
+                error_detail = str(exc)
 
     azure_store.create_hybrid_connection(
         connection_id=connection_id,

@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/layout/Layout'
 import SplashScreen from './components/ui/SplashScreen'
-import Spinner from './components/ui/Spinner'
 
 const NewAssessmentPage       = lazy(() => import('./pages/NewAssessmentPage'))
 const JobsPage                = lazy(() => import('./pages/JobsPage'))
@@ -18,14 +17,6 @@ const LoginPage               = lazy(() => import('./pages/LoginPage'))
 const RegisterPage            = lazy(() => import('./pages/RegisterPage'))
 const MFASetupPage            = lazy(() => import('./pages/MFASetupPage'))
 const OAuthCallbackPage       = lazy(() => import('./pages/OAuthCallbackPage'))
-
-function PageFallback() {
-  return (
-    <div className="flex items-center justify-center min-h-[40vh]">
-      <Spinner size="lg" className="text-violet-600" />
-    </div>
-  )
-}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth()
@@ -43,7 +34,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   return (
-    <Suspense fallback={<PageFallback />}>
+    <Suspense fallback={<SplashScreen />}>
       <Routes>
         {/* Public auth routes */}
         <Route path="/login" element={<LoginPage />} />
@@ -66,7 +57,7 @@ function AppRoutes() {
           element={
             <RequireAuth>
               <Layout>
-                <Suspense fallback={<PageFallback />}>
+                <Suspense fallback={<SplashScreen />}>
                   <Routes>
                     <Route path="/" element={<NewAssessmentPage />} />
                     <Route path="/sessions" element={<SessionsPage />} />

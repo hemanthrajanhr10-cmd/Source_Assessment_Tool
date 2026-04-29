@@ -16,6 +16,7 @@ import type {
   FabricTable, FabricTableColumn,
 } from '../types/api'
 import { formatDateTime } from '../utils/dateTime'
+import Loader3D from '../components/ui/Loader3D'
 
 // ── Complexity helpers ────────────────────────────────────────────────────────
 
@@ -1213,11 +1214,7 @@ export default function FabricSessionDetailPage() {
     }
   }
 
-  if (isLoading) return (
-    <div className="flex items-center justify-center py-20 text-slate-500">
-      <Loader2 className="h-6 w-6 animate-spin mr-2 text-indigo-500" /> Loading…
-    </div>
-  )
+  if (isLoading) return <Loader3D message="Loading session" size="lg" />
 
   if (!session) return (
     <div className="flex items-center gap-2 text-red-400">

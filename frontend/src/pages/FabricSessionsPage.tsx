@@ -5,6 +5,7 @@ import { api } from '../api/client'
 import type { FabricSessionRecord } from '../types/api'
 import { formatDateTime } from '../utils/dateTime'
 import Button from '../components/ui/Button'
+import Loader3D from '../components/ui/Loader3D'
 
 function FabricStatusBadge({ status }: { status: string }) {
   if (status === 'completed')
@@ -66,9 +67,7 @@ export default function FabricSessionsPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-20 text-slate-400">
-          <Loader2 className="h-6 w-6 animate-spin mr-2 text-indigo-500" /> Loading…
-        </div>
+        <Loader3D message="Loading sessions" />
       ) : sessions.length === 0 ? (
         <div className="card p-12 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 border border-slate-200 mx-auto mb-4">

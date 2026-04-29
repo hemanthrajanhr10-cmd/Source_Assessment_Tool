@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { api } from '../api/client'
 import Button from '../components/ui/Button'
-import Spinner from '../components/ui/Spinner'
+import Loader3D from '../components/ui/Loader3D'
 import type { JobStatus, SessionJobInfo, SessionStatus } from '../types/api'
 import { formatDateTime, elapsed } from '../utils/dateTime'
 
@@ -262,11 +262,7 @@ export default function SessionDetailPage() {
   })
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Spinner size="xl" className="text-indigo-500" />
-      </div>
-    )
+    return <Loader3D message="Loading session" size="lg" />
   }
 
   if (isError || !session) {

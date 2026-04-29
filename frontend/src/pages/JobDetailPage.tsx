@@ -15,7 +15,7 @@ import {
 import { api } from '../api/client'
 import { StatusBadge } from '../components/ui/Badge'
 import Button from '../components/ui/Button'
-import Spinner from '../components/ui/Spinner'
+import Loader3D from '../components/ui/Loader3D'
 import DataTable, { type ColumnDef } from '../components/ui/DataTable'
 import type { AccessLevel, AssessmentResults } from '../types/api'
 import { ACCESS_LEVEL_OPTIONS, ACCESS_LEVEL_RANK, TAB_MIN_ACCESS } from '../types/api'
@@ -247,11 +247,7 @@ export default function JobDetailPage() {
   const progress = guessProgress(status?.progress_message)
 
   if (statusLoading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Spinner size="xl" className="text-violet-500" />
-      </div>
-    )
+    return <Loader3D message="Loading results" size="lg" />
   }
 
   if (!status) {

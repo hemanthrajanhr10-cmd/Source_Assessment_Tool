@@ -1,28 +1,28 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/layout/Layout'
-import NewAssessmentPage from './pages/NewAssessmentPage'
-import JobsPage from './pages/JobsPage'
-import JobDetailPage from './pages/JobDetailPage'
-import GatewayPage from './pages/GatewayPage'
-import SessionsPage from './pages/SessionsPage'
-import SessionDetailPage from './pages/SessionDetailPage'
-import FabricAssessmentPage from './pages/FabricAssessmentPage'
-import FabricSessionsPage from './pages/FabricSessionsPage'
-import FabricSessionDetailPage from './pages/FabricSessionDetailPage'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import MFASetupPage from './pages/MFASetupPage'
+import SplashScreen from './components/ui/SplashScreen'
+
+const NewAssessmentPage       = lazy(() => import('./pages/NewAssessmentPage'))
+const JobsPage                = lazy(() => import('./pages/JobsPage'))
+const JobDetailPage           = lazy(() => import('./pages/JobDetailPage'))
+const HybridConnectionPage    = lazy(() => import('./pages/GatewayPage'))
+const SessionsPage            = lazy(() => import('./pages/SessionsPage'))
+const SessionDetailPage       = lazy(() => import('./pages/SessionDetailPage'))
+const FabricAssessmentPage    = lazy(() => import('./pages/FabricAssessmentPage'))
+const FabricSessionsPage      = lazy(() => import('./pages/FabricSessionsPage'))
+const FabricSessionDetailPage = lazy(() => import('./pages/FabricSessionDetailPage'))
+const LoginPage               = lazy(() => import('./pages/LoginPage'))
+const RegisterPage            = lazy(() => import('./pages/RegisterPage'))
+const MFASetupPage            = lazy(() => import('./pages/MFASetupPage'))
+const OAuthCallbackPage       = lazy(() => import('./pages/OAuthCallbackPage'))
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth()
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin h-8 w-8 border-2 border-amber-500 border-t-transparent rounded-full" />
-      </div>
-    )
+    return <SplashScreen />
   }
 
   if (!token) {
@@ -34,42 +34,50 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   return (
-    <Routes>
-      {/* Public auth routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+    <Suspense fallback={<SplashScreen />}>
+      <Routes>
+        {/* Public auth routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
-      {/* Protected routes */}
-      <Route
-        path="/setup-mfa"
-        element={
-          <RequireAuth>
-            <MFASetupPage />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/*"
-        element={
-          <RequireAuth>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<NewAssessmentPage />} />
-                <Route path="/sessions" element={<SessionsPage />} />
-                <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />
-                <Route path="/jobs" element={<JobsPage />} />
-                <Route path="/jobs/:jobId" element={<JobDetailPage />} />
-                <Route path="/gateway" element={<GatewayPage />} />
-                <Route path="/fabric/new" element={<FabricAssessmentPage />} />
-                <Route path="/fabric/sessions" element={<FabricSessionsPage />} />
-                <Route path="/fabric/sessions/:sessionId" element={<FabricSessionDetailPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Layout>
-          </RequireAuth>
-        }
-      />
-    </Routes>
+        {/* OAuth SSO callback — public, processes ?token= from backend redirect */}
+        <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+
+        {/* Protected routes */}
+        <Route
+          path="/setup-mfa"
+          element={
+            <RequireAuth>
+              <MFASetupPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/*"
+          element={
+            <RequireAuth>
+              <Layout>
+                <Suspense fallback={<SplashScreen />}>
+                  <Routes>
+                    <Route path="/" element={<NewAssessmentPage />} />
+                    <Route path="/sessions" element={<SessionsPage />} />
+                    <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />
+                    <Route path="/jobs" element={<JobsPage />} />
+                    <Route path="/jobs/:jobId" element={<JobDetailPage />} />
+                    <Route path="/gateway" element={<HybridConnectionPage />} />
+                    <Route path="/hybrid-connection" element={<HybridConnectionPage />} />
+                    <Route path="/fabric/new" element={<FabricAssessmentPage />} />
+                    <Route path="/fabric/sessions" element={<FabricSessionsPage />} />
+                    <Route path="/fabric/sessions/:sessionId" element={<FabricSessionDetailPage />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
+              </Layout>
+            </RequireAuth>
+          }
+        />
+      </Routes>
+    </Suspense>
   )
 }
 

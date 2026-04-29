@@ -1,159 +1,147 @@
-import { NavLink, useNavigate } from 'react-router-dom'
-import { Database, Layers, Radio, List, LogOut, Shield, ChevronDown, Zap, PlusCircle } from 'lucide-react'
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Menu, PlusCircle, Bell, Activity } from 'lucide-react'
 import Button from '../ui/Button'
-import { useAuth } from '../../context/AuthContext'
 
-const NAV_ITEMS = [
-  { to: '/sessions',       label: 'Sessions', icon: Layers },
-  { to: '/jobs',           label: 'Jobs',     icon: List   },
-  { to: '/gateway',        label: 'Gateway',  icon: Radio  },
-  { to: '/fabric/sessions',label: 'Fabric',   icon: Zap    },
-]
+const ROUTE_META: Record<string, { label: string; section: string }> = {
+  '/':                { label: 'New Assessment',      section: 'SQL Server' },
+  '/sessions':        { label: 'Assessment Sessions', section: 'SQL Server' },
+  '/jobs':            { label: 'Assessment Jobs',     section: 'SQL Server' },
+  '/gateway':         { label: 'Gateway Manager',     section: 'SQL Server' },
+  '/hybrid-connection': { label: 'Hybrid Connection', section: 'SQL Server' },
+  '/fabric/new':      { label: 'New Fabric',          section: 'Fabric' },
+  '/fabric/sessions': { label: 'Fabric Assessments',  section: 'Fabric' },
+}
 
-export default function Header() {
+function getBreadcrumb(pathname: string): { label: string; section: string } {
+  if (ROUTE_META[pathname]) return ROUTE_META[pathname]
+  if (pathname.startsWith('/sessions/')) return { label: 'Session Detail',       section: 'SQL Server' }
+  if (pathname.startsWith('/jobs/'))     return { label: 'Job Detail',           section: 'SQL Server' }
+  if (pathname.startsWith('/fabric/sessions/')) return { label: 'Fabric Session', section: 'Fabric' }
+  return { label: 'Source Assessment Tool', section: '' }
+}
+
+interface HeaderProps {
+  onMenuClick: () => void
+}
+
+export default function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const location = useLocation()
+  const { label: pageTitle, section } = getBreadcrumb(location.pathname)
+
+  const [scrolled, setScrolled] = useState(false)
+  const [notifPulse] = useState(false)
 
   useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
+    const mainEl = document.querySelector('main') ?? window
+    let ticking = false
+
+    function onScroll() {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const scrollY =
+            mainEl instanceof Window
+              ? mainEl.scrollY
+              : (mainEl as Element).scrollTop
+          setScrolled(scrollY > 60)
+          ticking = false
+        })
+        ticking = true
       }
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+
+    mainEl.addEventListener('scroll', onScroll, { passive: true })
+    return () => mainEl.removeEventListener('scroll', onScroll)
   }, [])
-
-  function handleLogout() {
-    logout()
-    navigate('/login', { replace: true })
-  }
-
-  const initials = user?.full_name
-    ? user.full_name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
-    : user?.email.slice(0, 2).toUpperCase() ?? '?'
 
   return (
     <header
-      className="sticky top-0 z-40 w-full border-b border-zinc-800/80"
-      style={{
-        background: 'rgba(9, 9, 11, 0.85)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-      }}
+      className={`
+        sticky top-0 z-20 flex items-center h-14 px-4 sm:px-6 lg:px-8
+        border-b border-slate-200/60
+        transition-all duration-300
+        ${scrolled ? 'glass-nav' : 'bg-white/95'}
+      `}
+      style={!scrolled ? {
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(250,250,254,0.95) 100%)',
+      } : undefined}
     >
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-14 items-center gap-6">
+      {/* Mobile hamburger */}
+      <button
+        onClick={onMenuClick}
+        className="lg:hidden p-2 rounded-xl text-slate-500 hover:bg-violet-50 hover:text-violet-700
+                   transition-colors mr-3 focus-visible:ring-2 focus-visible:ring-violet-500/40"
+        aria-label="Open navigation"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
 
-          {/* Brand */}
-          <NavLink
-            to="/"
-            end
-            className="flex items-center gap-2.5 shrink-0 group"
-            aria-label="Source Assessment Tool home"
-          >
-            <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/20 group-hover:bg-amber-500/15 transition-colors">
-              <Database className="h-4 w-4 text-amber-400" />
-            </div>
-            <div className="hidden sm:block">
-              <p className="text-sm font-bold text-zinc-100 leading-tight font-display tracking-tight">
-                Source<span className="text-amber-400">SAT</span>
-              </p>
-              <p className="text-[10px] text-zinc-600 leading-tight tracking-wider uppercase">Assessment Tool</p>
-            </div>
-          </NavLink>
+      {/* Breadcrumb / Page title */}
+      <div className="flex-1 min-w-0 flex items-center gap-2.5">
+        {section && (
+          <>
+            <span className="hidden sm:block text-xs text-slate-400 font-medium">{section}</span>
+            <span className="hidden sm:block text-slate-300 text-xs">/</span>
+          </>
+        )}
+        <h2
+          className="text-sm font-bold text-slate-900 truncate font-display tracking-tight leading-tight"
+          style={{
+            background: 'linear-gradient(135deg, #0D1117 0%, #4A5568 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}
+        >
+          {pageTitle}
+        </h2>
+      </div>
 
-          {/* Nav */}
-          <nav className="flex items-center gap-0.5 flex-1" aria-label="Main navigation">
-            {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
-              <NavLink
-                key={to}
-                to={to}
-                className={({ isActive }) =>
-                  `inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
-                    isActive
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/50'
-                  }`
-                }
-              >
-                <Icon className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{label}</span>
-              </NavLink>
-            ))}
-          </nav>
+      {/* Right actions */}
+      <div className="flex items-center gap-2 shrink-0">
 
-          {/* Right side */}
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
-              onClick={() => navigate('/')}
-              className="hidden md:flex"
-            >
-              New Assessment
-            </Button>
-
-            {/* User menu */}
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setMenuOpen(!menuOpen)}
-                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-zinc-800/60 transition-colors"
-              >
-                <div className="h-7 w-7 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold flex items-center justify-center">
-                  {initials}
-                </div>
-                <ChevronDown className={`h-3.5 w-3.5 text-zinc-600 transition-transform duration-200 ${menuOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {menuOpen && (
-                <div
-                  className="absolute right-0 mt-1.5 w-56 rounded-xl border border-zinc-800 py-1 z-50"
-                  style={{
-                    background: 'rgba(24, 24, 27, 0.95)',
-                    backdropFilter: 'blur(20px)',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)',
-                  }}
-                >
-                  <div className="px-4 py-3 border-b border-zinc-800/80">
-                    <p className="text-sm font-semibold text-zinc-200 truncate">
-                      {user?.full_name || user?.email}
-                    </p>
-                    {user?.full_name && (
-                      <p className="text-xs text-zinc-500 truncate">{user?.email}</p>
-                    )}
-                    {user?.mfa_enabled && (
-                      <span className="inline-flex items-center gap-1 mt-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                        <Shield className="h-3 w-3" /> MFA enabled
-                      </span>
-                    )}
-                  </div>
-
-                  {!user?.mfa_enabled && (
-                    <button
-                      onClick={() => { setMenuOpen(false); navigate('/setup-mfa') }}
-                      className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 transition-colors"
-                    >
-                      <Shield className="h-4 w-4 text-amber-500/70" />
-                      Enable MFA
-                    </button>
-                  )}
-
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center gap-2.5 w-full px-4 py-2 text-sm text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Sign out
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+        {/* System status pill */}
+        <div
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
+          style={{
+            background: 'rgba(240, 253, 244, 0.8)',
+            borderColor: 'rgba(167, 243, 208, 0.6)',
+            boxShadow: '0 0 8px rgba(5,150,105,0.08)',
+          }}
+        >
+          <Activity className="h-3 w-3 text-emerald-500" aria-hidden="true" />
+          <span className="text-[10px] font-semibold text-emerald-600 tracking-wide">
+            Operational
+          </span>
         </div>
+
+        {/* Notification bell */}
+        <button
+          className="relative p-2 rounded-xl text-slate-400 hover:bg-violet-50 hover:text-violet-600
+                     transition-colors focus-visible:ring-2 focus-visible:ring-violet-500/40"
+          aria-label="Notifications"
+          title="Notifications"
+        >
+          <Bell className="h-4 w-4" />
+          {notifPulse && (
+            <span
+              className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-violet-500"
+              style={{ boxShadow: '0 0 6px rgba(124,58,237,0.60)' }}
+              aria-hidden="true"
+            />
+          )}
+        </button>
+
+        {/* New Assessment CTA */}
+        <Button
+          size="sm"
+          leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
+          onClick={() => navigate('/')}
+          className="hidden sm:flex btn-shimmer"
+        >
+          New Assessment
+        </Button>
       </div>
     </header>
   )

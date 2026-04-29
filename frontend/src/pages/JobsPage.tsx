@@ -26,10 +26,10 @@ export default function JobsPage() {
 
   return (
     <div className="animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-50 font-display">Assessment Jobs</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h1 className="text-2xl font-bold text-slate-900 font-display">Assessment Jobs</h1>
+          <p className="mt-1 text-sm text-slate-500">
             {sorted.length > 0
               ? `${sorted.length} job${sorted.length !== 1 ? 's' : ''} total`
               : 'No jobs yet'}
@@ -56,27 +56,27 @@ export default function JobsPage() {
 
       {isLoading && (
         <div className="flex items-center justify-center py-24">
-          <Spinner size="xl" className="text-amber-500" />
+          <Spinner size="xl" className="text-indigo-500" />
         </div>
       )}
 
       {isError && !isLoading && (
         <div className="card p-8 text-center">
-          <p className="font-medium text-red-400">Failed to load jobs.</p>
-          <p className="mt-1 text-sm text-zinc-500">
-            <button className="text-amber-400 hover:text-amber-300" onClick={() => refetch()}>Retry</button>
+          <p className="font-medium text-red-600">Failed to load jobs.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            <button className="text-indigo-600 hover:text-indigo-700" onClick={() => refetch()}>Retry</button>
           </p>
         </div>
       )}
 
       {!isLoading && !isError && sorted.length === 0 && (
         <div className="card flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-800/80 border border-zinc-700/50">
-            <ClipboardList className="h-7 w-7 text-zinc-600" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 border border-slate-200">
+            <ClipboardList className="h-7 w-7 text-slate-400" />
           </div>
           <div>
-            <p className="font-semibold text-zinc-300">No assessments yet</p>
-            <p className="mt-1 text-sm text-zinc-600">Run your first assessment to see results here.</p>
+            <p className="font-semibold text-slate-700">No assessments yet</p>
+            <p className="mt-1 text-sm text-slate-500">Run your first assessment to see results here.</p>
           </div>
           <Button
             leftIcon={<PlusCircle className="h-4 w-4" />}
@@ -90,47 +90,49 @@ export default function JobsPage() {
       {!isLoading && sorted.length > 0 && (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="min-w-full divide-y divide-zinc-800/50 text-sm">
-              <thead className="bg-zinc-900/80">
+            <table className="min-w-full divide-y divide-slate-100 text-sm">
+              <thead className="bg-slate-50">
                 <tr>
                   {['Job', 'Status', 'Created', 'Duration', ''].map((h) => (
                     <th
                       key={h}
-                      className="px-5 py-3.5 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-widest whitespace-nowrap"
+                      className="px-5 py-3.5 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap"
                     >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800/40">
-                {sorted.map((job) => (
+              <tbody className="divide-y divide-slate-50 bg-white">
+                {sorted.map((job, idx) => (
                   <tr
                     key={job.job_id}
-                    className="hover:bg-zinc-800/30 transition-colors cursor-pointer"
+                    className={`transition-colors cursor-pointer hover:bg-indigo-50/40 ${
+                      idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
+                    }`}
                     onClick={() => navigate(`/jobs/${job.job_id}`)}
                   >
                     <td className="px-5 py-3.5">
-                      <p className="font-medium text-zinc-200 truncate max-w-xs">
-                        {job.label ?? <span className="text-zinc-600 font-normal italic">Unlabeled</span>}
+                      <p className="font-medium text-slate-800 truncate max-w-xs">
+                        {job.label ?? <span className="text-slate-400 font-normal italic">Unlabeled</span>}
                       </p>
-                      <p className="text-xs text-zinc-600 font-mono mt-0.5">{job.job_id.slice(0, 8)}…</p>
+                      <p className="text-xs text-slate-400 font-mono mt-0.5">{job.job_id.slice(0, 8)}…</p>
                     </td>
                     <td className="px-5 py-3.5">
                       <StatusBadge status={job.status} />
                       {job.progress_message && job.status === 'running' && (
-                        <p className="text-xs text-zinc-600 mt-1 max-w-[200px] truncate">{job.progress_message}</p>
+                        <p className="text-xs text-slate-500 mt-1 max-w-[200px] truncate">{job.progress_message}</p>
                       )}
                     </td>
-                    <td className="px-5 py-3.5 text-zinc-500 whitespace-nowrap">
+                    <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap">
                       {formatDateTime(job.created_at)}
                     </td>
-                    <td className="px-5 py-3.5 text-zinc-500 whitespace-nowrap tabular-nums">
+                    <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap tabular-nums font-mono">
                       {elapsed(job.started_at, job.completed_at)}
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <button
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-500/70 hover:text-amber-400 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-500 hover:text-indigo-700 transition-colors"
                         onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${job.job_id}`) }}
                         aria-label={`View job ${job.job_id}`}
                       >

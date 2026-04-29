@@ -647,7 +647,7 @@ def get_user_by_email(email: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, created_at "
+            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at "
             "FROM dbo.users WHERE email = ?",
             (email,),
         )
@@ -665,7 +665,7 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, created_at "
+            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at "
             "FROM dbo.users WHERE user_id = ?",
             (user_id,),
         )
@@ -674,6 +674,37 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
             return None
         cols = [d[0] for d in cur.description]
         return dict(zip(cols, row))
+    finally:
+        conn.close()
+
+
+def get_user_relay_namespace(user_id: str) -> Optional[str]:
+    """Return the Azure Relay namespace assigned to this user, or None."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT relay_namespace FROM dbo.users WHERE user_id = ?",
+            (user_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return row[0]
+    finally:
+        conn.close()
+
+
+def set_user_relay_namespace(user_id: str, namespace: str) -> None:
+    """Persist the Azure Relay namespace for a user (set once, never changes)."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.users SET relay_namespace = ? WHERE user_id = ?",
+            (namespace, user_id),
+        )
+        conn.commit()
     finally:
         conn.close()
 
@@ -1024,5 +1055,247 @@ def list_session_jobs(session_id: str) -> list[dict[str, Any]]:
                     d[k] = v.isoformat()
             rows.append(d)
         return rows
+    finally:
+        conn.close()
+
+
+# ── Hybrid Connections ─────────────────────────────────────────────────────────
+
+def create_hybrid_connection(
+    connection_id: str,
+    user_id: str,
+    name: str,
+    endpoint_host: str,
+    endpoint_port: int,
+    service_bus_namespace: str,
+    status: str = "created",
+    listener_connection_string: Optional[str] = None,
+) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO dbo.hybrid_connections
+               (connection_id, user_id, name, endpoint_host, endpoint_port,
+                service_bus_namespace, status, listener_connection_string)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (connection_id, user_id, name, endpoint_host, endpoint_port,
+             service_bus_namespace, status, listener_connection_string),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_hybrid_connections(user_id: str) -> list[dict]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT connection_id, user_id, name, endpoint_host, endpoint_port,
+                      service_bus_namespace, status, created_at,
+                      listener_connection_string
+               FROM dbo.hybrid_connections
+               WHERE user_id = ?
+               ORDER BY created_at DESC""",
+            (user_id,),
+        )
+        cols = [d[0] for d in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            for k, v in d.items():
+                if isinstance(v, datetime):
+                    d[k] = v.isoformat()
+            rows.append(d)
+        return rows
+    finally:
+        conn.close()
+
+
+def get_hybrid_connection(connection_id: str, user_id: str) -> Optional[dict]:
+    """Return a single hybrid connection row scoped to the owning user, or None."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT connection_id, user_id, name, endpoint_host, endpoint_port,
+                      service_bus_namespace, status, created_at,
+                      listener_connection_string
+               FROM dbo.hybrid_connections
+               WHERE connection_id = ? AND user_id = ?""",
+            (connection_id, user_id),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [d[0] for d in cur.description]
+        result = dict(zip(cols, row))
+        for k, v in result.items():
+            if isinstance(v, datetime):
+                result[k] = v.isoformat()
+        return result
+    finally:
+        conn.close()
+
+
+def delete_hybrid_connection(connection_id: str, user_id: str) -> bool:
+    """Delete a hybrid connection. Returns True if a row was deleted."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM dbo.hybrid_connections WHERE connection_id = ? AND user_id = ?",
+            (connection_id, user_id),
+        )
+        deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
+    finally:
+        conn.close()
+
+
+def update_hybrid_connection_status(connection_id: str, status: str) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.hybrid_connections SET status = ? WHERE connection_id = ?",
+            (status, connection_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ── UserConnections CRUD ───────────────────────────────────────────────────────
+# Credentials (database_name_enc, sql_username_enc, sql_password_enc) are stored
+# already encrypted by the caller.  This layer never touches plaintext.
+
+def create_user_connection(
+    connection_id: str,
+    user_id: str,
+    display_name: str,
+    tunnel_host: str,
+    tunnel_port: int,
+    database_name_enc: str,
+    sql_username_enc: str,
+    sql_password_enc: str,
+) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO dbo.user_connections
+               (connection_id, user_id, display_name, tunnel_host, tunnel_port,
+                database_name_enc, sql_username_enc, sql_password_enc)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (connection_id, user_id, display_name, tunnel_host, tunnel_port,
+             database_name_enc, sql_username_enc, sql_password_enc),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_user_connection(connection_id: str, user_id: str) -> Optional[dict[str, Any]]:
+    """Return a single connection row scoped to the owning user, or None."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT connection_id, user_id, display_name, tunnel_host, tunnel_port,
+                      database_name_enc, sql_username_enc, sql_password_enc,
+                      created_at, updated_at
+               FROM dbo.user_connections
+               WHERE connection_id = ? AND user_id = ?""",
+            (connection_id, user_id),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [d[0] for d in cur.description]
+        result = dict(zip(cols, row))
+        for k, v in result.items():
+            if isinstance(v, datetime):
+                result[k] = v.isoformat()
+        return result
+    finally:
+        conn.close()
+
+
+def list_user_connections(user_id: str) -> list[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT connection_id, user_id, display_name, tunnel_host, tunnel_port,
+                      database_name_enc, sql_username_enc, sql_password_enc,
+                      created_at, updated_at
+               FROM dbo.user_connections
+               WHERE user_id = ?
+               ORDER BY created_at DESC""",
+            (user_id,),
+        )
+        cols = [d[0] for d in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            for k, v in d.items():
+                if isinstance(v, datetime):
+                    d[k] = v.isoformat()
+            rows.append(d)
+        return rows
+    finally:
+        conn.close()
+
+
+def update_user_connection(
+    connection_id: str,
+    user_id: str,
+    display_name: str,
+    tunnel_host: str,
+    tunnel_port: int,
+    database_name_enc: str,
+    sql_username_enc: str,
+    sql_password_enc: str,
+) -> bool:
+    """Update a connection. Returns True if a row was updated (owner match)."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """UPDATE dbo.user_connections
+               SET display_name      = ?,
+                   tunnel_host       = ?,
+                   tunnel_port       = ?,
+                   database_name_enc = ?,
+                   sql_username_enc  = ?,
+                   sql_password_enc  = ?,
+                   updated_at        = SYSUTCDATETIME()
+               WHERE connection_id = ? AND user_id = ?""",
+            (display_name, tunnel_host, tunnel_port,
+             database_name_enc, sql_username_enc, sql_password_enc,
+             connection_id, user_id),
+        )
+        updated = cur.rowcount > 0
+        conn.commit()
+        return updated
+    finally:
+        conn.close()
+
+
+def delete_user_connection(connection_id: str, user_id: str) -> bool:
+    """Delete a connection. Returns True if a row was deleted (owner match)."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "DELETE FROM dbo.user_connections WHERE connection_id = ? AND user_id = ?",
+            (connection_id, user_id),
+        )
+        deleted = cur.rowcount > 0
+        conn.commit()
+        return deleted
     finally:
         conn.close()

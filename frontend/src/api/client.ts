@@ -5,6 +5,7 @@ import type {
   AssessmentResults,
   ConnectionTestResponse,
   ConnectivityResult,
+  CreateHybridConnectionRequest,
   CreateSessionResponse,
   DatabaseInfo,
   FabricAuthStartResponse,
@@ -14,6 +15,7 @@ import type {
   FabricWorkspaceItems,
   Gateway,
   GatewayRegisterResponse,
+  HybridConnection,
   JobStatusResponse,
   LoginRequest,
   MeResponse,
@@ -130,6 +132,16 @@ export const api = {
 
   getAgentDownloadUrl: () =>
     `${BASE_URL}/api/v1/gateway/download`,
+
+  // ── Hybrid Connections ────────────────────────────────────────────────────
+  createHybridConnection: (data: CreateHybridConnectionRequest) =>
+    http.post<HybridConnection>('/api/v1/hybrid-connections', data),
+
+  listHybridConnections: () =>
+    http.get<HybridConnection[]>('/api/v1/hybrid-connections'),
+
+  deleteHybridConnection: (connectionId: string) =>
+    http.delete(`/api/v1/hybrid-connections/${connectionId}`),
 
   // ── Session (multi-server) ────────────────────────────────────────────────
   detectConnectivity: (servers: { server: string; port: number }[]) =>

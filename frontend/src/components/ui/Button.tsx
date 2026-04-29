@@ -12,58 +12,86 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   rightIcon?: React.ReactNode
 }
 
+/* Tailwind classes per variant */
 const variantStyles: Record<Variant, string> = {
   primary: [
-    'bg-amber-500 text-zinc-950 font-semibold',
-    'hover:bg-amber-400',
-    'shadow-[0_1px_2px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.15)]',
-    'hover:shadow-[0_4px_16px_rgba(245,158,11,0.3)]',
+    'text-white font-semibold',
     'disabled:opacity-40',
   ].join(' '),
   secondary: [
-    'bg-zinc-800 text-zinc-200 border border-zinc-700/80',
-    'hover:bg-zinc-700 hover:text-zinc-100 hover:border-zinc-600',
-    'shadow-[0_1px_2px_rgba(0,0,0,0.3)]',
+    'bg-white text-slate-700 border border-slate-200',
+    'hover:border-violet-200 hover:text-violet-700 hover:bg-violet-50/60',
     'disabled:opacity-40',
   ].join(' '),
   ghost: [
-    'text-zinc-400',
-    'hover:text-zinc-100 hover:bg-zinc-800/60',
+    'text-slate-600',
+    'hover:text-violet-700 hover:bg-violet-50/60',
     'disabled:opacity-40',
   ].join(' '),
   danger: [
-    'bg-red-500/10 text-red-400 border border-red-500/20',
-    'hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40',
+    'bg-red-50 text-red-600 border border-red-200',
+    'hover:bg-red-100 hover:text-red-700 hover:border-red-300',
     'disabled:opacity-40',
   ].join(' '),
+}
+
+/* Inline styles per variant */
+const variantInlineStyle: Record<Variant, React.CSSProperties> = {
+  primary: {
+    background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+    boxShadow: '0 4px 16px rgba(124, 58, 237, 0.32), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
+  },
+  secondary: {
+    boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
+  },
+  ghost: {
+    boxShadow: 'none',
+  },
+  danger: {
+    boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
+  },
 }
 
 const sizeStyles: Record<Size, string> = {
   sm: 'px-3 py-1.5 text-xs gap-1.5 rounded-lg',
-  md: 'px-4 py-2    text-sm gap-2   rounded-lg',
-  lg: 'px-5 py-2.5  text-sm gap-2   rounded-lg',
+  md: 'px-4 py-2    text-sm gap-2   rounded-xl',
+  lg: 'px-5 py-2.5  text-sm gap-2   rounded-xl',
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'primary', size = 'md', loading, leftIcon, rightIcon, children, className = '', disabled, ...props }, ref) => {
+  (
+    { variant = 'primary', size = 'md', loading, leftIcon, rightIcon,
+      children, className = '', disabled, style, ...props },
+    ref
+  ) => {
     const isDisabled = disabled || loading
+
     return (
       <button
         ref={ref}
         disabled={isDisabled}
         className={`
-          inline-flex items-center justify-center font-medium
-          transition-all duration-200 cursor-pointer
-          focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950
-          disabled:cursor-not-allowed select-none active:scale-[0.97]
+          inline-flex items-center justify-center font-medium select-none
+          focus:outline-none
+          focus-visible:ring-2 focus-visible:ring-violet-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white
+          disabled:cursor-not-allowed
+          ${!isDisabled ? 'btn-physics' : ''}
+          ${variant === 'primary' && !isDisabled ? 'btn-shimmer' : ''}
           ${variantStyles[variant]}
           ${sizeStyles[size]}
           ${className}
         `}
+        style={{
+          ...(isDisabled ? { opacity: 0.5 } : variantInlineStyle[variant]),
+          ...style,
+        }}
         {...props}
       >
         {loading ? (
-          <Spinner size={size === 'sm' ? 'sm' : 'md'} className={variant === 'primary' ? 'text-zinc-900' : 'text-zinc-400'} />
+          <Spinner
+            size={size === 'sm' ? 'sm' : 'md'}
+            className={variant === 'primary' ? 'text-white/80' : 'text-violet-500'}
+          />
         ) : (
           leftIcon
         )}
@@ -71,7 +99,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {!loading && rightIcon}
       </button>
     )
-  },
+  }
 )
 
 Button.displayName = 'Button'

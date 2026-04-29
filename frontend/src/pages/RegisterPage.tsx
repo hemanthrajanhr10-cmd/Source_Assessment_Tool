@@ -44,49 +44,45 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12 bg-zinc-950 relative overflow-hidden">
-      {/* Background glow */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full opacity-15"
-          style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.3) 0%, transparent 70%)' }}
-        />
-      </div>
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-slate-50">
+      {/* Background subtle grid */}
+      <div
+        className="fixed inset-0 opacity-[0.4] pointer-events-none"
+        style={{
+          backgroundImage: 'linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(to right, #e2e8f0 1px, transparent 1px)',
+          backgroundSize: '64px 64px',
+        }}
+      />
 
       <div className="w-full max-w-sm relative z-10 animate-slide-up">
         {/* Brand */}
-        <div className="flex flex-col items-center mb-10">
+        <div className="flex flex-col items-center mb-8">
           <div
-            className="flex items-center justify-center h-14 w-14 rounded-2xl mb-4"
+            className="flex items-center justify-center h-12 w-12 rounded-2xl mb-4"
             style={{
-              background: 'rgba(245,158,11,0.08)',
-              border: '1px solid rgba(245,158,11,0.2)',
-              boxShadow: '0 0 32px rgba(245,158,11,0.1)',
+              background: 'rgba(245,158,11,0.1)',
+              border: '1.5px solid rgba(245,158,11,0.25)',
             }}
           >
-            <Database className="h-7 w-7 text-amber-400" />
+            <Database className="h-6 w-6 text-amber-500" />
           </div>
-          <h1 className="text-3xl font-bold text-zinc-50 font-display tracking-tight">
-            Create account
-          </h1>
-          <p className="text-sm text-zinc-500 mt-1.5">Join Source Assessment Tool</p>
+          <h1 className="text-2xl font-bold text-slate-900 font-display">Create account</h1>
+          <p className="text-sm text-slate-500 mt-1">Join Source Assessment Tool</p>
         </div>
 
         {/* Card */}
         <div
-          className="rounded-2xl p-8"
-          style={{
-            background: 'rgba(24, 24, 27, 0.8)',
-            border: '1px solid rgba(63, 63, 70, 0.6)',
-            backdropFilter: 'blur(24px)',
-            boxShadow: '0 16px 48px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
-          }}
+          className="rounded-2xl bg-white border border-slate-200 p-8"
+          style={{ boxShadow: '0 16px 40px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)' }}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="form-label">Full name <span className="text-zinc-700 normal-case tracking-normal">(optional)</span></label>
+              <label className="form-label">
+                Full name{' '}
+                <span className="text-slate-400 normal-case tracking-normal font-normal">(optional)</span>
+              </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-600 pointer-events-none" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 <input
                   type="text"
                   autoComplete="name"
@@ -101,7 +97,7 @@ export default function RegisterPage() {
             <div>
               <label className="form-label">Email address</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-600 pointer-events-none" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 <input
                   type="email"
                   required
@@ -117,7 +113,7 @@ export default function RegisterPage() {
             <div>
               <label className="form-label">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-600 pointer-events-none" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
@@ -130,7 +126,7 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -140,7 +136,7 @@ export default function RegisterPage() {
             <div>
               <label className="form-label">Confirm password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-600 pointer-events-none" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
@@ -154,7 +150,7 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-sm text-red-400">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
                 {error}
               </div>
             )}
@@ -162,12 +158,10 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 disabled:opacity-50 active:scale-[0.98] mt-2"
-              style={{
-                background: '#f59e0b',
-                color: '#0a0a0b',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.15)',
-              }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold mt-2
+                         bg-indigo-600 text-white hover:bg-indigo-700
+                         transition-all duration-200 disabled:opacity-50 active:scale-[0.98]
+                         shadow-sm hover:shadow-md hover:shadow-indigo-200/60"
             >
               {loading ? 'Creating account…' : (
                 <>Create account <ArrowRight className="h-4 w-4" /></>
@@ -176,9 +170,9 @@ export default function RegisterPage() {
           </form>
         </div>
 
-        <p className="text-center text-sm text-zinc-600 mt-6">
+        <p className="text-center text-sm text-slate-500 mt-6">
           Already have an account?{' '}
-          <Link to="/login" className="text-amber-400 font-medium hover:text-amber-300 transition-colors">
+          <Link to="/login" className="text-indigo-600 font-medium hover:text-indigo-700 transition-colors">
             Sign in
           </Link>
         </p>

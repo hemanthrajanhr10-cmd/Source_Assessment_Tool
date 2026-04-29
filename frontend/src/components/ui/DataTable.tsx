@@ -21,25 +21,27 @@ interface DataTableProps {
 
 function formatValue(value: unknown): React.ReactNode {
   if (value === null || value === undefined) {
-    return <span className="text-zinc-700">—</span>
+    return <span className="text-slate-300">—</span>
   }
   if (typeof value === 'boolean') {
     return (
       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-        value ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-800 text-zinc-500'
+        value
+          ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+          : 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
       }`}>
         {value ? 'Yes' : 'No'}
       </span>
     )
   }
   if (typeof value === 'number') {
-    return <span className="tabular-nums">{value.toLocaleString()}</span>
+    return <span className="tabular-nums font-mono text-slate-700">{value.toLocaleString()}</span>
   }
   const str = String(value)
   if (str.length > 120) {
-    return <span title={str}>{str.slice(0, 120)}…</span>
+    return <span title={str} className="text-slate-700">{str.slice(0, 120)}…</span>
   }
-  return str
+  return <span className="text-slate-700">{str}</span>
 }
 
 function buildAutoColumns(data: Record<string, unknown>[]): ColumnDef[] {
@@ -126,7 +128,7 @@ export default function DataTable({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 text-zinc-500">
+      <div className="flex items-center justify-center py-16 text-slate-400">
         <Spinner size="lg" className="text-amber-500" />
       </div>
     )
@@ -138,7 +140,7 @@ export default function DataTable({
       <div className="flex items-center gap-3 flex-wrap">
         {searchable && data.length > 0 && (
           <div className="relative max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
             <input
               type="search"
               placeholder="Search…"
@@ -151,29 +153,30 @@ export default function DataTable({
         {hasColumnFilters && (
           <button
             onClick={clearFilters}
-            className="flex items-center gap-1 text-xs text-zinc-500 hover:text-red-400 border border-zinc-800 rounded-lg px-2.5 py-1.5 hover:border-red-500/30 transition-colors"
+            className="flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 border border-slate-200 rounded-lg px-2.5 py-1.5 hover:border-red-200 hover:bg-red-50 transition-colors"
           >
             <X className="h-3 w-3" />
             Clear filters
           </button>
         )}
         {filtered.length !== data.length && (
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-slate-500">
             {filtered.length.toLocaleString()} of {data.length.toLocaleString()} rows
           </span>
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-zinc-800/70 scrollbar-thin">
-        <table className="min-w-full divide-y divide-zinc-800/50 text-sm">
-          <thead className="bg-zinc-900/80">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 scrollbar-thin"
+           style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <table className="min-w-full divide-y divide-slate-100 text-sm">
+          <thead className="bg-slate-50">
             <tr>
               {cols.map((col) => (
                 <th
                   key={col.key}
                   scope="col"
                   style={col.minWidth ? { minWidth: col.minWidth } : undefined}
-                  className={`px-4 py-3 text-[10px] font-bold text-zinc-500 uppercase tracking-widest whitespace-nowrap ${
+                  className={`px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap ${
                     col.align === 'right'  ? 'text-right'  :
                     col.align === 'center' ? 'text-center' : 'text-left'
                   }`}
@@ -183,7 +186,7 @@ export default function DataTable({
               ))}
             </tr>
             {data.length > 0 && (
-              <tr className="bg-zinc-950/40 border-t border-zinc-800/40">
+              <tr className="bg-slate-50 border-t border-slate-100">
                 {cols.map((col) => {
                   const activeVal = columnFilters[col.key] ?? ''
                   const options = uniqueColumnValues[col.key]
@@ -195,10 +198,10 @@ export default function DataTable({
                           <select
                             value={activeVal}
                             onChange={(e) => setColFilter(col.key, e.target.value)}
-                            className={`flex-1 min-w-0 text-xs rounded border py-0.5 px-1 focus:outline-none focus:ring-1 focus:ring-amber-500/40 bg-zinc-900 ${
+                            className={`flex-1 min-w-0 text-xs rounded border py-0.5 px-1 focus:outline-none focus:ring-1 focus:ring-amber-500/40 bg-white ${
                               isActive
-                                ? 'border-amber-500/40 text-amber-400 font-medium'
-                                : 'border-zinc-800 text-zinc-500'
+                                ? 'border-amber-400 text-amber-800 font-medium'
+                                : 'border-slate-200 text-slate-500'
                             }`}
                           >
                             <option value="">All</option>
@@ -212,17 +215,17 @@ export default function DataTable({
                             placeholder="Filter…"
                             value={activeVal}
                             onChange={(e) => setColFilter(col.key, e.target.value)}
-                            className={`flex-1 min-w-0 text-xs rounded border py-0.5 px-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/40 bg-zinc-900 ${
+                            className={`flex-1 min-w-0 text-xs rounded border py-0.5 px-1.5 focus:outline-none focus:ring-1 focus:ring-amber-500/40 bg-white ${
                               isActive
-                                ? 'border-amber-500/40 text-amber-400'
-                                : 'border-zinc-800 text-zinc-500'
+                                ? 'border-amber-400 text-amber-800'
+                                : 'border-slate-200 text-slate-500'
                             }`}
                           />
                         )}
                         {isActive && (
                           <button
                             onClick={() => setColFilter(col.key, '')}
-                            className="shrink-0 p-0.5 rounded text-zinc-600 hover:text-red-400 transition-colors"
+                            className="shrink-0 p-0.5 rounded text-slate-400 hover:text-red-500 transition-colors"
                             title={`Clear filter on ${col.header}`}
                           >
                             <X className="h-3 w-3" />
@@ -235,20 +238,25 @@ export default function DataTable({
               </tr>
             )}
           </thead>
-          <tbody className="divide-y divide-zinc-800/40 bg-zinc-900/30">
+          <tbody className="divide-y divide-slate-50 bg-white">
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={cols.length} className="px-4 py-12 text-center text-zinc-600 text-sm">
+                <td colSpan={cols.length} className="px-4 py-12 text-center text-slate-400 text-sm">
                   {search || hasColumnFilters ? 'No results match your filters.' : emptyMessage}
                 </td>
               </tr>
             ) : (
               paginated.map((row, i) => (
-                <tr key={i} className="hover:bg-zinc-800/30 transition-colors duration-75">
+                <tr
+                  key={i}
+                  className={`transition-colors duration-75 hover:bg-slate-50 ${
+                    i % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'
+                  }`}
+                >
                   {cols.map((col) => (
                     <td
                       key={col.key}
-                      className={`px-4 py-2.5 text-sm text-zinc-300 whitespace-nowrap ${
+                      className={`px-4 py-2.5 text-sm whitespace-nowrap ${
                         col.align === 'right'  ? 'text-right'  :
                         col.align === 'center' ? 'text-center' : 'text-left'
                       }`}
@@ -264,7 +272,7 @@ export default function DataTable({
       </div>
 
       {filtered.length > pageSize && (
-        <div className="flex items-center justify-between text-xs text-zinc-500">
+        <div className="flex items-center justify-between text-xs text-slate-500">
           <span>
             Showing {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, filtered.length)} of{' '}
             {filtered.length.toLocaleString()} rows
@@ -274,16 +282,16 @@ export default function DataTable({
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-1.5 rounded-lg hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-slate-600"
               aria-label="Previous page"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
-            <span className="px-2 font-medium text-zinc-400">{page} / {totalPages}</span>
+            <span className="px-2 font-medium text-slate-700">{page} / {totalPages}</span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="p-1.5 rounded-lg hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-1.5 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-slate-600"
               aria-label="Next page"
             >
               <ChevronRight className="h-3.5 w-3.5" />

@@ -296,18 +296,22 @@ async def create_hybrid_connection(
         namespace = _namespace_name_for_user(user_id)
         ns_error = None
 
-    # Step 2: provision the Hybrid Connection entity inside that namespace
-    status, listener_connection_string, error_detail = await loop.run_in_executor(
-        None,
-        _provision_hybrid_connection,
-        body.name,
-        body.endpoint_host,
-        body.endpoint_port,
-        namespace,
-    )
-
-    if ns_error and error_detail is None:
-        error_detail = ns_error
+    # If namespace provisioning failed, do NOT attempt HC creation — the parent
+    # namespace doesn't exist in Azure and the call would fail with ParentResourceNotFound.
+    if ns_error:
+        status = "error"
+        listener_connection_string = None
+        error_detail = f"Relay namespace could not be provisioned: {ns_error}"
+    else:
+        # Step 2: provision the Hybrid Connection entity inside that namespace
+        status, listener_connection_string, error_detail = await loop.run_in_executor(
+            None,
+            _provision_hybrid_connection,
+            body.name,
+            body.endpoint_host,
+            body.endpoint_port,
+            namespace,
+        )
 
     azure_store.create_hybrid_connection(
         connection_id=connection_id,

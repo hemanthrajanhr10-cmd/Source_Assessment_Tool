@@ -330,6 +330,88 @@ def _provision_hybrid_connection(
         raise
 
 
+def _deprovision_hybrid_connection(
+    hc_name: str,
+    namespace: str,
+) -> Optional[str]:
+    """
+    Delete the Hybrid Connection from Azure Relay and detach it from the App
+    Service (if AZURE_APP_SERVICE_NAME is set).
+
+    Returns None on success, or an error string if something went wrong.
+    Azure-side deletion failures are logged but do NOT block the local DB delete —
+    the admin can clean up orphaned resources manually.
+    """
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    resource_group  = os.environ.get("AZURE_RESOURCE_GROUP", "").strip()
+    app_service     = os.environ.get("AZURE_APP_SERVICE_NAME", "").strip()
+
+    if not subscription_id or not resource_group:
+        # Nothing was ever provisioned in Azure (config_missing path), skip.
+        return None
+
+    errors: list[str] = []
+
+    try:
+        from azure.identity import DefaultAzureCredential
+
+        try:
+            from azure.mgmt.relay import RelayAPI as _RelayClient
+        except ImportError:
+            from azure.mgmt.relay import RelayManagementClient as _RelayClient  # type: ignore[no-redef]
+
+        credential = DefaultAzureCredential()
+        relay_client = _RelayClient(credential, subscription_id)
+
+        # ── 1. Detach from App Service first (must remove binding before HC entity) ─
+        if app_service:
+            try:
+                from azure.mgmt.web import WebSiteManagementClient
+                web_client = WebSiteManagementClient(credential, subscription_id)
+                web_client.web_apps.delete_hybrid_connection(
+                    resource_group_name=resource_group,
+                    name=app_service,
+                    namespace_name=namespace,
+                    relay_name=hc_name,
+                )
+                logger.info(
+                    "Detached HC '%s' from App Service '%s'", hc_name, app_service
+                )
+            except Exception as exc:
+                # NotFound is fine — binding may already be gone.
+                if "NotFound" not in str(exc) and "not found" not in str(exc).lower():
+                    logger.warning(
+                        "Failed to detach HC '%s' from App Service: %s", hc_name, exc
+                    )
+                    errors.append(f"App Service detach: {exc}")
+
+        # ── 2. Delete the Relay HC entity (auth rules are deleted automatically) ──
+        try:
+            relay_client.hybrid_connections.delete(
+                resource_group_name=resource_group,
+                namespace_name=namespace,
+                hybrid_connection_name=hc_name,
+            )
+            logger.info(
+                "Deleted Relay HC entity '%s' from namespace '%s'", hc_name, namespace
+            )
+        except Exception as exc:
+            if "NotFound" not in str(exc) and "not found" not in str(exc).lower():
+                logger.warning(
+                    "Failed to delete Relay HC entity '%s': %s", hc_name, exc
+                )
+                errors.append(f"Relay HC delete: {exc}")
+
+    except Exception as exc:
+        logger.warning(
+            "Azure credential/client setup failed during HC deprovision for '%s': %s",
+            hc_name, exc,
+        )
+        errors.append(str(exc))
+
+    return "; ".join(errors) if errors else None
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @router.post(
@@ -487,10 +569,48 @@ async def delete_hybrid_connection(
     connection_id: str,
     current_user: dict = Depends(get_current_user),
 ):
-    deleted = azure_store.delete_hybrid_connection(
-        connection_id=connection_id,
-        user_id=current_user["user_id"],
-    )
-    if not deleted:
+    user_id = current_user["user_id"]
+
+    # Fetch the record first so we know what to clean up in Azure.
+    record = azure_store.get_hybrid_connection(connection_id, user_id)
+    if not record:
         raise HTTPException(status_code=404, detail="Hybrid connection not found.")
-    return {"ok": True}
+
+    azure_error: Optional[str] = None
+
+    # Only attempt Azure cleanup for connections that were actually provisioned.
+    provisioned_statuses = {"provisioned", "provisioned_no_appservice"}
+    if record.get("status") in provisioned_statuses:
+        loop = asyncio.get_event_loop()
+        azure_error = await loop.run_in_executor(
+            None,
+            _deprovision_hybrid_connection,
+            record["name"],
+            record["service_bus_namespace"],
+        )
+        if azure_error:
+            logger.warning(
+                "Azure cleanup had errors for HC '%s' (id=%s): %s",
+                record["name"], connection_id, azure_error,
+            )
+        else:
+            logger.info(
+                "Azure resources for HC '%s' (id=%s) successfully removed.",
+                record["name"], connection_id,
+            )
+
+    # Always remove the local DB record regardless of Azure outcome.
+    azure_store.delete_hybrid_connection(connection_id, user_id)
+
+    logger.info(
+        "User %s deleted Hybrid Connection '%s' (id=%s)",
+        user_id, record["name"], connection_id,
+    )
+
+    response: dict = {"ok": True}
+    if azure_error:
+        response["azure_warning"] = (
+            "Local record removed, but Azure cleanup encountered errors: "
+            + azure_error
+        )
+    return response

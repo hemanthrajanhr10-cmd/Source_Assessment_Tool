@@ -1113,6 +1113,32 @@ def list_hybrid_connections(user_id: str) -> list[dict]:
         conn.close()
 
 
+def get_hybrid_connection(connection_id: str, user_id: str) -> Optional[dict]:
+    """Return a single hybrid connection row scoped to the owning user, or None."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT connection_id, user_id, name, endpoint_host, endpoint_port,
+                      service_bus_namespace, status, created_at,
+                      listener_connection_string
+               FROM dbo.hybrid_connections
+               WHERE connection_id = ? AND user_id = ?""",
+            (connection_id, user_id),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        cols = [d[0] for d in cur.description]
+        result = dict(zip(cols, row))
+        for k, v in result.items():
+            if isinstance(v, datetime):
+                result[k] = v.isoformat()
+        return result
+    finally:
+        conn.close()
+
+
 def delete_hybrid_connection(connection_id: str, user_id: str) -> bool:
     """Delete a hybrid connection. Returns True if a row was deleted."""
     conn = _get_conn()

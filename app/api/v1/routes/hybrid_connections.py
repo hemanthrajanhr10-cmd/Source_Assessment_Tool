@@ -37,7 +37,6 @@ class CreateHybridConnectionRequest(BaseModel):
     name: str = Field(..., description="Hybrid connection name, e.g. sat-onprem-sql")
     endpoint_host: str = Field(..., description="SQL Server hostname or IP visible from VPN laptop")
     endpoint_port: int = Field(1433, ge=1, le=65535, description="SQL Server port")
-    service_bus_namespace: str = Field(..., description="Service Bus namespace short name or FQDN")
 
 
 class HybridConnectionResponse(BaseModel):
@@ -48,14 +47,74 @@ class HybridConnectionResponse(BaseModel):
     service_bus_namespace: str
     status: str
     created_at: str
+    listener_connection_string: Optional[str] = None
     error_detail: Optional[str] = None
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def _normalise_namespace(ns: str) -> str:
-    """Keep only the short namespace name (strip .servicebus.windows.net if present)."""
-    return ns.replace(".servicebus.windows.net", "").strip()
+def _namespace_name_for_user(user_id: str) -> str:
+    """
+    Derive a deterministic, globally-unique Azure Relay namespace name for a user.
+    Format: sat-<first 16 hex chars of user_id without hyphens>
+    Example: sat-539798273605476f  (20 chars — well within the 6-50 limit)
+    """
+    hex_id = user_id.replace("-", "")[:16]
+    return f"sat-{hex_id}"
+
+
+def _ensure_user_namespace(
+    user_id: str,
+    subscription_id: str,
+    resource_group: str,
+) -> tuple[str, Optional[str]]:
+    """
+    Return (namespace_name, error_detail).
+    If the user already has a namespace stored, return it immediately.
+    Otherwise, provision a new one in Azure and persist it.
+    """
+    from app.db import azure_store
+
+    existing = azure_store.get_user_relay_namespace(user_id)
+    if existing:
+        return existing, None
+
+    namespace = _namespace_name_for_user(user_id)
+    location = os.environ.get("AZURE_RELAY_LOCATION", "eastus").strip()
+
+    try:
+        from azure.identity import DefaultAzureCredential
+
+        try:
+            from azure.mgmt.relay import RelayAPI as _RelayClient
+        except ImportError:
+            from azure.mgmt.relay import RelayManagementClient as _RelayClient  # type: ignore[no-redef]
+
+        from azure.mgmt.relay.models import RelayNamespace, Sku, SkuTier
+
+        credential = DefaultAzureCredential()
+        relay_client = _RelayClient(credential, subscription_id)
+
+        poller = relay_client.namespaces.begin_create_or_update(
+            resource_group_name=resource_group,
+            namespace_name=namespace,
+            parameters=RelayNamespace(
+                location=location,
+                sku=Sku(name="Standard", tier=SkuTier.STANDARD),
+            ),
+        )
+        poller.result()  # wait for provisioning to complete
+
+        azure_store.set_user_relay_namespace(user_id, namespace)
+        logger.info("Provisioned Relay namespace '%s' for user %s", namespace, user_id)
+        return namespace, None
+
+    except Exception as exc:
+        logger.warning(
+            "Failed to provision Relay namespace '%s' for user %s: %s",
+            namespace, user_id, exc,
+        )
+        return namespace, str(exc)
 
 
 def _provision_hybrid_connection(
@@ -63,13 +122,15 @@ def _provision_hybrid_connection(
     endpoint_host: str,
     endpoint_port: int,
     namespace: str,
-) -> tuple[str, Optional[str]]:
+) -> tuple[str, Optional[str], Optional[str]]:
     """
     Use the Azure SDK to:
       1. Create the Relay Hybrid Connection entity in the given namespace.
-      2. Attach it to the App Service.
+      2. Create defaultListener (Listen) and defaultSender (Send) auth rules.
+      3. Attach it to the App Service.
+      4. Return the listener connection string for use with HCM.
 
-    Returns (status, error_detail).
+    Returns (status, listener_connection_string, error_detail).
     status is one of: 'provisioned' | 'config_missing' | 'error'
     """
     subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
@@ -81,14 +142,14 @@ def _provision_hybrid_connection(
             "Hybrid Connection auto-provision skipped: "
             "AZURE_SUBSCRIPTION_ID / AZURE_RESOURCE_GROUP / AZURE_APP_SERVICE_NAME not set"
         )
-        return "config_missing", (
+        return "config_missing", None, (
             "Set AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP, and AZURE_APP_SERVICE_NAME "
             "environment variables on the App Service to enable automatic provisioning."
         )
 
     try:
         from azure.identity import DefaultAzureCredential
-        from azure.mgmt.relay.models import HybridConnection
+        from azure.mgmt.relay.models import AccessRights, AuthorizationRule, HybridConnection
         from azure.mgmt.web import WebSiteManagementClient
         from azure.mgmt.web.models import HybridConnection as WebHybridConnection
 
@@ -100,10 +161,9 @@ def _provision_hybrid_connection(
             from azure.mgmt.relay import RelayManagementClient as _RelayClient  # type: ignore[no-redef]
 
         credential = DefaultAzureCredential()
-
-        # ── 1. Create the Hybrid Connection entity in the Relay namespace ──────
         relay_client = _RelayClient(credential, subscription_id)
 
+        # ── 1. Create the Hybrid Connection entity in the Relay namespace ──────
         relay_client.hybrid_connections.create_or_update(
             resource_group_name=resource_group,
             namespace_name=namespace,
@@ -114,13 +174,37 @@ def _provision_hybrid_connection(
         )
         logger.info("Relay HC entity '%s' created in namespace '%s'", name, namespace)
 
-        # ── 2. Retrieve the relay send key (needed for App Service binding) ───
-        keys = relay_client.hybrid_connections.list_keys(
+        # ── 2. Create authorization rules (Listen for HCM, Send for App Service) ─
+        relay_client.hybrid_connections.create_or_update_authorization_rule(
+            resource_group_name=resource_group,
+            namespace_name=namespace,
+            hybrid_connection_name=name,
+            authorization_rule_name="defaultListener",
+            parameters=AuthorizationRule(rights=[AccessRights.LISTEN]),
+        )
+        relay_client.hybrid_connections.create_or_update_authorization_rule(
+            resource_group_name=resource_group,
+            namespace_name=namespace,
+            hybrid_connection_name=name,
+            authorization_rule_name="defaultSender",
+            parameters=AuthorizationRule(rights=[AccessRights.SEND]),
+        )
+        logger.info("Authorization rules created for HC '%s'", name)
+
+        # ── 3. Fetch keys — listener string goes to the user; send key binds App Service ─
+        listener_keys = relay_client.hybrid_connections.list_keys(
             resource_group_name=resource_group,
             namespace_name=namespace,
             hybrid_connection_name=name,
             authorization_rule_name="defaultListener",
         )
+        sender_keys = relay_client.hybrid_connections.list_keys(
+            resource_group_name=resource_group,
+            namespace_name=namespace,
+            hybrid_connection_name=name,
+            authorization_rule_name="defaultSender",
+        )
+        listener_connection_string = listener_keys.primary_connection_string
 
         relay_arm_uri = (
             f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
@@ -128,7 +212,7 @@ def _provision_hybrid_connection(
             f"/hybridConnections/{name}"
         )
 
-        # ── 3. Attach to App Service ───────────────────────────────────────────
+        # ── 4. Attach to App Service ───────────────────────────────────────────
         web_client = WebSiteManagementClient(credential, subscription_id)
 
         web_client.web_apps.create_or_update_hybrid_connection(
@@ -141,18 +225,18 @@ def _provision_hybrid_connection(
                 hostname=endpoint_host,
                 port=endpoint_port,
                 send_key_name="defaultSender",
-                send_key_value=keys.primary_key,
+                send_key_value=sender_keys.primary_key,
             ),
         )
         logger.info(
             "Hybrid Connection '%s' attached to App Service '%s'", name, app_service
         )
 
-        return "provisioned", None
+        return "provisioned", listener_connection_string, None
 
     except Exception as exc:
         logger.warning("Hybrid Connection provisioning failed for '%s': %s", name, exc)
-        return "error", str(exc)
+        return "error", None, str(exc)
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
@@ -176,13 +260,28 @@ async def create_hybrid_connection(
     - config_missing : env vars not configured on the server
     - error          : provisioning attempted but failed (detail in error_detail)
     """
-    connection_id = str(uuid.uuid4())
-    user_id       = current_user["user_id"]
-    namespace     = _normalise_namespace(body.service_bus_namespace)
+    connection_id    = str(uuid.uuid4())
+    user_id          = current_user["user_id"]
+    subscription_id  = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    resource_group   = os.environ.get("AZURE_RESOURCE_GROUP", "").strip()
 
-    # Run SDK provisioning in a thread so we don't block the event loop
     loop = asyncio.get_event_loop()
-    status, error_detail = await loop.run_in_executor(
+
+    # Step 1: ensure the user has a dedicated Relay namespace (provisioned once)
+    if subscription_id and resource_group:
+        namespace, ns_error = await loop.run_in_executor(
+            None,
+            _ensure_user_namespace,
+            user_id,
+            subscription_id,
+            resource_group,
+        )
+    else:
+        namespace = _namespace_name_for_user(user_id)
+        ns_error = None
+
+    # Step 2: provision the Hybrid Connection entity inside that namespace
+    status, listener_connection_string, error_detail = await loop.run_in_executor(
         None,
         _provision_hybrid_connection,
         body.name,
@@ -190,6 +289,9 @@ async def create_hybrid_connection(
         body.endpoint_port,
         namespace,
     )
+
+    if ns_error and error_detail is None:
+        error_detail = ns_error
 
     azure_store.create_hybrid_connection(
         connection_id=connection_id,
@@ -199,6 +301,7 @@ async def create_hybrid_connection(
         endpoint_port=body.endpoint_port,
         service_bus_namespace=namespace,
         status=status,
+        listener_connection_string=listener_connection_string,
     )
 
     logger.info(
@@ -214,6 +317,7 @@ async def create_hybrid_connection(
         service_bus_namespace=namespace,
         status=status,
         created_at=datetime.now(timezone.utc).isoformat(),
+        listener_connection_string=listener_connection_string,
         error_detail=error_detail,
     )
 
@@ -234,6 +338,7 @@ async def list_hybrid_connections(current_user: dict = Depends(get_current_user)
             service_bus_namespace=r["service_bus_namespace"],
             status=r["status"],
             created_at=r["created_at"],
+            listener_connection_string=r.get("listener_connection_string"),
         )
         for r in rows
     ]

@@ -266,6 +266,7 @@ export interface HybridConnection {
   service_bus_namespace: string
   status: 'created' | 'provisioned' | 'config_missing' | 'error'
   created_at: string
+  listener_connection_string?: string | null
   error_detail?: string | null
 }
 
@@ -273,7 +274,6 @@ export interface CreateHybridConnectionRequest {
   name: string
   endpoint_host: string
   endpoint_port: number
-  service_bus_namespace: string
 }
 
 // ── Multi-server session ──────────────────────────────────────────────────────

@@ -11,11 +11,72 @@ import {
   Globe, Share2, Laptop, Database, Network,
   CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
   ExternalLink, Search, Wifi, WifiOff, Info,
-  Plus, Trash2, RefreshCw, Server,
+  Plus, Trash2, RefreshCw, Server, Copy, Check, KeyRound,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { HybridConnection } from '../types/api'
 import Button from '../components/ui/Button'
+
+// ── Copy button ───────────────────────────────────────────────────────────────
+
+function CopyButton({ text, className = '' }: { text: string; className?: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // fallback: select the text in a temporary textarea
+      const ta = document.createElement('textarea')
+      ta.value = text
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      title={copied ? 'Copied!' : 'Copy to clipboard'}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all
+        ${copied
+          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800'}
+        ${className}`}
+    >
+      {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  )
+}
+
+// ── Listener connection string display box ────────────────────────────────────
+
+function ConnectionStringBox({ value }: { value: string }) {
+  return (
+    <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700">
+          <KeyRound className="h-3.5 w-3.5" />
+          Gateway Connection String
+        </div>
+        <CopyButton text={value} />
+      </div>
+      <p className="break-all font-mono text-[11px] text-indigo-800 leading-relaxed bg-white border border-indigo-100 rounded-lg px-3 py-2 select-all">
+        {value}
+      </p>
+      <p className="text-[10px] text-indigo-600">
+        Paste this into the <strong>Hybrid Connection Manager</strong> on your laptop to connect it to Azure Relay.
+      </p>
+    </div>
+  )
+}
 
 // ── Connection topology ───────────────────────────────────────────────────────
 
@@ -87,18 +148,18 @@ interface CreateResult {
   status: string
   errorDetail: string | null
   name: string
+  listenerConnectionString: string | null
 }
 
 function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
-  const [name, setName]               = useState('')
-  const [host, setHost]               = useState('')
-  const [port, setPort]               = useState('1433')
-  const [namespace, setNamespace]     = useState('')
-  const [loading, setLoading]         = useState(false)
-  const [error, setError]             = useState<string | null>(null)
-  const [result, setResult]           = useState<CreateResult | null>(null)
+  const [name, setName]   = useState('')
+  const [host, setHost]   = useState('')
+  const [port, setPort]   = useState('1433')
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState<string | null>(null)
+  const [result, setResult]   = useState<CreateResult | null>(null)
 
-  const valid = name.trim() && host.trim() && namespace.trim() && parseInt(port) > 0
+  const valid = name.trim() && host.trim() && parseInt(port) > 0
 
   const handleCreate = async () => {
     if (!valid) return
@@ -110,10 +171,14 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
         name: name.trim(),
         endpoint_host: host.trim(),
         endpoint_port: parseInt(port, 10) || 1433,
-        service_bus_namespace: namespace.trim(),
       })
-      setResult({ status: data.status, errorDetail: data.error_detail ?? null, name: data.name })
-      setName(''); setHost(''); setPort('1433'); setNamespace('')
+      setResult({
+        status: data.status,
+        errorDetail: data.error_detail ?? null,
+        name: data.name,
+        listenerConnectionString: data.listener_connection_string ?? null,
+      })
+      setName(''); setHost(''); setPort('1433')
       onCreated()
     } catch (err) {
       setError(getApiErrorMessage(err))
@@ -141,20 +206,6 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
               placeholder="e.g. sat-onprem-sql"
               value={name}
               onChange={(e) => { setName(e.target.value); setResult(null) }}
-              spellCheck={false}
-              autoComplete="off"
-            />
-          </div>
-
-          {/* Service Bus Namespace */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-600">Service Bus Namespace</label>
-            <input
-              type="text"
-              className="form-input w-full"
-              placeholder="e.g. myns or myns.servicebus.windows.net"
-              value={namespace}
-              onChange={(e) => { setNamespace(e.target.value); setResult(null) }}
               spellCheck={false}
               autoComplete="off"
             />
@@ -209,11 +260,17 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
         )}
 
         {result && result.status === 'provisioned' && (
-          <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700 animate-slide-down">
-            <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>
-              <strong>{result.name}</strong> was created and provisioned automatically in Azure.
-            </span>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700 animate-slide-down space-y-3">
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                <strong>{result.name}</strong> was created and provisioned in Azure.
+                Copy the connection string below and paste it into the Hybrid Connection Manager on your laptop.
+              </span>
+            </div>
+            {result.listenerConnectionString && (
+              <ConnectionStringBox value={result.listenerConnectionString} />
+            )}
           </div>
         )}
 
@@ -331,36 +388,42 @@ function MyConnectionsListControlled() {
         ) : (
           <div className="divide-y divide-slate-100">
             {connections.map((hc) => (
-              <div key={hc.connection_id} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50 transition-colors">
-                <div className="h-9 w-9 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
-                  <Share2 className="h-4 w-4 text-indigo-500" />
+              <div key={hc.connection_id} className="px-6 py-4 hover:bg-slate-50 transition-colors space-y-3">
+                <div className="flex items-center gap-4">
+                  <div className="h-9 w-9 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                    <Share2 className="h-4 w-4 text-indigo-500" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{hc.name}</p>
+                    <p className="text-xs text-slate-500 truncate">
+                      {hc.endpoint_host}:{hc.endpoint_port}
+                      <span className="mx-1.5 text-slate-300">·</span>
+                      {hc.service_bus_namespace}.servicebus.windows.net
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <StatusBadge status={hc.status} />
+                    <span className="text-[11px] text-slate-400 hidden sm:block">
+                      {hc.created_at ? new Date(hc.created_at).toLocaleDateString() : '—'}
+                    </span>
+                    <button
+                      onClick={() => handleDelete(hc.connection_id)}
+                      disabled={deleting === hc.connection_id}
+                      className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors disabled:opacity-50"
+                      title="Delete"
+                    >
+                      {deleting === hc.connection_id
+                        ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        : <Trash2 className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate">{hc.name}</p>
-                  <p className="text-xs text-slate-500 truncate">
-                    {hc.endpoint_host}:{hc.endpoint_port}
-                    <span className="mx-1.5 text-slate-300">·</span>
-                    {hc.service_bus_namespace}.servicebus.windows.net
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0">
-                  <StatusBadge status={hc.status} />
-                  <span className="text-[11px] text-slate-400 hidden sm:block">
-                    {hc.created_at ? new Date(hc.created_at).toLocaleDateString() : '—'}
-                  </span>
-                  <button
-                    onClick={() => handleDelete(hc.connection_id)}
-                    disabled={deleting === hc.connection_id}
-                    className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors disabled:opacity-50"
-                    title="Delete"
-                  >
-                    {deleting === hc.connection_id
-                      ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      : <Trash2 className="h-3.5 w-3.5" />}
-                  </button>
-                </div>
+                {hc.listener_connection_string && (
+                  <ConnectionStringBox value={hc.listener_connection_string} />
+                )}
               </div>
             ))}
           </div>
@@ -466,22 +529,33 @@ const STEPS: Step[] = [
   },
   {
     n: 5,
-    title: 'Add the connection in HCM and verify',
+    title: 'Configure HCM with the Gateway Connection String',
     body: (
-      <ol className="space-y-3 text-sm text-slate-600 list-decimal list-inside">
-        <li>In Hybrid Connection Manager UI, click <strong className="text-slate-800">Add a new Hybrid Connection</strong>.</li>
-        <li>Sign in with the same Azure account used to create the connection.</li>
-        <li>Select the Hybrid Connection you created and click <strong className="text-slate-800">Save</strong>.</li>
-        <li>
-          Back in Azure Portal, the connection status should change to{' '}
-          <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
-            <Wifi className="h-3.5 w-3.5" /> Connected
-          </span>.
-        </li>
-        <li>
-          Use the connectivity test below to confirm the Azure app can reach the SQL Server through the relay.
-        </li>
-      </ol>
+      <div className="space-y-3 text-sm text-slate-600">
+        <p>
+          After creating a Hybrid Connection above, the app generates a <strong className="text-slate-800">Gateway Connection String</strong>.
+          Copy it from the connection card (or from the banner shown immediately after creation) and follow these steps:
+        </p>
+        <ol className="space-y-2 list-decimal list-inside">
+          <li>Open <strong className="text-slate-800">Hybrid Connection Manager UI</strong> from the Start menu.</li>
+          <li>Click <strong className="text-slate-800">Enter connection string manually</strong>.</li>
+          <li>Paste the Gateway Connection String and click <strong className="text-slate-800">Save</strong>.</li>
+          <li>
+            The status indicator in HCM should turn green —{' '}
+            <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+              <Wifi className="h-3.5 w-3.5" /> Connected
+            </span>.
+          </li>
+          <li>Use the connectivity test below to confirm the Azure app can reach the SQL Server through the relay.</li>
+        </ol>
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
+          <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-700">
+            The Gateway Connection String is unique to your account and this Hybrid Connection.
+            Keep it confidential — anyone with this string can register as a listener for your relay endpoint.
+          </p>
+        </div>
+      </div>
     ),
   },
 ]

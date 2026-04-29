@@ -12,13 +12,20 @@ IF OBJECT_ID('dbo.users', 'U') IS NULL
         email          NVARCHAR(255)  NOT NULL,
         full_name      NVARCHAR(200)  NULL,
         password_hash  NVARCHAR(255)  NOT NULL,
-        mfa_secret     NVARCHAR(64)   NULL,       -- NULL = MFA not yet set up
-        mfa_enabled    BIT            NOT NULL DEFAULT 0,
-        is_active      BIT            NOT NULL DEFAULT 1,
-        created_at     DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        mfa_secret        NVARCHAR(64)   NULL,       -- NULL = MFA not yet set up
+        mfa_enabled       BIT            NOT NULL DEFAULT 0,
+        is_active         BIT            NOT NULL DEFAULT 1,
+        relay_namespace   NVARCHAR(50)   NULL,       -- auto-provisioned Azure Relay namespace per user
+        created_at        DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_users PRIMARY KEY (user_id),
         CONSTRAINT UQ_users_email UNIQUE (email)
     );
+-- Migration: add relay_namespace column to existing users table
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.users') AND name = 'relay_namespace'
+)
+    ALTER TABLE dbo.users ADD relay_namespace NVARCHAR(50) NULL;
 
 -- ─── Migration: remove old JSON-blob table (one-time) ────────────────────────
 IF OBJECT_ID('dbo.assessment_sections', 'U') IS NOT NULL
@@ -886,18 +893,25 @@ IF OBJECT_ID('dbo.assessment_deprecated_features_in_use', 'U') IS NULL
 -- ─── hybrid_connections (user-created Azure Hybrid Connections) ───────────────
 IF OBJECT_ID('dbo.hybrid_connections', 'U') IS NULL
     CREATE TABLE dbo.hybrid_connections (
-        connection_id           VARCHAR(36)    NOT NULL,
-        user_id                 VARCHAR(36)    NOT NULL,
-        name                    NVARCHAR(200)  NOT NULL,
-        endpoint_host           NVARCHAR(500)  NOT NULL,
-        endpoint_port           INT            NOT NULL DEFAULT 1433,
-        service_bus_namespace   NVARCHAR(500)  NOT NULL,
-        status                  VARCHAR(50)    NOT NULL DEFAULT 'created',
-        created_at              DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        connection_id              VARCHAR(36)    NOT NULL,
+        user_id                    VARCHAR(36)    NOT NULL,
+        name                       NVARCHAR(200)  NOT NULL,
+        endpoint_host              NVARCHAR(500)  NOT NULL,
+        endpoint_port              INT            NOT NULL DEFAULT 1433,
+        service_bus_namespace      NVARCHAR(500)  NOT NULL,
+        status                     VARCHAR(50)    NOT NULL DEFAULT 'created',
+        listener_connection_string NVARCHAR(MAX)  NULL,   -- Azure Relay listener conn string (for HCM)
+        created_at                 DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_hybrid_connections PRIMARY KEY (connection_id)
     );
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_hybrid_connections_user')
     CREATE INDEX IX_hybrid_connections_user ON dbo.hybrid_connections (user_id, created_at DESC);
+-- Migration: add listener_connection_string to existing hybrid_connections table
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.hybrid_connections') AND name = 'listener_connection_string'
+)
+    ALTER TABLE dbo.hybrid_connections ADD listener_connection_string NVARCHAR(MAX) NULL;
 
 -- ─── user_connections (Cloudflare Tunnel per-user SQL connection configs) ──────
 -- Credentials are AES-256-GCM encrypted before storage; the key lives in

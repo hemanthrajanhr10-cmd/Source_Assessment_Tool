@@ -647,7 +647,7 @@ def get_user_by_email(email: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, created_at "
+            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at "
             "FROM dbo.users WHERE email = ?",
             (email,),
         )
@@ -665,7 +665,7 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, created_at "
+            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at "
             "FROM dbo.users WHERE user_id = ?",
             (user_id,),
         )
@@ -674,6 +674,37 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
             return None
         cols = [d[0] for d in cur.description]
         return dict(zip(cols, row))
+    finally:
+        conn.close()
+
+
+def get_user_relay_namespace(user_id: str) -> Optional[str]:
+    """Return the Azure Relay namespace assigned to this user, or None."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT relay_namespace FROM dbo.users WHERE user_id = ?",
+            (user_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return row[0]
+    finally:
+        conn.close()
+
+
+def set_user_relay_namespace(user_id: str, namespace: str) -> None:
+    """Persist the Azure Relay namespace for a user (set once, never changes)."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.users SET relay_namespace = ? WHERE user_id = ?",
+            (namespace, user_id),
+        )
+        conn.commit()
     finally:
         conn.close()
 
@@ -1038,6 +1069,7 @@ def create_hybrid_connection(
     endpoint_port: int,
     service_bus_namespace: str,
     status: str = "created",
+    listener_connection_string: Optional[str] = None,
 ) -> None:
     conn = _get_conn()
     try:
@@ -1045,10 +1077,10 @@ def create_hybrid_connection(
         cur.execute(
             """INSERT INTO dbo.hybrid_connections
                (connection_id, user_id, name, endpoint_host, endpoint_port,
-                service_bus_namespace, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                service_bus_namespace, status, listener_connection_string)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (connection_id, user_id, name, endpoint_host, endpoint_port,
-             service_bus_namespace, status),
+             service_bus_namespace, status, listener_connection_string),
         )
         conn.commit()
     finally:
@@ -1061,7 +1093,8 @@ def list_hybrid_connections(user_id: str) -> list[dict]:
         cur = conn.cursor()
         cur.execute(
             """SELECT connection_id, user_id, name, endpoint_host, endpoint_port,
-                      service_bus_namespace, status, created_at
+                      service_bus_namespace, status, created_at,
+                      listener_connection_string
                FROM dbo.hybrid_connections
                WHERE user_id = ?
                ORDER BY created_at DESC""",

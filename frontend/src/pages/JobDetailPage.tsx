@@ -392,7 +392,7 @@ export default function JobDetailPage() {
         >
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <Spinner size="sm" className="text-violet-500" />
+              <Loader2 className="h-4 w-4 animate-spin text-violet-500 shrink-0" />
               <span className="text-sm font-medium text-slate-700">
                 {status.status === 'pending' ? 'Queued — waiting to start…' : (status.progress_message ?? 'Running assessment…')}
               </span>
@@ -593,9 +593,7 @@ export default function JobDetailPage() {
           {/* Content area */}
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
             {resultsLoading ? (
-              <div className="flex items-center justify-center flex-1 py-16">
-                <Spinner size="lg" className="text-violet-500" />
-              </div>
+              <Loader3D message="Loading results" size="sm" />
             ) : results ? (
               (() => {
                 const tab = TABS.find((t) => t.id === activeTab)!

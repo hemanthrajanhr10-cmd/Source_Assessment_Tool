@@ -383,45 +383,56 @@ export default function JobDetailPage() {
       {/* ── Running state — Progress panel ──────────────────────────────── */}
       {isRunning && (
         <div
-          className="rounded-2xl px-6 py-5 space-y-3"
+          className="rounded-2xl overflow-hidden"
           style={{
             background: '#ffffff',
             boxShadow: 'var(--elevation-2)',
             border: '1px solid rgba(226,232,240,0.70)',
           }}
         >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <Loader2 className="h-4 w-4 animate-spin text-violet-500 shrink-0" />
-              <span className="text-sm font-medium text-slate-700">
-                {status.status === 'pending' ? 'Queued — waiting to start…' : (status.progress_message ?? 'Running assessment…')}
-              </span>
-            </div>
-            <span
-              className="text-xs font-bold tabular-nums px-2 py-0.5 rounded-full"
-              style={{
-                background: 'rgba(124,58,237,0.08)',
-                color: '#7c3aed',
-                border: '1px solid rgba(196,181,253,0.35)',
-              }}
-            >
-              {progress}%
-            </span>
-          </div>
-          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(124,58,237,0.08)' }}>
-            <div
-              className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{
-                width: `${progress}%`,
-                background: 'linear-gradient(90deg, #7c3aed, #6366f1)',
-              }}
-              role="progressbar"
-              aria-valuenow={progress}
-              aria-valuemin={0}
-              aria-valuemax={100}
+          {/* 3D Loader centered */}
+          <div className="flex flex-col items-center pt-6 pb-2">
+            <Loader3D
+              message={status.status === 'pending' ? 'Queued — waiting to start…' : (status.progress_message ?? 'Running assessment…')}
+              size="sm"
             />
           </div>
-          <p className="text-[11px] text-slate-400">This page auto-refreshes every 2 seconds.</p>
+
+          {/* Progress bar + percentage */}
+          <div className="px-6 pb-5 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400 shrink-0" aria-hidden="true" />
+                <span className="text-xs text-slate-500 truncate max-w-sm">
+                  {status.status === 'pending' ? 'Queued — waiting to start…' : (status.progress_message ?? 'Running assessment…')}
+                </span>
+              </div>
+              <span
+                className="text-xs font-bold tabular-nums px-2 py-0.5 rounded-full shrink-0"
+                style={{
+                  background: 'rgba(124,58,237,0.08)',
+                  color: '#7c3aed',
+                  border: '1px solid rgba(196,181,253,0.35)',
+                }}
+              >
+                {progress}%
+              </span>
+            </div>
+            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(124,58,237,0.08)' }}>
+              <div
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${progress}%`,
+                  background: 'linear-gradient(90deg, #7c3aed, #6366f1)',
+                }}
+                role="progressbar"
+                aria-valuenow={progress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              />
+            </div>
+            <p className="text-[11px] text-slate-400">This page auto-refreshes every 2 seconds.</p>
+          </div>
         </div>
       )}
 

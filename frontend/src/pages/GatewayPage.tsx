@@ -16,6 +16,7 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { HybridConnection } from '../types/api'
 import Button from '../components/ui/Button'
+import Loader3D from '../components/ui/Loader3D'
 
 // ── Copy button ───────────────────────────────────────────────────────────────
 
@@ -195,7 +196,20 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
         <span className="ml-auto text-xs text-slate-400">Saved to your account</span>
       </div>
 
-      <div className="p-6 space-y-4">
+      {/* Loading overlay */}
+      {loading && (
+        <div
+          className="flex flex-col items-center justify-center py-8 gap-2"
+          style={{
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(245,247,255,0.97) 100%)',
+            borderTop: '1px solid rgba(226,232,240,0.50)',
+          }}
+        >
+          <Loader3D message="Creating Hybrid Connection in Azure…" size="sm" />
+        </div>
+      )}
+
+      <div className={`p-6 space-y-4 ${loading ? 'opacity-40 pointer-events-none' : ''}`}>
         <div className="grid sm:grid-cols-2 gap-4">
           {/* Name */}
           <div className="space-y-1.5">
@@ -623,7 +637,21 @@ function ConnectivityTest() {
           Verify the Azure app can reach your SQL Server through HCM
         </span>
       </div>
-      <div className="p-6 space-y-4">
+
+      {/* Loading overlay */}
+      {loading && (
+        <div
+          className="flex flex-col items-center justify-center py-8"
+          style={{
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(245,247,255,0.97) 100%)',
+            borderTop: '1px solid rgba(226,232,240,0.50)',
+          }}
+        >
+          <Loader3D message="Testing TCP connectivity…" size="sm" />
+        </div>
+      )}
+
+      <div className={`p-6 space-y-4 ${loading ? 'opacity-40 pointer-events-none' : ''}`}>
         <div className="flex gap-3">
           <div className="relative flex-1">
             <Database className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />

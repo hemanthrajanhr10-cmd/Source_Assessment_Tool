@@ -127,31 +127,30 @@ def _provision_hybrid_connection(
     Use the Azure SDK to:
       1. Create the Relay Hybrid Connection entity in the given namespace.
       2. Create defaultListener (Listen) and defaultSender (Send) auth rules.
-      3. Attach it to the App Service.
-      4. Return the listener connection string for use with HCM.
+      3. Fetch connection strings.
+      4. Attach to the App Service (only if AZURE_APP_SERVICE_NAME is set).
 
     Returns (status, listener_connection_string, error_detail).
-    status is one of: 'provisioned' | 'config_missing' | 'error'
+    status is one of: 'provisioned' | 'provisioned_no_appservice' | 'config_missing' | 'error'
     """
     subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
     resource_group  = os.environ.get("AZURE_RESOURCE_GROUP", "").strip()
     app_service     = os.environ.get("AZURE_APP_SERVICE_NAME", "").strip()
 
-    if not subscription_id or not resource_group or not app_service:
+    # Relay operations require at minimum subscription_id + resource_group.
+    if not subscription_id or not resource_group:
         logger.info(
             "Hybrid Connection auto-provision skipped: "
-            "AZURE_SUBSCRIPTION_ID / AZURE_RESOURCE_GROUP / AZURE_APP_SERVICE_NAME not set"
+            "AZURE_SUBSCRIPTION_ID / AZURE_RESOURCE_GROUP not set"
         )
         return "config_missing", None, (
-            "Set AZURE_SUBSCRIPTION_ID, AZURE_RESOURCE_GROUP, and AZURE_APP_SERVICE_NAME "
+            "Set AZURE_SUBSCRIPTION_ID and AZURE_RESOURCE_GROUP "
             "environment variables on the App Service to enable automatic provisioning."
         )
 
     try:
         from azure.identity import DefaultAzureCredential
         from azure.mgmt.relay.models import AccessRights, AuthorizationRule, HybridConnection
-        from azure.mgmt.web import WebSiteManagementClient
-        from azure.mgmt.web.models import HybridConnection as WebHybridConnection
 
         # azure-mgmt-relay 1.1.0 renamed the client to RelayAPI; fall back to
         # the old RelayManagementClient name found in 0.x releases.
@@ -206,13 +205,27 @@ def _provision_hybrid_connection(
         )
         listener_connection_string = listener_keys.primary_connection_string
 
+        # ── 4. Attach to App Service (optional — skipped if AZURE_APP_SERVICE_NAME not set) ─
+        if not app_service:
+            logger.info(
+                "HC '%s' provisioned in Relay; App Service attachment skipped "
+                "(AZURE_APP_SERVICE_NAME not set)",
+                name,
+            )
+            return "provisioned_no_appservice", listener_connection_string, (
+                "Hybrid Connection created in Azure Relay. "
+                "Set AZURE_APP_SERVICE_NAME to also bind it to the App Service."
+            )
+
         relay_arm_uri = (
             f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
             f"/providers/Microsoft.Relay/namespaces/{namespace}"
             f"/hybridConnections/{name}"
         )
 
-        # ── 4. Attach to App Service ───────────────────────────────────────────
+        from azure.mgmt.web import WebSiteManagementClient
+        from azure.mgmt.web.models import HybridConnection as WebHybridConnection
+
         web_client = WebSiteManagementClient(credential, subscription_id)
 
         web_client.web_apps.create_or_update_hybrid_connection(

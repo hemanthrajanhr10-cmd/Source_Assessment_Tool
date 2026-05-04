@@ -213,18 +213,14 @@ export default function UnifiedAssessmentPage() {
   const [expandedWorkspaces, setExpandedWorkspaces]     = useState<Set<string>>(new Set())
 
   // ── Mode selection ──────────────────────────────────────────────────────────
+  // Session is NOT created here — we defer to the final submit so abandoned
+  // flows don't leave ghost "Pending / Unlabelled" rows in the database.
 
-  const handleModeSelect = useCallback(async (selected: AssessmentMode) => {
+  const handleModeSelect = useCallback((selected: AssessmentMode) => {
     setMode(selected)
     setError(null)
-    try {
-      const { data } = await api.createUnifiedSession({ mode: selected, label: sessionLabel || undefined })
-      setUnifiedSessionId(data.unified_session_id)
-      setPhase(selected === 'fabric' ? 'fabric-auth' : 'source-form')
-    } catch (err) {
-      setError(getApiErrorMessage(err))
-    }
-  }, [sessionLabel])
+    setPhase(selected === 'fabric' ? 'fabric-auth' : 'source-form')
+  }, [])
 
   // ── Server form helpers ─────────────────────────────────────────────────────
 
@@ -275,9 +271,18 @@ export default function UnifiedAssessmentPage() {
     setSourceSubmitting(true)
     setError(null)
     try {
+      // Create the unified session now (deferred from mode-select) so that
+      // abandoned flows never leave ghost "Pending / Unlabelled" rows.
+      let sessionId = unifiedSessionId
+      if (!sessionId) {
+        const { data: us } = await api.createUnifiedSession({ mode, label: sessionLabel || undefined })
+        sessionId = us.unified_session_id
+        setUnifiedSessionId(sessionId)
+      }
+
       await api.createSession({
         label: sessionLabel || undefined,
-        unified_session_id: unifiedSessionId,
+        unified_session_id: sessionId,
         servers: servers.map(s => ({
           db_type: s.db_type,
           server: s.server,
@@ -293,9 +298,8 @@ export default function UnifiedAssessmentPage() {
       })
 
       if (mode === 'source') {
-        navigate(`/unified/sessions/${unifiedSessionId}`)
+        navigate(`/unified/sessions/${sessionId}`)
       } else {
-        // Both: proceed to Fabric after source is submitted
         setPhase('fabric-auth')
       }
     } catch (err) {
@@ -368,20 +372,28 @@ export default function UnifiedAssessmentPage() {
     setPhase('fabric-submitting')
     setError(null)
     try {
+      // For fabric-only mode the unified session hasn't been created yet.
+      let sessionId = unifiedSessionId
+      if (!sessionId) {
+        const { data: us } = await api.createUnifiedSession({ mode, label: sessionLabel || fabricLabel || undefined })
+        sessionId = us.unified_session_id
+        setUnifiedSessionId(sessionId)
+      }
+
       await api.createFabricSession({
         auth_id: authId,
         label: fabricLabel || sessionLabel || undefined,
         workspace_ids: Array.from(selectedWsIds),
         dataset_ids: Array.from(selectedDatasetIds),
         report_ids: Array.from(selectedReportIds),
-        unified_session_id: unifiedSessionId,
+        unified_session_id: sessionId,
       })
-      navigate(`/unified/sessions/${unifiedSessionId}`)
+      navigate(`/unified/sessions/${sessionId}`)
     } catch (err) {
       setError(getApiErrorMessage(err))
       setPhase('fabric-naming')
     }
-  }, [authId, fabricLabel, sessionLabel, selectedWsIds, selectedDatasetIds, selectedReportIds, unifiedSessionId, navigate])
+  }, [authId, fabricLabel, sessionLabel, selectedWsIds, selectedDatasetIds, selectedReportIds, unifiedSessionId, mode, navigate])
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -469,6 +481,7 @@ export default function UnifiedAssessmentPage() {
           testConnectivity={testConnectivity}
           loadDatabases={loadDatabases}
           onSubmit={handleSourceSubmit}
+          onBack={() => { setPhase('mode-select'); setUnifiedSessionId('') }}
           submitting={sourceSubmitting}
           mode={mode}
         />
@@ -482,6 +495,7 @@ export default function UnifiedAssessmentPage() {
           copied={copied}
           setCopied={setCopied}
           mode={mode}
+          onBack={mode === 'fabric' ? () => { setPhase('mode-select'); setUnifiedSessionId('') } : undefined}
         />
       )}
 
@@ -494,6 +508,7 @@ export default function UnifiedAssessmentPage() {
           setSelectedIds={setSelectedWsIds}
           filter={wsFilter}
           setFilter={setWsFilter}
+          onBack={mode === 'fabric' ? () => { setPhase('mode-select'); setUnifiedSessionId('') } : undefined}
           onNext={handleFetchItems}
         />
       )}
@@ -560,7 +575,7 @@ export default function UnifiedAssessmentPage() {
 // ── Source Assessment Form ────────────────────────────────────────────────────
 
 function SourceAssessmentForm({
-  servers, setServers, updateServer, testConnectivity, loadDatabases, onSubmit, submitting, mode,
+  servers, setServers, updateServer, testConnectivity, loadDatabases, onSubmit, onBack, submitting, mode,
 }: {
   servers: ServerEntry[]
   setServers: React.Dispatch<React.SetStateAction<ServerEntry[]>>
@@ -568,6 +583,7 @@ function SourceAssessmentForm({
   testConnectivity: (srv: ServerEntry) => void
   loadDatabases: (srv: ServerEntry) => void
   onSubmit: () => void
+  onBack: () => void
   submitting: boolean
   mode: AssessmentMode
 }) {
@@ -601,14 +617,19 @@ function SourceAssessmentForm({
       ))}
 
       <div className="pt-2 flex items-center justify-between">
-        <p className="text-xs text-slate-500">
-          {totalDbs} database{totalDbs !== 1 ? 's' : ''} selected across {servers.length} server{servers.length !== 1 ? 's' : ''}
-        </p>
-        <Button onClick={onSubmit} disabled={submitting || totalDbs === 0}>
-          {submitting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Starting…</> :
-           mode === 'both' ? <>Next: Fabric Assessment <ArrowRight className="h-4 w-4 ml-1" /></> :
-           <>Start Assessment <ArrowRight className="h-4 w-4 ml-1" /></>}
+        <Button variant="secondary" onClick={onBack} disabled={submitting}>
+          Back
         </Button>
+        <div className="flex items-center gap-3">
+          <p className="text-xs text-slate-500">
+            {totalDbs} DB{totalDbs !== 1 ? 's' : ''} across {servers.length} server{servers.length !== 1 ? 's' : ''}
+          </p>
+          <Button onClick={onSubmit} disabled={submitting || totalDbs === 0}>
+            {submitting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Starting…</> :
+             mode === 'both' ? <>Next: Fabric Assessment <ArrowRight className="h-4 w-4 ml-1" /></> :
+             <>Start Assessment <ArrowRight className="h-4 w-4 ml-1" /></>}
+          </Button>
+        </div>
       </div>
     </div>
   )
@@ -956,11 +977,12 @@ function ServerCard({
 // ── Fabric Auth Panel ─────────────────────────────────────────────────────────
 
 function FabricAuthPanel({
-  userCode, verificationUrl, copied, setCopied, mode,
+  userCode, verificationUrl, copied, setCopied, mode, onBack,
 }: {
   userCode: string; verificationUrl: string
   copied: boolean; setCopied: (v: boolean) => void
   mode: AssessmentMode
+  onBack?: () => void
 }) {
   const copyCode = async () => {
     if (!userCode) return
@@ -979,56 +1001,64 @@ function FabricAuthPanel({
   }
 
   return (
-    <div
-      className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5"
-      style={{ boxShadow: 'var(--elevation-1)' }}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, #4f46e5, #0ea5e9)' }}
-        >
-          <MonitorSmartphone className="h-5 w-5 text-white" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-slate-900">
-            {mode === 'both' ? 'Step 2 — ' : ''}Microsoft Authentication
-          </p>
-          <p className="text-xs text-slate-500">Sign in with your Microsoft account to access Fabric workspaces.</p>
-        </div>
-      </div>
-
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3">
-        <p className="text-xs text-slate-600">1. Visit the Microsoft device login page:</p>
-        <a
-          href={verificationUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          {verificationUrl}
-        </a>
-        <p className="text-xs text-slate-600">2. Enter this code when prompted:</p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 text-center text-xl font-bold tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg py-3">
-            {userCode}
-          </code>
-          <button
-            onClick={copyCode}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
-                       border border-slate-200 text-slate-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition-colors"
+    <div className="space-y-4">
+      <div
+        className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5"
+        style={{ boxShadow: 'var(--elevation-1)' }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, #4f46e5, #0ea5e9)' }}
           >
-            {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
+            <MonitorSmartphone className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-900">
+              {mode === 'both' ? 'Step 2 — ' : ''}Microsoft Authentication
+            </p>
+            <p className="text-xs text-slate-500">Sign in with your Microsoft account to access Fabric workspaces.</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3">
+          <p className="text-xs text-slate-600">1. Visit the Microsoft device login page:</p>
+          <a
+            href={verificationUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            {verificationUrl}
+          </a>
+          <p className="text-xs text-slate-600">2. Enter this code when prompted:</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-center text-xl font-bold tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg py-3">
+              {userCode}
+            </code>
+            <button
+              onClick={copyCode}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
+                         border border-slate-200 text-slate-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition-colors"
+            >
+              {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-slate-500">
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+          Waiting for you to authenticate…
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-xs text-slate-500">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
-        Waiting for you to authenticate…
-      </div>
+      {onBack && (
+        <div>
+          <Button variant="secondary" onClick={onBack}>Back</Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -1036,11 +1066,12 @@ function FabricAuthPanel({
 // ── Fabric Workspace Picker ───────────────────────────────────────────────────
 
 function FabricWorkspacePicker({
-  workspaces, loading, selectedIds, setSelectedIds, filter, setFilter, onNext,
+  workspaces, loading, selectedIds, setSelectedIds, filter, setFilter, onBack, onNext,
 }: {
   workspaces: FabricWorkspaceInfo[]; loading: boolean
   selectedIds: Set<string>; setSelectedIds: (s: Set<string>) => void
   filter: string; setFilter: (f: string) => void
+  onBack?: () => void
   onNext: () => void
 }) {
   const filtered = workspaces.filter(w => !filter || w.name.toLowerCase().includes(filter.toLowerCase()))
@@ -1089,9 +1120,12 @@ function FabricWorkspacePicker({
           )}
         </div>
       </div>
-      <Button onClick={onNext} disabled={selectedIds.size === 0}>
-        Next: Select models & reports <ArrowRight className="h-4 w-4 ml-1" />
-      </Button>
+      <div className="flex gap-3">
+        {onBack && <Button variant="secondary" onClick={onBack}>Back</Button>}
+        <Button onClick={onNext} disabled={selectedIds.size === 0}>
+          Next: Select models & reports <ArrowRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
     </div>
   )
 }

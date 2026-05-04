@@ -16,7 +16,7 @@ import {
   ArrowRight, Server, Plus, Trash2, Eye, EyeOff,
   Wifi, WifiOff, RefreshCw, Search, ExternalLink, Copy,
   Loader2, Tag, Building2, FileText, ChevronDown, ChevronRight,
-  MonitorSmartphone,
+  MonitorSmartphone, Share2, Network, Info,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type {
@@ -26,6 +26,7 @@ import type {
   DbType,
   FabricWorkspaceInfo,
   FabricWorkspaceItems,
+  HybridConnection,
 } from '../types/api'
 import { ACCESS_LEVEL_OPTIONS } from '../types/api'
 import Button from '../components/ui/Button'
@@ -613,6 +614,92 @@ function SourceAssessmentForm({
   )
 }
 
+// ── Hybrid Connection Picker ──────────────────────────────────────────────────
+
+function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: number) => void }) {
+  const [open, setOpen]               = useState(false)
+  const [connections, setConnections] = useState<HybridConnection[]>([])
+  const [loading, setLoading]         = useState(false)
+  const [error, setError]             = useState<string | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleOpen = async () => {
+    setOpen(true)
+    if (connections.length > 0) return
+    setLoading(true)
+    setError(null)
+    try {
+      const { data } = await api.listHybridConnections()
+      setConnections(data)
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={handleOpen}
+        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+        title="Pick from your saved Hybrid Connections"
+      >
+        <Share2 className="h-3.5 w-3.5" />
+        Hybrid
+      </button>
+
+      {open && (
+        <div className="absolute top-full mt-1.5 left-0 z-50 w-72 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50">
+            <Share2 className="h-3.5 w-3.5 text-indigo-500" />
+            <span className="text-xs font-semibold text-slate-700">Your Hybrid Connections</span>
+          </div>
+          {loading && (
+            <div className="flex items-center justify-center py-6">
+              <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
+            </div>
+          )}
+          {error && <div className="px-3 py-3 text-xs text-red-600">{error}</div>}
+          {!loading && !error && connections.length === 0 && (
+            <div className="px-3 py-4 text-xs text-slate-400 text-center">
+              No saved connections.{' '}
+              <a href="/hybrid-connection" className="text-indigo-600 underline underline-offset-2">Create one</a> first.
+            </div>
+          )}
+          {!loading && connections.map(hc => (
+            <button
+              key={hc.connection_id}
+              type="button"
+              onClick={() => { onSelect(hc.endpoint_host, hc.endpoint_port); setOpen(false) }}
+              className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0"
+            >
+              <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Share2 className="h-3.5 w-3.5 text-indigo-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-800 truncate">{hc.name}</p>
+                <p className="text-[11px] text-slate-500 truncate">{hc.endpoint_host}:{hc.endpoint_port}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function ServerCard({
   srv, index, updateServer, testConnectivity, loadDatabases, onRemove,
 }: {
@@ -679,12 +766,17 @@ function ServerCard({
             </div>
             <div>
               <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Server / Host</label>
-              <input
-                value={srv.server}
-                onChange={e => updateServer(srv.id, { server: e.target.value })}
-                placeholder="hostname or IP"
-                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-violet-500/40 focus:outline-none"
-              />
+              <div className="flex gap-1.5">
+                <input
+                  value={srv.server}
+                  onChange={e => updateServer(srv.id, { server: e.target.value, connectivity: null })}
+                  placeholder="hostname or IP"
+                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-violet-500/40 focus:outline-none"
+                />
+                <HybridConnectionPicker
+                  onSelect={(host, port) => updateServer(srv.id, { server: host, port, connectivity: null })}
+                />
+              </div>
             </div>
             <div>
               <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Port</label>
@@ -744,7 +836,7 @@ function ServerCard({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => testConnectivity(srv)}
               disabled={!srv.server || srv.connectivity_loading}
@@ -765,7 +857,41 @@ function ServerCard({
               {srv.dbs_loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
               Load databases
             </button>
+            {/* Connectivity badge */}
+            {srv.connectivity && (
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                srv.connectivity.reachable
+                  ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                  : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+              }`}>
+                {srv.connectivity.reachable
+                  ? <><Wifi className="h-3 w-3" /> Reachable {srv.connectivity.latency_ms != null ? `(${srv.connectivity.latency_ms}ms)` : ''}</>
+                  : <><WifiOff className="h-3 w-3" /> Not directly reachable</>}
+              </span>
+            )}
           </div>
+
+          {/* Azure Hybrid Connection callout when server is not reachable */}
+          {srv.connectivity && !srv.connectivity.reachable && (
+            <div className="flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+              <Network className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+              <div className="text-xs text-blue-700 space-y-1">
+                <p className="font-semibold text-blue-800">Server not directly reachable from Azure</p>
+                <p>
+                  If this is an on-premises SQL Server, ensure the{' '}
+                  <strong>Azure Hybrid Connection Manager</strong> is running on a machine
+                  connected to the same network as the server.
+                </p>
+                <a
+                  href="/hybrid-connection"
+                  className="inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:text-blue-900 transition-colors"
+                >
+                  <Info className="h-3 w-3" />
+                  Hybrid Connection setup guide
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Databases */}
           {srv.dbs_error && (
@@ -773,7 +899,30 @@ function ServerCard({
           )}
           {filteredDbs.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Databases</p>
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                  Databases ({srv.selected_dbs.length}/{filteredDbs.length} selected)
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (srv.selected_dbs.length === filteredDbs.length) {
+                      updateServer(srv.id, { selected_dbs: [] })
+                    } else {
+                      updateServer(srv.id, {
+                        selected_dbs: filteredDbs.map(d => ({
+                          name: d.name,
+                          include_null_analysis: true,
+                          null_analysis_sample_limit: 30,
+                        })),
+                      })
+                    }
+                  }}
+                  className="text-[10px] font-semibold text-violet-600 hover:text-violet-800 uppercase tracking-wider transition-colors"
+                >
+                  {srv.selected_dbs.length === filteredDbs.length ? 'Unselect All' : 'Select All'}
+                </button>
+              </div>
               {filteredDbs.map(db => {
                 const selected = srv.selected_dbs.some(s => s.name === db.name)
                 return (

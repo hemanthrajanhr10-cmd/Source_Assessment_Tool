@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, RefreshCw, CheckCircle2, XCircle, FileText,
@@ -224,6 +224,9 @@ function JobRow({ job, onNavigate }: { job: SessionJobInfo; onNavigate: (jobId: 
 export default function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromConsolidated = (location.state as { fromConsolidated?: boolean } | null)?.fromConsolidated === true
+  const unifiedSessionId = (location.state as { unifiedSessionId?: string } | null)?.unifiedSessionId
   const queryClient = useQueryClient()
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [wordDownloading, setWordDownloading] = useState(false)
@@ -269,10 +272,13 @@ export default function SessionDetailPage() {
     return (
       <div className="max-w-3xl mx-auto">
         <button
-          onClick={() => navigate('/sessions')}
+          onClick={() => fromConsolidated && unifiedSessionId
+            ? navigate(`/unified/sessions/${unifiedSessionId}`)
+            : navigate('/sessions')}
           className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6 transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to Sessions
+          <ArrowLeft className="h-4 w-4" />
+          {fromConsolidated ? 'Back to Full Report' : 'Back to Sessions'}
         </button>
         <div className="card p-8 text-center">
           <p className="font-medium text-red-400">Session not found or failed to load.</p>
@@ -286,10 +292,13 @@ export default function SessionDetailPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
       <button
-        onClick={() => navigate('/sessions')}
+        onClick={() => fromConsolidated && unifiedSessionId
+          ? navigate(`/unified/sessions/${unifiedSessionId}`)
+          : navigate('/sessions')}
         className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to Sessions
+        <ArrowLeft className="h-4 w-4" />
+        {fromConsolidated ? 'Back to Full Report' : 'Back to Sessions'}
       </button>
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">

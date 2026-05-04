@@ -12,7 +12,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
-  ArrowLeft, RefreshCw, CheckCircle2, XCircle, Clock,
+  ArrowLeft, ArrowRight, RefreshCw, CheckCircle2, XCircle, Clock,
   Loader2, Database, Zap, Layers3, AlertTriangle,
   ChevronDown, ChevronUp, FileText, Download, BarChart2,
   Server, Building2,
@@ -89,7 +89,7 @@ function CollapsibleSection({
 
 // ── Source section body ───────────────────────────────────────────────────────
 
-function SourceSectionBody({ session }: { session: UnifiedSession }) {
+function SourceSectionBody({ session, onViewDashboard }: { session: UnifiedSession; onViewDashboard?: () => void }) {
   const src = session.source
   if (!src) {
     return (
@@ -100,6 +100,7 @@ function SourceSectionBody({ session }: { session: UnifiedSession }) {
   }
 
   const canDownload = src.jobs?.some(j => j.status === 'completed')
+  const canNavigate = src.status === 'completed' || src.status === 'partial'
 
   return (
     <div className="px-5 py-4 space-y-4">
@@ -161,13 +162,31 @@ function SourceSectionBody({ session }: { session: UnifiedSession }) {
           </Button>
         </div>
       )}
+
+      {/* View dashboard / not-assessed affordance */}
+      <div className="pt-1 border-t border-slate-100">
+        {canNavigate && onViewDashboard ? (
+          <button
+            onClick={onViewDashboard}
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-100 hover:border-violet-200 transition-colors cursor-pointer group"
+          >
+            <span className="text-sm font-medium text-violet-700">View Full Dashboard</span>
+            <ArrowRight className="h-4 w-4 text-violet-500 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        ) : (
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 opacity-50 cursor-default">
+            <span className="text-sm text-slate-500">Not Assessed</span>
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">Unavailable</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
 // ── Fabric section body ───────────────────────────────────────────────────────
 
-function FabricSectionBody({ session }: { session: UnifiedSession }) {
+function FabricSectionBody({ session, onViewDashboard }: { session: UnifiedSession; onViewDashboard?: () => void }) {
   const fab = session.fabric
   if (!fab) {
     return (
@@ -181,6 +200,7 @@ function FabricSectionBody({ session }: { session: UnifiedSession }) {
 
   const summary = fab.results?.summary
   const workspaces = fab.results?.workspaces || []
+  const canNavigate = fab.status === 'completed'
 
   return (
     <div className="px-5 py-4 space-y-4">
@@ -240,6 +260,24 @@ function FabricSectionBody({ session }: { session: UnifiedSession }) {
           </Button>
         </div>
       )}
+
+      {/* View dashboard / not-assessed affordance */}
+      <div className="pt-1 border-t border-slate-100">
+        {canNavigate && onViewDashboard ? (
+          <button
+            onClick={onViewDashboard}
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 hover:border-indigo-200 transition-colors cursor-pointer group"
+          >
+            <span className="text-sm font-medium text-indigo-700">View Full Dashboard</span>
+            <ArrowRight className="h-4 w-4 text-indigo-500 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        ) : (
+          <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 opacity-50 cursor-default">
+            <span className="text-sm text-slate-500">Not Assessed</span>
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">Unavailable</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -445,7 +483,17 @@ export default function UnifiedSessionDetailPage() {
               : undefined
           }
         >
-          <SourceSectionBody session={session} />
+          <SourceSectionBody
+            session={session}
+            onViewDashboard={
+              session.source?.session_id &&
+              (session.source?.status === 'completed' || session.source?.status === 'partial')
+                ? () => navigate(`/sessions/${session.source!.session_id}`, {
+                    state: { fromConsolidated: true, unifiedSessionId: sessionId },
+                  })
+                : undefined
+            }
+          />
         </CollapsibleSection>
       )}
 
@@ -461,7 +509,16 @@ export default function UnifiedSessionDetailPage() {
               : undefined
           }
         >
-          <FabricSectionBody session={session} />
+          <FabricSectionBody
+            session={session}
+            onViewDashboard={
+              session.fabric?.fabric_session_id && session.fabric?.status === 'completed'
+                ? () => navigate(`/fabric/sessions/${session.fabric!.fabric_session_id}`, {
+                    state: { fromConsolidated: true, unifiedSessionId: sessionId },
+                  })
+                : undefined
+            }
+          />
         </CollapsibleSection>
       )}
 

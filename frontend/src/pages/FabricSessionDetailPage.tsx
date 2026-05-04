@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Zap, Database, FileText, BarChart2, ChevronDown, ChevronUp,
   Loader2, CheckCircle2, XCircle, AlertCircle, ExternalLink,
   Table2, Hash, Calculator, Link2, Eye, Bookmark, Layers,
-  ArrowRight, Code2, StopCircle, Download, TrendingUp,
+  ArrowLeft, ArrowRight, Code2, StopCircle, Download, TrendingUp,
   Activity, GitMerge, BookOpen, Filter,
 } from 'lucide-react'
 import { api } from '../api/client'
@@ -1183,6 +1183,10 @@ function RunningProgress({ progressMessage }: { progressMessage?: string | null 
 
 export default function FabricSessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
+  const navigate      = useNavigate()
+  const location      = useLocation()
+  const fromConsolidated = (location.state as { fromConsolidated?: boolean } | null)?.fromConsolidated === true
+  const unifiedSessionId = (location.state as { unifiedSessionId?: string } | null)?.unifiedSessionId
   const queryClient   = useQueryClient()
   const [activeTab, setActiveTab]   = useState<Tab>('overview')
   const [exporting,  setExporting]  = useState(false)
@@ -1229,6 +1233,16 @@ export default function FabricSessionDetailPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
+      {/* ── Back to consolidated report (when accessed from unified session) ── */}
+      {fromConsolidated && unifiedSessionId && (
+        <button
+          onClick={() => navigate(`/unified/sessions/${unifiedSessionId}`)}
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Full Report
+        </button>
+      )}
+
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>

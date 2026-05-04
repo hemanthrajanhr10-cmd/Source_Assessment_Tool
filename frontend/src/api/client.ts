@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type {
+  AssessmentMode,
   AssessmentRequest,
   AssessmentResponse,
   AssessmentResults,
@@ -24,6 +25,7 @@ import type {
   SessionStatusResponse,
   SetupMFAResponse,
   TokenResponse,
+  UnifiedSession,
   VerifyMFARequest,
 } from '../types/api'
 
@@ -209,6 +211,7 @@ export const api = {
     workspace_ids: string[]
     dataset_ids: string[]
     report_ids: string[]
+    unified_session_id?: string
   }) =>
     http.post<{ fabric_session_id: string; status: string }>('/api/v1/fabric/sessions', data),
 
@@ -220,6 +223,19 @@ export const api = {
 
   cancelFabricSession: (sessionId: string) =>
     http.post(`/api/v1/fabric/sessions/${sessionId}/cancel`),
+
+  // ── Unified Assessment Sessions ───────────────────────────────────────────
+  createUnifiedSession: (data: { mode: AssessmentMode; label?: string }) =>
+    http.post<{ unified_session_id: string; mode: AssessmentMode; status: string }>(
+      '/api/v1/unified-sessions',
+      data,
+    ),
+
+  listUnifiedSessions: () =>
+    http.get<UnifiedSession[]>('/api/v1/unified-sessions'),
+
+  getUnifiedSession: (id: string) =>
+    http.get<UnifiedSession>(`/api/v1/unified-sessions/${id}`),
 
   downloadFabricExcel: async (sessionId: string, label?: string) => {
     const res = await http.get(

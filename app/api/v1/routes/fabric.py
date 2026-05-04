@@ -158,11 +158,12 @@ async def create_fabric_session(
         "workspace_ids": ["<ws-id-1>", "<ws-id-2>"]   ← required; list of workspace IDs to assess
     }
     """
-    auth_id       = body.get("auth_id", "")
-    label         = body.get("label") or None
+    auth_id           = body.get("auth_id", "")
+    label             = body.get("label") or None
     workspace_ids: list[str] = body.get("workspace_ids") or []
     dataset_ids:  list[str] = body.get("dataset_ids") or []
     report_ids:   list[str] = body.get("report_ids") or []
+    unified_session_id: Optional[str] = body.get("unified_session_id") or None
 
     if not workspace_ids:
         raise HTTPException(
@@ -194,6 +195,12 @@ async def create_fabric_session(
     except Exception as exc:
         logger.error("Failed to create fabric session record: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+
+    if unified_session_id:
+        try:
+            await run_in_threadpool(azure_store.link_unified_fabric, unified_session_id, fabric_session_id)
+        except Exception as exc:
+            logger.warning("Could not link fabric session %s to unified session %s: %s", fabric_session_id, unified_session_id, exc)
 
     # None  → no filter, assess everything in that category.
     # set() → empty filter, skip that category entirely.

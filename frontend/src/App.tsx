@@ -4,19 +4,22 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/layout/Layout'
 import SplashScreen from './components/ui/SplashScreen'
 
-const NewAssessmentPage       = lazy(() => import('./pages/NewAssessmentPage'))
-const JobsPage                = lazy(() => import('./pages/JobsPage'))
-const JobDetailPage           = lazy(() => import('./pages/JobDetailPage'))
-const HybridConnectionPage    = lazy(() => import('./pages/GatewayPage'))
-const SessionsPage            = lazy(() => import('./pages/SessionsPage'))
-const SessionDetailPage       = lazy(() => import('./pages/SessionDetailPage'))
-const FabricAssessmentPage    = lazy(() => import('./pages/FabricAssessmentPage'))
-const FabricSessionsPage      = lazy(() => import('./pages/FabricSessionsPage'))
-const FabricSessionDetailPage = lazy(() => import('./pages/FabricSessionDetailPage'))
-const LoginPage               = lazy(() => import('./pages/LoginPage'))
-const RegisterPage            = lazy(() => import('./pages/RegisterPage'))
-const MFASetupPage            = lazy(() => import('./pages/MFASetupPage'))
-const OAuthCallbackPage       = lazy(() => import('./pages/OAuthCallbackPage'))
+const NewAssessmentPage          = lazy(() => import('./pages/NewAssessmentPage'))
+const JobsPage                   = lazy(() => import('./pages/JobsPage'))
+const JobDetailPage              = lazy(() => import('./pages/JobDetailPage'))
+const HybridConnectionPage       = lazy(() => import('./pages/GatewayPage'))
+const SessionsPage               = lazy(() => import('./pages/SessionsPage'))
+const SessionDetailPage          = lazy(() => import('./pages/SessionDetailPage'))
+const FabricAssessmentPage       = lazy(() => import('./pages/FabricAssessmentPage'))
+const FabricSessionsPage         = lazy(() => import('./pages/FabricSessionsPage'))
+const FabricSessionDetailPage    = lazy(() => import('./pages/FabricSessionDetailPage'))
+const UnifiedAssessmentPage      = lazy(() => import('./pages/UnifiedAssessmentPage'))
+const UnifiedSessionsPage        = lazy(() => import('./pages/UnifiedSessionsPage'))
+const UnifiedSessionDetailPage   = lazy(() => import('./pages/UnifiedSessionDetailPage'))
+const LoginPage                  = lazy(() => import('./pages/LoginPage'))
+const RegisterPage               = lazy(() => import('./pages/RegisterPage'))
+const MFASetupPage               = lazy(() => import('./pages/MFASetupPage'))
+const OAuthCallbackPage          = lazy(() => import('./pages/OAuthCallbackPage'))
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth()
@@ -69,6 +72,9 @@ function AppRoutes() {
                     <Route path="/fabric/new" element={<FabricAssessmentPage />} />
                     <Route path="/fabric/sessions" element={<FabricSessionsPage />} />
                     <Route path="/fabric/sessions/:sessionId" element={<FabricSessionDetailPage />} />
+                    <Route path="/unified/new" element={<UnifiedAssessmentPage />} />
+                    <Route path="/unified/sessions" element={<UnifiedSessionsPage />} />
+                    <Route path="/unified/sessions/:sessionId" element={<UnifiedSessionDetailPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

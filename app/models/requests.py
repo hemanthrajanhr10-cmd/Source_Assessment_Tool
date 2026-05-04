@@ -45,6 +45,7 @@ class SessionRequest(BaseModel):
     """Create a multi-server assessment session."""
     label: str | None = Field(None, description="Optional session label")
     servers: list[ServerTarget] = Field(..., min_length=1)
+    unified_session_id: str | None = Field(None, description="Optional unified session ID to link this source assessment to")
 
 
 class ConnectivityTestRequest(BaseModel):

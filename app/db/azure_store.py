@@ -1059,6 +1059,105 @@ def list_session_jobs(session_id: str) -> list[dict[str, Any]]:
         conn.close()
 
 
+# ── Unified Session CRUD ──────────────────────────────────────────────────────
+
+def create_unified_session(
+    unified_session_id: str,
+    user_id: Optional[str],
+    label: Optional[str],
+    mode: str,
+) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO dbo.unified_sessions (unified_session_id, user_id, label, mode) "
+            "VALUES (?, ?, ?, ?)",
+            (unified_session_id, user_id, label, mode),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def link_unified_source(unified_session_id: str, source_session_id: str) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.unified_sessions SET source_session_id = ? WHERE unified_session_id = ?",
+            (source_session_id, unified_session_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def link_unified_fabric(unified_session_id: str, fabric_session_id: str) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.unified_sessions SET fabric_session_id = ? WHERE unified_session_id = ?",
+            (fabric_session_id, unified_session_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_unified_session(unified_session_id: str) -> Optional[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT unified_session_id, user_id, label, mode, source_session_id, "
+            "fabric_session_id, created_at, completed_at "
+            "FROM dbo.unified_sessions WHERE unified_session_id = ?",
+            (unified_session_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        d = dict(zip([c[0] for c in cur.description], row))
+        for k, v in d.items():
+            if isinstance(v, datetime):
+                d[k] = v.isoformat()
+        return d
+    finally:
+        conn.close()
+
+
+def list_unified_sessions(user_id: Optional[str] = None) -> list[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        if user_id:
+            cur.execute(
+                "SELECT unified_session_id, user_id, label, mode, source_session_id, "
+                "fabric_session_id, created_at, completed_at "
+                "FROM dbo.unified_sessions WHERE user_id = ? ORDER BY created_at DESC",
+                (user_id,),
+            )
+        else:
+            cur.execute(
+                "SELECT unified_session_id, user_id, label, mode, source_session_id, "
+                "fabric_session_id, created_at, completed_at "
+                "FROM dbo.unified_sessions ORDER BY created_at DESC"
+            )
+        cols = [c[0] for c in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            for k, v in d.items():
+                if isinstance(v, datetime):
+                    d[k] = v.isoformat()
+            rows.append(d)
+        return rows
+    finally:
+        conn.close()
+
+
 # ── Hybrid Connections ─────────────────────────────────────────────────────────
 
 def create_hybrid_connection(

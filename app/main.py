@@ -18,6 +18,7 @@ from app.api.v1.routes.gateway import router as gateway_router
 from app.api.v1.routes.hybrid_connections import router as hybrid_connections_router
 from app.api.v1.routes.user_connections import router as user_connections_router
 from app.api.v1.routes.sessions import router as sessions_router
+from app.api.v1.routes.unified_sessions import router as unified_sessions_router
 from app.config import settings
 from app.core.logging import get_logger
 from app.db import azure_store
@@ -84,6 +85,7 @@ app.include_router(gateway_router, prefix="/api/v1/gateway", tags=["Gateway"])
 app.include_router(hybrid_connections_router, prefix="/api/v1/hybrid-connections", tags=["Hybrid Connections"])
 app.include_router(sessions_router, prefix="/api/v1", tags=["Sessions"])
 app.include_router(fabric_router, prefix="/api/v1/fabric", tags=["Fabric"])
+app.include_router(unified_sessions_router, prefix="/api/v1/unified-sessions", tags=["Unified Sessions"])
 app.include_router(user_connections_router, prefix="/api/v1/user-connections", tags=["User Connections"])
 
 

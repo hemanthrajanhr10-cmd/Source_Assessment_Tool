@@ -112,6 +112,12 @@ async def create_session(
     session_id = str(uuid.uuid4())
     azure_store.create_session(session_id, body.label, datetime.now(timezone.utc), user_id=current_user["user_id"], total_jobs=total_jobs)
 
+    if body.unified_session_id:
+        try:
+            azure_store.link_unified_source(body.unified_session_id, session_id)
+        except Exception as exc:
+            logger.warning("Could not link source session %s to unified session %s: %s", session_id, body.unified_session_id, exc)
+
     background_tasks.add_task(session_service.run_session_background, session_id, body, current_user["user_id"])
 
     logger.info("Session %s created — %d job(s)", session_id, total_jobs)

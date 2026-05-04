@@ -301,6 +301,7 @@ export interface ServerTarget {
 export interface SessionRequest {
   label?: string
   servers: ServerTarget[]
+  unified_session_id?: string
 }
 
 export interface CreateSessionResponse {
@@ -567,4 +568,54 @@ export interface SessionStatusResponse {
   created_at: string
   completed_at?: string
   jobs: SessionJobInfo[]
+}
+
+// ── Unified Assessment Session ─────────────────────────────────────────────────
+
+export type AssessmentMode = 'source' | 'fabric' | 'both'
+export type UnifiedSessionStatus =
+  | 'pending'
+  | 'running'
+  | 'source_done'
+  | 'completed'
+  | 'partial'
+  | 'failed'
+  | 'cancelled'
+
+export interface UnifiedSessionSourceData {
+  session_id: string
+  label?: string
+  status: SessionStatus
+  total_jobs: number
+  completed_jobs: number
+  failed_jobs: number
+  created_at: string
+  completed_at?: string
+  jobs: SessionJobInfo[]
+}
+
+export interface UnifiedSessionFabricData {
+  fabric_session_id: string
+  label?: string
+  status: 'running' | 'completed' | 'failed' | 'cancelled'
+  created_at: string
+  completed_at?: string
+  error?: string
+  progress_message?: string
+  results?: FabricResults
+}
+
+export interface UnifiedSession {
+  unified_session_id: string
+  label?: string
+  mode: AssessmentMode
+  status: UnifiedSessionStatus
+  created_at: string
+  completed_at?: string
+  source_session_id?: string
+  fabric_session_id?: string
+  source_status?: string
+  fabric_status?: string
+  source?: UnifiedSessionSourceData
+  fabric?: UnifiedSessionFabricData
 }

@@ -913,6 +913,30 @@ IF NOT EXISTS (
 )
     ALTER TABLE dbo.hybrid_connections ADD listener_connection_string NVARCHAR(MAX) NULL;
 
+-- ─── unified_sessions (groups source + fabric assessments under one session) ───
+IF OBJECT_ID('dbo.unified_sessions', 'U') IS NULL
+    CREATE TABLE dbo.unified_sessions (
+        unified_session_id VARCHAR(36)    NOT NULL,
+        user_id            VARCHAR(36)    NULL,
+        label              NVARCHAR(200)  NULL,
+        mode               VARCHAR(10)    NOT NULL,   -- 'source' | 'fabric' | 'both'
+        source_session_id  VARCHAR(36)    NULL,        -- FK to dbo.sessions (set after source session created)
+        fabric_session_id  VARCHAR(36)    NULL,        -- FK to dbo.fabric_sessions (set after fabric session created)
+        created_at         DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at       DATETIME2      NULL,
+        CONSTRAINT PK_unified_sessions PRIMARY KEY (unified_session_id)
+    );
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_unified_sessions_user')
+    CREATE INDEX IX_unified_sessions_user ON dbo.unified_sessions (user_id, created_at DESC);
+
+-- Migration: add unified_session_id to sessions (enables reverse lookup)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.sessions') AND name = 'unified_session_id')
+    ALTER TABLE dbo.sessions ADD unified_session_id VARCHAR(36) NULL;
+
+-- Migration: add unified_session_id to fabric_sessions (enables reverse lookup)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.fabric_sessions') AND name = 'unified_session_id')
+    ALTER TABLE dbo.fabric_sessions ADD unified_session_id VARCHAR(36) NULL;
+
 -- ─── user_connections (Cloudflare Tunnel per-user SQL connection configs) ──────
 -- Credentials are AES-256-GCM encrypted before storage; the key lives in
 -- Azure Key Vault and is never written to this table.

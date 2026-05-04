@@ -2,17 +2,25 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Database, Layers, List, Network, Zap,
   PlusCircle, LogOut, Shield, ChevronDown,
-  X, BarChart3, Sparkles,
+  X, BarChart3, Sparkles, LayoutDashboard, Combine,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 
 const NAV_GROUPS = [
   {
+    label: 'Unified Assessment',
+    color: 'violet',
+    items: [
+      { to: '/unified/new',      label: 'New Assessment', icon: Combine,         exact: true },
+      { to: '/unified/sessions', label: 'All Reports',    icon: LayoutDashboard },
+    ],
+  },
+  {
     label: 'SQL Server',
     color: 'violet',
     items: [
-      { to: '/',                   label: 'New Assessment',    icon: PlusCircle, exact: true },
+      { to: '/',                   label: 'Source Only',       icon: PlusCircle, exact: true },
       { to: '/sessions',           label: 'Sessions',          icon: Layers  },
       { to: '/jobs',               label: 'Jobs',              icon: List    },
       { to: '/hybrid-connection',  label: 'Hybrid Connection', icon: Network },
@@ -22,8 +30,8 @@ const NAV_GROUPS = [
     label: 'Microsoft Fabric',
     color: 'indigo',
     items: [
-      { to: '/fabric/new',      label: 'New Fabric',  icon: Zap       },
-      { to: '/fabric/sessions', label: 'Assessments', icon: BarChart3 },
+      { to: '/fabric/new',      label: 'Fabric Only',  icon: Zap       },
+      { to: '/fabric/sessions', label: 'Assessments',  icon: BarChart3 },
     ],
   },
 ]

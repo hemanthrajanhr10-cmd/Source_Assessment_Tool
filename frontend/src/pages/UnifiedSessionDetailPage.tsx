@@ -15,13 +15,13 @@ import {
   ArrowLeft, RefreshCw, CheckCircle2, XCircle, Clock,
   Loader2, Database, Zap, Layers3, AlertTriangle,
   ChevronDown, ChevronUp, FileText, Download, BarChart2,
-  Server, Building2, Tag,
+  Server, Building2,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { UnifiedSession, UnifiedSessionStatus } from '../types/api'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
-import { formatDateTime, elapsed } from '../utils/dateTime'
+import { formatDateTime } from '../utils/dateTime'
 
 // ── Status helpers ────────────────────────────────────────────────────────────
 

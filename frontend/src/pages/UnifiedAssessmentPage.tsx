@@ -105,7 +105,7 @@ function Stepper({ mode, phase }: { mode: AssessmentMode; phase: Phase }) {
 
   const completedUpTo =
     phase === 'done' ? steps.length :
-    mode === 'both' && (phase.startsWith('fabric') || phase === 'done') ? 1 : 0
+    mode === 'both' && phase.startsWith('fabric') ? 1 : 0
 
   return (
     <div className="flex items-center gap-0 mb-8">
@@ -143,9 +143,9 @@ function Stepper({ mode, phase }: { mode: AssessmentMode; phase: Phase }) {
 // ── Mode selector cards ───────────────────────────────────────────────────────
 
 function ModeCard({
-  mode, title, description, icon: Icon, accent, onClick,
+  title, description, icon: Icon, accent, onClick,
 }: {
-  mode: AssessmentMode; title: string; description: string
+  mode?: AssessmentMode; title: string; description: string
   icon: React.ElementType; accent: string; onClick: () => void
 }) {
   return (
@@ -622,7 +622,6 @@ function ServerCard({
   loadDatabases: (srv: ServerEntry) => void
   onRemove?: () => void
 }) {
-  const dbTypeOpt = DB_TYPE_OPTIONS.find(o => o.value === srv.db_type) || DB_TYPE_OPTIONS[0]
   const filteredDbs = srv.available_dbs || []
 
   return (

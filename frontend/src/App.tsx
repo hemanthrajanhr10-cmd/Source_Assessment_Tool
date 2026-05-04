@@ -24,7 +24,10 @@ const OAuthCallbackPage          = lazy(() => import('./pages/OAuthCallbackPage'
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { token, isLoading } = useAuth()
 
-  if (isLoading) {
+  // Show splash only on initial load when there is no token yet.
+  // If a token is already present, render the layout immediately so the sidebar
+  // never disappears during background re-validation after login.
+  if (isLoading && !token) {
     return <SplashScreen />
   }
 

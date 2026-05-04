@@ -1,18 +1,11 @@
-/**
- * UnifiedAssessmentPage — combined mode selector and guided assessment flow.
- *
- * Phases:
- *   mode-select  → user chooses Source Only / Fabric Only / Both
- *   source-form  → multi-server form (modes: source | both)
- *   fabric-auth  → Microsoft device-code auth (modes: fabric | both)
- *   fabric-pick  → workspace + model/report selection
- *   done         → redirect to unified session detail
- */
+// Unified Assessment only — SQL Server and Fabric standalone assessments are handled in their respective sections.
+// This page always runs a combined Source DB + Fabric assessment ("both" mode).
+// Do NOT add Source-only or Fabric-only entry points here.
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Database, Zap, Layers3, CheckCircle2, AlertCircle,
+  Database, CheckCircle2, AlertCircle,
   ArrowRight, Server, Plus, Trash2, Eye, EyeOff,
   Wifi, WifiOff, RefreshCw, Search, ExternalLink, Copy,
   Loader2, Tag, Building2, FileText, ChevronDown, ChevronRight,
@@ -20,7 +13,6 @@ import {
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type {
-  AssessmentMode,
   AccessLevel,
   DatabaseInfo,
   DbType,
@@ -35,7 +27,6 @@ import Spinner from '../components/ui/Spinner'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Phase =
-  | 'mode-select'
   | 'source-form'
   | 'source-submitting'
   | 'fabric-auth'
@@ -93,20 +84,14 @@ function makeServer(): ServerEntry {
 
 // ── Progress Stepper ──────────────────────────────────────────────────────────
 
-function Stepper({ mode, phase }: { mode: AssessmentMode; phase: Phase }) {
-  const steps =
-    mode === 'source' ? ['Source Assessment'] :
-    mode === 'fabric' ? ['Fabric Assessment'] :
-    ['Source Assessment', 'Fabric Assessment']
+function Stepper({ phase }: { phase: Phase }) {
+  const steps = ['Source Assessment', 'Fabric Assessment']
 
-  const activeStep =
-    mode === 'both'
-      ? phase.startsWith('fabric') || phase === 'done' ? 1 : 0
-      : 0
+  const activeStep = phase.startsWith('fabric') || phase === 'done' ? 1 : 0
 
   const completedUpTo =
     phase === 'done' ? steps.length :
-    mode === 'both' && phase.startsWith('fabric') ? 1 : 0
+    phase.startsWith('fabric') ? 1 : 0
 
   return (
     <div className="flex items-center gap-0 mb-8">
@@ -141,49 +126,14 @@ function Stepper({ mode, phase }: { mode: AssessmentMode; phase: Phase }) {
   )
 }
 
-// ── Mode selector cards ───────────────────────────────────────────────────────
-
-function ModeCard({
-  title, description, icon: Icon, accent, onClick,
-}: {
-  mode?: AssessmentMode; title: string; description: string
-  icon: React.ElementType; accent: string; onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="group flex flex-col items-start gap-4 p-6 rounded-2xl border-2 text-left
-                 transition-all duration-200 hover:shadow-lg focus-visible:outline-none
-                 focus-visible:ring-2 focus-visible:ring-violet-500/40
-                 border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/30"
-      style={{ minHeight: '180px' }}
-    >
-      <div
-        className="h-12 w-12 rounded-xl flex items-center justify-center"
-        style={{ background: accent, boxShadow: '0 4px 14px rgba(124,58,237,0.25)' }}
-      >
-        <Icon className="h-6 w-6 text-white" />
-      </div>
-      <div>
-        <p className="text-base font-bold text-slate-900 group-hover:text-violet-900 transition-colors">
-          {title}
-        </p>
-        <p className="mt-1 text-sm text-slate-500 leading-relaxed">{description}</p>
-      </div>
-      <div className="mt-auto flex items-center gap-1.5 text-xs font-semibold text-violet-600 opacity-0 group-hover:opacity-100 transition-opacity">
-        Select <ArrowRight className="h-3.5 w-3.5" />
-      </div>
-    </button>
-  )
-}
-
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function UnifiedAssessmentPage() {
   const navigate = useNavigate()
 
-  const [mode, setMode]                   = useState<AssessmentMode>('both')
-  const [phase, setPhase]                 = useState<Phase>('mode-select')
+  // Unified Assessment always runs source + fabric together.
+  const mode = 'both' as const
+  const [phase, setPhase]                 = useState<Phase>('source-form')
   const [unifiedSessionId, setUnifiedSessionId] = useState<string>('')
   const [sessionLabel, setSessionLabel]   = useState('')
   const [error, setError]                 = useState<string | null>(null)
@@ -211,16 +161,6 @@ export default function UnifiedAssessmentPage() {
   const [selectedReportIds, setSelectedReportIds]       = useState<Set<string>>(new Set())
   const [itemFilter, setItemFilter]                     = useState('')
   const [expandedWorkspaces, setExpandedWorkspaces]     = useState<Set<string>>(new Set())
-
-  // ── Mode selection ──────────────────────────────────────────────────────────
-  // Session is NOT created here — we defer to the final submit so abandoned
-  // flows don't leave ghost "Pending / Unlabelled" rows in the database.
-
-  const handleModeSelect = useCallback((selected: AssessmentMode) => {
-    setMode(selected)
-    setError(null)
-    setPhase(selected === 'fabric' ? 'fabric-auth' : 'source-form')
-  }, [])
 
   // ── Server form helpers ─────────────────────────────────────────────────────
 
@@ -271,8 +211,8 @@ export default function UnifiedAssessmentPage() {
     setSourceSubmitting(true)
     setError(null)
     try {
-      // Create the unified session now (deferred from mode-select) so that
-      // abandoned flows never leave ghost "Pending / Unlabelled" rows.
+      // Create the unified session at submit time so abandoned flows never leave
+      // ghost "Pending / Unlabelled" rows in the database.
       let sessionId = unifiedSessionId
       if (!sessionId) {
         const { data: us } = await api.createUnifiedSession({ mode, label: sessionLabel || undefined })
@@ -297,17 +237,13 @@ export default function UnifiedAssessmentPage() {
         })),
       })
 
-      if (mode === 'source') {
-        navigate(`/unified/sessions/${sessionId}`)
-      } else {
-        setPhase('fabric-auth')
-      }
+      setPhase('fabric-auth')
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {
       setSourceSubmitting(false)
     }
-  }, [servers, sessionLabel, unifiedSessionId, mode, navigate])
+  }, [servers, sessionLabel, unifiedSessionId, navigate])
 
   // ── Fabric auth helpers ─────────────────────────────────────────────────────
 
@@ -372,28 +308,20 @@ export default function UnifiedAssessmentPage() {
     setPhase('fabric-submitting')
     setError(null)
     try {
-      // For fabric-only mode the unified session hasn't been created yet.
-      let sessionId = unifiedSessionId
-      if (!sessionId) {
-        const { data: us } = await api.createUnifiedSession({ mode, label: sessionLabel || fabricLabel || undefined })
-        sessionId = us.unified_session_id
-        setUnifiedSessionId(sessionId)
-      }
-
       await api.createFabricSession({
         auth_id: authId,
         label: fabricLabel || sessionLabel || undefined,
         workspace_ids: Array.from(selectedWsIds),
         dataset_ids: Array.from(selectedDatasetIds),
         report_ids: Array.from(selectedReportIds),
-        unified_session_id: sessionId,
+        unified_session_id: unifiedSessionId,
       })
-      navigate(`/unified/sessions/${sessionId}`)
+      navigate(`/unified/sessions/${unifiedSessionId}`)
     } catch (err) {
       setError(getApiErrorMessage(err))
       setPhase('fabric-naming')
     }
-  }, [authId, fabricLabel, sessionLabel, selectedWsIds, selectedDatasetIds, selectedReportIds, unifiedSessionId, mode, navigate])
+  }, [authId, fabricLabel, sessionLabel, selectedWsIds, selectedDatasetIds, selectedReportIds, unifiedSessionId, navigate])
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -403,14 +331,12 @@ export default function UnifiedAssessmentPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">New Assessment</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Assess your SQL Server databases, Microsoft Fabric workspaces, or both in one unified session.
+          Assess your Source databases and Microsoft Fabric workspaces in one unified session.
         </p>
       </div>
 
-      {/* Stepper (only after mode is selected) */}
-      {phase !== 'mode-select' && (
-        <Stepper mode={mode} phase={phase} />
-      )}
+      {/* Stepper */}
+      <Stepper phase={phase} />
 
       {/* Global error */}
       {error && (
@@ -420,10 +346,14 @@ export default function UnifiedAssessmentPage() {
         </div>
       )}
 
-      {/* ── Phase: mode-select ─────────────────────────────────────────────── */}
-      {phase === 'mode-select' && (
-        <div className="space-y-6">
-          <div>
+      {/* ── Phase: source-form ─────────────────────────────────────────────── */}
+      {phase === 'source-form' && (
+        <div className="space-y-4">
+          {/* Session label */}
+          <div
+            className="p-4 rounded-2xl border border-slate-200 bg-white"
+            style={{ boxShadow: 'var(--elevation-1)' }}
+          >
             <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
               Session label <span className="text-slate-400 font-normal normal-case">(optional)</span>
             </label>
@@ -432,7 +362,7 @@ export default function UnifiedAssessmentPage() {
               <input
                 value={sessionLabel}
                 onChange={e => setSessionLabel(e.target.value)}
-                placeholder="e.g. Q2 2026 assessment"
+                placeholder="e.g. Q2 2026 Full Assessment"
                 className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl
                            focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400
                            bg-white text-slate-800 placeholder-slate-400"
@@ -440,51 +370,17 @@ export default function UnifiedAssessmentPage() {
             </div>
           </div>
 
-          <div>
-            <p className="text-sm font-semibold text-slate-700 mb-4">Choose what to assess:</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <ModeCard
-                mode="source"
-                title="Source Database"
-                description="Assess SQL Server, PostgreSQL, MySQL, or Oracle databases for schema, security, performance, and reliability."
-                icon={Database}
-                accent="linear-gradient(135deg, #7c3aed, #6366f1)"
-                onClick={() => handleModeSelect('source')}
-              />
-              <ModeCard
-                mode="fabric"
-                title="Microsoft Fabric"
-                description="Assess Power BI / Fabric workspaces, semantic models, measures, and reports for complexity and coverage."
-                icon={Zap}
-                accent="linear-gradient(135deg, #4f46e5, #0ea5e9)"
-                onClick={() => handleModeSelect('fabric')}
-              />
-              <ModeCard
-                mode="both"
-                title="Full Assessment"
-                description="Run Source Database and Fabric assessments back-to-back and receive a single consolidated report."
-                icon={Layers3}
-                accent="linear-gradient(135deg, #7c3aed, #0ea5e9)"
-                onClick={() => handleModeSelect('both')}
-              />
-            </div>
-          </div>
+          <SourceAssessmentForm
+            servers={servers}
+            setServers={setServers}
+            updateServer={updateServer}
+            testConnectivity={testConnectivity}
+            loadDatabases={loadDatabases}
+            onSubmit={handleSourceSubmit}
+            onBack={() => navigate('/unified/sessions')}
+            submitting={sourceSubmitting}
+          />
         </div>
-      )}
-
-      {/* ── Phase: source-form ─────────────────────────────────────────────── */}
-      {phase === 'source-form' && (
-        <SourceAssessmentForm
-          servers={servers}
-          setServers={setServers}
-          updateServer={updateServer}
-          testConnectivity={testConnectivity}
-          loadDatabases={loadDatabases}
-          onSubmit={handleSourceSubmit}
-          onBack={() => { setPhase('mode-select'); setUnifiedSessionId('') }}
-          submitting={sourceSubmitting}
-          mode={mode}
-        />
       )}
 
       {/* ── Phase: fabric-auth ─────────────────────────────────────────────── */}
@@ -494,8 +390,6 @@ export default function UnifiedAssessmentPage() {
           verificationUrl={verificationUrl}
           copied={copied}
           setCopied={setCopied}
-          mode={mode}
-          onBack={mode === 'fabric' ? () => { setPhase('mode-select'); setUnifiedSessionId('') } : undefined}
         />
       )}
 
@@ -508,7 +402,6 @@ export default function UnifiedAssessmentPage() {
           setSelectedIds={setSelectedWsIds}
           filter={wsFilter}
           setFilter={setWsFilter}
-          onBack={mode === 'fabric' ? () => { setPhase('mode-select'); setUnifiedSessionId('') } : undefined}
           onNext={handleFetchItems}
         />
       )}
@@ -538,8 +431,8 @@ export default function UnifiedAssessmentPage() {
             className="p-5 rounded-2xl border border-slate-200 bg-white"
             style={{ boxShadow: 'var(--elevation-1)' }}
           >
-            <p className="text-sm font-semibold text-slate-800 mb-1">Assessment label</p>
-            <p className="text-xs text-slate-500 mb-4">Give this Fabric assessment a name to identify it in reports.</p>
+            <p className="text-sm font-semibold text-slate-800 mb-1">Fabric assessment label</p>
+            <p className="text-xs text-slate-500 mb-4">Optionally name the Fabric portion of this assessment.</p>
             <div className="relative">
               <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <input
@@ -575,7 +468,7 @@ export default function UnifiedAssessmentPage() {
 // ── Source Assessment Form ────────────────────────────────────────────────────
 
 function SourceAssessmentForm({
-  servers, setServers, updateServer, testConnectivity, loadDatabases, onSubmit, onBack, submitting, mode,
+  servers, setServers, updateServer, testConnectivity, loadDatabases, onSubmit, onBack, submitting,
 }: {
   servers: ServerEntry[]
   setServers: React.Dispatch<React.SetStateAction<ServerEntry[]>>
@@ -585,16 +478,13 @@ function SourceAssessmentForm({
   onSubmit: () => void
   onBack: () => void
   submitting: boolean
-  mode: AssessmentMode
 }) {
   const totalDbs = servers.reduce((acc, s) => acc + s.selected_dbs.length, 0)
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-700">
-          {mode === 'both' ? 'Step 1 — ' : ''}SQL Server databases to assess
-        </p>
+        <p className="text-sm font-semibold text-slate-700">Step 1 — Source databases to assess</p>
         <Button
           size="sm"
           variant="secondary"
@@ -625,9 +515,9 @@ function SourceAssessmentForm({
             {totalDbs} DB{totalDbs !== 1 ? 's' : ''} across {servers.length} server{servers.length !== 1 ? 's' : ''}
           </p>
           <Button onClick={onSubmit} disabled={submitting || totalDbs === 0}>
-            {submitting ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Starting…</> :
-             mode === 'both' ? <>Next: Fabric Assessment <ArrowRight className="h-4 w-4 ml-1" /></> :
-             <>Start Assessment <ArrowRight className="h-4 w-4 ml-1" /></>}
+            {submitting
+              ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Starting…</>
+              : <>Next: Fabric Assessment <ArrowRight className="h-4 w-4 ml-1" /></>}
           </Button>
         </div>
       </div>
@@ -977,12 +867,10 @@ function ServerCard({
 // ── Fabric Auth Panel ─────────────────────────────────────────────────────────
 
 function FabricAuthPanel({
-  userCode, verificationUrl, copied, setCopied, mode, onBack,
+  userCode, verificationUrl, copied, setCopied,
 }: {
   userCode: string; verificationUrl: string
   copied: boolean; setCopied: (v: boolean) => void
-  mode: AssessmentMode
-  onBack?: () => void
 }) {
   const copyCode = async () => {
     if (!userCode) return
@@ -1001,64 +889,54 @@ function FabricAuthPanel({
   }
 
   return (
-    <div className="space-y-4">
-      <div
-        className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5"
-        style={{ boxShadow: 'var(--elevation-1)' }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: 'linear-gradient(135deg, #4f46e5, #0ea5e9)' }}
-          >
-            <MonitorSmartphone className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-900">
-              {mode === 'both' ? 'Step 2 — ' : ''}Microsoft Authentication
-            </p>
-            <p className="text-xs text-slate-500">Sign in with your Microsoft account to access Fabric workspaces.</p>
-          </div>
+    <div
+      className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5"
+      style={{ boxShadow: 'var(--elevation-1)' }}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: 'linear-gradient(135deg, #4f46e5, #0ea5e9)' }}
+        >
+          <MonitorSmartphone className="h-5 w-5 text-white" />
         </div>
-
-        <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3">
-          <p className="text-xs text-slate-600">1. Visit the Microsoft device login page:</p>
-          <a
-            href={verificationUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            {verificationUrl}
-          </a>
-          <p className="text-xs text-slate-600">2. Enter this code when prompted:</p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 text-center text-xl font-bold tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg py-3">
-              {userCode}
-            </code>
-            <button
-              onClick={copyCode}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
-                         border border-slate-200 text-slate-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition-colors"
-            >
-              {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
-          Waiting for you to authenticate…
+        <div>
+          <p className="text-sm font-bold text-slate-900">Step 2 — Microsoft Authentication</p>
+          <p className="text-xs text-slate-500">Sign in with your Microsoft account to access Fabric workspaces.</p>
         </div>
       </div>
 
-      {onBack && (
-        <div>
-          <Button variant="secondary" onClick={onBack}>Back</Button>
+      <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3">
+        <p className="text-xs text-slate-600">1. Visit the Microsoft device login page:</p>
+        <a
+          href={verificationUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          {verificationUrl}
+        </a>
+        <p className="text-xs text-slate-600">2. Enter this code when prompted:</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 text-center text-xl font-bold tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg py-3">
+            {userCode}
+          </code>
+          <button
+            onClick={copyCode}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
+                       border border-slate-200 text-slate-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition-colors"
+          >
+            {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
         </div>
-      )}
+      </div>
+
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+        Waiting for you to authenticate…
+      </div>
     </div>
   )
 }
@@ -1066,12 +944,11 @@ function FabricAuthPanel({
 // ── Fabric Workspace Picker ───────────────────────────────────────────────────
 
 function FabricWorkspacePicker({
-  workspaces, loading, selectedIds, setSelectedIds, filter, setFilter, onBack, onNext,
+  workspaces, loading, selectedIds, setSelectedIds, filter, setFilter, onNext,
 }: {
   workspaces: FabricWorkspaceInfo[]; loading: boolean
   selectedIds: Set<string>; setSelectedIds: (s: Set<string>) => void
   filter: string; setFilter: (f: string) => void
-  onBack?: () => void
   onNext: () => void
 }) {
   const filtered = workspaces.filter(w => !filter || w.name.toLowerCase().includes(filter.toLowerCase()))
@@ -1120,12 +997,9 @@ function FabricWorkspacePicker({
           )}
         </div>
       </div>
-      <div className="flex gap-3">
-        {onBack && <Button variant="secondary" onClick={onBack}>Back</Button>}
-        <Button onClick={onNext} disabled={selectedIds.size === 0}>
-          Next: Select models & reports <ArrowRight className="h-4 w-4 ml-1" />
-        </Button>
-      </div>
+      <Button onClick={onNext} disabled={selectedIds.size === 0}>
+        Next: Select models & reports <ArrowRight className="h-4 w-4 ml-1" />
+      </Button>
     </div>
   )
 }

@@ -111,7 +111,7 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
 export default function UnifiedSessionsPage() {
   const navigate = useNavigate()
 
-  const { data: sessions = [], isLoading, error, refetch } = useQuery({
+  const { data: sessions = [], isLoading, error } = useQuery({
     queryKey: ['unified-sessions'],
     queryFn: async () => {
       const { data } = await api.listUnifiedSessions()

@@ -81,10 +81,10 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(assessment_router, prefix="/api/v1", tags=["Assessment"])
+app.include_router(fabric_router, prefix="/api/v1/fabric", tags=["Fabric"])
 app.include_router(gateway_router, prefix="/api/v1/gateway", tags=["Gateway"])
 app.include_router(hybrid_connections_router, prefix="/api/v1/hybrid-connections", tags=["Hybrid Connections"])
 app.include_router(sessions_router, prefix="/api/v1", tags=["Sessions"])
-app.include_router(fabric_router, prefix="/api/v1/fabric", tags=["Fabric"])
 app.include_router(unified_sessions_router, prefix="/api/v1/unified-sessions", tags=["Unified Sessions"])
 app.include_router(user_connections_router, prefix="/api/v1/user-connections", tags=["User Connections"])
 

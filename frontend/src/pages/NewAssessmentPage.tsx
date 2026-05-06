@@ -522,7 +522,7 @@ function ServerCard({
               <div className="text-xs text-blue-700 space-y-1">
                 <p className="font-semibold text-blue-800">Server not directly reachable from Azure</p>
                 <p>
-                  If this is an on-premises SQL Server, ensure the{' '}
+                  If this is an on-premises {DB_TYPE_OPTIONS.find(o => o.value === entry.db_type)?.label ?? 'database server'}, ensure the{' '}
                   <strong>Azure Hybrid Connection Manager</strong> is running on a machine connected
                   to the same network as the server.
                 </p>

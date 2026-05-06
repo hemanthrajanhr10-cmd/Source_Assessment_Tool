@@ -57,6 +57,10 @@ try:
 except ImportError:
     _PANDAS_AVAILABLE = False
 
+# New modular TMDL extraction pipeline (app/fabric_assessment/)
+from app.fabric_assessment.extractor import extract_semantic_model_sync as _fa_extract_sync
+from app.fabric_assessment.models import SemanticModelAssessment as _SemanticModelAssessment
+
 logger = get_logger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -1373,6 +1377,116 @@ def _parse_model_definition(tmdl_files: dict[str, str]) -> dict:
     }
 
 
+# ── Adapter: SemanticModelAssessment → legacy details dict ───────────────────
+
+def _assessment_to_details(assessment: _SemanticModelAssessment) -> dict:
+    """
+    Convert the typed SemanticModelAssessment produced by the new extraction
+    pipeline into the flat dict shape that the rest of fabric_service.py
+    (complexity aggregation, Excel export, JSON API response) expects.
+
+    Key mappings:
+      MeasureInfo.dax_expression  → "expression"   (frontend field name)
+      MeasureInfo.complexity tier → kept as "complexity_tier" (additive)
+      Existing score/level/etc.   → recomputed via _score_measure_complexity()
+    """
+    measures_out:     list[dict] = []
+    measure_dep_map:  dict[str, dict] = {}
+
+    for m in assessment.measures:
+        expr = m.dax_expression
+        cx   = _score_measure_complexity(expr)
+        deps = _extract_dax_dependencies(expr)
+        enriched: dict = {
+            "name":             m.name,
+            "table":            m.table,
+            "expression":       expr,               # frontend key
+            "description":      m.description or "",
+            "display_folder":   m.display_folder or "",
+            "format_string":    m.format_string or "",
+            "is_hidden":        m.is_hidden,
+            "complexity":       cx,                 # old {score, level, …} shape
+            "dependencies":     deps,
+            # New additive fields (dependency graph analysis)
+            "dependency_chain": m.dependency_chain,
+            "dependency_depth": m.dependency_depth,
+            "complexity_tier":  m.complexity,
+        }
+        measures_out.append(enriched)
+        if m.name:
+            measure_dep_map[m.name] = enriched
+
+    _empty_cx: dict = {
+        "score": 0, "level": "None",
+        "function_count": 0, "nesting_depth": 0,
+        "dependency_count": 0, "complex_functions": [],
+    }
+
+    calc_cols_out: list[dict] = [
+        {
+            "name":       cc.name,
+            "table":      cc.table,
+            "expression": cc.dax_expression,
+            "data_type":  cc.data_type,
+            "is_hidden":  cc.is_hidden,
+            "complexity": (
+                _score_measure_complexity(cc.dax_expression)
+                if cc.dax_expression else _empty_cx
+            ),
+        }
+        for cc in assessment.calculated_columns
+    ]
+
+    calc_tables_out: list[dict] = [
+        {
+            "name":       ct.name,
+            "expression": ct.dax_expression,
+            "complexity": (
+                _score_measure_complexity(ct.dax_expression)
+                if ct.dax_expression else _empty_cx
+            ),
+        }
+        for ct in assessment.calculated_tables
+    ]
+
+    tables_out:  list[dict] = list(assessment.tables)
+    rels_out:    list[dict] = list(assessment.relationships)
+
+    # Model-level complexity score (same formula as the old _parse_model_definition)
+    total_score  = sum(m.get("complexity", {}).get("score", 0) for m in measures_out)
+    model_score  = min(100,
+        total_score
+        + len(calc_cols_out)   * 2
+        + len(calc_tables_out) * 3
+        + len(rels_out)
+    )
+    vis_tables = [t for t in tables_out if not t.get("is_hidden")]
+
+    return {
+        "tables":                  tables_out,
+        "measures":                measures_out,
+        "calculated_columns":      calc_cols_out,
+        "calculated_tables":       calc_tables_out,
+        "relationship_count":      len(rels_out),
+        "relationships":           rels_out,
+        "rls_roles":               [],
+        "m_expressions":           [],
+        "complexity_score":        model_score,
+        "table_count":             len(vis_tables),
+        "measure_count":           len(measures_out),
+        "calculated_column_count": len(calc_cols_out),
+        "calculated_table_count":  len(calc_tables_out),
+        "info_supported":          True,
+        "_measure_dep_map":        measure_dep_map,   # internal — popped before API response
+        # New metadata (surfaced in API response alongside existing fields)
+        "model_name":              assessment.model_name,
+        "compatibility_level":     assessment.compatibility_level,
+        "default_mode":            assessment.default_mode,
+        "extraction_duration_s":   assessment.extraction_duration_seconds,
+        "extractor_warnings":      assessment.warnings,
+    }
+
+
 # ── Dataset details via DAX INFO.* ────────────────────────────────────────────
 
 def _empty_details() -> dict:
@@ -2172,19 +2286,6 @@ def _run_assessment_inner(
                 1 for d in raw_datasets if d.get("name", "") not in _SKIP_MODEL_NAMES
             )
 
-        # Scanner API: one admin call covers the whole workspace.
-        # Fetched once here; read-only in worker threads below.
-        scanner_data: dict[str, dict] = {}
-        try:
-            scanner_data = _get_workspace_scanner_data(token, ws_id)
-            if scanner_data:
-                _progress(
-                    f"  Scanner API: metadata ready for {len(scanner_data)} model(s) "
-                    "(used as fallback if getDefinition is unavailable)."
-                )
-        except Exception:
-            pass
-
         # ── Dataset worker — runs in thread pool ─────────────────────────────
         def _process_dataset(ds: dict) -> Optional[dict]:
             ds_id   = ds.get("id",   "")
@@ -2201,33 +2302,25 @@ def _run_assessment_inner(
 
             _progress_counted(f"Analysing model: {ds_name}")
 
-            # Priority 1: Fabric getDefinition (TMDL) — no Premium required
+            # TMDL extraction via the modular async pipeline
             details: dict = {}
             try:
-                tmdl_files = _get_model_definition(fabric_token, ws_id, ds_id)
-                if tmdl_files:
-                    details = _parse_model_definition(tmdl_files)
+                _assessment = _fa_extract_sync(ws_id, ds_id, fabric_token)
+                if _assessment.tables or _assessment.measures or _assessment.relationships:
+                    details = _assessment_to_details(_assessment)
                     logger.info(
-                        "getDefinition succeeded for '%s' (%d TMDL parts)",
-                        ds_name, len(tmdl_files),
+                        "TMDL extractor: '%s' — %d measures, %d tables (%.2fs)",
+                        ds_name,
+                        len(_assessment.measures),
+                        len(_assessment.tables),
+                        _assessment.extraction_duration_seconds,
                     )
+                    for _w in _assessment.warnings:
+                        logger.debug("Extractor warning [%s]: %s", ds_name, _w)
             except Exception as exc:
-                logger.debug("getDefinition failed for %s: %s", ds_id, exc)
-
-            # Priority 2: Scanner API (admin-only, any capacity)
-            if not details and ds_id in scanner_data:
-                details = dict(scanner_data[ds_id])
-                logger.info("Using Scanner API metadata for '%s'", ds_name)
-
-            # Priority 3: DAX executeQueries (Premium capacity required)
-            if not details:
-                try:
-                    details = _get_dataset_details(token, ws_id, ds_id)
-                    if not details.get("info_supported"):
-                        logger.info("No metadata available for '%s'", ds_name)
-                except Exception as exc:
-                    logger.warning("All metadata methods failed for %s: %s", ds_id, exc)
-                    details = _empty_details()
+                logger.warning(
+                    "TMDL extractor failed for '%s' (%s): %s", ds_name, ds_id, exc
+                )
 
             if not details:
                 details = _empty_details()

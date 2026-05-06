@@ -53,6 +53,7 @@ interface ServerEntry {
   trust_server_certificate: boolean
   encrypt: boolean
   access_level: AccessLevel
+  gateway_key: string | null   // set when a Hybrid Connection is selected
   connectivity: null | { reachable: boolean; latency_ms: number | null }
   connectivity_loading: boolean
   available_dbs: DatabaseInfo[] | null
@@ -76,6 +77,7 @@ function makeServer(): ServerEntry {
     username: '', password: '', show_password: false,
     trust_server_certificate: true, encrypt: true,
     access_level: 'db_datareader',
+    gateway_key: null,
     connectivity: null, connectivity_loading: false,
     available_dbs: null, dbs_loading: false, dbs_error: null,
     selected_dbs: [], expanded: true,
@@ -232,7 +234,8 @@ export default function UnifiedAssessmentPage() {
           trust_server_certificate: s.trust_server_certificate,
           encrypt: s.encrypt,
           access_level: s.access_level,
-          use_gateway: false,
+          use_gateway: !!s.gateway_key,
+          gateway_key: s.gateway_key ?? undefined,
           databases: s.selected_dbs,
         })),
       })
@@ -527,7 +530,7 @@ function SourceAssessmentForm({
 
 // ── Hybrid Connection Picker ──────────────────────────────────────────────────
 
-function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: number) => void }) {
+function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: number, connectionId: string) => void }) {
   const [open, setOpen]               = useState(false)
   const [connections, setConnections] = useState<HybridConnection[]>([])
   const [loading, setLoading]         = useState(false)
@@ -591,7 +594,7 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
             <button
               key={hc.connection_id}
               type="button"
-              onClick={() => { onSelect(hc.endpoint_host, hc.endpoint_port); setOpen(false) }}
+              onClick={() => { onSelect(hc.endpoint_host, hc.endpoint_port, hc.connection_id); setOpen(false) }}
               className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0"
             >
               <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
@@ -685,7 +688,9 @@ function ServerCard({
                   className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-violet-500/40 focus:outline-none"
                 />
                 <HybridConnectionPicker
-                  onSelect={(host, port) => updateServer(srv.id, { server: host, port, connectivity: null })}
+                  onSelect={(host, port, connectionId) =>
+                    updateServer(srv.id, { server: host, port, gateway_key: connectionId, connectivity: null })
+                  }
                 />
               </div>
             </div>

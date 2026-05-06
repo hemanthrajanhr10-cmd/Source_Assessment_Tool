@@ -37,6 +37,7 @@ interface ServerEntry {
   trust_server_certificate: boolean
   encrypt: boolean
   access_level: AccessLevel
+  gateway_key: string | null   // set when a Hybrid Connection is selected
   connectivity: null | { reachable: boolean; latency_ms: number | null }
   connectivity_loading: boolean
   available_dbs: DatabaseInfo[] | null
@@ -51,7 +52,7 @@ interface ServerEntry {
 function HybridConnectionPicker({
   onSelect,
 }: {
-  onSelect: (host: string, port: number) => void
+  onSelect: (host: string, port: number, connectionId: string) => void
 }) {
   const [open, setOpen]               = useState(false)
   const [connections, setConnections] = useState<HybridConnection[]>([])
@@ -83,7 +84,8 @@ function HybridConnectionPicker({
   }
 
   const handlePick = (hc: HybridConnection) => {
-    onSelect(hc.endpoint_host, hc.endpoint_port)
+    // Pass connection_id so the caller can set gateway_key for relay routing
+    onSelect(hc.endpoint_host, hc.endpoint_port, hc.connection_id)
     setOpen(false)
   }
 
@@ -165,6 +167,7 @@ function makeServer(): ServerEntry {
     trust_server_certificate: true,
     encrypt: true,
     access_level: 'db_datareader',
+    gateway_key: null,
     connectivity: null,
     connectivity_loading: false,
     available_dbs: null,
@@ -399,7 +402,9 @@ function ServerCard({
                   title="Port"
                 />
                 <HybridConnectionPicker
-                  onSelect={(host, port) => set({ server: host, port, connectivity: null })}
+                  onSelect={(host, port, connectionId) =>
+                    set({ server: host, port, gateway_key: connectionId, connectivity: null })
+                  }
                 />
                 <button
                   type="button"
@@ -695,7 +700,8 @@ export default function NewAssessmentPage() {
           password: srv.password,
           trust_server_certificate: srv.trust_server_certificate,
           encrypt: srv.encrypt,
-          use_gateway: false,
+          use_gateway: !!srv.gateway_key,
+          gateway_key: srv.gateway_key ?? undefined,
           access_level: srv.db_type === 'mssql' ? srv.access_level : undefined,
           databases: srv.selected_dbs.map((db) => ({
             name: db.name,

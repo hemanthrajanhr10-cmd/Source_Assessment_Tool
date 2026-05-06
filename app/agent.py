@@ -43,6 +43,11 @@ except ImportError:
     print("ERROR: 'pymssql' library not found. Run: pip install pymssql")
     sys.exit(1)
 
+# oracledb is only required when the job db_type is "oracle".
+# Import lazily inside _connect_oracle() so the agent still starts on machines
+# that only need SQL Server connectivity.
+_oracledb_available: bool | None = None  # None = not yet checked
+
 # ── Config ────────────────────────────────────────────────────────────────────
 # Azure Relay Hybrid Connection mode (preferred — real-time, works through VPNs)
 # Format: Endpoint=sb://ns.servicebus.windows.net/;SharedAccessKeyName=...;SharedAccessKey=...;EntityPath=<hc-name>
@@ -413,6 +418,227 @@ _QUERY_STEPS = [
     ("version_features",    VERSION_FEATURES),
 ]
 
+# ── Oracle embedded queries ────────────────────────────────────────────────────
+# Mirror of server-side queries_oracle.py, embedded here so the agent runs
+# standalone on the client's Windows machine without importing from the server.
+# Assessment scope is the connected user's schema (SESSION_USER).
+
+_ORA_OVERVIEW = """
+SELECT
+    SYS_CONTEXT('USERENV','DB_NAME')      AS database_name,
+    SYS_CONTEXT('USERENV','SESSION_USER') AS connected_user,
+    (SELECT banner FROM v$version WHERE ROWNUM=1) AS sql_version,
+    (SELECT COUNT(*) FROM all_users)              AS schema_count,
+    (SELECT COUNT(*) FROM all_tables WHERE owner = SYS_CONTEXT('USERENV','SESSION_USER'))  AS table_count,
+    (SELECT COUNT(*) FROM all_views  WHERE owner = SYS_CONTEXT('USERENV','SESSION_USER'))  AS view_count,
+    (SELECT COUNT(*) FROM all_procedures WHERE owner = SYS_CONTEXT('USERENV','SESSION_USER') AND object_type='PROCEDURE') AS proc_count,
+    (SELECT COUNT(*) FROM all_procedures WHERE owner = SYS_CONTEXT('USERENV','SESSION_USER') AND object_type='FUNCTION')  AS func_count
+FROM dual
+"""
+
+_ORA_SCHEMAS = """
+SELECT u.username AS schema_name,
+    (SELECT COUNT(*) FROM all_tables      t WHERE t.owner = u.username) AS table_count,
+    (SELECT COUNT(*) FROM all_views       v WHERE v.owner = u.username) AS view_count,
+    (SELECT COUNT(*) FROM all_procedures  p WHERE p.owner = u.username AND p.object_type='PROCEDURE') AS proc_count
+FROM all_users u
+ORDER BY u.username
+"""
+
+_ORA_TABLES = """
+SELECT t.owner AS schema_name, t.table_name,
+    (SELECT COUNT(*) FROM all_tab_columns c WHERE c.owner=t.owner AND c.table_name=t.table_name) AS column_count,
+    t.num_rows AS row_count,
+    ROUND(s.bytes/1024/1024,2) AS size_mb,
+    o.created AS create_date, o.last_ddl_time AS modify_date
+FROM all_tables t
+LEFT JOIN all_segments  s ON s.segment_name=t.table_name AND s.owner=t.owner AND s.segment_type='TABLE'
+LEFT JOIN all_objects   o ON o.object_name=t.table_name  AND o.owner=t.owner AND o.object_type='TABLE'
+WHERE t.owner = SYS_CONTEXT('USERENV','SESSION_USER')
+ORDER BY t.owner, t.table_name
+"""
+
+_ORA_COLUMNS = """
+SELECT c.owner AS schema_name, c.table_name, c.column_id, c.column_name,
+    c.data_type, c.data_length AS max_length, c.data_precision AS precision,
+    c.data_scale AS scale, c.nullable AS is_nullable,
+    CASE WHEN c.identity_column = 'YES' THEN 1 ELSE 0 END AS is_identity,
+    CASE WHEN p.column_name IS NOT NULL THEN 'YES' ELSE 'NO' END AS is_primary_key,
+    CASE WHEN f.column_name IS NOT NULL THEN 'YES' ELSE 'NO' END AS is_foreign_key,
+    c.data_default AS default_value
+FROM all_tab_columns c
+LEFT JOIN (
+    SELECT cc.owner, cc.table_name, cc.column_name
+    FROM all_cons_columns cc
+    JOIN all_constraints  ac ON ac.constraint_name=cc.constraint_name AND ac.owner=cc.owner
+    WHERE ac.constraint_type='P'
+) p ON p.owner=c.owner AND p.table_name=c.table_name AND p.column_name=c.column_name
+LEFT JOIN (
+    SELECT cc.owner, cc.table_name, cc.column_name
+    FROM all_cons_columns cc
+    JOIN all_constraints  ac ON ac.constraint_name=cc.constraint_name AND ac.owner=cc.owner
+    WHERE ac.constraint_type='R'
+) f ON f.owner=c.owner AND f.table_name=c.table_name AND f.column_name=c.column_name
+WHERE c.owner = SYS_CONTEXT('USERENV','SESSION_USER')
+ORDER BY c.owner, c.table_name, c.column_id
+"""
+
+_ORA_VIEWS = """
+SELECT v.owner AS schema_name, v.view_name, o.created AS create_date,
+    o.last_ddl_time AS modify_date, v.text AS definition
+FROM all_views v
+LEFT JOIN all_objects o ON o.object_name=v.view_name AND o.owner=v.owner AND o.object_type='VIEW'
+WHERE v.owner = SYS_CONTEXT('USERENV','SESSION_USER')
+ORDER BY v.owner, v.view_name
+"""
+
+_ORA_STORED_PROCEDURES = """
+SELECT p.owner AS schema_name, p.object_name AS procedure_name,
+    o.created AS create_date, o.last_ddl_time AS modify_date,
+    (SELECT COUNT(*) FROM all_arguments a WHERE a.owner=p.owner AND a.object_name=p.object_name) AS param_count
+FROM all_procedures p
+LEFT JOIN all_objects o ON o.object_name=p.object_name AND o.owner=p.owner AND o.object_type='PROCEDURE'
+WHERE p.owner = SYS_CONTEXT('USERENV','SESSION_USER') AND p.object_type='PROCEDURE'
+ORDER BY p.owner, p.object_name
+"""
+
+_ORA_FUNCTIONS = """
+SELECT p.owner AS schema_name, p.object_name AS function_name, p.object_type AS function_type,
+    o.created AS create_date, o.last_ddl_time AS modify_date
+FROM all_procedures p
+LEFT JOIN all_objects o ON o.object_name=p.object_name AND o.owner=p.owner AND o.object_type=p.object_type
+WHERE p.owner = SYS_CONTEXT('USERENV','SESSION_USER') AND p.object_type='FUNCTION'
+ORDER BY p.owner, p.object_name
+"""
+
+_ORA_INDEXES = """
+SELECT i.owner AS schema_name, i.table_name, i.index_name,
+    i.index_type, i.uniqueness AS is_unique,
+    CASE WHEN c.constraint_type='P' THEN 'YES' ELSE 'NO' END AS is_primary_key,
+    CASE WHEN c.constraint_type='U' THEN 'YES' ELSE 'NO' END AS is_unique_constraint,
+    ic.column_list AS indexed_columns
+FROM all_indexes i
+LEFT JOIN all_constraints c ON c.index_name=i.index_name AND c.owner=i.owner
+LEFT JOIN (
+    SELECT index_name, owner,
+        LISTAGG(column_name,', ') WITHIN GROUP (ORDER BY column_position) AS column_list
+    FROM all_ind_columns
+    GROUP BY index_name, owner
+) ic ON ic.index_name=i.index_name AND ic.owner=i.owner
+WHERE i.owner = SYS_CONTEXT('USERENV','SESSION_USER')
+ORDER BY i.owner, i.table_name, i.index_name
+"""
+
+_ORA_RELATIONSHIPS = """
+SELECT fk.constraint_name AS fk_name,
+    fk.owner AS parent_schema, fk.table_name AS parent_table,
+    fkc.column_name AS parent_column,
+    pk.owner AS ref_schema, pk.table_name AS ref_table,
+    pkc.column_name AS ref_column,
+    fk.delete_rule AS on_delete
+FROM all_constraints  fk
+JOIN all_cons_columns fkc ON fkc.constraint_name=fk.constraint_name  AND fkc.owner=fk.owner
+JOIN all_constraints  pk  ON pk.constraint_name =fk.r_constraint_name AND pk.owner=fk.r_owner
+JOIN all_cons_columns pkc ON pkc.constraint_name=pk.constraint_name   AND pkc.owner=pk.owner
+                          AND pkc.position=fkc.position
+WHERE fk.constraint_type='R' AND fk.owner = SYS_CONTEXT('USERENV','SESSION_USER')
+ORDER BY parent_schema, parent_table, fk_name
+"""
+
+_ORA_INDEX_COVERAGE = """
+SELECT t.owner AS schema_name, t.table_name,
+    COUNT(DISTINCT i.index_name) AS index_count,
+    CASE WHEN COUNT(DISTINCT i.index_name) > 0 THEN 'Indexed' ELSE 'No Index' END AS coverage
+FROM all_tables t
+LEFT JOIN all_indexes i ON i.table_name=t.table_name AND i.owner=t.owner
+WHERE t.owner = SYS_CONTEXT('USERENV','SESSION_USER')
+GROUP BY t.owner, t.table_name
+ORDER BY coverage, t.owner, t.table_name
+"""
+
+_ORA_INSERTION_FREQUENCY = """
+SELECT t.owner AS schema_name, t.table_name, t.num_rows AS current_rows,
+    o.created AS create_date, o.last_ddl_time AS modify_date,
+    TRUNC(SYSDATE - o.created) AS age_days,
+    CASE WHEN TRUNC(SYSDATE - o.created) > 0
+         THEN ROUND(t.num_rows / TRUNC(SYSDATE - o.created), 2)
+         ELSE 0 END AS avg_rows_per_day
+FROM all_tables t
+LEFT JOIN all_objects o ON o.object_name=t.table_name AND o.owner=t.owner AND o.object_type='TABLE'
+WHERE t.owner = SYS_CONTEXT('USERENV','SESSION_USER') AND t.num_rows > 0
+ORDER BY avg_rows_per_day DESC
+"""
+
+_ORA_DB_USERS_ROLES = """
+SELECT u.username AS principal_name, 'DATABASE USER' AS principal_type,
+    TO_CHAR(u.created,'YYYY-MM-DD HH24:MI:SS') AS create_date,
+    u.default_tablespace AS default_schema,
+    u.account_status,
+    (SELECT LISTAGG(rp.granted_role,', ') WITHIN GROUP (ORDER BY rp.granted_role)
+     FROM dba_role_privs rp WHERE rp.grantee=u.username) AS roles
+FROM all_users u
+ORDER BY u.username
+"""
+
+_ORA_PII_INDICATORS = """
+SELECT c.owner AS schema_name, c.table_name, c.column_name, c.data_type,
+    CASE
+        WHEN LOWER(c.column_name) LIKE '%ssn%'         OR LOWER(c.column_name) LIKE '%social_security%' THEN 'SSN'
+        WHEN LOWER(c.column_name) LIKE '%email%'        OR LOWER(c.column_name) LIKE '%e_mail%'          THEN 'Email'
+        WHEN LOWER(c.column_name) LIKE '%phone%'        OR LOWER(c.column_name) LIKE '%mobile%'          THEN 'Phone'
+        WHEN LOWER(c.column_name) LIKE '%dob%'          OR LOWER(c.column_name) LIKE '%birth_date%'      THEN 'Date of Birth'
+        WHEN LOWER(c.column_name) LIKE '%passport%'                                                       THEN 'Passport'
+        WHEN LOWER(c.column_name) LIKE '%credit_card%'  OR LOWER(c.column_name) LIKE '%card_number%'     THEN 'Credit Card'
+        WHEN LOWER(c.column_name) LIKE '%address%'      OR LOWER(c.column_name) LIKE '%street%'          THEN 'Address'
+        WHEN LOWER(c.column_name) LIKE '%zip%'          OR LOWER(c.column_name) LIKE '%postal%'          THEN 'Postal Code'
+        WHEN LOWER(c.column_name) LIKE '%salary%'       OR LOWER(c.column_name) LIKE '%wage%'            THEN 'Financial'
+        WHEN LOWER(c.column_name) LIKE '%password%'     OR LOWER(c.column_name) LIKE '%pwd%'             THEN 'Password/Secret'
+        ELSE 'Other PII'
+    END AS pii_category
+FROM all_tab_columns c
+WHERE c.owner = SYS_CONTEXT('USERENV','SESSION_USER')
+  AND (
+    LOWER(c.column_name) LIKE '%ssn%'        OR LOWER(c.column_name) LIKE '%social_security%'
+    OR LOWER(c.column_name) LIKE '%email%'   OR LOWER(c.column_name) LIKE '%phone%'
+    OR LOWER(c.column_name) LIKE '%dob%'     OR LOWER(c.column_name) LIKE '%birth_date%'
+    OR LOWER(c.column_name) LIKE '%passport%' OR LOWER(c.column_name) LIKE '%credit_card%'
+    OR LOWER(c.column_name) LIKE '%address%' OR LOWER(c.column_name) LIKE '%zip%'
+    OR LOWER(c.column_name) LIKE '%salary%'  OR LOWER(c.column_name) LIKE '%password%'
+    OR LOWER(c.column_name) LIKE '%pwd%'
+  )
+ORDER BY pii_category, c.owner, c.table_name, c.column_name
+"""
+
+# Steps that have no Oracle equivalent return an empty placeholder so the
+# result schema stays consistent with the SQL Server path.
+_ORA_QUERY_STEPS = [
+    ("overview",            _ORA_OVERVIEW),
+    ("schemas",             _ORA_SCHEMAS),
+    ("tables",              _ORA_TABLES),
+    ("columns",             _ORA_COLUMNS),
+    ("views",               _ORA_VIEWS),
+    ("stored_procedures",   _ORA_STORED_PROCEDURES),
+    ("functions",           _ORA_FUNCTIONS),
+    ("indexes",             _ORA_INDEXES),
+    ("relationships",       _ORA_RELATIONSHIPS),
+    ("index_coverage",      _ORA_INDEX_COVERAGE),
+    ("insertion_frequency", _ORA_INSERTION_FREQUENCY),
+    ("db_users_roles",      _ORA_DB_USERS_ROLES),
+    ("orphaned_users",      None),   # no direct Oracle equivalent
+    ("db_owner_members",    None),
+    ("dynamic_sql_usage",   None),
+    ("clr_assemblies",      None),
+    ("tde_status",          None),
+    ("column_encryption",   None),
+    ("pii_indicators",      _ORA_PII_INDICATORS),
+    ("sql_agent_jobs",      None),
+    ("linked_servers",      None),
+    ("cross_db_references", None),
+    ("replication_status",  None),
+    ("service_broker",      None),
+    ("version_features",    None),
+]
+
 
 # ── Assessment helpers ────────────────────────────────────────────────────────
 
@@ -502,12 +728,155 @@ def _run_null_analysis(cursor, table_rows: list[dict], sample_limit: int) -> lis
     return results
 
 
+def _connect_oracle(conn_cfg: dict):
+    """
+    Open an Oracle connection using oracledb (thin mode — no Oracle Client needed).
+    params.database is the Oracle service name used in the Easy Connect DSN.
+    """
+    global _oracledb_available
+    if _oracledb_available is None:
+        try:
+            import oracledb as _oramod  # noqa: F401
+            _oracledb_available = True
+        except ImportError:
+            _oracledb_available = False
+
+    if not _oracledb_available:
+        raise RuntimeError(
+            "oracledb is not installed on this agent machine. "
+            "Run: pip install oracledb"
+        )
+
+    import oracledb
+    port = conn_cfg.get("port", 1521)
+    dsn  = f"{conn_cfg['server']}:{port}/{conn_cfg['database']}"
+    return oracledb.connect(
+        user=conn_cfg["username"],
+        password=conn_cfg["password"],
+        dsn=dsn,
+    )
+
+
+def _cursor_rows_to_dicts_oracle(cursor) -> list[dict]:
+    """Convert oracledb cursor rows to lowercase-keyed dicts (matches server convention)."""
+    rows = cursor.fetchall()
+    if not rows:
+        return []
+    cols = [d[0].lower() for d in cursor.description]
+    return [{cols[i]: _serialize(v) for i, v in enumerate(row)} for row in rows]
+
+
+def _safe_fetch_oracle(cursor, sql: str, label: str) -> list[dict]:
+    try:
+        cursor.execute(sql)
+        return _cursor_rows_to_dicts_oracle(cursor)
+    except Exception as exc:
+        print(f"    [WARN] {label}: {exc}")
+        return []
+
+
+def _run_null_analysis_oracle(cursor, table_rows: list[dict], sample_limit: int) -> list[dict]:
+    """Oracle null-rate analysis using all_tab_columns + positional bind variables."""
+    results = []
+    sampled = 0
+    for tbl in table_rows:
+        if sampled >= sample_limit:
+            break
+        schema = (tbl.get("schema_name") or "").upper()
+        table  = (tbl.get("table_name")  or "").upper()
+        try:
+            cursor.execute(
+                "SELECT column_name, data_type "
+                "FROM all_tab_columns "
+                "WHERE owner = :1 AND table_name = :2 AND nullable = 'Y' "
+                "ORDER BY column_id FETCH FIRST 20 ROWS ONLY",
+                (schema, table),
+            )
+            col_rows = _cursor_rows_to_dicts_oracle(cursor)
+        except Exception as exc:
+            print(f"    [WARN] null-cols {schema}.{table}: {exc}")
+            sampled += 1
+            continue
+
+        if not col_rows:
+            sampled += 1
+            continue
+
+        for col in col_rows:
+            col_name = col["column_name"]
+            try:
+                cursor.execute(
+                    f'SELECT COUNT(*) AS total_rows, '
+                    f'SUM(CASE WHEN "{col_name}" IS NULL THEN 1 ELSE 0 END) AS null_count '
+                    f'FROM "{schema}"."{table}"'
+                )
+                row = cursor.fetchone()
+                total = row[0] or 0
+                nulls = row[1] or 0
+                results.append({
+                    "schema_name":    schema,
+                    "table_name":     table,
+                    "column_name":    col_name,
+                    "total_rows":     total,
+                    "null_blank_pct": round(nulls * 100.0 / total, 2) if total else 0.0,
+                })
+            except Exception as exc:
+                print(f"    [WARN] Null analysis {schema}.{table}.{col_name}: {exc}")
+        sampled += 1
+    return results
+
+
 def run_assessment(payload: dict) -> dict:
-    conn_cfg = payload["connection"]
+    conn_cfg     = payload["connection"]
     include_null = payload.get("include_null_analysis", True)
     null_limit   = payload.get("null_analysis_sample_limit", 30)
 
+    # FIX: db_type was previously not included in the gateway payload, so this
+    # function always fell through to pymssql regardless of the assessment context.
+    # Now db_type is forwarded from assessment.py and drives driver/query selection.
+    db_type = conn_cfg.get("db_type", "mssql")
+
+    if db_type not in ("mssql", "oracle"):
+        raise ValueError(
+            f"Unknown database type for Hybrid Connection: "
+            f"expected 'oracle' or 'mssql', got '{db_type}'"
+        )
+
+    print(f"  db_type  : {db_type}")
+    print(f"  driver   : {'oracledb (thin)' if db_type == 'oracle' else 'pymssql'}")
     print(f"  Connecting to {conn_cfg['server']} / {conn_cfg['database']}…")
+
+    if db_type == "oracle":
+        return _run_oracle_assessment(conn_cfg, include_null, null_limit)
+    else:
+        return _run_mssql_assessment(conn_cfg, include_null, null_limit)
+
+
+def _run_oracle_assessment(conn_cfg: dict, include_null: bool, null_limit: int) -> dict:
+    conn   = _connect_oracle(conn_cfg)
+    cursor = conn.cursor()
+    raw: dict[str, Any] = {}
+    try:
+        total = len(_ORA_QUERY_STEPS)
+        for i, (key, sql) in enumerate(_ORA_QUERY_STEPS, 1):
+            print(f"  [{i:02d}/{total}] {key}…")
+            if sql is None:
+                raw[key] = []   # no Oracle equivalent for this step
+            else:
+                raw[key] = _safe_fetch_oracle(cursor, sql, key)
+
+        if include_null:
+            print(f"  [NA] Null analysis (limit={null_limit})…")
+            raw["null_analysis"] = _run_null_analysis_oracle(cursor, raw.get("tables", []), null_limit)
+        else:
+            raw["null_analysis"] = []
+    finally:
+        cursor.close()
+        conn.close()
+    return raw
+
+
+def _run_mssql_assessment(conn_cfg: dict, include_null: bool, null_limit: int) -> dict:
     # pymssql bundles its own TDS driver — no ODBC Driver installation required
     conn = pymssql.connect(
         server=conn_cfg["server"],
@@ -519,7 +888,6 @@ def run_assessment(payload: dict) -> dict:
         login_timeout=30,
     )
     cursor = conn.cursor(as_dict=True)
-
     raw: dict[str, Any] = {}
     try:
         total = len(_QUERY_STEPS)
@@ -535,7 +903,6 @@ def run_assessment(payload: dict) -> dict:
     finally:
         cursor.close()
         conn.close()
-
     return raw
 
 

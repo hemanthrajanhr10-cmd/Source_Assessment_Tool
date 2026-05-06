@@ -132,8 +132,13 @@ async def trigger_assessment(
 
     # ── Gateway path: publish to Relay / Service Bus / HTTP poll ─────────────
     if body.gateway_key:
+        # FIX: db_type was previously omitted from the connection payload, causing
+        # the gateway agent to always fall back to its default (mssql/pymssql) even
+        # when the assessment context is Oracle. It must be forwarded explicitly so
+        # the agent can select the correct driver and query set.
         payload = {
             "connection": {
+                "db_type":                  body.connection.db_type,
                 "server":                   body.connection.server,
                 "port":                     body.connection.port,
                 "database":                 body.connection.database,

@@ -34,9 +34,9 @@ logger = get_logger(__name__)
 # ── Request / Response models ──────────────────────────────────────────────────
 
 class CreateHybridConnectionRequest(BaseModel):
-    name: str = Field(..., description="Hybrid connection name, e.g. sat-onprem-sql")
-    endpoint_host: str = Field(..., description="SQL Server hostname or IP visible from VPN laptop")
-    endpoint_port: int = Field(1433, ge=1, le=65535, description="SQL Server port")
+    name: str = Field(..., description="Hybrid connection name, e.g. sat-onprem-oracle")
+    endpoint_host: str = Field(..., description="Database hostname or IP visible from the agent machine")
+    endpoint_port: int = Field(1433, ge=1, le=65535, description="Database port (1433 for SQL Server, 1521 for Oracle)")
 
 
 class HybridConnectionResponse(BaseModel):

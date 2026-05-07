@@ -19,11 +19,12 @@ type NavLevel = 'list' | 'report'
 function convertVisual(rv: ReportVisual, pageId: string, vidx: number): MockVisual {
   return {
     id: `${pageId}-v${vidx}`,
-    title: rv.title || `Visual ${vidx + 1}`,
+    title: rv.title || rv.type || `Visual ${vidx + 1}`,
     type: rv.type || 'Card',
     assessmentStatus: 'not-assessed',
     mockValue: rv.field_count > 0 ? `${rv.field_count} field${rv.field_count !== 1 ? 's' : ''}` : undefined,
     mockSubtitle: rv.fields.length > 0 ? rv.fields[0].name : undefined,
+    fields: rv.fields,
   }
 }
 

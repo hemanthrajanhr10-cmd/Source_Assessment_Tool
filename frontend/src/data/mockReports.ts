@@ -1,3 +1,5 @@
+import type { VisualField } from '../types/api'
+
 export type AssessmentStatus = 'pass' | 'fail' | 'warning' | 'not-assessed' | 'in-progress'
 
 export interface MockVisual {
@@ -7,6 +9,7 @@ export interface MockVisual {
   assessmentStatus: AssessmentStatus
   mockValue?: string
   mockSubtitle?: string
+  fields?: VisualField[]
 }
 
 export interface MockPage {

@@ -714,6 +714,12 @@
   to   { transform: rotate(360deg); }
 }
 
+/* ── Reports segment: card fade-in ──────────────────────────────────────────── */
+
+.animate-fade-in {
+  animation: fadeSlide 250ms ease both;
+}
+
 /* ── Accessibility: honour reduced-motion preference ─────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {

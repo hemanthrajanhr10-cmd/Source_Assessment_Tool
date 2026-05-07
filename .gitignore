@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 *.pyo
 reports/
+!frontend/src/components/reports/
 *.xlsx
 *.docx
 generate_docs.py

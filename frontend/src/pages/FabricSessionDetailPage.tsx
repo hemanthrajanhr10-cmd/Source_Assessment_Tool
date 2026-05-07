@@ -4,19 +4,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Zap, Database, FileText, BarChart2, ChevronDown, ChevronUp,
   Loader2, CheckCircle2, XCircle, AlertCircle, ExternalLink,
-  Table2, Hash, Calculator, Link2, Eye, Bookmark, Layers,
+  Table2, Hash, Calculator, Link2, Eye,
   ArrowLeft, ArrowRight, Code2, StopCircle, Download, TrendingUp,
   Activity, GitMerge, BookOpen, Filter,
 } from 'lucide-react'
 import { api } from '../api/client'
 import type {
-  FabricDataset, FabricReport, FabricWorkspace,
-  FabricMeasure, MeasureComplexity, ReportVisual, ReportPage, VisualField,
-  FabricCalculatedColumn, FabricCalculatedTable, FabricRelationship, FabricBookmark,
+  FabricDataset, FabricWorkspace,
+  FabricMeasure, MeasureComplexity,
+  FabricCalculatedColumn, FabricCalculatedTable, FabricRelationship,
   FabricTable, FabricTableColumn,
 } from '../types/api'
 import { formatDateTime } from '../utils/dateTime'
 import Loader3D from '../components/ui/Loader3D'
+import ReportsSegment from '../components/reports/ReportsSegment'
 
 // ── Complexity helpers ────────────────────────────────────────────────────────
 
@@ -48,20 +49,6 @@ function StorageBadge({ mode }: { mode: string }) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
       {mode}
-    </span>
-  )
-}
-
-function FieldTypeBadge({ type }: { type: string }) {
-  const map: Record<string, string> = {
-    measure: 'bg-violet-50 text-violet-700 border-violet-200',
-    column: 'bg-sky-50 text-sky-700 border-sky-200',
-    aggregation: 'bg-teal-50 text-teal-700 border-teal-200',
-    hierarchy: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  }
-  return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border ${map[type] ?? 'bg-slate-100/50 text-slate-500 border-slate-200'}`}>
-      {type}
     </span>
   )
 }
@@ -302,108 +289,6 @@ function RelationshipsTable({ rels }: { rels: FabricRelationship[] }) {
           ))}
         </tbody>
       </table>
-    </div>
-  )
-}
-
-function VisualFieldRow({ f }: { f: VisualField }) {
-  const [open, setOpen] = useState(false)
-  const hasDeps = f.field_type === 'measure' && f.dependencies && f.dependencies.length > 0
-  return (
-    <div className="border border-slate-200 rounded overflow-hidden">
-      <div className={`flex items-center gap-2 px-3 py-1.5 bg-slate-50 text-left ${hasDeps ? 'cursor-pointer hover:bg-slate-100' : ''}`}
-        onClick={() => hasDeps && setOpen(o => !o)}>
-        <FieldTypeBadge type={f.field_type} />
-        <span className="flex-1 text-xs font-mono text-slate-700 truncate">{f.name}</span>
-        <span className="text-xs text-slate-500 shrink-0">{f.table}</span>
-        {f.field_type === 'aggregation' && f.agg_function && (
-          <span className="text-xs text-teal-400 shrink-0">{f.agg_function}</span>
-        )}
-        {f.complexity && f.complexity.level !== 'None' && <ComplexityBadge c={f.complexity} small />}
-        {hasDeps && (open
-          ? <ChevronUp className="h-3 w-3 text-slate-400 shrink-0" />
-          : <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />)}
-      </div>
-      {open && hasDeps && (
-        <div className="border-t border-slate-100 bg-slate-50 px-3 py-2 space-y-1.5">
-          {f.expression && (
-            <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap text-slate-500 max-h-20">
-              {f.expression}
-            </pre>
-          )}
-          <div className="flex flex-wrap gap-1.5">
-            {f.dependencies!.map((d, i) => (
-              <span key={i} className="inline-flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-mono">
-                <span className="text-slate-500">{d.table}</span>
-                <ArrowRight className="h-2.5 w-2.5 text-slate-300" />
-                <span className="text-slate-800 font-semibold">{d.column}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function VisualCard({ v }: { v: ReportVisual }) {
-  const [open, setOpen] = useState(false)
-  if (v.field_count === 0 && !v.title) return null
-  const mCount = v.fields.filter(f => f.field_type === 'measure').length
-  const cCount = v.fields.filter(f => f.field_type === 'column' || f.field_type === 'aggregation').length
-  return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-2.5 bg-slate-100/60 hover:bg-slate-100 transition-colors text-left">
-        <Eye className="h-3.5 w-3.5 text-blue-400 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-slate-800 truncate">{v.title || v.type}</p>
-          <p className="text-xs text-slate-500">
-            {v.type}{v.field_count > 0 && ` · ${v.field_count} fields`}
-            {mCount > 0 && ` · ${mCount} measures`}
-            {cCount > 0 && ` · ${cCount} cols`}
-          </p>
-        </div>
-        {open ? <ChevronUp className="h-3 w-3 text-slate-400 shrink-0" />
-               : <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />}
-      </button>
-      {open && v.fields.length > 0 && (
-        <div className="border-t border-slate-100 p-2 space-y-1">
-          {v.fields.map((f, i) => <VisualFieldRow key={i} f={f} />)}
-        </div>
-      )}
-      {open && v.fields.length === 0 && (
-        <div className="border-t border-slate-100 px-3 py-2 text-xs text-slate-400 italic">
-          No field bindings detected for this visual.
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PageAccordion({ page }: { page: ReportPage }) {
-  const [open, setOpen] = useState(false)
-  const totalFields = page.visuals.reduce((s, v) => s + v.field_count, 0)
-  return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-100/60 hover:bg-slate-100 transition-colors text-left">
-        <Layers className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-        <span className="flex-1 text-sm font-semibold text-slate-700">{page.name}</span>
-        <span className="text-xs text-slate-500 shrink-0 mr-2">
-          {page.visual_count} visual{page.visual_count !== 1 ? 's' : ''}
-          {totalFields > 0 && ` · ${totalFields} fields`}
-        </span>
-        {open ? <ChevronUp className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-               : <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />}
-      </button>
-      {open && (
-        <div className="border-t border-slate-100 p-3 space-y-2">
-          {page.visuals.length > 0
-            ? page.visuals.map((v, i) => <VisualCard key={i} v={v} />)
-            : <p className="text-xs text-slate-400 italic px-1">No visual field data for this page.</p>}
-        </div>
-      )}
     </div>
   )
 }
@@ -731,97 +616,6 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
                 <ExternalLink className="h-3.5 w-3.5" /> Open in Power BI
               </a>
             </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Report section (for Reports tab) ─────────────────────────────────────────
-
-function ReportSection({ rpt }: { rpt: FabricReport }) {
-  const [open, setOpen] = useState(false)
-  const [showBm, setShowBm] = useState(false)
-
-  return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left">
-        <FileText className={`h-4 w-4 shrink-0 ${rpt.is_paginated ? 'text-orange-400' : 'text-blue-400'}`} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-800 truncate">{rpt.name}</p>
-          <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500 flex-wrap">
-            {rpt.is_paginated ? (
-              <span className="text-orange-400 font-medium">Paginated (RDL)</span>
-            ) : (
-              <>
-                <span>{rpt.page_count ?? '?'} pages</span>
-                <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{rpt.visual_count} visuals</span>
-                {rpt.bookmark_count > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Bookmark className="h-3 w-3 text-indigo-400" />{rpt.bookmark_count} bookmarks
-                  </span>
-                )}
-                {rpt.layout_parsed
-                  ? <span className="text-emerald-400 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Full field analysis</span>
-                  : <span className="text-slate-300">Counts only</span>}
-              </>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {rpt.web_url && (
-            <a href={rpt.web_url} target="_blank" rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="text-slate-500 hover:text-indigo-500 transition-colors">
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          )}
-          {open ? <ChevronUp className="h-4 w-4 text-slate-400" />
-                : <ChevronDown className="h-4 w-4 text-slate-400" />}
-        </div>
-      </button>
-
-      {open && !rpt.is_paginated && (
-        <div className="border-t border-slate-100 p-4 space-y-3">
-          {rpt.bookmarks && rpt.bookmarks.length > 0 && (
-            <div>
-              <button onClick={() => setShowBm(o => !o)}
-                className="flex items-center gap-2 text-xs font-semibold text-indigo-400 hover:text-indigo-300 mb-1 transition-colors">
-                <Bookmark className="h-3.5 w-3.5" />
-                Bookmarks ({rpt.bookmarks.length})
-                {showBm ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </button>
-              {showBm && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {rpt.bookmarks.map((bm: FabricBookmark) => (
-                    <div key={bm.id} className="flex items-center gap-2 rounded-lg bg-indigo-500/5 border border-indigo-500/20 px-3 py-2">
-                      <Bookmark className="h-3 w-3 text-indigo-400 shrink-0" />
-                      <span className="text-xs font-medium text-indigo-300 flex-1 truncate">{bm.name}</span>
-                      {bm.target_page && (
-                        <span className="flex items-center gap-1 text-xs text-indigo-500 shrink-0">
-                          <ArrowRight className="h-2.5 w-2.5" />{bm.target_page}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {rpt.pages && rpt.pages.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Pages ({rpt.pages.length})
-              </p>
-              {rpt.pages.map((page, i) => <PageAccordion key={i} page={page} />)}
-            </div>
-          )}
-
-          {(!rpt.pages || rpt.pages.length === 0) && (
-            <p className="text-xs text-slate-400 italic">No page data available for this report.</p>
           )}
         </div>
       )}
@@ -1355,28 +1149,7 @@ export default function FabricSessionDetailPage() {
             )}
 
             {activeTab === 'reports' && (
-              <div className="space-y-4">
-                {workspaces.map(ws => (
-                  <div key={ws.id} className="card overflow-hidden border-2 border-slate-200">
-                    <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
-                      <FileText className="h-4 w-4 text-blue-400" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900">{ws.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {ws.report_count} interactive · {ws.paginated_report_count} paginated
-                        </p>
-                      </div>
-                    </div>
-                    {ws.reports.length > 0 ? (
-                      <div className="p-4 space-y-3">
-                        {ws.reports.map(r => <ReportSection key={r.id} rpt={r} />)}
-                      </div>
-                    ) : (
-                      <p className="p-4 text-xs text-slate-400 italic">No reports in this workspace.</p>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <ReportsSegment workspaces={workspaces} />
             )}
 
             {activeTab === 'complexity' && (

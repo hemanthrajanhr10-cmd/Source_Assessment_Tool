@@ -1,8 +1,8 @@
 """
 Fabric workspace assessment routes.
 
-Auth flow  (interactive browser):
-  POST /fabric/auth/start               → {auth_id}  (opens system browser)
+Auth flow  (device-code):
+  POST /fabric/auth/start               → {auth_id, user_code, verification_url, expires_at}
   GET  /fabric/auth/{id}/status         → {status: 'pending'|'ready'|'error'|'not_found'}
   GET  /fabric/auth/{id}/workspaces     → FabricWorkspaceInfo[]
   POST /fabric/auth/{id}/workspace-items→ FabricWorkspaceItems[]
@@ -83,27 +83,39 @@ class FabricTokenRequest(BaseModel):
     report_id: str | None = None
 
 
-# ── Interactive-browser auth helpers ─────────────────────────────────────────
+# ── Device-code auth helpers ──────────────────────────────────────────────────
 
-def _run_browser_auth(auth_id: str) -> None:
+# Fallback public client ID (Azure CLI) used when FABRIC_CLIENT_ID is not set.
+_FALLBACK_CLIENT_ID = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
+
+
+def _run_device_code_auth(auth_id: str) -> None:
     """
     Blocking function run in a background thread.
-    Uses azure-identity InteractiveBrowserCredential to acquire a Fabric token.
-    Opens the system browser on the server machine; user signs in there.
-    Requires http://localhost to be registered as a redirect URI in the Azure AD app.
+    Uses azure-identity DeviceCodeCredential to acquire a Fabric token.
     """
     try:
-        from azure.identity import InteractiveBrowserCredential
+        from azure.identity import DeviceCodeCredential
 
-        credential = InteractiveBrowserCredential(
-            client_id=settings.fabric_client_id or "04b07795-8ddb-461a-bbee-02f9e1bf7b46",
+        def _prompt(uri: str, code: str, expires_on):
+            with _AUTH_LOCK:
+                _AUTH[auth_id].update({
+                    "user_code": code,
+                    "verification_url": uri,
+                    "expires_at": expires_on.isoformat() if hasattr(expires_on, "isoformat") else str(expires_on),
+                    "status": "pending",
+                })
+
+        credential = DeviceCodeCredential(
+            client_id=settings.fabric_client_id or _FALLBACK_CLIENT_ID,
             tenant_id=settings.fabric_tenant_id,
+            prompt_callback=_prompt,
         )
         token_obj = credential.get_token("https://api.fabric.microsoft.com/.default")
         with _AUTH_LOCK:
             _AUTH[auth_id]["token"] = token_obj.token
             _AUTH[auth_id]["status"] = "ready"
-        logger.info("Fabric browser auth completed for session %s", auth_id)
+        logger.info("Fabric device-code auth completed for session %s", auth_id)
 
     except Exception as exc:
         logger.error("Fabric auth failed (%s): %s", auth_id, exc)
@@ -128,21 +140,35 @@ def _get_token(auth_id: str) -> str:
 
 @router.post("/auth/start")
 async def fabric_auth_start(_: Any = Depends(get_current_user)):
-    """Initiate interactive browser login. Opens the system browser on the server machine."""
-    if not settings.fabric_client_id:
-        raise HTTPException(
-            status_code=503,
-            detail="FABRIC_CLIENT_ID is not configured on this server.",
-        )
+    """Initiate device-code flow. Returns user_code + verification_url."""
     auth_id = str(uuid.uuid4())
     with _AUTH_LOCK:
-        _AUTH[auth_id] = {"status": "pending", "token": None, "error": None}
+        _AUTH[auth_id] = {"status": "starting", "token": None, "error": None}
 
-    # Fire auth in a background thread (InteractiveBrowserCredential.get_token blocks)
-    t = threading.Thread(target=_run_browser_auth, args=(auth_id,), daemon=True)
+    # Fire auth in a real background thread (DeviceCodeCredential.get_token blocks)
+    t = threading.Thread(target=_run_device_code_auth, args=(auth_id,), daemon=True)
     t.start()
 
-    return {"auth_id": auth_id}
+    # Wait up to 8 s for the prompt callback to fire so we can return user_code
+    for _ in range(16):
+        await asyncio.sleep(0.5)
+        with _AUTH_LOCK:
+            sess = _AUTH.get(auth_id, {})
+        if sess.get("status") != "starting":
+            break
+
+    with _AUTH_LOCK:
+        sess = _AUTH.get(auth_id, {})
+
+    if sess.get("status") == "error":
+        raise HTTPException(status_code=503, detail=sess.get("error", "Auth failed"))
+
+    return {
+        "auth_id": auth_id,
+        "user_code": sess.get("user_code", ""),
+        "verification_url": sess.get("verification_url", "https://microsoft.com/devicelogin"),
+        "expires_at": sess.get("expires_at", ""),
+    }
 
 
 @router.get("/auth/{auth_id}/status")

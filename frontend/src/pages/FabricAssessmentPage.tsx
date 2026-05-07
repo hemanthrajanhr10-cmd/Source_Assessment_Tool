@@ -2,22 +2,27 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Zap, MonitorSmartphone, CheckCircle2, AlertCircle,
-  Loader2, Tag, ArrowRight,
+  Loader2, ExternalLink, Tag, ArrowRight, Copy,
   Building2, Database, FileText, Search, ChevronDown, ChevronRight,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { FabricWorkspaceInfo, FabricWorkspaceItems } from '../types/api'
 import Button from '../components/ui/Button'
+import { formatTime } from '../utils/dateTime'
 
-// Steps: start → waiting (browser login) → picking (workspaces) → picking-items (models & reports) → naming → submitting
+// Steps: start → waiting (device code) → picking (workspaces) → picking-items (models & reports) → naming → submitting
 type Step = 'start' | 'waiting' | 'picking' | 'picking-items' | 'naming' | 'submitting'
 
 export default function FabricAssessmentPage() {
   const navigate = useNavigate()
-  const [step, setStep]   = useState<Step>('start')
-  const [authId, setAuthId] = useState('')
-  const [label, setLabel]   = useState('')
-  const [error, setError]   = useState<string | null>(null)
+  const [step, setStep]           = useState<Step>('start')
+  const [authId, setAuthId]       = useState('')
+  const [userCode, setUserCode]   = useState('')
+  const [verificationUrl, setVerificationUrl] = useState('')
+  const [expiresAt, setExpiresAt] = useState('')
+  const [label, setLabel]         = useState('')
+  const [error, setError]         = useState<string | null>(null)
+  const [copied, setCopied]       = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Workspace selection state
@@ -94,10 +99,20 @@ export default function FabricAssessmentPage() {
     try {
       const { data } = await api.fabricAuthStart()
       setAuthId(data.auth_id)
+      setUserCode(data.user_code)
+      setVerificationUrl(data.verification_url)
+      setExpiresAt(data.expires_at)
     } catch (err) {
       setError(getApiErrorMessage(err))
       setStep('start')
     }
+  }
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(userCode).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
   }
 
   // ── Workspace selection helpers ────────────────────────────────────────────
@@ -261,9 +276,9 @@ export default function FabricAssessmentPage() {
             {step === 'start' && (
               <div className="space-y-4">
                 <p className="text-sm text-slate-500">
-                  Click below to open a Microsoft sign-in window in your browser. Once you sign in,
-                  this page will continue automatically. No passwords are stored — the token is held
-                  in memory only for this session.
+                  Click below to start a secure Microsoft device-code login. You will be given a short
+                  code to enter at <strong className="text-slate-700">microsoft.com/devicelogin</strong>.
+                  No passwords are stored — the token is held in memory only for this session.
                 </p>
                 <Button leftIcon={<MonitorSmartphone className="h-4 w-4" />} onClick={handleStartAuth}>
                   Connect to Microsoft Fabric
@@ -271,15 +286,49 @@ export default function FabricAssessmentPage() {
               </div>
             )}
 
-            {step === 'waiting' && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-sm text-slate-600">
-                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500 shrink-0" />
-                  <span>A browser window has opened — please sign in with your Microsoft account.</span>
-                </div>
-                <p className="text-xs text-slate-400 pl-8">
-                  This page will advance automatically once sign-in is complete.
+            {step === 'waiting' && !userCode && (
+              <div className="flex items-center gap-3 text-sm text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                Requesting device code from Microsoft…
+              </div>
+            )}
+
+            {step === 'waiting' && userCode && (
+              <div className="space-y-4">
+                <p className="text-sm text-slate-500">
+                  Open the link below in any browser and enter the code to authenticate:
                 </p>
+                <a
+                  href={verificationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4 shrink-0" />
+                  {verificationUrl}
+                </a>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-5 py-3 text-center">
+                    <p className="text-xs text-indigo-500/70 font-medium mb-0.5">Your code</p>
+                    <p className="text-2xl font-mono font-bold tracking-widest text-indigo-600">{userCode}</p>
+                  </div>
+                  <button
+                    onClick={handleCopy}
+                    className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 transition-colors"
+                  >
+                    <Copy className="h-4 w-4" />
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Waiting for you to sign in…
+                  {expiresAt && (
+                    <span className="text-xs text-slate-400">
+                      (expires {formatTime(expiresAt)})
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 

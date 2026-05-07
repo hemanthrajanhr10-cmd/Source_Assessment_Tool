@@ -1,11 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import {
-  X, TrendingUp, BarChart2, Table2, Filter,
-  Activity, PieChart, LayoutGrid, CreditCard, Eye,
-  ChevronDown, ChevronUp, ArrowRight,
-} from 'lucide-react'
+import { X, TrendingUp, ChevronDown, ChevronUp, ArrowRight, Eye } from 'lucide-react'
 import type { VisualField } from '../../types/api'
 import type { MockVisual, AssessmentStatus } from '../../data/mockReports'
+import { getVisualIcon, normalizeVisualType } from './VisualCard'
 
 export interface VisualChecklist {
   hasTitle: boolean
@@ -21,19 +18,6 @@ interface VisualDetailModalProps {
   onSave: (status: AssessmentStatus, checklist: VisualChecklist, notes: string) => void
 }
 
-// ── Type icons ────────────────────────────────────────────────────────────────
-
-const VISUAL_ICONS: Record<string, React.ReactNode> = {
-  'KPI Card':    <TrendingUp size={20} style={{ color: '#0078D4' }} />,
-  'Bar Chart':   <BarChart2 size={20} style={{ color: '#0078D4' }} />,
-  'Table':       <Table2 size={20} style={{ color: '#0078D4' }} />,
-  'Slicer':      <Filter size={20} style={{ color: '#0078D4' }} />,
-  'Line Chart':  <Activity size={20} style={{ color: '#0078D4' }} />,
-  'Donut Chart': <PieChart size={20} style={{ color: '#0078D4' }} />,
-  'Matrix':      <LayoutGrid size={20} style={{ color: '#0078D4' }} />,
-  'Card':        <CreditCard size={20} style={{ color: '#0078D4' }} />,
-}
-
 // ── Field type badge ──────────────────────────────────────────────────────────
 
 const FIELD_TYPE_STYLE: Record<string, { bg: string; color: string; border: string; label: string }> = {
@@ -47,8 +31,8 @@ function FieldTypeBadge({ type }: { type: string }) {
   const s = FIELD_TYPE_STYLE[type] ?? { bg: '#F3F2F1', color: '#605E5C', border: '#E1DFDD', label: type }
   return (
     <span
-      className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border flex-shrink-0"
-      style={{ background: s.bg, color: s.color, borderColor: s.border, fontSize: '10px' }}
+      className="inline-flex items-center px-1.5 py-0.5 rounded border font-medium whitespace-nowrap"
+      style={{ background: s.bg, color: s.color, borderColor: s.border, fontSize: '10px', lineHeight: '16px' }}
     >
       {s.label}
     </span>
@@ -60,165 +44,201 @@ function FieldTypeBadge({ type }: { type: string }) {
 const COMPLEXITY_STYLE: Record<string, { bg: string; color: string; border: string }> = {
   'None':         { bg: '#F3F2F1', color: '#8A8886', border: '#E1DFDD' },
   'Simple':       { bg: '#E6F8F0', color: '#107C10', border: '#9FDCB7' },
-  'Moderate':     { bg: '#FFF4E5', color: '#FF8C00', border: '#FFD199' },
+  'Moderate':     { bg: '#FFF4E5', color: '#CA8F00', border: '#FFD199' },
   'Complex':      { bg: '#FDE7E9', color: '#D13438', border: '#F1B9BB' },
   'Very Complex': { bg: '#FDE7E9', color: '#A4262C', border: '#F1B9BB' },
 }
 
 function ComplexityBadge({ level, score }: { level: string; score: number }) {
-  if (level === 'None') return null
+  if (level === 'None') return <span className="text-xs" style={{ color: '#C8C6C4' }}>—</span>
   const s = COMPLEXITY_STYLE[level] ?? COMPLEXITY_STYLE['None']
   return (
     <span
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border flex-shrink-0"
-      style={{ background: s.bg, color: s.color, borderColor: s.border, fontSize: '10px' }}
+      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border font-medium whitespace-nowrap"
+      style={{ background: s.bg, color: s.color, borderColor: s.border, fontSize: '10px', lineHeight: '16px' }}
     >
       {level}
-      {score > 0 && <span style={{ opacity: 0.7 }}>({score})</span>}
+      {score > 0 && <span style={{ opacity: 0.65 }}>({score})</span>}
     </span>
   )
 }
 
-// ── Single field row ──────────────────────────────────────────────────────────
+// ── Single expandable field row ───────────────────────────────────────────────
 
 function FieldRow({ field }: { field: VisualField }) {
   const [open, setOpen] = useState(false)
-  const hasDeps = field.field_type === 'measure' && field.dependencies && field.dependencies.length > 0
-  const hasExpr = !!field.expression
+  const canExpand = !!(field.expression || (field.dependencies && field.dependencies.length > 0))
 
   return (
-    <div className="border-b last:border-0" style={{ borderColor: '#F3F2F1' }}>
-      {/* Main row */}
-      <div
-        className={`flex items-center gap-2 px-3 py-2 ${hasDeps || hasExpr ? 'cursor-pointer hover:bg-slate-50' : ''}`}
-        onClick={() => (hasDeps || hasExpr) && setOpen(o => !o)}
+    <>
+      <tr
+        className={canExpand ? 'cursor-pointer hover:bg-blue-50/40' : 'hover:bg-slate-50/60'}
+        onClick={() => canExpand && setOpen(o => !o)}
+        style={{ borderBottom: '1px solid #F3F2F1' }}
       >
-        <FieldTypeBadge type={field.field_type} />
+        {/* Type */}
+        <td className="px-3 py-2 align-middle" style={{ width: 100, whiteSpace: 'nowrap' }}>
+          <FieldTypeBadge type={field.field_type} />
+        </td>
 
-        {/* Name */}
-        <span
-          className="flex-1 text-xs font-mono truncate min-w-0"
-          style={{ color: '#252423' }}
-          title={field.name}
-        >
-          {field.name}
-        </span>
+        {/* Field name */}
+        <td className="px-2 py-2 align-middle" style={{ maxWidth: 0 }}>
+          <span
+            className="text-xs font-mono block truncate"
+            style={{ color: '#252423' }}
+            title={field.name}
+          >
+            {field.name}
+          </span>
+          {field.field_type === 'aggregation' && field.agg_function && (
+            <span className="text-xs font-medium ml-0 mt-0.5 block" style={{ color: '#107C10' }}>
+              {field.agg_function}
+            </span>
+          )}
+        </td>
 
         {/* Table */}
-        <span
-          className="text-xs flex-shrink-0 font-mono"
-          style={{ color: '#8A8886' }}
-          title={`From table: ${field.table}`}
-        >
-          {field.table}
-        </span>
-
-        {/* Aggregation function */}
-        {field.field_type === 'aggregation' && field.agg_function && (
-          <span className="text-xs flex-shrink-0 font-medium" style={{ color: '#107C10' }}>
-            {field.agg_function}
+        <td className="px-2 py-2 align-middle" style={{ width: 140, maxWidth: 140 }}>
+          <span
+            className="text-xs font-mono block truncate"
+            style={{ color: '#8A8886' }}
+            title={field.table}
+          >
+            {field.table}
           </span>
-        )}
+        </td>
 
         {/* Complexity */}
-        {field.complexity && field.complexity.level !== 'None' && (
-          <ComplexityBadge level={field.complexity.level} score={field.complexity.score} />
-        )}
+        <td className="px-2 py-2 align-middle" style={{ width: 110, whiteSpace: 'nowrap' }}>
+          {field.complexity
+            ? <ComplexityBadge level={field.complexity.level} score={field.complexity.score} />
+            : <span className="text-xs" style={{ color: '#C8C6C4' }}>—</span>
+          }
+        </td>
 
-        {/* Expand chevron */}
-        {(hasDeps || hasExpr) && (
-          open
-            ? <ChevronUp size={12} style={{ color: '#8A8886', flexShrink: 0 }} />
-            : <ChevronDown size={12} style={{ color: '#8A8886', flexShrink: 0 }} />
-        )}
-      </div>
+        {/* Expand toggle */}
+        <td className="pr-2 py-2 align-middle" style={{ width: 20 }}>
+          {canExpand && (
+            open
+              ? <ChevronUp size={12} style={{ color: '#8A8886' }} />
+              : <ChevronDown size={12} style={{ color: '#8A8886' }} />
+          )}
+        </td>
+      </tr>
 
-      {/* Expanded: expression + dependencies */}
-      {open && (hasExpr || hasDeps) && (
-        <div className="px-3 pb-3 space-y-2" style={{ background: '#FAFAFA' }}>
-          {hasExpr && (
-            <pre
-              className="text-xs font-mono rounded p-2 overflow-x-auto whitespace-pre-wrap max-h-28 border"
-              style={{ background: '#F3F2F1', color: '#605E5C', borderColor: '#E1DFDD' }}
-            >
-              {field.expression}
-            </pre>
-          )}
-          {hasDeps && field.dependencies && (
-            <div className="flex flex-wrap gap-1.5">
-              {field.dependencies.map((dep, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs font-mono"
-                  style={{ background: '#fff', borderColor: '#E1DFDD', color: '#252423' }}
-                >
-                  <span style={{ color: '#8A8886' }}>{dep.table}</span>
-                  <ArrowRight size={9} style={{ color: '#C8C6C4' }} />
-                  <span style={{ fontWeight: 600 }}>{dep.column}</span>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Expanded content */}
+      {open && canExpand && (
+        <tr style={{ background: '#FAFAFA', borderBottom: '1px solid #F3F2F1' }}>
+          <td colSpan={5} className="px-4 pb-3 pt-1">
+            {field.expression && (
+              <pre
+                className="text-xs font-mono rounded p-2 overflow-x-auto whitespace-pre-wrap border mb-2"
+                style={{ background: '#F3F2F1', color: '#605E5C', borderColor: '#E1DFDD', maxHeight: 100 }}
+              >
+                {field.expression}
+              </pre>
+            )}
+            {field.dependencies && field.dependencies.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {field.dependencies.map((dep, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs font-mono"
+                    style={{ background: '#fff', borderColor: '#E1DFDD', color: '#252423' }}
+                  >
+                    <span style={{ color: '#8A8886' }}>{dep.table}</span>
+                    <ArrowRight size={9} style={{ color: '#C8C6C4' }} />
+                    <span style={{ fontWeight: 600 }}>{dep.column}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   )
 }
 
-// ── Fields panel ──────────────────────────────────────────────────────────────
+// ── Fields table ──────────────────────────────────────────────────────────────
 
-function FieldsPanel({ fields }: { fields: VisualField[] }) {
-  const measures   = fields.filter(f => f.field_type === 'measure')
-  const columns    = fields.filter(f => f.field_type === 'column' || f.field_type === 'aggregation')
-  const other      = fields.filter(f => f.field_type !== 'measure' && f.field_type !== 'column' && f.field_type !== 'aggregation')
-
+function FieldsTable({ fields }: { fields: VisualField[] }) {
   if (fields.length === 0) {
     return (
-      <p className="text-xs italic py-4 text-center" style={{ color: '#8A8886' }}>
-        No field bindings detected for this visual.
-      </p>
+      <div className="flex flex-col items-center justify-center gap-2 py-10 px-6 text-center">
+        <Eye size={28} style={{ color: '#C8C6C4' }} />
+        <p className="text-sm font-medium" style={{ color: '#605E5C' }}>No field bindings detected</p>
+        <p className="text-xs" style={{ color: '#8A8886' }}>
+          Field-level data is extracted only when the full report layout is parsed.
+        </p>
+      </div>
     )
   }
 
-  const Section = ({ title, items }: { title: string; items: VisualField[] }) =>
-    items.length === 0 ? null : (
-      <div>
-        <p
-          className="text-xs font-semibold uppercase tracking-wide px-3 py-1.5 border-b"
-          style={{ color: '#605E5C', background: '#F3F2F1', borderColor: '#E1DFDD' }}
-        >
-          {title} ({items.length})
-        </p>
-        <div>
-          {items.map((f, i) => <FieldRow key={i} field={f} />)}
-        </div>
-      </div>
-    )
+  // Group: measures first, then columns/aggregations, then the rest
+  const measures   = fields.filter(f => f.field_type === 'measure')
+  const colAgg     = fields.filter(f => f.field_type === 'column' || f.field_type === 'aggregation')
+  const other      = fields.filter(f => !['measure', 'column', 'aggregation'].includes(f.field_type))
+
+  const SectionDivider = ({ label, count }: { label: string; count: number }) => (
+    <tr>
+      <td
+        colSpan={5}
+        className="px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+        style={{ background: '#F3F2F1', color: '#605E5C', borderBottom: '1px solid #E1DFDD' }}
+      >
+        {label} ({count})
+      </td>
+    </tr>
+  )
 
   return (
-    <div className="rounded border overflow-hidden" style={{ borderColor: '#E1DFDD' }}>
-      <Section title="Measures" items={measures} />
-      <Section title="Columns & Aggregations" items={columns} />
-      <Section title="Other" items={other} />
-    </div>
+    <table className="w-full border-collapse" style={{ fontSize: 12 }}>
+      <thead>
+        <tr style={{ background: '#F3F2F1', borderBottom: '1px solid #E1DFDD' }}>
+          <th className="px-3 py-2 text-left font-semibold" style={{ color: '#605E5C', width: 100, fontSize: 11 }}>Type</th>
+          <th className="px-2 py-2 text-left font-semibold" style={{ color: '#605E5C', fontSize: 11 }}>Field Name</th>
+          <th className="px-2 py-2 text-left font-semibold" style={{ color: '#605E5C', width: 140, fontSize: 11 }}>Table</th>
+          <th className="px-2 py-2 text-left font-semibold" style={{ color: '#605E5C', width: 110, fontSize: 11 }}>Complexity</th>
+          <th style={{ width: 20 }} />
+        </tr>
+      </thead>
+      <tbody>
+        {measures.length > 0 && (
+          <>
+            <SectionDivider label="Measures" count={measures.length} />
+            {measures.map((f, i) => <FieldRow key={`m-${i}`} field={f} />)}
+          </>
+        )}
+        {colAgg.length > 0 && (
+          <>
+            <SectionDivider label="Columns & Aggregations" count={colAgg.length} />
+            {colAgg.map((f, i) => <FieldRow key={`c-${i}`} field={f} />)}
+          </>
+        )}
+        {other.length > 0 && (
+          <>
+            <SectionDivider label="Other" count={other.length} />
+            {other.map((f, i) => <FieldRow key={`o-${i}`} field={f} />)}
+          </>
+        )}
+      </tbody>
+    </table>
   )
 }
 
-// ── Mock visual previews (left panel) ────────────────────────────────────────
+// ── Left panel: visual preview ────────────────────────────────────────────────
 
 function KpiPreview({ visual }: { visual: MockVisual }) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-2">
-      <div className="text-5xl font-bold" style={{ color: '#252423' }}>
-        {visual.mockValue ?? '—'}
+    <div className="flex flex-col items-center justify-center h-full gap-3">
+      <div className="text-4xl font-bold" style={{ color: '#252423' }}>
+        {visual.mockValue ?? (visual.fields && visual.fields.length > 0 ? `${visual.fields.length} fields` : '—')}
       </div>
-      {visual.mockSubtitle && (
-        <div className="flex items-center gap-1 text-sm" style={{ color: '#107C10' }}>
-          <TrendingUp size={14} />
-          {visual.mockSubtitle}
-        </div>
-      )}
-      <div className="text-xs mt-1" style={{ color: '#8A8886' }}>{visual.title}</div>
+      <div className="flex items-center gap-1 text-sm" style={{ color: '#107C10' }}>
+        <TrendingUp size={14} />
+        <span>{visual.mockSubtitle ?? 'Value'}</span>
+      </div>
     </div>
   )
 }
@@ -229,10 +249,10 @@ function BarPreview() {
     { label: 'Apr', pct: 90 }, { label: 'May', pct: 65 }, { label: 'Jun', pct: 78 },
   ]
   return (
-    <div className="flex items-end gap-3 h-36 px-4">
+    <div className="flex items-end gap-2 w-full px-4" style={{ height: 120 }}>
       {bars.map(b => (
         <div key={b.label} className="flex-1 flex flex-col items-center gap-1">
-          <div className="w-full rounded-t" style={{ height: `${b.pct}%`, background: '#0078D4', minHeight: 4 }} />
+          <div className="w-full rounded-t" style={{ height: `${b.pct}%`, background: '#0078D4' }} />
           <span className="text-xs" style={{ color: '#605E5C' }}>{b.label}</span>
         </div>
       ))}
@@ -242,14 +262,14 @@ function BarPreview() {
 
 function LinePreview() {
   const pts = [30, 55, 40, 70, 60, 85, 75, 90]
-  const w = 280; const h = 120
+  const w = 260; const h = 110
   const xStep = w / (pts.length - 1)
   const yScale = (v: number) => h - (v / 100) * h
   const d = pts.map((v, i) => `${i === 0 ? 'M' : 'L'} ${i * xStep} ${yScale(v)}`).join(' ')
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: 140 }}>
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: 130 }}>
       <path d={d} fill="none" stroke="#0078D4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      {pts.map((v, i) => <circle key={i} cx={i * xStep} cy={yScale(v)} r="3.5" fill="#0078D4" />)}
+      {pts.map((v, i) => <circle key={i} cx={i * xStep} cy={yScale(v)} r="3" fill="#0078D4" />)}
     </svg>
   )
 }
@@ -257,25 +277,25 @@ function LinePreview() {
 function TablePreview({ fields }: { fields?: VisualField[] }) {
   const cols = fields && fields.length > 0
     ? fields.slice(0, 3).map(f => f.name)
-    : ['Account', 'Revenue', 'OTIF']
-  const rows = [
-    ['Account A', '£1.2M', '94%'], ['Account B', '£980K', '87%'],
-    ['Account C', '£750K', '91%'],
-  ]
+    : ['Column A', 'Column B', 'Column C']
+  const mockRows = [['Value 1', '1,234', '94%'], ['Value 2', '980', '87%'], ['Value 3', '750', '91%']]
   return (
-    <table className="w-full text-sm border-collapse">
+    <table className="w-full text-xs border-collapse">
       <thead>
         <tr style={{ background: '#F3F2F1' }}>
           {cols.map(h => (
-            <th key={h} className="text-left px-3 py-2 text-xs font-semibold border-b" style={{ color: '#605E5C', borderColor: '#E1DFDD' }}>{h}</th>
+            <th key={h} className="px-2 py-1.5 text-left font-semibold border-b truncate max-w-24"
+              style={{ color: '#605E5C', borderColor: '#E1DFDD' }} title={h}>{h}</th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {rows.map((row, i) => (
+        {mockRows.map((row, i) => (
           <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
             {cols.map((_, j) => (
-              <td key={j} className="px-3 py-2 text-xs border-b" style={{ color: '#252423', borderColor: '#E1DFDD' }}>{row[j] ?? '—'}</td>
+              <td key={j} className="px-2 py-1.5 border-b" style={{ color: '#252423', borderColor: '#F3F2F1' }}>
+                {row[j] ?? '—'}
+              </td>
             ))}
           </tr>
         ))}
@@ -284,14 +304,20 @@ function TablePreview({ fields }: { fields?: VisualField[] }) {
   )
 }
 
-function SlicerPreview() {
-  const chips = ['All Accounts', 'Tier 1', 'Tier 2', 'Tier 3', 'Key Accounts']
+function SlicerPreview({ fields }: { fields?: VisualField[] }) {
+  const chips = fields && fields.length > 0
+    ? ['(All)', ...fields.slice(0, 4).map(f => f.name)]
+    : ['(All)', 'Option A', 'Option B', 'Option C', 'Option D']
   return (
-    <div className="flex flex-wrap gap-2 p-2">
+    <div className="flex flex-wrap gap-2 justify-center">
       {chips.map((c, i) => (
         <span key={c} className="px-3 py-1 rounded-full text-xs border font-medium"
-          style={{ background: i === 0 ? '#0078D4' : '#fff', color: i === 0 ? '#fff' : '#252423', borderColor: i === 0 ? '#0078D4' : '#E1DFDD' }}>
-          {c}
+          style={{
+            background: i === 0 ? '#0078D4' : '#fff',
+            color: i === 0 ? '#fff' : '#252423',
+            borderColor: i === 0 ? '#0078D4' : '#E1DFDD',
+          }}>
+          {c.length > 18 ? c.slice(0, 17) + '…' : c}
         </span>
       ))}
     </div>
@@ -299,32 +325,42 @@ function SlicerPreview() {
 }
 
 function GenericPreview({ visual }: { visual: MockVisual }) {
-  const icon = VISUAL_ICONS[visual.type] ?? <Eye size={40} style={{ color: '#8A8886' }} />
+  const icon = getVisualIcon(visual.type, 40)
+  const displayType = normalizeVisualType(visual.type)
+  const fieldCount = visual.fields?.length ?? 0
   return (
     <div className="flex flex-col items-center justify-center h-full gap-3">
-      <div style={{ transform: 'scale(2)' }}>{icon}</div>
-      <p className="text-sm mt-4" style={{ color: '#605E5C' }}>{visual.type}</p>
-      {visual.mockValue && <p className="text-2xl font-bold" style={{ color: '#252423' }}>{visual.mockValue}</p>}
+      <div style={{ transform: 'scale(1.4)', transformOrigin: 'center' }}>{icon}</div>
+      <p className="text-sm font-semibold mt-3" style={{ color: '#252423' }}>{displayType}</p>
+      {fieldCount > 0 && (
+        <p className="text-base font-bold" style={{ color: '#605E5C' }}>
+          {fieldCount} field{fieldCount !== 1 ? 's' : ''}
+        </p>
+      )}
     </div>
   )
 }
 
 function VisualPreview({ visual }: { visual: MockVisual }) {
-  switch (visual.type) {
-    case 'KPI Card': case 'Card': return <KpiPreview visual={visual} />
-    case 'Bar Chart':             return <BarPreview />
-    case 'Line Chart':            return <LinePreview />
-    case 'Table': case 'Matrix':  return <TablePreview fields={visual.fields} />
-    case 'Slicer':                return <SlicerPreview />
-    default:                      return <GenericPreview visual={visual} />
-  }
+  const t = visual.type.toLowerCase()
+  if (['card', 'kpivisual', 'kpi', 'kpi card'].includes(t))
+    return <KpiPreview visual={visual} />
+  if (['barchart', 'columnchart', 'clusteredcolumnchart', 'stackedcolumnchart',
+       'clusteredbarchart', 'stackedbarchart', 'bar chart', 'column chart'].includes(t))
+    return <BarPreview />
+  if (['linechart', 'areachart', 'stackedareachart', 'line chart'].includes(t))
+    return <LinePreview />
+  if (['tableex', 'table', 'matrix', 'pivottable'].includes(t))
+    return <TablePreview fields={visual.fields} />
+  if (t === 'slicer')
+    return <SlicerPreview fields={visual.fields} />
+  return <GenericPreview visual={visual} />
 }
 
 // ── Main Modal ────────────────────────────────────────────────────────────────
 
 export default function VisualDetailModal({
   visual,
-  assessmentStatus: _assessmentStatus,
   onClose,
   onSave,
 }: VisualDetailModalProps) {
@@ -348,32 +384,37 @@ export default function VisualDetailModal({
 
   if (!visual) return null
 
-  const measureCount   = visual.fields?.filter(f => f.field_type === 'measure').length ?? 0
-  const columnCount    = visual.fields?.filter(f => f.field_type === 'column' || f.field_type === 'aggregation').length ?? 0
-  const complexFields  = visual.fields?.filter(f => f.complexity && f.complexity.level !== 'None') ?? []
+  const displayType   = normalizeVisualType(visual.type)
+  const iconEl        = getVisualIcon(visual.type, 16)
+  const fields        = visual.fields ?? []
+  const measureCount  = fields.filter(f => f.field_type === 'measure').length
+  const columnCount   = fields.filter(f => f.field_type === 'column' || f.field_type === 'aggregation').length
+  const complexCount  = fields.filter(f => f.complexity && f.complexity.level !== 'None').length
 
-  const handleSaveAndClose = () => {
+  const displayTitle = visual.title && visual.title.toLowerCase() !== visual.type.toLowerCase()
+    ? visual.title
+    : displayType
+
+  const handleClose2 = () => {
     onSave('not-assessed', { hasTitle: false, hasFilters: false, meetsRefreshSLA: false, isAccessible: false }, '')
     handleClose()
   }
 
-  const iconEl = VISUAL_ICONS[visual.type]
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: visible ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0)', transition: 'background 200ms ease' }}
+      style={{ background: visible ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0)', transition: 'background 200ms ease' }}
       onClick={e => { if (e.target === e.currentTarget) handleClose() }}
       role="dialog"
       aria-modal
-      aria-label={`Visual details: ${visual.title}`}
+      aria-label={`Visual details: ${displayTitle}`}
     >
       <div
         className="bg-white rounded-xl shadow-2xl flex overflow-hidden"
         style={{
-          maxWidth: 960,
+          maxWidth: 980,
           width: '100%',
-          maxHeight: '92vh',
+          maxHeight: '90vh',
           transform: visible ? 'scale(1)' : 'scale(0.95)',
           opacity: visible ? 1 : 0,
           transition: 'transform 200ms cubic-bezier(0.34,1.56,0.64,1), opacity 200ms ease',
@@ -381,115 +422,92 @@ export default function VisualDetailModal({
         }}
         onClick={e => e.stopPropagation()}
       >
-        {/* ── Left: Visual preview (55%) ──────────────────────────────────── */}
-        <div
-          className="flex flex-col overflow-hidden"
-          style={{ width: '55%', background: '#F3F2F1', borderRight: '1px solid #E1DFDD' }}
-        >
+        {/* ── Left: Visual preview ─────────────────────────────────────────── */}
+        <div className="flex flex-col overflow-hidden" style={{ width: '42%', background: '#F3F2F1', borderRight: '1px solid #E1DFDD' }}>
+
           {/* Header */}
-          <div
-            className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0"
-            style={{ background: '#fff', borderColor: '#E1DFDD' }}
-          >
+          <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
+            style={{ background: '#fff', borderColor: '#E1DFDD' }}>
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 flex items-center justify-center rounded flex-shrink-0" style={{ background: '#EFF6FF' }}>
-                {iconEl
-                  ? (() => { const el = iconEl as React.ReactElement; return { ...el, props: { ...el.props, size: 16 } } })()
-                  : <Eye size={16} style={{ color: '#0078D4' }} />}
+                {iconEl}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: '#252423' }}>{visual.title}</p>
-                <p className="text-xs" style={{ color: '#8A8886' }}>{visual.type}</p>
+                <p className="text-sm font-semibold truncate leading-tight" style={{ color: '#252423' }}>{displayTitle}</p>
+                <p className="text-xs" style={{ color: '#8A8886' }}>{displayType}</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleClose}
+            <button type="button" onClick={handleClose}
               className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-              aria-label="Close"
-            >
+              aria-label="Close">
               <X size={16} style={{ color: '#605E5C' }} />
             </button>
           </div>
 
-          {/* Preview */}
-          <div className="flex-1 overflow-auto flex flex-col items-stretch p-4">
-            <div
-              className="flex-1 bg-white rounded-lg shadow-sm border flex items-center justify-center p-5 min-h-44"
-              style={{ borderColor: '#E1DFDD' }}
-            >
+          {/* Preview canvas */}
+          <div className="flex-1 overflow-auto p-4 flex flex-col gap-3">
+            <div className="bg-white rounded-lg shadow-sm border flex items-center justify-center p-5"
+              style={{ borderColor: '#E1DFDD', minHeight: 180 }}>
               <VisualPreview visual={visual} />
             </div>
 
-            {/* Stats strip */}
-            <div className="flex items-center gap-4 mt-3 px-1">
-              <span className="text-xs" style={{ color: '#8A8886' }}>
-                {(visual.fields?.length ?? 0)} field{(visual.fields?.length ?? 0) !== 1 ? 's' : ''}
+            {/* Stats */}
+            <div className="flex items-center gap-3 flex-wrap px-1">
+              <span className="text-xs px-2 py-0.5 rounded-full border font-medium"
+                style={{ color: '#0078D4', borderColor: '#B3D4F5', background: '#EFF6FF' }}>
+                {displayType}
               </span>
-              {measureCount > 0 && <span className="text-xs" style={{ color: '#8764B8' }}>{measureCount} measure{measureCount !== 1 ? 's' : ''}</span>}
-              {columnCount > 0 && <span className="text-xs" style={{ color: '#0078D4' }}>{columnCount} column{columnCount !== 1 ? 's' : ''}</span>}
-              {complexFields.length > 0 && (
-                <span className="text-xs" style={{ color: '#D13438' }}>{complexFields.length} complex</span>
+              {fields.length > 0 && (
+                <span className="text-xs" style={{ color: '#605E5C' }}>{fields.length} field{fields.length !== 1 ? 's' : ''}</span>
+              )}
+              {measureCount > 0 && (
+                <span className="text-xs" style={{ color: '#8764B8' }}>{measureCount} measure{measureCount !== 1 ? 's' : ''}</span>
+              )}
+              {columnCount > 0 && (
+                <span className="text-xs" style={{ color: '#0078D4' }}>{columnCount} column{columnCount !== 1 ? 's' : ''}</span>
+              )}
+              {complexCount > 0 && (
+                <span className="text-xs" style={{ color: '#D13438' }}>{complexCount} complex</span>
               )}
             </div>
           </div>
         </div>
 
-        {/* ── Right: Field detail panel (45%) ─────────────────────────────── */}
-        <div className="flex flex-col overflow-hidden" style={{ width: '45%' }}>
+        {/* ── Right: Field bindings ────────────────────────────────────────── */}
+        <div className="flex flex-col overflow-hidden" style={{ width: '58%' }}>
+
           {/* Panel header */}
-          <div
-            className="px-5 py-3 border-b flex-shrink-0"
-            style={{ background: '#fff', borderColor: '#E1DFDD' }}
-          >
-            <p className="text-sm font-semibold" style={{ color: '#252423' }}>Field Bindings</p>
-            <p className="text-xs mt-0.5" style={{ color: '#8A8886' }}>
-              Columns and measures used by this visual
-            </p>
-          </div>
-
-          {/* Column headers */}
-          {visual.fields && visual.fields.length > 0 && (
-            <div
-              className="flex items-center gap-2 px-3 py-1.5 border-b text-xs font-semibold flex-shrink-0"
-              style={{ borderColor: '#E1DFDD', background: '#F3F2F1', color: '#605E5C' }}
-            >
-              <span style={{ width: 72, flexShrink: 0 }}>Type</span>
-              <span className="flex-1">Field Name</span>
-              <span style={{ width: 90, textAlign: 'right', flexShrink: 0 }}>Table</span>
-              <span style={{ width: 80, textAlign: 'right', flexShrink: 0 }}>Complexity</span>
+          <div className="px-4 py-3 border-b flex-shrink-0 flex items-center justify-between"
+            style={{ background: '#fff', borderColor: '#E1DFDD' }}>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: '#252423' }}>Field Bindings</p>
+              <p className="text-xs mt-0.5" style={{ color: '#8A8886' }}>
+                Columns and measures used by this visual — click a measure to expand its DAX expression
+              </p>
             </div>
-          )}
-
-          {/* Scrollable field list */}
-          <div className="flex-1 overflow-y-auto">
-            {visual.fields && visual.fields.length > 0 ? (
-              <FieldsPanel fields={visual.fields} />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full gap-2 px-6 text-center">
-                <Eye size={32} style={{ color: '#C8C6C4' }} />
-                <p className="text-sm font-medium" style={{ color: '#605E5C' }}>No field data available</p>
-                <p className="text-xs" style={{ color: '#8A8886' }}>
-                  Field bindings are extracted only when the report layout is fully parsed.
-                </p>
-              </div>
+            {fields.length > 0 && (
+              <span className="text-xs px-2 py-1 rounded-full border font-semibold"
+                style={{ color: '#605E5C', borderColor: '#E1DFDD', background: '#F3F2F1', flexShrink: 0 }}>
+                {fields.length} total
+              </span>
             )}
           </div>
 
+          {/* Scrollable field table */}
+          <div className="flex-1 overflow-y-auto">
+            <FieldsTable fields={fields} />
+          </div>
+
           {/* Footer */}
-          <div
-            className="px-5 py-3 border-t flex items-center justify-between flex-shrink-0"
-            style={{ borderColor: '#E1DFDD', background: '#FAFAFA' }}
-          >
-            <span className="text-xs" style={{ color: '#8A8886' }}>
-              Visual ID: <span className="font-mono">{visual.id}</span>
+          <div className="px-4 py-3 border-t flex items-center justify-between flex-shrink-0"
+            style={{ borderColor: '#E1DFDD', background: '#FAFAFA' }}>
+            <span className="text-xs font-mono truncate" style={{ color: '#8A8886', maxWidth: '65%' }}
+              title={visual.id}>
+              ID: {visual.id}
             </span>
-            <button
-              type="button"
-              onClick={handleSaveAndClose}
-              className="py-1.5 px-4 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              style={{ background: '#0078D4' }}
-            >
+            <button type="button" onClick={handleClose2}
+              className="py-1.5 px-5 rounded text-sm font-semibold text-white transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex-shrink-0"
+              style={{ background: '#0078D4' }}>
               Close
             </button>
           </div>

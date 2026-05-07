@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Zap, MonitorSmartphone, CheckCircle2, AlertCircle,
   Loader2, ExternalLink, Tag, ArrowRight, Copy,
-  Building2, Database, FileText, Search, ChevronDown, ChevronRight,
+  Building2, Database, FileText, Search, ChevronDown, ChevronRight, X,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { FabricWorkspaceInfo, FabricWorkspaceItems } from '../types/api'
@@ -12,6 +12,12 @@ import { formatTime } from '../utils/dateTime'
 
 // Steps: start → waiting (device code) → picking (workspaces) → picking-items (models & reports) → naming → submitting
 type Step = 'start' | 'waiting' | 'picking' | 'picking-items' | 'naming' | 'submitting'
+
+/** How long (ms) to wait before surfacing a timeout message. */
+const AUTH_TIMEOUT_MS = 30_000
+
+/** How many consecutive poll failures before giving up. */
+const MAX_CONSECUTIVE_POLL_ERRORS = 5
 
 export default function FabricAssessmentPage() {
   const navigate = useNavigate()
@@ -22,8 +28,10 @@ export default function FabricAssessmentPage() {
   const [expiresAt, setExpiresAt] = useState('')
   const [label, setLabel]         = useState('')
   const [error, setError]         = useState<string | null>(null)
+  const [cancelInfo, setCancelInfo] = useState<string | null>(null)
   const [copied, setCopied]       = useState(false)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Workspace selection state
   const [workspaces, setWorkspaces]               = useState<FabricWorkspaceInfo[]>([])
@@ -39,23 +47,91 @@ export default function FabricAssessmentPage() {
   const [itemFilter, setItemFilter]                     = useState('')
   const [expandedWorkspaces, setExpandedWorkspaces]     = useState<Set<string>>(new Set())
 
+  /** Clears all in-flight timers and resets auth state to 'start'. */
+  const resetToStart = useCallback((message?: string) => {
+    clearInterval(pollRef.current ?? undefined)
+    clearTimeout(timeoutRef.current ?? undefined)
+    pollRef.current    = null
+    timeoutRef.current = null
+    setStep('start')
+    setAuthId('')
+    setUserCode('')
+    setVerificationUrl('')
+    setExpiresAt('')
+    setError(null)
+    if (message) setCancelInfo(message)
+  }, [])
+
+  /** Aborts the device-code flow and returns the user to the start view. */
+  const handleCancel = useCallback(() => {
+    resetToStart('Sign-in cancelled. You can try again.')
+  }, [resetToStart])
+
   // Poll auth status while in 'waiting' step
   useEffect(() => {
     if (step !== 'waiting' || !authId) return
+
+    let consecutiveErrors = 0
+
+    // Surface a timeout message if auth takes too long
+    timeoutRef.current = setTimeout(() => {
+      clearInterval(pollRef.current ?? undefined)
+      pollRef.current = null
+      setStep('start')
+      setError(
+        'Sign-in timed out after 30 seconds. ' +
+        'Please check your network connection and try again.'
+      )
+    }, AUTH_TIMEOUT_MS)
+
     pollRef.current = setInterval(async () => {
       try {
         const { data } = await api.fabricAuthStatus(authId)
+        consecutiveErrors = 0 // reset on success
+
         if (data.status === 'ready') {
-          clearInterval(pollRef.current!)
+          clearInterval(pollRef.current ?? undefined)
+          clearTimeout(timeoutRef.current ?? undefined)
+          pollRef.current    = null
+          timeoutRef.current = null
           await fetchWorkspaces(authId)
         } else if (data.status === 'error') {
-          clearInterval(pollRef.current!)
+          clearInterval(pollRef.current ?? undefined)
+          clearTimeout(timeoutRef.current ?? undefined)
+          pollRef.current    = null
+          timeoutRef.current = null
           setError(data.error || 'Authentication failed')
           setStep('start')
+        } else if (data.status === 'not_found') {
+          // Auth session was lost (e.g. server restart); restart cleanly
+          clearInterval(pollRef.current ?? undefined)
+          clearTimeout(timeoutRef.current ?? undefined)
+          pollRef.current    = null
+          timeoutRef.current = null
+          setError('Auth session expired. Please start again.')
+          setStep('start')
         }
-      } catch { /* ignore transient */ }
+        // 'starting' and 'pending' are valid wait states — continue polling
+      } catch {
+        consecutiveErrors++
+        if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) {
+          clearInterval(pollRef.current ?? undefined)
+          clearTimeout(timeoutRef.current ?? undefined)
+          pollRef.current    = null
+          timeoutRef.current = null
+          setError(
+            'Unable to reach the server. ' +
+            'Please check your connection and try again.'
+          )
+          setStep('start')
+        }
+      }
     }, 3000)
-    return () => clearInterval(pollRef.current!)
+
+    return () => {
+      clearInterval(pollRef.current ?? undefined)
+      clearTimeout(timeoutRef.current ?? undefined)
+    }
   }, [step, authId])
 
   const fetchWorkspaces = async (id: string) => {
@@ -95,6 +171,7 @@ export default function FabricAssessmentPage() {
 
   const handleStartAuth = async () => {
     setError(null)
+    setCancelInfo(null)
     setStep('waiting')
     try {
       const { data } = await api.fabricAuthStart()
@@ -243,9 +320,9 @@ export default function FabricAssessmentPage() {
     }
   }
 
-  const authDone        = step !== 'start' && step !== 'waiting'
-  const wsDone          = step === 'picking-items' || step === 'naming' || step === 'submitting'
-  const itemsDone       = step === 'naming' || step === 'submitting'
+  const authDone  = step !== 'start' && step !== 'waiting'
+  const wsDone    = step === 'picking-items' || step === 'naming' || step === 'submitting'
+  const itemsDone = step === 'naming' || step === 'submitting'
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -275,6 +352,20 @@ export default function FabricAssessmentPage() {
           <div className="p-6">
             {step === 'start' && (
               <div className="space-y-4">
+                {/* Cancel / dismissible info banner */}
+                {cancelInfo && (
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-slate-400" />
+                    <span className="flex-1">{cancelInfo}</span>
+                    <button
+                      onClick={() => setCancelInfo(null)}
+                      aria-label="Dismiss"
+                      className="ml-auto text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
                 <p className="text-sm text-slate-500">
                   Click below to start a secure Microsoft device-code login. You will be given a short
                   code to enter at <strong className="text-slate-700">microsoft.com/devicelogin</strong>.
@@ -286,13 +377,25 @@ export default function FabricAssessmentPage() {
               </div>
             )}
 
+            {/* Waiting — code not yet received */}
             {step === 'waiting' && !userCode && (
-              <div className="flex items-center gap-3 text-sm text-slate-500">
-                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
-                Requesting device code from Microsoft…
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 text-sm text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                  Requesting device code from Microsoft…
+                </div>
+                <button
+                  onClick={handleCancel}
+                  aria-label="Cancel sign-in"
+                  role="button"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-transparent px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer"
+                >
+                  Cancel
+                </button>
               </div>
             )}
 
+            {/* Waiting — code received, user must go to microsoft.com/devicelogin */}
             {step === 'waiting' && userCode && (
               <div className="space-y-4">
                 <p className="text-sm text-slate-500">
@@ -329,6 +432,24 @@ export default function FabricAssessmentPage() {
                     </span>
                   )}
                 </div>
+
+                {/* Cancel button — accessible, ghost style, centered */}
+                <button
+                  onClick={handleCancel}
+                  aria-label="Cancel sign-in"
+                  role="button"
+                  className={[
+                    'flex w-full items-center justify-center gap-1.5 rounded-xl',
+                    'border border-slate-300 bg-transparent px-4 py-2',
+                    'text-sm text-slate-500',
+                    'hover:bg-slate-50 hover:text-slate-700',
+                    'transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50',
+                    'cursor-pointer',
+                    'sm:w-auto sm:mx-auto',
+                  ].join(' ')}
+                >
+                  ← Back
+                </button>
               </div>
             )}
 
@@ -512,9 +633,9 @@ export default function FabricAssessmentPage() {
                       {/* Workspace-grouped item list */}
                       <div className="max-h-96 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-50">
                         {filteredItems.map(ws => {
-                          const wsName     = wsNameMap[ws.workspace_id] || ws.workspace_id
-                          const expanded   = expandedWorkspaces.has(ws.workspace_id)
-                          const dsSelected = ws.datasets.filter(d => selectedDatasetIds.has(d.id)).length
+                          const wsName      = wsNameMap[ws.workspace_id] || ws.workspace_id
+                          const expanded    = expandedWorkspaces.has(ws.workspace_id)
+                          const dsSelected  = ws.datasets.filter(d => selectedDatasetIds.has(d.id)).length
                           const rptSelected = ws.reports.filter(r => selectedReportIds.has(r.id)).length
 
                           return (

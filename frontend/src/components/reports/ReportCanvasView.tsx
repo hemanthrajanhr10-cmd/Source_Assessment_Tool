@@ -1,23 +1,16 @@
 import { useState } from 'react'
 import { Bookmark, Share2, Filter, Maximize2, ChevronRight } from 'lucide-react'
-import type { MockReport, MockVisual, AssessmentStatus } from '../../data/mockReports'
+import type { MockReport, MockVisual } from '../../data/mockReports'
 import PageSidebar from './PageSidebar'
 import PageTabStrip from './PageTabStrip'
 import VisualGrid from './VisualGrid'
 
 interface ReportCanvasViewProps {
   report: MockReport
-  visualAssessments: Record<string, AssessmentStatus>
-  onUpdateVisualStatus: (visualId: string, status: AssessmentStatus) => void
   onVisualClick: (visual: MockVisual) => void
 }
 
-export default function ReportCanvasView({
-  report,
-  visualAssessments,
-  onUpdateVisualStatus,
-  onVisualClick,
-}: ReportCanvasViewProps) {
+export default function ReportCanvasView({ report, onVisualClick }: ReportCanvasViewProps) {
   const [activePageIndex, setActivePageIndex] = useState(0)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -105,13 +98,11 @@ export default function ReportCanvasView({
 
         {/* Main canvas column */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Visual grid */}
+          {/* Visual canvas */}
           <div className="flex-1 overflow-y-auto" style={{ background: '#F3F2F1' }}>
             {activePage && (
               <VisualGrid
                 page={activePage}
-                visualAssessments={visualAssessments}
-                onUpdateVisualStatus={onUpdateVisualStatus}
                 onClickVisual={visualId => {
                   const v = activePage.visuals.find(x => x.id === visualId)
                   if (v) onVisualClick(v)

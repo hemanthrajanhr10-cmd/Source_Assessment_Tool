@@ -457,6 +457,11 @@ export interface ReportVisual {
   title: string
   field_count: number
   fields: VisualField[]
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  text_content?: string
 }
 
 export interface ReportPage {
@@ -464,6 +469,8 @@ export interface ReportPage {
   order: number
   visual_count: number
   visuals: ReportVisual[]
+  page_width?: number
+  page_height?: number
 }
 
 // ── Fabric: dataset ───────────────────────────────────────────────────────────

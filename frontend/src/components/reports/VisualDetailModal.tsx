@@ -324,6 +324,50 @@ function SlicerPreview({ fields }: { fields?: VisualField[] }) {
   )
 }
 
+function TextboxPreview({ visual }: { visual: MockVisual }) {
+  const text = visual.text_content || visual.mockValue || ''
+  if (!text) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2">
+        <span style={{ fontSize: 32, color: '#C8C6C4' }}>T</span>
+        <p className="text-xs" style={{ color: '#8A8886' }}>No text content extracted</p>
+      </div>
+    )
+  }
+  return (
+    <div
+      className="flex items-start justify-start p-4 overflow-auto h-full"
+      style={{ background: '#FAFAFA', borderRadius: 4 }}
+    >
+      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#252423' }}>{text}</p>
+    </div>
+  )
+}
+
+function ShapePreview({ visual }: { visual: MockVisual }) {
+  const text = visual.text_content || ''
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-3 p-4">
+      <div
+        style={{
+          width: 120, height: 60,
+          background: '#F3F2F1',
+          border: '1.5px solid #C8C6C4',
+          borderRadius: 4,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {text
+          ? <span className="text-xs font-medium text-center px-2" style={{ color: '#252423' }}>{text}</span>
+          : <span className="text-xs" style={{ color: '#8A8886' }}>Shape</span>
+        }
+      </div>
+    </div>
+  )
+}
+
 function GenericPreview({ visual }: { visual: MockVisual }) {
   const icon = getVisualIcon(visual.type, 40)
   const displayType = normalizeVisualType(visual.type)
@@ -354,6 +398,10 @@ function VisualPreview({ visual }: { visual: MockVisual }) {
     return <TablePreview fields={visual.fields} />
   if (t === 'slicer')
     return <SlicerPreview fields={visual.fields} />
+  if (t === 'textbox')
+    return <TextboxPreview visual={visual} />
+  if (['shape', 'basicshape'].includes(t))
+    return <ShapePreview visual={visual} />
   return <GenericPreview visual={visual} />
 }
 

@@ -3,12 +3,10 @@ import {
   PieChart, LayoutGrid, Eye, Type, Image as ImageIcon,
   ScatterChart, TrendingDown,
 } from 'lucide-react'
-import type { MockVisual, AssessmentStatus } from '../../data/mockReports'
+import type { MockVisual } from '../../data/mockReports'
 
 interface VisualCardProps {
   visual: MockVisual
-  assessmentStatus: AssessmentStatus
-  onUpdateStatus: (status: AssessmentStatus) => void
   onClick: () => void
   colSpan?: number
 }
@@ -100,35 +98,19 @@ export function getVisualIcon(raw: string, size = 18): React.ReactNode {
   return <Eye size={size} style={{ color: '#8A8886' }} />
 }
 
-// ── Status config ─────────────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<AssessmentStatus, { color: string; label: string }> = {
-  pass:           { color: '#107C10', label: 'Pass' },
-  fail:           { color: '#D13438', label: 'Fail' },
-  warning:        { color: '#FF8C00', label: 'Warning' },
-  'in-progress':  { color: '#0078D4', label: 'In Progress' },
-  'not-assessed': { color: '#8A8886', label: 'Not Assessed' },
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function VisualCard({
-  visual,
-  assessmentStatus,
-  onClick,
-  colSpan = 1,
-}: VisualCardProps) {
+export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardProps) {
   const icon = getVisualIcon(visual.type, 17)
   const displayType = normalizeVisualType(visual.type)
-  const statusCfg = STATUS_CONFIG[assessmentStatus]
   const fieldCount = visual.fields?.length ?? 0
   const measureCount = visual.fields?.filter(f => f.field_type === 'measure').length ?? 0
+  const isTextLike = ['textbox', 'shape', 'basicShape'].includes(visual.type.toLowerCase())
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
   }
 
-  // If title is blank or same as the raw type, show the normalized display type as the name
   const displayTitle = visual.title && visual.title.toLowerCase() !== visual.type.toLowerCase()
     ? visual.title
     : displayType
@@ -168,36 +150,32 @@ export default function VisualCard({
             {displayType}
           </span>
         </div>
-
-        {/* Status badge */}
-        <span
-          className="flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded-full border font-medium"
-          style={{
-            color: statusCfg.color,
-            borderColor: statusCfg.color + '55',
-            background: statusCfg.color + '14',
-            fontSize: '10px',
-            lineHeight: '16px',
-          }}
-        >
-          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: statusCfg.color }} />
-          {statusCfg.label}
-        </span>
       </div>
+
+      {/* Text content for textbox / shape visuals */}
+      {isTextLike && visual.text_content && (
+        <div className="px-3 pb-2">
+          <p className="text-xs italic line-clamp-2" style={{ color: '#605E5C' }}>
+            "{visual.text_content}"
+          </p>
+        </div>
+      )}
 
       {/* Footer strip */}
       <div
         className="flex items-center gap-3 px-3 py-1.5 border-t text-xs"
         style={{ borderColor: '#F3F2F1', background: '#FAFAFA', color: '#8A8886' }}
       >
-        {fieldCount > 0
-          ? <>
-              <span>{fieldCount} field{fieldCount !== 1 ? 's' : ''}</span>
-              {measureCount > 0 && (
-                <span style={{ color: '#8764B8' }}>{measureCount} measure{measureCount !== 1 ? 's' : ''}</span>
-              )}
-            </>
-          : <span>No field data</span>
+        {isTextLike
+          ? <span>{visual.text_content ? 'Text content' : 'Shape / text'}</span>
+          : fieldCount > 0
+            ? <>
+                <span>{fieldCount} field{fieldCount !== 1 ? 's' : ''}</span>
+                {measureCount > 0 && (
+                  <span style={{ color: '#8764B8' }}>{measureCount} measure{measureCount !== 1 ? 's' : ''}</span>
+                )}
+              </>
+            : <span>No field data</span>
         }
         <span className="ml-auto" style={{ color: '#0078D4' }}>View details →</span>
       </div>

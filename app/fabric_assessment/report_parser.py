@@ -89,11 +89,15 @@ def _parse_pages(layout: dict, measures_map: dict) -> list[dict]:
     for section in sections:
         name = section.get("displayName") or section.get("name", "Page")
         ordinal = section.get("ordinal", 0)
+        page_width = section.get("width", 1280)
+        page_height = section.get("height", 720)
         containers = section.get("visualContainers", [])
         visuals = [v for v in (_parse_visual(vc, measures_map) for vc in containers) if v]
         pages.append({
             "name": name,
             "order": ordinal,
+            "page_width": page_width,
+            "page_height": page_height,
             "visual_count": len(visuals),
             "visuals": visuals,
         })
@@ -105,6 +109,12 @@ def _parse_pages(layout: dict, measures_map: dict) -> list[dict]:
 # ── Visuals ───────────────────────────────────────────────────────────────────
 
 def _parse_visual(container: dict, measures_map: dict) -> dict | None:
+    # Position lives at the container level, not inside config
+    x = container.get("x", 0)
+    y = container.get("y", 0)
+    width = container.get("width", 200)
+    height = container.get("height", 150)
+
     config_raw = container.get("config", "{}")
     try:
         config = json.loads(config_raw) if isinstance(config_raw, str) else config_raw
@@ -116,18 +126,66 @@ def _parse_visual(container: dict, measures_map: dict) -> dict | None:
         return None
 
     visual_type = sv.get("visualType", "unknown")
-    if visual_type in ("group", "shape", "basicShape"):
-        return None  # skip non-data visuals
+    if visual_type == "group":
+        return None  # groups are layout containers with no data
 
     title = _extract_title(sv)
-    fields = _extract_fields(sv, measures_map)
+
+    # Textboxes and shapes carry text content rather than field bindings
+    text_content: str | None = None
+    if visual_type in ("textbox", "shape", "basicShape"):
+        text_content = _extract_text_content(sv)
+        fields: list[dict] = []
+    else:
+        fields = _extract_fields(sv, measures_map)
 
     return {
         "type": visual_type,
         "title": title,
         "field_count": len(fields),
         "fields": fields,
+        "x": x,
+        "y": y,
+        "width": width,
+        "height": height,
+        "text_content": text_content,
     }
+
+
+def _extract_text_content(sv: dict) -> str:
+    """Extract visible text from a textbox or shape visual."""
+    for root_key in ("vcObjects", "objects"):
+        try:
+            general = sv.get(root_key, {}).get("general", [])
+            if not general:
+                continue
+            props = general[0].get("properties", {})
+            literal = (
+                props.get("paragraphs", {})
+                    .get("expr", {})
+                    .get("Literal", {})
+                    .get("Value", "")
+            )
+            if not literal:
+                continue
+            # Strip surrounding single-quotes that Power BI wraps around JSON strings
+            if literal.startswith("'") and literal.endswith("'"):
+                literal = literal[1:-1]
+            try:
+                paragraphs = json.loads(literal)
+                spans_text = [
+                    span.get("value", "")
+                    for para in paragraphs
+                    for span in para.get("spans", [])
+                ]
+                result = " ".join(t for t in spans_text if t).strip()
+                if result:
+                    return result
+            except Exception:
+                return literal[:300]
+        except Exception:
+            continue
+    return ""
 
 
 def _extract_title(sv: dict) -> str:

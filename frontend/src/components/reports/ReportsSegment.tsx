@@ -25,6 +25,11 @@ function convertVisual(rv: ReportVisual, pageId: string, vidx: number): MockVisu
     mockValue: rv.field_count > 0 ? `${rv.field_count} field${rv.field_count !== 1 ? 's' : ''}` : undefined,
     mockSubtitle: rv.fields.length > 0 ? rv.fields[0].name : undefined,
     fields: rv.fields,
+    x: rv.x,
+    y: rv.y,
+    width: rv.width,
+    height: rv.height,
+    text_content: rv.text_content,
   }
 }
 
@@ -33,6 +38,8 @@ function convertPage(rp: ReportPage, reportId: string): MockPage {
   return {
     id: pid,
     name: rp.name || `Page ${rp.order + 1}`,
+    page_width: rp.page_width,
+    page_height: rp.page_height,
     visuals: rp.visuals.map((v, i) => convertVisual(v, pid, i)),
   }
 }
@@ -150,8 +157,6 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
           <div className="p-4 h-full">
             <ReportCanvasView
               report={selectedReport}
-              visualAssessments={visualAssessments}
-              onUpdateVisualStatus={handleUpdateVisualStatus}
               onVisualClick={setSelectedVisual}
             />
           </div>

@@ -147,11 +147,39 @@
       "Bash(curl -s https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/gateway/list -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3Nzc0Nzg2NTh9.e5DR6Xcj5vImkxjuNhravTjOxuluOUkNHbG53470AOs')",
       "Bash(curl -s https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/hybrid-connections/432464b9-24fa-40dd-94d0-ccc63947b0df -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3Nzc0Nzg2NTh9.e5DR6Xcj5vImkxjuNhravTjOxuluOUkNHbG53470AOs')",
       "Bash(curl -s -X POST https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/hybrid-connections -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3Nzc0Nzg2NTh9.e5DR6Xcj5vImkxjuNhravTjOxuluOUkNHbG53470AOs' -H 'Content-Type: application/json' -d '{\"name\":\"sat-ubti-sql\",\"endpoint_host\":\"UIAP-S-SQL-01V\",\"endpoint_port\":1433}')",
-      "Bash(curl -s https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/sessions -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3Nzc0Nzk0MjN9.2-iX0EFMJnWLSzaYJ1aNWT8wXlhh_0TrTK5OeG6fy0U')"
+      "Bash(curl -s https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/sessions -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3Nzc0Nzk0MjN9.2-iX0EFMJnWLSzaYJ1aNWT8wXlhh_0TrTK5OeG6fy0U')",
+      "Bash(python -c \"import zipfile; z = zipfile.ZipFile\\('project-charter-skill.skill'\\); z.extractall\\('_skill_extract'\\)\")",
+      "Bash(mkdir -p /c/Users/hemanth.rajan/.claude/plugins/cache/local/project-charter-skill/1.0.0/skills/project-charter)",
+      "Bash(cp /c/Users/hemanth.rajan/.claude/skills/project-charter-skill/SKILL.md /c/Users/hemanth.rajan/.claude/plugins/cache/local/project-charter-skill/1.0.0/skills/project-charter/SKILL.md)",
+      "Bash(mkdir -p /c/Users/hemanth.rajan/.claude/plugins/cache/local/project-charter-skill/1.0.0/skills/project-charter/references)",
+      "Bash(cp /c/Users/hemanth.rajan/.claude/skills/project-charter-skill/references/sample_structure.md /c/Users/hemanth.rajan/.claude/plugins/cache/local/project-charter-skill/1.0.0/skills/project-charter/references/sample_structure.md)",
+      "Read(//mnt/user-data/**)",
+      "Bash(npm list *)",
+      "Read(//c/c/Users/hemanth.rajan/Documents/Source_Assessment_Tool/frontend/src/pages/**)",
+      "Bash(curl -s -X POST https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"hemanth.rajan@ubtiinc.com\",\"password\":\"G!suJX2YcAQ_D7A\"}' -w '\\\\nHTTP_STATUS:%{http_code}')",
+      "Bash(curl -s -X GET https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/gateway/list -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3NzgwNzk3Nzd9.Yi9G3AcsAAHmsW6i1e8jphMIqpKL-p6Jw15eEScB1bY' -w '\\\\nHTTP_STATUS:%{http_code}')",
+      "Bash(curl -s -X GET https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/gateway/status -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3NzgwNzk3Nzd9.Yi9G3AcsAAHmsW6i1e8jphMIqpKL-p6Jw15eEScB1bY' -w '\\\\nHTTP_STATUS:%{http_code}')",
+      "Bash(curl -s -X GET https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/hybrid-connections -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3NzgwNzk3Nzd9.Yi9G3AcsAAHmsW6i1e8jphMIqpKL-p6Jw15eEScB1bY')",
+      "Bash(curl -s -X GET https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/user-connections -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3NzgwNzk3Nzd9.Yi9G3AcsAAHmsW6i1e8jphMIqpKL-p6Jw15eEScB1bY')",
+      "Bash(curl -s -X POST https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/test-connection -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3NzgwNzk3Nzd9.Yi9G3AcsAAHmsW6i1e8jphMIqpKL-p6Jw15eEScB1bY' -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s -X POST https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/detect-connectivity -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3NzgwNzk3Nzd9.Yi9G3AcsAAHmsW6i1e8jphMIqpKL-p6Jw15eEScB1bY' -H 'Content-Type: application/json' -d '{\"servers\": [{\"server\": \"localhost\", \"port\": 1521}]}' -w '\\\\nHTTP_STATUS:%{http_code}' --max-time 30)",
+      "Bash(curl -s https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/hybrid-connections -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3NzgwNzk3Nzd9.Yi9G3AcsAAHmsW6i1e8jphMIqpKL-p6Jw15eEScB1bY')",
+      "Bash(curl -s -X POST https://sat-assessment-app-b5fchffcbga7beg7.centralindia-01.azurewebsites.net/api/v1/detect-connectivity -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1Mzk3OTgyNy0zNjA1LTQ3NmYtOWE4Mi00NGI3NDliNzBiYWMiLCJlbWFpbCI6ImhlbWFudGgucmFqYW5AdWJ0aWluYy5jb20iLCJleHAiOjE3NzgwNzk3Nzd9.Yi9G3AcsAAHmsW6i1e8jphMIqpKL-p6Jw15eEScB1bY' -H 'Content-Type: application/json' -d '{\"servers\": [{\"server\": \"10.10.101.19\", \"port\": 1521}]}' --max-time 30)",
+      "Bash(python -c ' *)",
+      "Bash(git -C /c/Users/hemanth.rajan/Documents/Source_Assessment_Tool status)",
+      "Bash(git -C /c/Users/hemanth.rajan/Documents/Source_Assessment_Tool log --oneline -5)",
+      "Bash(git -C /c/Users/hemanth.rajan/Documents/Source_Assessment_Tool diff --stat HEAD -- app/fabric_assessment/ frontend/dist/)",
+      "Bash(git -C /c/Users/hemanth.rajan/Documents/Source_Assessment_Tool commit -m ' *)",
+      "Bash(git -C /c/Users/hemanth.rajan/Documents/Source_Assessment_Tool push origin dev)",
+      "Bash(git -C /c/Users/hemanth.rajan/Documents/Source_Assessment_Tool add app/services/fabric_service.py)",
+      "Bash(python3 -)",
+      "Bash(python -)"
     ],
     "additionalDirectories": [
       "C:\\Users\\hemanth.rajan\\.claude\\projects\\c--Users-hemanth-rajan-Documents-Source-Assessment-Tool",
-      "c:\\Users\\hemanth.rajan\\Documents\\Source_Assessment_Tool\\.claude\\skills"
+      "c:\\Users\\hemanth.rajan\\Documents\\Source_Assessment_Tool\\.claude\\skills",
+      "C:\\Users\\hemanth.rajan\\.claude\\plugins",
+      "C:\\Users\\hemanth.rajan\\Documents"
     ]
   },
   "enabledPlugins": {

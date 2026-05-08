@@ -4,7 +4,23 @@
       "Bash(.venv/Scripts/pip list:*)",
       "Bash(.venv/Scripts/pip install:*)",
       "Bash(.venv/Scripts/python -c \"from app.main import app; print\\('Import OK'\\)\")",
-      "Bash(.venv/Scripts/python -c ':*)"
+      "Bash(.venv/Scripts/python -c ':*)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app/services/fabric_service.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app/main.py'\\).read\\(\\)\\); print\\('main.py OK'\\)\")",
+      "Bash(git -C \"c:\\\\Users\\\\hemanth.rajan\\\\Documents\\\\Source_Assessment_Tool\" status)",
+      "Bash(git -C \"c:\\\\Users\\\\hemanth.rajan\\\\Documents\\\\Source_Assessment_Tool\" log --oneline -5)",
+      "Bash(git -C \"c:\\\\Users\\\\hemanth.rajan\\\\Documents\\\\Source_Assessment_Tool\" add app/api/v1/routes/fabric.py frontend/src/pages/FabricAssessmentPage.tsx)",
+      "Bash(git -C 'c:\\\\Users\\\\hemanth.rajan\\\\Documents\\\\Source_Assessment_Tool' commit -m ' *)",
+      "Bash(git -C \"c:\\\\Users\\\\hemanth.rajan\\\\Documents\\\\Source_Assessment_Tool\" push origin dev)",
+      "Bash(python -c \"import docx; import reportlab; print\\('both available'\\)\")",
+      "Bash(python -c \"import docx; print\\('docx ok'\\)\")",
+      "Bash(python -c \"import reportlab; print\\('reportlab ok'\\)\")",
+      "Bash(python generate_audit_docs.py)",
+      "Bash(dir \"c:\\\\Users\\\\hemanth.rajan\\\\Documents\\\\Source_Assessment_Tool\\\\Azure_Resource_Audit_Report*\")",
+      "Bash(grep -n \"reports\" .gitignore frontend/.gitignore)",
+      "Bash(grep -rn \"reports\" .gitignore)",
+      "Bash(python -c \"from app.fabric_assessment.report_parser import parse_report_parts, decode_parts; print\\('OK'\\)\")",
+      "Bash(git rm *)"
     ]
   }
 }

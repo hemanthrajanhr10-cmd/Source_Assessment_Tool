@@ -15,11 +15,11 @@ class Settings(BaseSettings):
     max_null_analysis_tables: int = 100
 
     # ── Azure SQL Store (job persistence + assessment results) ────────────────
-    azure_store_server: str = "source-assessment.database.windows.net"
+    azure_store_server: str = "uiap-source-assessment.database.windows.net"
     azure_store_port: int = 1433
     azure_store_database: str = "SourceAssessment"
-    azure_store_username: str = "hemanth"
-    azure_store_password: SecretStr = SecretStr("Ubti@123")
+    azure_store_username: str = "sqladmin"
+    azure_store_password: SecretStr = SecretStr("welcome@1234")
 
     # ── Azure Service Bus (gateway agent messaging) ───────────────────────────
     # Set SERVICE_BUS_CONNECTION_STRING env var in Azure Web App settings

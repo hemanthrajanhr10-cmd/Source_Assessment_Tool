@@ -18,6 +18,7 @@ import type {
 import { formatDateTime } from '../utils/dateTime'
 import Loader3D from '../components/ui/Loader3D'
 import ReportsSegment from '../components/reports/ReportsSegment'
+import AssessmentProgress from '../components/AssessmentProgress'
 
 // ── Complexity helpers ────────────────────────────────────────────────────────
 
@@ -908,70 +909,6 @@ function parseProgress(raw: string | null | undefined): ProgressData | null {
   return null
 }
 
-function ProgressBar({ done, total, label, color }: {
-  done: number; total: number; label: string; color: string
-}) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-medium text-slate-500 flex items-center gap-1.5">
-          {done === total && total > 0
-            ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-            : <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />}
-          {label}
-        </span>
-        <span className="font-semibold text-slate-700">{done} / {total || '…'}</span>
-      </div>
-      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-        <div
-          className="h-2 rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
-      </div>
-    </div>
-  )
-}
-
-function RunningProgress({ progressMessage }: { progressMessage?: string | null }) {
-  const parsed = parseProgress(progressMessage)
-  const displayMsg = parsed ? parsed.msg : (progressMessage || 'Collecting Fabric workspace data…')
-  const hasCounters = parsed && (parsed.mt > 0 || parsed.rt > 0)
-
-  return (
-    <div className="card p-6 space-y-4">
-      <div className="flex items-center gap-3">
-        <Loader2 className="h-6 w-6 animate-spin text-indigo-500 shrink-0" />
-        <div>
-          <p className="font-medium text-slate-800 text-sm">{displayMsg}</p>
-          <p className="text-xs text-slate-500 mt-0.5">Refreshes automatically every 4 seconds</p>
-        </div>
-      </div>
-
-      {hasCounters && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Assessment Progress</p>
-          {parsed!.mt > 0 && (
-            <ProgressBar
-              done={parsed!.md}
-              total={parsed!.mt}
-              label="Semantic Models"
-              color="#6366f1"
-            />
-          )}
-          {parsed!.rt > 0 && (
-            <ProgressBar
-              done={parsed!.rd}
-              total={parsed!.rt}
-              label="Reports"
-              color="#3b82f6"
-            />
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -1091,9 +1028,11 @@ export default function FabricSessionDetailPage() {
         )}
       </div>
 
-      {/* ── Running placeholder ──────────────────────────────────────────────── */}
+      {/* ── Live progress dashboard ──────────────────────────────────────────── */}
       {session.status === 'running' && (
-        <RunningProgress progressMessage={session.progress_message} />
+        <div style={{ padding: '24px 0' }}>
+          <AssessmentProgress sessionId={session.fabric_session_id} sessionLabel={session.label} />
+        </div>
       )}
 
       {/* ── Results dashboard ────────────────────────────────────────────────── */}

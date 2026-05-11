@@ -543,6 +543,45 @@ export interface FabricResults {
   summary: FabricSummary
 }
 
+// ── Fabric: async assessment progress ────────────────────────────────────────
+
+export interface PhaseProgress {
+  done: boolean
+  count?: number   // discovery
+  total?: number   // models / reports
+  processed?: number
+}
+
+export interface ActivityEvent {
+  ts: string
+  status: 'ok' | 'error'
+  name: string
+  type: string
+  error?: string
+}
+
+export interface AssessmentProgressState {
+  assessment_id: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+  phase: 'discovery' | 'semantic_models' | 'reports' | 'crosslinking' | 'saving'
+  total_items: number
+  processed_items: number
+  failed_items: number
+  current_item_name: string
+  failure_reason: string | null
+  phase_progress: {
+    discovery: PhaseProgress
+    semantic_models: PhaseProgress
+    reports: PhaseProgress
+    crosslinking: PhaseProgress
+    saving: PhaseProgress
+  }
+  started_at: string
+  estimated_completion: string | null
+  errors: { item: string; error: string }[]
+  activity_log: ActivityEvent[]
+}
+
 export interface FabricSessionRecord {
   fabric_session_id: string
   label?: string

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import type {
   AssessmentMode,
+  AssessmentProgressState,
   AssessmentRequest,
   AssessmentResponse,
   AssessmentResults,
@@ -236,6 +237,9 @@ export const api = {
 
   getUnifiedSession: (id: string) =>
     http.get<UnifiedSession>(`/api/v1/unified-sessions/${id}`),
+
+  getFabricSessionProgress: (sessionId: string) =>
+    http.get<AssessmentProgressState>(`/api/v1/fabric/sessions/${sessionId}/progress`),
 
   downloadFabricExcel: async (sessionId: string, label?: string) => {
     const res = await http.get(

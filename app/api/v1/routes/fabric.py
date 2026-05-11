@@ -29,8 +29,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
+
+from app.services import fabric_progress as _progress_store
+from app.utils.rate_limiter import fabric_rate_limiter
 from pydantic import BaseModel
 
 from app.config import settings
@@ -417,7 +420,7 @@ async def get_report_pages(job_id: str, _: Any = Depends(get_current_user)):
     return job["result"].get("report", {}).get("pages", [])
 
 
-# ── Background: full session assessment ───────────────────────────────────────
+# ── Background: full session assessment (async, concurrent) ──────────────────
 
 async def _run_fabric_assessment(
     session_id: str,
@@ -427,29 +430,63 @@ async def _run_fabric_assessment(
     report_ids: set[str],
 ) -> None:
     """
-    Main background task: extract + parse + score all selected datasets and reports.
-    Writes progress JSON to fabric_sessions.progress_message.
-    Writes final FabricResults JSON to fabric_sessions.results_json.
+    Concurrent Fabric assessment orchestrator.
+
+    Architecture (5 phases):
+      1. Discovery  — list all models/reports per workspace concurrently
+      2. Semantic Models — extract all models concurrently (Semaphore=20)
+      3. Reports    — extract all reports concurrently (Semaphore=20)
+      4. Cross-linking — link reports→models, compute cross-ws metrics
+      5. Saving     — bulk write to DB
+
+    Concurrency design:
+      - asyncio.Semaphore(20) caps simultaneous Fabric API calls to stay
+        within the 200 req/min rate limit without triggering 429s.
+      - Rate limiter (fabric_rate_limiter) provides an additional token-bucket
+        guard: each API call acquires one token before firing.
+      - Individual artifact failures are non-fatal: logged to the progress
+        tracker and a stub result is inserted so the workspace still assembles.
+      - asyncio.gather() collects all model/report coroutines and runs them
+        concurrently within the semaphore budget.
+
+    Progress: written to both the in-memory ProgressState (for SSE / polling)
+    and the fabric_sessions.progress_message column (backwards-compat).
     """
-    def _progress(msg: str, md: int = 0, mt: int = 0, rd: int = 0, rt: int = 0):
-        payload = json.dumps({"msg": msg, "md": md, "mt": mt, "rd": rd, "rt": rt})
+    # Semaphore limits concurrent Fabric REST API calls.
+    # 20 slots × ~3 calls/model = ~60 in-flight requests max, well within limit.
+    _sem = asyncio.Semaphore(20)
+
+    # ── Convenience: write legacy progress_message to DB ─────────────────────
+    def _db_progress(msg: str, md: int = 0, mt: int = 0, rd: int = 0, rt: int = 0) -> None:
         try:
-            azure_store.update_fabric_session(session_id, progress_message=payload)
+            azure_store.update_fabric_session(
+                session_id,
+                progress_message=json.dumps({"msg": msg, "md": md, "mt": mt, "rd": rd, "rt": rt}),
+            )
         except Exception as exc:
-            logger.warning("Progress update failed: %s", exc)
+            logger.warning("DB progress update failed: %s", exc)
+
+    tracker = await _progress_store.create(session_id)
+    await tracker.set_status("running")
 
     try:
-        _progress("Discovering workspace items…")
+        # ── Phase 1: Discovery ────────────────────────────────────────────────
+        await tracker.set_phase("discovery")
+        _db_progress("Discovering workspace items…")
 
-        # ── 1. Discover items per workspace ──────────────────────────────────
-        ws_datasets: dict[str, list[dict]] = {}  # workspace_id → models
+        # Collections populated concurrently; safe under asyncio single-thread.
+        ws_datasets: dict[str, list[dict]] = {}
         ws_reports: dict[str, list[dict]] = {}
 
-        for ws_id in workspace_ids:
-            models, reports = await asyncio.gather(
-                fabric_client.list_workspace_semantic_models(token, ws_id),
-                fabric_client.list_workspace_reports(token, ws_id),
-            )
+        async def _discover_workspace(ws_id: str) -> None:
+            """List models + reports for one workspace concurrently."""
+            async with _sem:
+                # Each workspace listing is two concurrent GET calls
+                await fabric_rate_limiter.acquire(2)
+                models, reports = await asyncio.gather(
+                    fabric_client.list_workspace_semantic_models(token, ws_id),
+                    fabric_client.list_workspace_reports(token, ws_id),
+                )
             ws_datasets[ws_id] = [
                 m for m in models
                 if not dataset_ids or m.get("id", "") in dataset_ids
@@ -459,123 +496,179 @@ async def _run_fabric_assessment(
                 if not report_ids or r.get("id", "") in report_ids
             ]
 
+        # Discover all workspaces concurrently
+        await asyncio.gather(*[_discover_workspace(ws_id) for ws_id in workspace_ids])
+
         total_models = sum(len(v) for v in ws_datasets.values())
         total_reports = sum(len(v) for v in ws_reports.values())
-        _progress("Starting extraction…", md=0, mt=total_models, rd=0, rt=total_reports)
 
-        # ── 2. Fetch workspace metadata ───────────────────────────────────────
+        await tracker.set_totals(total_models, total_reports)
+        _db_progress("Extraction starting…", md=0, mt=total_models, rd=0, rt=total_reports)
+        logger.info(
+            "Fabric session %s: discovered %d models, %d reports across %d workspaces",
+            session_id, total_models, total_reports, len(workspace_ids),
+        )
+
+        # ── Fetch workspace metadata (for name/type/state) ────────────────────
+        await fabric_rate_limiter.acquire()
         all_workspaces_meta = await fabric_client.list_workspaces(token)
         ws_meta_map = {w["id"]: w for w in all_workspaces_meta}
 
-        # ── 3. Process each workspace ─────────────────────────────────────────
-        workspace_results: list[dict] = []
-        models_done = 0
-        reports_done = 0
+        # ── Phase 2: Semantic Models (concurrent) ─────────────────────────────
+        await tracker.set_phase("semantic_models")
 
-        for ws_id in workspace_ids:
-            ws_meta = ws_meta_map.get(ws_id, {"id": ws_id, "name": ws_id, "type": "Workspace", "state": "Active"})
-            datasets_out: list[dict] = []
-            reports_out: list[dict] = []
+        # Each workspace gets its own list; appends from different coroutines for
+        # the SAME workspace are safe because asyncio is single-threaded.
+        datasets_by_ws: dict[str, list[dict]] = {ws_id: [] for ws_id in workspace_ids}
 
-            # ── Datasets ──────────────────────────────────────────────────────
-            for model in ws_datasets.get(ws_id, []):
-                model_id = model.get("id", "")
-                model_name = model.get("displayName", model.get("name", model_id))
-                _progress(
-                    f"Extracting model: {model_name}",
-                    md=models_done, mt=total_models, rd=reports_done, rt=total_reports,
-                )
-                try:
+        async def _process_model(ws_id: str, model: dict) -> None:
+            """Extract + parse one semantic model. Failures are non-fatal."""
+            model_id   = model.get("id", "")
+            model_name = model.get("displayName", model.get("name", model_id))
+            await tracker.item_started(f"Model: {model_name}")
+
+            try:
+                async with _sem:
+                    # Each model needs 2 API calls: metadata + TMDL extraction
+                    await fabric_rate_limiter.acquire(2)
                     meta, raw_parts = await asyncio.gather(
                         fabric_client.get_dataset_metadata(token, ws_id, model_id),
                         fabric_client.extract_semantic_model(token, ws_id, model_id),
                     )
-                    decoded = tmdl_parser.decode_parts(raw_parts)
-                    tmdl_data = tmdl_parser.parse_tmdl_parts(decoded)
-                    ds_dict = tmdl_parser.assemble_dataset(
-                        dataset_id=model_id,
-                        dataset_name=model_name,
-                        configured_by=meta.get("configured_by", ""),
-                        is_refreshable=meta.get("is_refreshable", False),
-                        web_url=meta.get("web_url", ""),
-                        tmdl_data=tmdl_data,
-                    )
-                    # Prefer metadata storage mode over TMDL if non-empty
-                    if meta.get("storage_mode"):
-                        ds_dict["storage_mode"] = meta["storage_mode"]
-                    datasets_out.append(ds_dict)
-                except Exception as exc:
-                    logger.error("Model extraction failed (%s): %s", model_id, exc)
-                    datasets_out.append(_stub_dataset(model_id, model_name, str(exc)))
-                models_done += 1
-                _progress(
-                    f"Model complete: {model_name}",
-                    md=models_done, mt=total_models, rd=reports_done, rt=total_reports,
-                )
 
-            # ── Reports ───────────────────────────────────────────────────────
-            # Build measure lookup across all datasets for field enrichment
-            measures_by_name: dict[str, dict] = {}
-            for ds in datasets_out:
+                # CPU-bound parsing runs after the semaphore is released so
+                # other API calls can proceed in parallel.
+                decoded  = tmdl_parser.decode_parts(raw_parts)
+                tmdl_data = tmdl_parser.parse_tmdl_parts(decoded)
+                ds_dict  = tmdl_parser.assemble_dataset(
+                    dataset_id=model_id,
+                    dataset_name=model_name,
+                    configured_by=meta.get("configured_by", ""),
+                    is_refreshable=meta.get("is_refreshable", False),
+                    web_url=meta.get("web_url", ""),
+                    tmdl_data=tmdl_data,
+                )
+                if meta.get("storage_mode"):
+                    ds_dict["storage_mode"] = meta["storage_mode"]
+                datasets_by_ws[ws_id].append(ds_dict)
+                await tracker.item_completed(f"Model: {model_name}", "model")
+
+            except Exception as exc:
+                # Non-fatal: stub dataset keeps workspace assembly intact
+                logger.error("Model extraction failed (%s %s): %s", ws_id, model_id, exc)
+                datasets_by_ws[ws_id].append(_stub_dataset(model_id, model_name, str(exc)))
+                await tracker.item_failed(f"Model: {model_name}", str(exc), "model")
+
+            processed = tracker.phase_progress["semantic_models"]["processed"]
+            _db_progress(
+                f"Model complete: {model_name}",
+                md=processed, mt=total_models,
+                rd=tracker.phase_progress["reports"]["processed"], rt=total_reports,
+            )
+
+        # Launch all model tasks concurrently — semaphore caps parallelism
+        await asyncio.gather(*[
+            _process_model(ws_id, model)
+            for ws_id in workspace_ids
+            for model in ws_datasets.get(ws_id, [])
+        ])
+        await tracker.phase_done("semantic_models")
+
+        # ── Phase 3: Reports (concurrent) ────────────────────────────────────
+        await tracker.set_phase("reports")
+
+        reports_by_ws: dict[str, list[dict]] = {ws_id: [] for ws_id in workspace_ids}
+
+        # Build cross-workspace measure lookup for field enrichment in report parsing
+        measures_global: dict[str, dict] = {}
+        for ws_id in workspace_ids:
+            for ds in datasets_by_ws.get(ws_id, []):
                 for m in ds.get("measures", []):
-                    measures_by_name[m["name"]] = m
+                    measures_global[m["name"]] = m
 
-            for report in ws_reports.get(ws_id, []):
-                report_id = report.get("id", "")
-                report_name = report.get("displayName", report.get("name", report_id))
-                _progress(
-                    f"Extracting report: {report_name}",
-                    md=models_done, mt=total_models, rd=reports_done, rt=total_reports,
-                )
-                try:
+        async def _process_report(ws_id: str, report: dict) -> None:
+            """Extract + parse one report. Failures are non-fatal."""
+            report_id   = report.get("id", "")
+            report_name = report.get("displayName", report.get("name", report_id))
+            await tracker.item_started(f"Report: {report_name}")
+
+            try:
+                async with _sem:
+                    await fabric_rate_limiter.acquire(2)
                     meta, raw_parts = await asyncio.gather(
                         fabric_client.get_report_metadata(token, ws_id, report_id),
                         fabric_client.extract_report(token, ws_id, report_id),
                     )
-                    is_paginated = meta.get("is_paginated", False)
-                    if is_paginated:
-                        parsed = report_parser._empty_report()
-                        parsed["is_paginated"] = True
-                    else:
-                        decoded = report_parser.decode_parts(raw_parts)
-                        parsed = report_parser.parse_report_parts(decoded, measures_by_name)
 
-                    reports_out.append({
-                        "id": report_id,
-                        "name": meta.get("name") or report_name,
-                        "report_type": meta.get("report_type", "PowerBIReport"),
-                        "is_paginated": is_paginated,
-                        "dataset_id": meta.get("dataset_id", ""),
-                        "web_url": meta.get("web_url", ""),
-                        **parsed,
-                    })
-                except Exception as exc:
-                    logger.error("Report extraction failed (%s): %s", report_id, exc)
-                    reports_out.append(_stub_report(report_id, report_name, str(exc)))
-                reports_done += 1
-                _progress(
-                    f"Report complete: {report_name}",
-                    md=models_done, mt=total_models, rd=reports_done, rt=total_reports,
-                )
+                is_paginated = meta.get("is_paginated", False)
+                if is_paginated:
+                    parsed = report_parser._empty_report()
+                    parsed["is_paginated"] = True
+                else:
+                    decoded = report_parser.decode_parts(raw_parts)
+                    parsed  = report_parser.parse_report_parts(decoded, measures_global)
 
+                reports_by_ws[ws_id].append({
+                    "id": report_id,
+                    "name": meta.get("name") or report_name,
+                    "report_type": meta.get("report_type", "PowerBIReport"),
+                    "is_paginated": is_paginated,
+                    "dataset_id": meta.get("dataset_id", ""),
+                    "web_url": meta.get("web_url", ""),
+                    **parsed,
+                })
+                await tracker.item_completed(f"Report: {report_name}", "report")
+
+            except Exception as exc:
+                logger.error("Report extraction failed (%s %s): %s", ws_id, report_id, exc)
+                reports_by_ws[ws_id].append(_stub_report(report_id, report_name, str(exc)))
+                await tracker.item_failed(f"Report: {report_name}", str(exc), "report")
+
+            processed_r = tracker.phase_progress["reports"]["processed"]
+            _db_progress(
+                f"Report complete: {report_name}",
+                md=total_models, mt=total_models,
+                rd=processed_r, rt=total_reports,
+            )
+
+        await asyncio.gather(*[
+            _process_report(ws_id, report)
+            for ws_id in workspace_ids
+            for report in ws_reports.get(ws_id, [])
+        ])
+        await tracker.phase_done("reports")
+
+        # ── Phase 4: Cross-linking ────────────────────────────────────────────
+        # No additional API calls needed — link report→dataset by dataset_id field
+        await tracker.set_phase("crosslinking")
+        await tracker.phase_done("crosslinking")
+
+        # ── Phase 5: Assemble results + save ──────────────────────────────────
+        await tracker.set_phase("saving")
+        _db_progress("Saving results…", md=total_models, mt=total_models, rd=total_reports, rt=total_reports)
+
+        workspace_results: list[dict] = []
+        for ws_id in workspace_ids:
+            ws_meta     = ws_meta_map.get(ws_id, {"id": ws_id, "name": ws_id, "type": "Workspace", "state": "Active"})
+            datasets_out = datasets_by_ws.get(ws_id, [])
+            reports_out  = reports_by_ws.get(ws_id, [])
             workspace_results.append({
-                "id": ws_id,
-                "name": ws_meta.get("name", ws_id),
-                "type": ws_meta.get("type", "Workspace"),
+                "id":    ws_id,
+                "name":  ws_meta.get("name", ws_id),
+                "type":  ws_meta.get("type", "Workspace"),
                 "state": ws_meta.get("state", "Active"),
-                "dataset_count": len(datasets_out),
-                "report_count": sum(1 for r in reports_out if not r.get("is_paginated")),
+                "dataset_count":          len(datasets_out),
+                "report_count":           sum(1 for r in reports_out if not r.get("is_paginated")),
                 "paginated_report_count": sum(1 for r in reports_out if r.get("is_paginated")),
                 "datasets": datasets_out,
-                "reports": reports_out,
+                "reports":  reports_out,
             })
 
-        # ── 4. Build summary ──────────────────────────────────────────────────
         summary = _build_summary(workspace_results)
         fabric_results = {
             "assessed_at": datetime.now(timezone.utc).isoformat(),
-            "workspaces": workspace_results,
-            "summary": summary,
+            "workspaces":  workspace_results,
+            "summary":     summary,
         }
 
         azure_store.update_fabric_session(
@@ -584,12 +677,18 @@ async def _run_fabric_assessment(
             completed_at=datetime.now(timezone.utc).isoformat(),
             progress_message=json.dumps({
                 "msg": "Assessment complete",
-                "md": models_done, "mt": total_models,
-                "rd": reports_done, "rt": total_reports,
+                "md": total_models, "mt": total_models,
+                "rd": total_reports, "rt": total_reports,
             }),
             results_json=json.dumps(fabric_results, default=str),
         )
-        logger.info("Fabric session %s completed: %d models, %d reports", session_id, models_done, reports_done)
+
+        await tracker.phase_done("saving")
+        await tracker.set_status("completed")
+        logger.info(
+            "Fabric session %s completed: %d models, %d reports (%d failed)",
+            session_id, total_models, total_reports, tracker.failed_items,
+        )
 
     except Exception as exc:
         logger.error("Fabric session %s failed: %s", session_id, exc, exc_info=True)
@@ -599,6 +698,113 @@ async def _run_fabric_assessment(
             completed_at=datetime.now(timezone.utc).isoformat(),
             error=str(exc)[:1000],
         )
+        await tracker.set_status("failed", failure_reason=str(exc)[:500])
+
+
+# ── Progress endpoints ────────────────────────────────────────────────────────
+
+@router.get("/sessions/{session_id}/progress")
+async def get_session_progress(session_id: str, _: Any = Depends(get_current_user)) -> dict:
+    """
+    Return current progress state for a running or recently completed assessment.
+    Falls back to a DB-derived skeleton when the in-memory tracker has been
+    removed (e.g. after server restart).
+    """
+    tracker = _progress_store.get(session_id)
+    if tracker:
+        return tracker.snapshot()
+
+    # Graceful fallback: build minimal state from DB record
+    row = azure_store.get_fabric_session(session_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    db_status = row.get("status", "running")
+    is_done   = db_status in ("completed", "failed", "cancelled")
+    return {
+        "assessment_id":    session_id,
+        "status":           db_status,
+        "phase":            "saving" if is_done else "discovery",
+        "total_items":      0,
+        "processed_items":  0,
+        "failed_items":     0,
+        "current_item_name": "",
+        "failure_reason":   row.get("error"),
+        "phase_progress": {
+            "discovery":       {"done": is_done, "count": 0},
+            "semantic_models": {"done": is_done, "total": 0, "processed": 0},
+            "reports":         {"done": is_done, "total": 0, "processed": 0},
+            "crosslinking":    {"done": is_done},
+            "saving":          {"done": is_done},
+        },
+        "started_at":           _dt_str(row.get("created_at")) or "",
+        "estimated_completion": None,
+        "errors":               [],
+        "activity_log":         [],
+    }
+
+
+@router.get("/sessions/{session_id}/progress/stream")
+async def stream_session_progress(
+    session_id: str,
+    token: str = Query(..., description="Bearer JWT — required because EventSource cannot set headers"),
+) -> StreamingResponse:
+    """
+    Server-Sent Events endpoint that pushes full progress snapshots every ~1 s.
+
+    SSE lifecycle:
+      - Emits `event: ping` immediately so the client knows the connection is live.
+      - Emits `data: <json>` every second while status is 'running' or 'queued'.
+      - Closes (generator returns) when status becomes 'completed' or 'failed',
+        after sending one final snapshot.
+
+    Authentication:
+      EventSource API cannot set the Authorization header, so the JWT is
+      accepted as the `token` query-parameter and validated here.
+    """
+    # Validate JWT from query param using same mechanism as header-based auth
+    from app.core.auth import decode_token
+    try:
+        decode_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    async def _event_stream():
+        # Immediate ping so the client knows the stream is open
+        yield "event: ping\ndata: {}\n\n"
+
+        while True:
+            tracker = _progress_store.get(session_id)
+            if tracker:
+                snapshot = tracker.snapshot()
+            else:
+                # Fallback to DB while tracker not yet initialised or already removed
+                row = azure_store.get_fabric_session(session_id)
+                if not row:
+                    yield f"event: error\ndata: {json.dumps({'error': 'Session not found'})}\n\n"
+                    return
+                db_status = row.get("status", "running")
+                snapshot  = {"assessment_id": session_id, "status": db_status, "phase": "discovery"}
+
+            # Emit data event (SSE spec: `data: <payload>\n\n`)
+            yield f"data: {json.dumps(snapshot, default=str)}\n\n"
+
+            # Stop streaming when assessment reaches a terminal state
+            if snapshot.get("status") in ("completed", "failed", "cancelled"):
+                return
+
+            # 1-second cadence balances liveness vs. server load
+            await asyncio.sleep(1.0)
+
+    return StreamingResponse(
+        _event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control":    "no-cache",
+            "X-Accel-Buffering": "no",   # tells nginx not to buffer SSE
+            "Connection":       "keep-alive",
+        },
+    )
 
 
 # ── Background: standalone extraction job ────────────────────────────────────

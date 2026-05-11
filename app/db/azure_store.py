@@ -34,7 +34,6 @@ def _get_conn(retries: int = 3, delay: float = 1.5):
         f"PWD={settings.azure_store_password.get_secret_value()};"
         "TrustServerCertificate=no;"
         "Encrypt=yes;"
-        "Login Timeout=30;"
     )
     last_exc: Exception | None = None
     for attempt in range(retries):

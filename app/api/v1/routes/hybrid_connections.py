@@ -5,8 +5,9 @@ POST   /api/v1/hybrid-connections           — create + auto-provision in Azure
 GET    /api/v1/hybrid-connections           — list connections for the current user
 DELETE /api/v1/hybrid-connections/{id}      — delete (owner only)
 
-Auto-provisioning uses the Azure SDK with DefaultAzureCredential (Managed Identity
-on App Service, or AZURE_CLIENT_ID/SECRET/TENANT_ID for local dev).
+Auto-provisioning uses ManagedIdentityCredential (system-assigned on App Service),
+or ClientSecretCredential when AZURE_CLIENT_ID + AZURE_CLIENT_SECRET + AZURE_TENANT_ID
+are all set (service principal / local dev).
 
 Required environment variables for provisioning:
     AZURE_SUBSCRIPTION_ID   — Azure subscription ID
@@ -63,6 +64,62 @@ def _namespace_name_for_user(user_id: str) -> str:
     return f"sat-{hex_id}"
 
 
+def _get_azure_credential():
+    """
+    Return an Azure credential, preferring Managed Identity on App Service.
+    Falls back to explicit service principal env vars if MI is unavailable.
+    Raises a clear RuntimeError with actionable fix instructions when neither works.
+    """
+    from azure.identity import (
+        ChainedTokenCredential,
+        ClientSecretCredential,
+        ManagedIdentityCredential,
+    )
+
+    chain: list = []
+
+    # Explicit user-assigned managed identity (AZURE_CLIENT_ID set to MI client id)
+    client_id = os.environ.get("AZURE_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("AZURE_CLIENT_SECRET", "").strip()
+    tenant_id = os.environ.get("AZURE_TENANT_ID", "").strip()
+
+    if client_id and client_secret and tenant_id:
+        # Full service-principal credentials configured — use them directly.
+        chain.append(ClientSecretCredential(tenant_id, client_id, client_secret))
+        logger.debug("Azure credential: using ClientSecretCredential (service principal)")
+    elif client_id:
+        # AZURE_CLIENT_ID alone means user-assigned managed identity.
+        chain.append(ManagedIdentityCredential(client_id=client_id))
+        logger.debug("Azure credential: using user-assigned ManagedIdentityCredential (client_id=%s)", client_id)
+    else:
+        # System-assigned managed identity (default on App Service with MI enabled).
+        chain.append(ManagedIdentityCredential())
+        logger.debug("Azure credential: using system-assigned ManagedIdentityCredential")
+
+    credential = ChainedTokenCredential(*chain)
+
+    # Eagerly probe the credential so we get a useful error now rather than
+    # a cryptic AuthenticationError deep inside an SDK call.
+    try:
+        credential.get_token("https://management.azure.com/.default")
+    except Exception as probe_exc:
+        subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+        resource_group = os.environ.get("AZURE_RESOURCE_GROUP", "").strip()
+        raise RuntimeError(
+            "Azure authentication failed — the App Service cannot obtain a token. "
+            "To fix this:\n"
+            "  1. Azure Portal → App Service → Identity → System assigned → turn ON\n"
+            f"  2. Resource Group ({resource_group or 'AZURE_RESOURCE_GROUP'}) → "
+            "IAM → Add role assignment → Contributor → select the App Service identity\n"
+            "  3. Verify App Service Configuration has AZURE_SUBSCRIPTION_ID="
+            f"{subscription_id or '<missing>'} and AZURE_RESOURCE_GROUP="
+            f"{resource_group or '<missing>'}\n"
+            f"  (underlying error: {probe_exc})"
+        ) from probe_exc
+
+    return credential
+
+
 def _wait_for_namespace_ready(
     relay_client,
     resource_group: str,
@@ -112,8 +169,6 @@ def _ensure_user_namespace(
     location = os.environ.get("AZURE_RELAY_LOCATION", "eastus").strip()
 
     try:
-        from azure.identity import DefaultAzureCredential
-
         try:
             from azure.mgmt.relay import RelayAPI as _RelayClient
         except ImportError:
@@ -121,7 +176,7 @@ def _ensure_user_namespace(
 
         from azure.mgmt.relay.models import RelayNamespace, Sku
 
-        credential = DefaultAzureCredential()
+        credential = _get_azure_credential()
         relay_client = _RelayClient(credential, subscription_id)
 
         existing = azure_store.get_user_relay_namespace(user_id)
@@ -206,7 +261,6 @@ def _provision_hybrid_connection(
         import json as _json
         import time
 
-        from azure.identity import DefaultAzureCredential
         from azure.mgmt.relay.models import AccessRights, AuthorizationRule, HybridConnection
 
         # azure-mgmt-relay 1.1.0 renamed the client to RelayAPI; fall back to
@@ -216,7 +270,7 @@ def _provision_hybrid_connection(
         except ImportError:
             from azure.mgmt.relay import RelayManagementClient as _RelayClient  # type: ignore[no-redef]
 
-        credential = DefaultAzureCredential()
+        credential = _get_azure_credential()
         relay_client = _RelayClient(credential, subscription_id)
 
         # ── 1. Create the Hybrid Connection entity in the Relay namespace ──────
@@ -353,14 +407,12 @@ def _deprovision_hybrid_connection(
     errors: list[str] = []
 
     try:
-        from azure.identity import DefaultAzureCredential
-
         try:
             from azure.mgmt.relay import RelayAPI as _RelayClient
         except ImportError:
             from azure.mgmt.relay import RelayManagementClient as _RelayClient  # type: ignore[no-redef]
 
-        credential = DefaultAzureCredential()
+        credential = _get_azure_credential()
         relay_client = _RelayClient(credential, subscription_id)
 
         # ── 1. Detach from App Service first (must remove binding before HC entity) ─

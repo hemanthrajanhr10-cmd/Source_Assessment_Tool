@@ -148,25 +148,25 @@ def _run_direct_job(session_id: str, job_id: str, srv: ServerTarget, db: Databas
     from app.models.responses import humanize_connection_error
     from app.services.assessment_service import run_assessment
 
-    request = AssessmentRequest(
-        connection=ConnectionParams(
-            db_type=srv.db_type,
-            server=srv.server,
-            port=srv.port,
-            database=db.name,
-            username=srv.username,
-            password=srv.password,
-            trust_server_certificate=srv.trust_server_certificate,
-            encrypt=srv.encrypt,
-        ),
-        include_null_analysis=db.include_null_analysis,
-        null_analysis_sample_limit=db.null_analysis_sample_limit,
-        label=f"{srv.server}/{db.name}",
-        access_level=getattr(srv, "access_level", "db_datareader") or "db_datareader",
-    )
-
-    job_store.update_job(job_id, status=JobStatus.RUNNING, started_at=datetime.now(timezone.utc))
     try:
+        request = AssessmentRequest(
+            connection=ConnectionParams(
+                db_type=srv.db_type,
+                server=srv.server,
+                port=srv.port,
+                database=db.name,
+                username=srv.username,
+                password=srv.password,
+                trust_server_certificate=srv.trust_server_certificate,
+                encrypt=srv.encrypt,
+            ),
+            include_null_analysis=db.include_null_analysis,
+            null_analysis_sample_limit=db.null_analysis_sample_limit,
+            label=f"{srv.server}/{db.name}",
+            access_level=getattr(srv, "access_level", "db_datareader") or "db_datareader",
+        )
+
+        job_store.update_job(job_id, status=JobStatus.RUNNING, started_at=datetime.now(timezone.utc))
         results, report_path = run_assessment(job_id, request)
         job_store.update_job(
             job_id,
@@ -180,13 +180,16 @@ def _run_direct_job(session_id: str, job_id: str, srv: ServerTarget, db: Databas
     except Exception as exc:
         logger.error("Session %s job %s failed: %s", session_id, job_id, exc, exc_info=True)
         friendly = humanize_connection_error(exc, server=srv.server, database=db.name)
-        job_store.update_job(
-            job_id,
-            status=JobStatus.FAILED,
-            completed_at=datetime.now(timezone.utc),
-            error=friendly,
-            progress_message=None,
-        )
+        try:
+            job_store.update_job(
+                job_id,
+                status=JobStatus.FAILED,
+                completed_at=datetime.now(timezone.utc),
+                error=friendly,
+                progress_message=None,
+            )
+        except Exception as store_exc:
+            logger.error("Could not persist FAILED status for job %s: %s", job_id, store_exc)
     finally:
         update_session_progress(session_id)
 
@@ -288,6 +291,17 @@ def run_session_background(session_id: str, request: SessionRequest, user_id: st
                     future.result()
                 except Exception as exc:
                     logger.error("Unhandled error in session %s job %s: %s", session_id, jid, exc)
+                    try:
+                        job_store.update_job(
+                            jid,
+                            status=JobStatus.FAILED,
+                            completed_at=datetime.now(timezone.utc),
+                            error=str(exc),
+                            progress_message=None,
+                        )
+                        update_session_progress(session_id)
+                    except Exception:
+                        pass
 
     # If no gateway jobs pending, force a final progress recompute
     if not gateway_jobs:

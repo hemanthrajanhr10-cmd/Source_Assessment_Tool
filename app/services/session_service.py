@@ -148,6 +148,11 @@ def _run_direct_job(session_id: str, job_id: str, srv: ServerTarget, db: Databas
     from app.models.responses import humanize_connection_error
     from app.services.assessment_service import run_assessment
 
+    logger.info(
+        "Session %s: starting direct job %s for %s/%s (db_type=%s)",
+        session_id, job_id, srv.server, db.name, getattr(srv, "db_type", "mssql"),
+    )
+
     try:
         request = AssessmentRequest(
             connection=ConnectionParams(
@@ -166,7 +171,9 @@ def _run_direct_job(session_id: str, job_id: str, srv: ServerTarget, db: Databas
             access_level=getattr(srv, "access_level", "db_datareader") or "db_datareader",
         )
 
+        logger.info("Session %s: job %s transitioning Pending → Running", session_id, job_id)
         job_store.update_job(job_id, status=JobStatus.RUNNING, started_at=datetime.now(timezone.utc))
+        logger.info("Session %s: job %s status=Running, beginning assessment connection", session_id, job_id)
         results, report_path = run_assessment(job_id, request)
         job_store.update_job(
             job_id,
@@ -195,43 +202,113 @@ def _run_direct_job(session_id: str, job_id: str, srv: ServerTarget, db: Databas
 
 
 def _queue_gateway_job(session_id: str, job_id: str, srv: ServerTarget, db: DatabaseTarget) -> None:
-    """Publish a job to the gateway agent (non-blocking — gateway runs it async)."""
+    """
+    Publish a job to the gateway agent (non-blocking — gateway runs it async).
+    Any dispatch failure marks the job FAILED immediately so it never silently
+    stays Pending — the error surfaces in the Azure App Service Log Stream.
+    """
     payload = {
         "connection": {
-            "server": srv.server,
-            "port": srv.port,
-            "database": db.name,
-            "username": srv.username,
-            "password": srv.password.get_secret_value(),
+            # db_type is required so the agent selects the correct driver/query set.
+            "db_type":                  getattr(srv, "db_type", "mssql") or "mssql",
+            "server":                   srv.server,
+            "port":                     srv.port,
+            "database":                 db.name,
+            "username":                 srv.username,
+            "password":                 srv.password.get_secret_value(),
             "trust_server_certificate": srv.trust_server_certificate,
-            "encrypt": srv.encrypt,
+            "encrypt":                  srv.encrypt,
         },
-        "include_null_analysis": db.include_null_analysis,
+        "include_null_analysis":      db.include_null_analysis,
         "null_analysis_sample_limit": db.null_analysis_sample_limit,
-        "access_level": getattr(srv, "access_level", "db_datareader") or "db_datareader",
+        "access_level":               getattr(srv, "access_level", "db_datareader") or "db_datareader",
     }
 
+    logger.info(
+        "Session %s: routing job %s for %s/%s via gateway (use_gateway=True, sb_available=%s, gw_key=%s)",
+        session_id, job_id, srv.server, db.name,
+        service_bus.is_available(),
+        (srv.gateway_key or "")[:8] or "none",
+    )
+
     if service_bus.is_available():
-        job_store.update_job(job_id, progress_message="Waiting for gateway agent to pick up job…")
-        service_bus.publish_job(job_id, payload)
-        logger.info("Session %s job %s published to Service Bus", session_id, job_id)
-    else:
-        # HTTP polling fallback — use the specified gateway key
-        gw_key = srv.gateway_key
-        if gw_key:
-            azure_store.update_job(
-                job_id,
-                gateway_key=gw_key,
-                gateway_payload=json.dumps(payload),
+        try:
+            job_store.update_job(job_id, progress_message="Waiting for gateway agent to pick up job…")
+            service_bus.publish_job(job_id, payload)
+            logger.info(
+                "Session %s: job %s published to Service Bus queue '%s'",
+                session_id, job_id, "sat-jobs",
             )
-            job_store.update_job(job_id, progress_message="Queued for gateway (HTTP polling)…")
-            logger.info("Session %s job %s queued for gateway %s (HTTP)", session_id, job_id, gw_key[:8])
-        else:
+        except Exception as exc:
+            # Service Bus publish failed (wrong conn string, missing queue, network error).
+            # Without this catch the exception silently kills run_session_background and
+            # the job stays in Pending forever with nothing in the Log Stream.
+            error_msg = (
+                f"Failed to dispatch job to Service Bus: {exc}. "
+                "Verify SERVICE_BUS_CONNECTION_STRING and that the 'sat-jobs' queue "
+                "exists in the new subscription's Service Bus namespace."
+            )
+            logger.error(
+                "Session %s: job %s Service Bus dispatch FAILED — %s",
+                session_id, job_id, exc, exc_info=True,
+            )
             job_store.update_job(
                 job_id,
                 status=JobStatus.FAILED,
                 completed_at=datetime.now(timezone.utc),
-                error="No gateway selected. Choose a gateway agent for this server.",
+                error=error_msg,
+                progress_message=None,
+            )
+            update_session_progress(session_id)
+    else:
+        # HTTP polling fallback — gateway agent must poll /api/v1/gateway/poll
+        gw_key = srv.gateway_key
+        if gw_key:
+            try:
+                azure_store.update_job(
+                    job_id,
+                    gateway_key=gw_key,
+                    gateway_payload=json.dumps(payload),
+                )
+                job_store.update_job(job_id, progress_message="Queued for gateway agent (HTTP polling)…")
+                logger.info(
+                    "Session %s: job %s queued for gateway %s…%s via HTTP polling. "
+                    "Ensure the agent is running and SAT_SERVER_URL points to this App Service.",
+                    session_id, job_id, gw_key[:4], gw_key[-4:],
+                )
+            except Exception as exc:
+                error_msg = (
+                    f"Failed to queue job for gateway HTTP polling: {exc}. "
+                    "Check Azure SQL connectivity and gateway_key configuration."
+                )
+                logger.error(
+                    "Session %s: job %s HTTP-poll queue FAILED — %s",
+                    session_id, job_id, exc, exc_info=True,
+                )
+                job_store.update_job(
+                    job_id,
+                    status=JobStatus.FAILED,
+                    completed_at=datetime.now(timezone.utc),
+                    error=error_msg,
+                    progress_message=None,
+                )
+                update_session_progress(session_id)
+        else:
+            logger.error(
+                "Session %s: job %s has use_gateway=True but no gateway_key and "
+                "Service Bus is not configured — job cannot be dispatched.",
+                session_id, job_id,
+            )
+            job_store.update_job(
+                job_id,
+                status=JobStatus.FAILED,
+                completed_at=datetime.now(timezone.utc),
+                error=(
+                    "No gateway agent selected and Service Bus is not configured. "
+                    "Either select a registered gateway, configure SERVICE_BUS_CONNECTION_STRING, "
+                    "or disable 'Use Gateway' for directly reachable servers."
+                ),
+                progress_message=None,
             )
             update_session_progress(session_id)
 
@@ -273,9 +350,37 @@ def run_session_background(session_id: str, request: SessionRequest, user_id: st
     gateway_jobs = [(jid, srv, db) for jid, srv, db in jobs_info if srv.use_gateway]
     direct_jobs  = [(jid, srv, db) for jid, srv, db in jobs_info if not srv.use_gateway]
 
-    # Publish gateway jobs immediately (non-blocking)
+    logger.info(
+        "Session %s started: %d total job(s) — %d gateway, %d direct "
+        "(Service Bus available: %s)",
+        session_id, len(jobs_info), len(gateway_jobs), len(direct_jobs),
+        service_bus.is_available(),
+    )
+
+    # Publish gateway jobs immediately (non-blocking).
+    # _queue_gateway_job handles its own errors and marks each job FAILED on failure,
+    # so an individual dispatch failure never kills the rest of the session.
     for jid, srv, db in gateway_jobs:
-        _queue_gateway_job(session_id, jid, srv, db)
+        try:
+            _queue_gateway_job(session_id, jid, srv, db)
+        except Exception as exc:
+            # Belt-and-suspenders: _queue_gateway_job should never raise, but if it does
+            # we catch here to prevent the background task from dying silently.
+            logger.error(
+                "Session %s: unhandled error dispatching gateway job %s — %s",
+                session_id, jid, exc, exc_info=True,
+            )
+            try:
+                job_store.update_job(
+                    jid,
+                    status=JobStatus.FAILED,
+                    completed_at=datetime.now(timezone.utc),
+                    error=f"Internal dispatch error: {exc}",
+                    progress_message=None,
+                )
+                update_session_progress(session_id)
+            except Exception:
+                pass
 
     # Run direct jobs in parallel (blocking until all complete)
     if direct_jobs:

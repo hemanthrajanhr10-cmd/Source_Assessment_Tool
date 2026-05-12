@@ -187,7 +187,26 @@ async def trigger_assessment(
             # ── Service Bus path — VPN-proof, agent receives via queue ────────
             job_store.create_job(record, user_id=user_id)
             job_store.update_job(job_id, progress_message="Waiting for gateway agent to pick up job…")
-            service_bus.publish_job(job_id, payload)
+            try:
+                service_bus.publish_job(job_id, payload)
+            except Exception as exc:
+                error_msg = (
+                    f"Failed to dispatch job to Service Bus: {exc}. "
+                    "Verify SERVICE_BUS_CONNECTION_STRING and that the 'sat-jobs' queue "
+                    "exists in the namespace."
+                )
+                logger.error(
+                    "Job %s Service Bus dispatch FAILED: %s", job_id, exc,
+                    extra={"job_id": job_id}, exc_info=True,
+                )
+                job_store.update_job(
+                    job_id,
+                    status=JobStatus.FAILED,
+                    completed_at=datetime.now(timezone.utc),
+                    error=error_msg,
+                    progress_message=None,
+                )
+                raise HTTPException(status_code=503, detail=error_msg)
             logger.info("Job %s published to Service Bus", job_id, extra={"job_id": job_id})
             return AssessmentResponse(
                 job_id=job_id,
@@ -204,6 +223,10 @@ async def trigger_assessment(
                 gateway_key=body.gateway_key,
                 gateway_payload=json.dumps(payload),
                 user_id=user_id,
+            )
+            job_store.update_job(
+                job_id,
+                progress_message="Queued for gateway agent — ensure the agent is running and polling this server…",
             )
             logger.info("Job %s queued (HTTP poll fallback) for gateway %s", job_id, body.gateway_key[:8], extra={"job_id": job_id})
             return AssessmentResponse(

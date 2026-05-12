@@ -2,6 +2,7 @@
 FastAPI application factory.
 """
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -53,10 +54,35 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Service Bus not configured — gateway jobs will use direct HTTP polling")
 
+    # Watchdog: periodically fail jobs that have been Pending too long
+    # (covers relay/service-bus jobs whose agent crashed before submitting)
+    _watchdog_task = asyncio.create_task(_pending_job_watchdog())
+
     logger.info("SQL Server Assessment API started")
     yield
     # Shutdown
+    _watchdog_task.cancel()
     logger.info("SQL Server Assessment API stopped")
+
+
+async def _pending_job_watchdog(interval_s: int = 300, timeout_minutes: int = 30) -> None:
+    """
+    Every `interval_s` seconds, mark any PENDING job older than `timeout_minutes`
+    as FAILED.  This prevents gateway jobs from staying Pending forever when the
+    agent is offline or crashes before posting results back.
+    """
+    await asyncio.sleep(interval_s)   # first run after 5 min, not immediately on startup
+    while True:
+        try:
+            count = azure_store.timeout_stale_pending_jobs(older_than_minutes=timeout_minutes)
+            if count:
+                logger.warning(
+                    "Watchdog timed out %d stale PENDING job(s) (threshold: %d min)",
+                    count, timeout_minutes,
+                )
+        except Exception as exc:
+            logger.warning("Pending-job watchdog error (non-fatal): %s", exc)
+        await asyncio.sleep(interval_s)
 
 
 app = FastAPI(

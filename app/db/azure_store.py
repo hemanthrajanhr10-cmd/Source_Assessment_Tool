@@ -870,6 +870,37 @@ def create_gateway_job(job_id: str, label: Optional[str], created_at: datetime,
         conn.close()
 
 
+def timeout_stale_pending_jobs(older_than_minutes: int = 30) -> int:
+    """
+    Mark PENDING jobs that are older than `older_than_minutes` as FAILED.
+    Returns the number of jobs timed out.
+    Prevents gateway jobs from staying Pending forever when the agent is offline
+    or crashes before submitting results.
+    """
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE dbo.jobs
+            SET status           = 'failed',
+                completed_at     = SYSUTCDATETIME(),
+                error            = 'Job timed out in Pending state — the gateway agent did not '
+                                   'pick up or complete this job within the expected window. '
+                                   'Ensure the agent is running and can reach this server.',
+                progress_message = NULL
+            WHERE status = 'pending'
+              AND DATEDIFF(MINUTE, created_at, SYSUTCDATETIME()) >= ?
+            """,
+            (older_than_minutes,),
+        )
+        count = cur.rowcount
+        conn.commit()
+        return count if count is not None else 0
+    finally:
+        conn.close()
+
+
 # ── Session CRUD ───────────────────────────────────────────────────────────────
 
 def create_session(

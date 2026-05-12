@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UnifiedSessionsPage — list of all unified assessment sessions for the current user.
  */
 
@@ -15,9 +15,9 @@ import Spinner from '../components/ui/Spinner'
 import { formatDateTime, elapsed } from '../utils/dateTime'
 
 const MODE_META: Record<string, { label: string; icon: React.ElementType; gradient: string }> = {
-  source: { label: 'Source DB',         icon: Database, gradient: 'linear-gradient(135deg, #7c3aed, #6366f1)' },
+  source: { label: 'Source DB',         icon: Database, gradient: 'linear-gradient(135deg, #2d6a4f, #40916c)' },
   fabric: { label: 'Fabric',            icon: Zap,      gradient: 'linear-gradient(135deg, #4f46e5, #0ea5e9)' },
-  both:   { label: 'Full Assessment',   icon: Layers3,  gradient: 'linear-gradient(135deg, #7c3aed, #0ea5e9)' },
+  both:   { label: 'Full Assessment',   icon: Layers3,  gradient: 'linear-gradient(135deg, #2d6a4f, #0ea5e9)' },
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
@@ -50,13 +50,13 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
     <button
       onClick={onClick}
       className="group w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-200 bg-white
-                 hover:border-violet-200 hover:bg-violet-50/20 hover:shadow-md transition-all duration-150 text-left"
+                 hover:border-emerald-200 hover:bg-emerald-50/20 hover:shadow-md transition-all duration-150 text-left"
       style={{ boxShadow: 'var(--elevation-1)' }}
     >
       {/* Mode icon */}
       <div
         className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-        style={{ background: meta.gradient, boxShadow: '0 3px 10px rgba(124,58,237,0.2)' }}
+        style={{ background: meta.gradient, boxShadow: '0 3px 10px rgba(45,106,79,0.2)' }}
       >
         <Icon className="h-5 w-5 text-white" />
       </div>
@@ -72,9 +72,9 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
           <span
             className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0"
             style={{
-              background: 'rgba(124,58,237,0.07)',
-              color: '#7c3aed',
-              border: '1px solid rgba(196,181,253,0.30)',
+              background: 'rgba(45,106,79,0.07)',
+              color: '#2d6a4f',
+              border: '1px solid rgba(143,202,170,0.30)',
             }}
           >
             {meta.label}
@@ -103,7 +103,7 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
       </div>
 
       <StatusBadge status={session.status} />
-      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-violet-400 transition-colors shrink-0" />
+      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-emerald-500 transition-colors shrink-0" />
     </button>
   )
 }

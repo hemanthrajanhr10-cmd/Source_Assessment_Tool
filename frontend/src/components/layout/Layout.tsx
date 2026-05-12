@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import Sidebar from './Sidebar'
 import Header from './Header'
 import { Database } from 'lucide-react'
@@ -39,7 +39,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="flex items-center gap-2">
               <div
                 className="h-5 w-5 rounded-md flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #7c3aed, #6366f1)' }}
+                style={{ background: 'linear-gradient(135deg, #2d6a4f, #40916c)' }}
                 aria-hidden="true"
               >
                 <Database className="h-3 w-3 text-white" />
@@ -53,9 +53,9 @@ export default function Layout({ children }: LayoutProps) {
             <span
               className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md"
               style={{
-                background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(99,102,241,0.06))',
-                color: '#7c3aed',
-                border: '1px solid rgba(196,181,253,0.30)',
+                background: 'linear-gradient(135deg, rgba(45,106,79,0.08), rgba(64,145,108,0.06))',
+                color: '#2d6a4f',
+                border: '1px solid rgba(143,202,170,0.30)',
               }}
             >
               v2.0

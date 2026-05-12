@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UnifiedSessionDetailPage — consolidated report for a unified assessment session.
  *
  * Layout:
@@ -168,10 +168,10 @@ function SourceSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
         {canNavigate && onViewDashboard ? (
           <button
             onClick={onViewDashboard}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-100 hover:border-violet-200 transition-colors cursor-pointer group"
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 hover:border-emerald-200 transition-colors cursor-pointer group"
           >
-            <span className="text-sm font-medium text-violet-700">View Full Dashboard</span>
-            <ArrowRight className="h-4 w-4 text-violet-500 group-hover:translate-x-0.5 transition-transform" />
+            <span className="text-sm font-medium text-emerald-800">View Full Dashboard</span>
+            <ArrowRight className="h-4 w-4 text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
           </button>
         ) : (
           <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 opacity-50 cursor-default">
@@ -240,7 +240,7 @@ function FabricSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
         <div className="space-y-1.5">
           {workspaces.map(ws => (
             <div key={ws.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100">
-              <Building2 className="h-4 w-4 text-indigo-400 shrink-0" />
+              <Building2 className="h-4 w-4 text-emerald-500 shrink-0" />
               <span className="flex-1 text-sm font-medium text-slate-800">{ws.name}</span>
               <span className="text-xs text-slate-400">{ws.dataset_count} models · {ws.report_count} reports</span>
             </div>
@@ -266,10 +266,10 @@ function FabricSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
         {canNavigate && onViewDashboard ? (
           <button
             onClick={onViewDashboard}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 hover:border-indigo-200 transition-colors cursor-pointer group"
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-indigo-100 border border-emerald-100 hover:border-emerald-200 transition-colors cursor-pointer group"
           >
-            <span className="text-sm font-medium text-indigo-700">View Full Dashboard</span>
-            <ArrowRight className="h-4 w-4 text-indigo-500 group-hover:translate-x-0.5 transition-transform" />
+            <span className="text-sm font-medium text-emerald-800">View Full Dashboard</span>
+            <ArrowRight className="h-4 w-4 text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
           </button>
         ) : (
           <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 opacity-50 cursor-default">
@@ -305,7 +305,7 @@ function ComparisonTable({ session }: { session: UnifiedSession }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden" style={{ boxShadow: 'var(--elevation-1)' }}>
       <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-        <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #7c3aed, #0ea5e9)' }}>
+        <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #2d6a4f, #0ea5e9)' }}>
           <BarChart2 className="h-4 w-4 text-white" />
         </div>
         <span className="text-sm font-bold text-slate-900">Side-by-Side Comparison</span>
@@ -315,10 +315,10 @@ function ComparisonTable({ session }: { session: UnifiedSession }) {
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
               <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/3">Metric</th>
-              <th className="text-left px-5 py-3 text-xs font-semibold text-violet-600 uppercase tracking-wider w-1/3">
+              <th className="text-left px-5 py-3 text-xs font-semibold text-emerald-700 uppercase tracking-wider w-1/3">
                 <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5" /> Source DB</span>
               </th>
-              <th className="text-left px-5 py-3 text-xs font-semibold text-indigo-600 uppercase tracking-wider w-1/3">
+              <th className="text-left px-5 py-3 text-xs font-semibold text-emerald-700 uppercase tracking-wider w-1/3">
                 <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Fabric</span>
               </th>
             </tr>
@@ -393,7 +393,7 @@ export default function UnifiedSessionDetailPage() {
       {/* ── Sticky summary bar ─────────────────────────────────────────────── */}
       <div
         className="sticky top-0 z-10 rounded-2xl border border-slate-200/80 bg-white/95 backdrop-blur-md px-5 py-4"
-        style={{ boxShadow: '0 2px 16px rgba(124,58,237,0.08)' }}
+        style={{ boxShadow: '0 2px 16px rgba(45,106,79,0.08)' }}
       >
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -408,10 +408,10 @@ export default function UnifiedSessionDetailPage() {
             className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
             style={{
               background: session.mode === 'source'
-                ? 'linear-gradient(135deg, #7c3aed, #6366f1)'
+                ? 'linear-gradient(135deg, #2d6a4f, #40916c)'
                 : session.mode === 'fabric'
                 ? 'linear-gradient(135deg, #4f46e5, #0ea5e9)'
-                : 'linear-gradient(135deg, #7c3aed, #0ea5e9)',
+                : 'linear-gradient(135deg, #2d6a4f, #0ea5e9)',
             }}
           >
             {session.mode === 'source' ? <Database className="h-4.5 w-4.5 text-white" style={{ height: '18px', width: '18px' }} /> :
@@ -427,9 +427,9 @@ export default function UnifiedSessionDetailPage() {
               <span
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-md"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(99,102,241,0.06))',
-                  color: '#7c3aed',
-                  border: '1px solid rgba(196,181,253,0.30)',
+                  background: 'linear-gradient(135deg, rgba(45,106,79,0.08), rgba(64,145,108,0.06))',
+                  color: '#2d6a4f',
+                  border: '1px solid rgba(143,202,170,0.30)',
                 }}
               >
                 {MODE_LABELS[session.mode]}
@@ -452,7 +452,7 @@ export default function UnifiedSessionDetailPage() {
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors disabled:opacity-40"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40"
             title="Refresh"
           >
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
@@ -476,7 +476,7 @@ export default function UnifiedSessionDetailPage() {
         <CollapsibleSection
           title="Source Database Assessment"
           icon={Database}
-          iconBg="linear-gradient(135deg, #7c3aed, #6366f1)"
+          iconBg="linear-gradient(135deg, #2d6a4f, #40916c)"
           badge={
             (session.source?.status || session.source_status)
               ? <StatusBadge status={session.source?.status || session.source_status!} />

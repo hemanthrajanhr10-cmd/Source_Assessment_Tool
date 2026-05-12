@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { useAssessmentProgress } from '../hooks/useAssessmentProgress'
 import PhaseStepperBar from './PhaseStepperBar'
 import LiveActivityFeed from './LiveActivityFeed'
@@ -13,7 +13,7 @@ const FONT = "'Segoe UI', system-ui, -apple-system, sans-serif"
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { bg: string; color: string; label: string }> = {
     queued:    { bg: '#F3F4F6', color: '#6B7280', label: 'Queued' },
-    running:   { bg: '#EFF6FF', color: '#1D4ED8', label: 'Running' },
+    running:   { bg: '#F0F7F2', color: '#1D4ED8', label: 'Running' },
     completed: { bg: '#F0FDF4', color: '#15803D', label: 'Completed' },
     failed:    { bg: '#FFF1F2', color: '#BE123C', label: 'Failed' },
     cancelled: { bg: '#F3F4F6', color: '#6B7280', label: 'Cancelled' },

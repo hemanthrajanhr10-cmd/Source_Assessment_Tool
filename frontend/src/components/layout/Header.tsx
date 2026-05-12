@@ -64,14 +64,15 @@ export default function Header({ onMenuClick }: HeaderProps) {
         ${scrolled ? 'glass-nav' : 'bg-white/95'}
       `}
       style={!scrolled ? {
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(250,250,254,0.95) 100%)',
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(250,253,251,0.95) 100%)',
       } : undefined}
     >
       {/* Mobile hamburger */}
       <button
         onClick={onMenuClick}
-        className="lg:hidden p-2 rounded-xl text-slate-500 hover:bg-violet-50 hover:text-violet-700
-                   transition-colors mr-3 focus-visible:ring-2 focus-visible:ring-violet-500/40"
+        className="lg:hidden p-2 rounded-xl text-slate-500 transition-colors mr-3 focus-visible:ring-2"
+        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(240,247,244,0.8)'; el.style.color = '#2d6a4f' }}
+        onMouseLeave={(e) => { const el = e.currentTarget; el.style.backgroundColor = ''; el.style.color = '' }}
         aria-label="Open navigation"
       >
         <Menu className="h-5 w-5" />
@@ -87,12 +88,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         )}
         <h2
           className="text-sm font-bold text-slate-900 truncate font-display tracking-tight leading-tight"
-          style={{
-            background: 'linear-gradient(135deg, #0D1117 0%, #4A5568 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-          }}
+          style={{ color: '#0D1117' }}
         >
           {pageTitle}
         </h2>
@@ -118,16 +114,17 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
         {/* Notification bell */}
         <button
-          className="relative p-2 rounded-xl text-slate-400 hover:bg-violet-50 hover:text-violet-600
-                     transition-colors focus-visible:ring-2 focus-visible:ring-violet-500/40"
+          className="relative p-2 rounded-xl text-slate-400 transition-colors focus-visible:ring-2"
+        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(240,247,244,0.8)'; el.style.color = '#2d6a4f' }}
+        onMouseLeave={(e) => { const el = e.currentTarget; el.style.backgroundColor = ''; el.style.color = '' }}
           aria-label="Notifications"
           title="Notifications"
         >
           <Bell className="h-4 w-4" />
           {notifPulse && (
             <span
-              className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-violet-500"
-              style={{ boxShadow: '0 0 6px rgba(124,58,237,0.60)' }}
+              className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full"
+              style={{ backgroundColor: '#2d6a4f', boxShadow: '0 0 6px rgba(45,106,79,0.55)' }}
               aria-hidden="true"
             />
           )}

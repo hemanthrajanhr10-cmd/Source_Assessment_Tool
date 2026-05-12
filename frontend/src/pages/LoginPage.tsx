@@ -12,11 +12,11 @@ type Step = 'credentials' | 'mfa'
 const BASE_URL = (import.meta as ImportMeta & { env: Record<string, string> }).env.VITE_API_URL || ''
 
 const FEATURES = [
-  { icon: CheckCircle2, text: '25+ assessment dimensions', color: 'text-violet-400' },
-  { icon: Zap,          text: 'Schema complexity scoring',  color: 'text-indigo-400' },
-  { icon: Shield,       text: 'PII indicator scanning',     color: 'text-purple-400' },
-  { icon: BarChart3,    text: 'Professional Excel reports', color: 'text-blue-400'   },
-  { icon: Network,      text: 'Hybrid Connection support',  color: 'text-violet-400' },
+  { icon: CheckCircle2, text: '25+ assessment dimensions', color: 'text-emerald-600' },
+  { icon: Zap,          text: 'Schema complexity scoring',  color: 'text-green-600'  },
+  { icon: Shield,       text: 'PII indicator scanning',     color: 'text-teal-600'   },
+  { icon: BarChart3,    text: 'Professional Excel reports', color: 'text-emerald-500' },
+  { icon: Network,      text: 'Hybrid Connection support',  color: 'text-green-500'  },
 ]
 
 export default function LoginPage() {
@@ -86,13 +86,13 @@ export default function LoginPage() {
       {/* ── Left panel — Aurora animated brand panel ─────────────────────────── */}
       <div
         className="hidden lg:flex lg:w-1/2 xl:w-5/12 flex-col justify-between p-12 relative overflow-hidden"
-        style={{ borderRight: '1px solid rgba(196, 181, 253, 0.20)' }}
+        style={{ borderRight: '1px solid rgba(143, 202, 170, 0.25)' }}
       >
         {/* Aurora animated gradient background */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(-45deg, #EDE9FE, #E0E7FF, #F5F3FF, #EFF6FF, #F0F4FF, #EDE9FE)',
+            background: 'linear-gradient(-45deg, #E8F3ED, #D8EAE0, #EBF5EE, #F0F7F2, #E2EEE7, #ECF5EF)',
             backgroundSize: '400% 400%',
             animation: 'aurora 16s ease-in-out infinite',
           }}
@@ -101,9 +101,9 @@ export default function LoginPage() {
 
         {/* Dot grid pattern */}
         <div
-          className="absolute inset-0 opacity-[0.30]"
+          className="absolute inset-0 opacity-[0.28]"
           style={{
-            backgroundImage: 'radial-gradient(circle, rgba(124,58,237,0.5) 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(circle, rgba(45,106,79,0.5) 1px, transparent 1px)',
             backgroundSize: '26px 26px',
           }}
           aria-hidden="true"
@@ -120,42 +120,42 @@ export default function LoginPage() {
 
         {/* ── Floating 3D Orbs ────────────────────────────────────────────── */}
 
-        {/* Large violet orb — top right */}
+        {/* Large forest orb — top right */}
         <div
-          className="absolute top-16 right-8 h-52 w-52 rounded-full opacity-40 orb-float"
+          className="absolute top-16 right-8 h-52 w-52 rounded-full opacity-35 orb-float"
           style={{
-            background: 'radial-gradient(circle at 35% 35%, #a78bfa 0%, #7c3aed 50%, transparent 72%)',
-            filter: 'blur(24px)',
+            background: 'radial-gradient(circle at 35% 35%, #74c69d 0%, #2d6a4f 55%, transparent 72%)',
+            filter: 'blur(28px)',
             animationDuration: '10s',
           }}
           aria-hidden="true"
         />
 
-        {/* Medium indigo orb — center-right */}
+        {/* Medium sage orb — center-right */}
         <div
-          className="absolute top-1/3 right-4 h-36 w-36 rounded-full opacity-30 orb-float-delayed"
+          className="absolute top-1/3 right-4 h-36 w-36 rounded-full opacity-28 orb-float-delayed"
           style={{
-            background: 'radial-gradient(circle at 40% 40%, #818cf8 0%, #6366f1 60%, transparent 80%)',
+            background: 'radial-gradient(circle at 40% 40%, #8fcaaa 0%, #40916c 60%, transparent 80%)',
             filter: 'blur(18px)',
           }}
           aria-hidden="true"
         />
 
-        {/* Small purple orb — bottom left */}
+        {/* Small moss orb — bottom left */}
         <div
-          className="absolute bottom-28 left-8 h-28 w-28 rounded-full opacity-35 orb-float-slow"
+          className="absolute bottom-28 left-8 h-28 w-28 rounded-full opacity-30 orb-float-slow"
           style={{
-            background: 'radial-gradient(circle, #c4b5fd 0%, #8b5cf6 60%, transparent 80%)',
+            background: 'radial-gradient(circle, #b7deca 0%, #52b788 60%, transparent 80%)',
             filter: 'blur(14px)',
           }}
           aria-hidden="true"
         />
 
-        {/* Tiny accent orb — bottom right */}
+        {/* Tiny teal accent orb — bottom right */}
         <div
-          className="absolute bottom-16 right-20 h-16 w-16 rounded-full opacity-25 orb-float"
+          className="absolute bottom-16 right-20 h-16 w-16 rounded-full opacity-22 orb-float"
           style={{
-            background: 'radial-gradient(circle, #60a5fa 0%, #3b82f6 70%, transparent 90%)',
+            background: 'radial-gradient(circle, #7ec8b0 0%, #3a9e84 70%, transparent 90%)',
             filter: 'blur(10px)',
             animationDuration: '7s',
             animationDelay: '1s',
@@ -171,15 +171,15 @@ export default function LoginPage() {
             <div
               className="flex items-center justify-center h-12 w-12 rounded-2xl"
               style={{
-                background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-                boxShadow: '0 8px 24px rgba(124,58,237,0.35), inset 0 1px 0 rgba(255,255,255,0.20)',
+                background: 'linear-gradient(135deg, #2d6a4f 0%, #40916c 100%)',
+                boxShadow: '0 8px 24px rgba(45,106,79,0.30), inset 0 1px 0 rgba(255,255,255,0.20)',
               }}
             >
               <Database className="h-6 w-6 text-white" aria-hidden="true" />
             </div>
             <div>
               <p className="text-lg font-bold text-slate-900 font-display tracking-tight">
-                Source<span className="text-violet-600 font-extrabold">SAT</span>
+                Source<span className="font-extrabold" style={{ color: '#2d6a4f' }}>SAT</span>
               </p>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Assessment Tool</p>
             </div>
@@ -189,9 +189,10 @@ export default function LoginPage() {
         {/* Hero text */}
         <div className="relative z-10 space-y-10">
           <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 border border-violet-200/60 backdrop-blur-sm">
-              <Sparkles className="h-3.5 w-3.5 text-violet-500" aria-hidden="true" />
-              <span className="text-xs font-semibold text-violet-700 tracking-wide">Enterprise Database Intelligence</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-sm"
+              style={{ border: '1px solid rgba(143,202,170,0.50)' }}>
+              <Sparkles className="h-3.5 w-3.5" style={{ color: '#2d6a4f' }} aria-hidden="true" />
+              <span className="text-xs font-semibold tracking-wide" style={{ color: '#1b4332' }}>Enterprise Database Intelligence</span>
             </div>
 
             <h1
@@ -199,7 +200,7 @@ export default function LoginPage() {
               style={{ letterSpacing: '-0.04em' }}
             >
               SQL Server<br />
-              <span className="text-indigo-600 font-black">Intelligence</span>{' '}
+              <span className="font-black" style={{ color: '#2d6a4f' }}>Intelligence</span>{' '}
               <span className="text-slate-700">Platform</span>
             </h1>
             <p className="text-slate-500 text-sm leading-relaxed max-w-xs">
@@ -240,7 +241,7 @@ export default function LoginPage() {
         {/* Bottom tagline */}
         <div className="relative z-10 flex items-center gap-2">
           <div className="h-px flex-1" style={{
-            background: 'linear-gradient(90deg, rgba(124,58,237,0.20), transparent)',
+            background: 'linear-gradient(90deg, rgba(45,106,79,0.22), transparent)',
           }} />
           <p className="text-xs text-slate-400 tracking-widest uppercase">
             UBTI Platform
@@ -258,14 +259,14 @@ export default function LoginPage() {
           <div
             className="flex items-center justify-center h-14 w-14 rounded-2xl mb-4"
             style={{
-              background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-              boxShadow: '0 8px 24px rgba(124,58,237,0.35)',
+              background: 'linear-gradient(135deg, #2d6a4f 0%, #40916c 100%)',
+              boxShadow: '0 8px 24px rgba(45,106,79,0.28)',
             }}
           >
             <Database className="h-7 w-7 text-white" aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-black text-slate-900 font-display tracking-tight">
-            Source<span className="text-violet-600 font-extrabold">SAT</span>
+            Source<span className="font-extrabold" style={{ color: '#2d6a4f' }}>SAT</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1 tracking-widest uppercase">Assessment Tool</p>
         </div>
@@ -279,21 +280,21 @@ export default function LoginPage() {
           <div
             className="relative rounded-3xl p-px"
             style={{
-              background: 'linear-gradient(135deg, rgba(124,58,237,0.25) 0%, rgba(196,181,253,0.15) 50%, rgba(99,102,241,0.20) 100%)',
+              background: 'linear-gradient(135deg, rgba(45,106,79,0.22) 0%, rgba(143,202,170,0.14) 50%, rgba(64,145,108,0.18) 100%)',
             }}
           >
             <div
               className="rounded-[23px] px-8 py-10 relative overflow-hidden"
               style={{
                 background: '#ffffff',
-                boxShadow: '0 24px 64px rgba(124,58,237,0.12), 0 4px 16px rgba(0,0,0,0.06)',
+                boxShadow: '0 24px 64px rgba(45,106,79,0.10), 0 4px 16px rgba(0,0,0,0.06)',
               }}
             >
               {/* Card rim light */}
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(245,243,255,0.70) 0%, transparent 50%)',
+                  background: 'linear-gradient(135deg, rgba(240,247,244,0.70) 0%, transparent 50%)',
                   borderRadius: 'inherit',
                 }}
                 aria-hidden="true"
@@ -358,8 +359,11 @@ export default function LoginPage() {
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
                             className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400
-                                       hover:text-violet-600 transition-colors focus-visible:outline-none
-                                       focus-visible:ring-2 focus-visible:ring-violet-500/40 rounded-lg p-0.5"
+                                       transition-colors focus-visible:outline-none
+                                       focus-visible:ring-2 focus-visible:ring-offset-1 rounded-lg p-0.5"
+                            style={{ ['--tw-ring-color' as string]: 'rgba(45,106,79,0.35)' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#2d6a4f' }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '' }}
                             aria-label={showPassword ? 'Hide password' : 'Show password'}
                           >
                             {showPassword
@@ -386,11 +390,11 @@ export default function LoginPage() {
                         disabled={loading}
                         className="w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl
                                    text-sm font-semibold text-white btn-physics btn-shimmer
-                                   focus-visible:ring-2 focus-visible:ring-violet-500/40 focus-visible:ring-offset-2
+                                   focus-visible:ring-2 focus-visible:ring-offset-2
                                    focus-visible:outline-none disabled:opacity-50"
                         style={{
-                          background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-                          boxShadow: '0 4px 16px rgba(124,58,237,0.32), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
+                          background: 'linear-gradient(135deg, #2d6a4f 0%, #40916c 100%)',
+                          boxShadow: '0 4px 16px rgba(45,106,79,0.30), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
                         }}
                       >
                         {loading ? 'Signing in…' : (
@@ -414,18 +418,18 @@ export default function LoginPage() {
                         disabled={!!oauthLoading}
                         className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl
                                    text-sm font-semibold text-slate-700 border border-slate-200
-                                   hover:border-violet-300 hover:bg-violet-50/60
                                    active:scale-[0.98] transition-all duration-150
-                                   focus-visible:outline-none focus-visible:ring-2
-                                   focus-visible:ring-violet-500/40 disabled:opacity-60"
+                                   focus-visible:outline-none focus-visible:ring-2 disabled:opacity-60"
                         style={{
                           background: '#ffffff',
                           boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
                         }}
+                        onMouseEnter={(e) => { const el = e.currentTarget; el.style.borderColor = 'rgba(143,202,170,0.6)'; el.style.backgroundColor = 'rgba(240,247,244,0.6)' }}
+                        onMouseLeave={(e) => { const el = e.currentTarget; el.style.borderColor = ''; el.style.backgroundColor = '' }}
                         aria-label="Sign in with Microsoft"
                       >
                         {oauthLoading === 'microsoft' ? (
-                          <svg className="animate-spin h-4 w-4 text-violet-600" viewBox="0 0 24 24" fill="none">
+                          <svg className="animate-spin h-4 w-4" style={{ color: '#2d6a4f' }} viewBox="0 0 24 24" fill="none">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/>
                           </svg>
@@ -448,18 +452,18 @@ export default function LoginPage() {
                         disabled={!!oauthLoading}
                         className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl
                                    text-sm font-semibold text-slate-700 border border-slate-200
-                                   hover:border-violet-300 hover:bg-violet-50/60
                                    active:scale-[0.98] transition-all duration-150
-                                   focus-visible:outline-none focus-visible:ring-2
-                                   focus-visible:ring-violet-500/40 disabled:opacity-60"
+                                   focus-visible:outline-none focus-visible:ring-2 disabled:opacity-60"
                         style={{
                           background: '#ffffff',
                           boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
                         }}
+                        onMouseEnter={(e) => { const el = e.currentTarget; el.style.borderColor = 'rgba(143,202,170,0.6)'; el.style.backgroundColor = 'rgba(240,247,244,0.6)' }}
+                        onMouseLeave={(e) => { const el = e.currentTarget; el.style.borderColor = ''; el.style.backgroundColor = '' }}
                         aria-label="Sign in with Google"
                       >
                         {oauthLoading === 'google' ? (
-                          <svg className="animate-spin h-4 w-4 text-violet-600" viewBox="0 0 24 24" fill="none">
+                          <svg className="animate-spin h-4 w-4" style={{ color: '#2d6a4f' }} viewBox="0 0 24 24" fill="none">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/>
                           </svg>
@@ -484,8 +488,10 @@ export default function LoginPage() {
                       Don't have an account?{' '}
                       <Link
                         to="/register"
-                        className="font-semibold text-violet-600 hover:text-violet-700 transition-colors
-                                   focus-visible:outline-none focus-visible:underline"
+                        className="font-semibold transition-colors focus-visible:outline-none focus-visible:underline"
+                        style={{ color: '#2d6a4f' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#1b4332' }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#2d6a4f' }}
                       >
                         Create account
                       </Link>
@@ -498,12 +504,12 @@ export default function LoginPage() {
                       <div
                         className="h-16 w-16 rounded-2xl flex items-center justify-center mb-5"
                         style={{
-                          background: 'linear-gradient(135deg, rgba(124,58,237,0.10) 0%, rgba(99,102,241,0.06) 100%)',
-                          border: '1.5px solid rgba(196,181,253,0.40)',
+                          background: 'linear-gradient(135deg, rgba(45,106,79,0.08) 0%, rgba(64,145,108,0.05) 100%)',
+                          border: '1.5px solid rgba(143,202,170,0.40)',
                           boxShadow: 'var(--elevation-2)',
                         }}
                       >
-                        <Shield className="h-8 w-8 text-violet-600" aria-hidden="true" />
+                        <Shield className="h-8 w-8" style={{ color: '#2d6a4f' }} aria-hidden="true" />
                       </div>
                       <h2
                         className="text-xl font-black text-slate-900 font-display"
@@ -552,11 +558,11 @@ export default function LoginPage() {
                         disabled={loading || mfaCode.length !== 6}
                         className="w-full py-3 px-5 rounded-xl text-sm font-semibold text-white
                                    btn-physics btn-shimmer
-                                   focus-visible:ring-2 focus-visible:ring-violet-500/40 focus-visible:ring-offset-2
+                                   focus-visible:ring-2 focus-visible:ring-offset-2
                                    focus-visible:outline-none disabled:opacity-50"
                         style={{
-                          background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-                          boxShadow: '0 4px 16px rgba(124,58,237,0.32), inset 0 1px 0 rgba(255,255,255,0.15)',
+                          background: 'linear-gradient(135deg, #2d6a4f 0%, #40916c 100%)',
+                          boxShadow: '0 4px 16px rgba(45,106,79,0.28), inset 0 1px 0 rgba(255,255,255,0.15)',
                         }}
                       >
                         {loading ? 'Verifying…' : 'Verify code'}
@@ -565,8 +571,10 @@ export default function LoginPage() {
                       <button
                         type="button"
                         onClick={() => { setStep('credentials'); setMfaCode(''); setError('') }}
-                        className="w-full text-sm text-slate-400 hover:text-violet-600 transition-colors py-1.5
+                        className="w-full text-sm text-slate-400 transition-colors py-1.5
                                    focus-visible:outline-none focus-visible:underline"
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#2d6a4f' }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '' }}
                       >
                         ← Back to sign in
                       </button>

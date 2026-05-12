@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Database, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -172,7 +172,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-slate-500 mt-6">
           Already have an account?{' '}
-          <Link to="/login" className="text-indigo-600 font-medium hover:text-indigo-700 transition-colors">
+          <Link to="/login" className="text-emerald-700 font-medium hover:text-emerald-800 transition-colors">
             Sign in
           </Link>
         </p>

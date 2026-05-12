@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+﻿import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   PlusCircle, RefreshCw, ExternalLink, Layers,
@@ -89,7 +89,7 @@ export default function SessionsPage() {
         <div className="card p-8 text-center">
           <p className="font-medium text-red-600">Failed to load sessions.</p>
           <p className="mt-1 text-sm text-slate-500">
-            <button className="text-indigo-600 hover:text-indigo-700" onClick={() => refetch()}>Retry</button>
+            <button className="text-emerald-700 hover:text-emerald-800" onClick={() => refetch()}>Retry</button>
           </p>
         </div>
       )}
@@ -129,7 +129,7 @@ export default function SessionsPage() {
                 {sorted.map((session, idx) => (
                   <tr
                     key={session.session_id}
-                    className={`transition-colors cursor-pointer hover:bg-indigo-50/40 ${
+                    className={`transition-colors cursor-pointer hover:bg-emerald-50/40 ${
                       idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
                     }`}
                     onClick={() => navigate(`/sessions/${session.session_id}`)}
@@ -170,7 +170,7 @@ export default function SessionsPage() {
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <button
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-500 hover:text-indigo-700 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-800 transition-colors"
                         onClick={(e) => { e.stopPropagation(); navigate(`/sessions/${session.session_id}`) }}
                       >
                         View <ExternalLink className="h-3.5 w-3.5" />

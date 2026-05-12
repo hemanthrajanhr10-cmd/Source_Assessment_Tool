@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import type { MockPage } from '../../data/mockReports'
 
@@ -48,7 +48,7 @@ export default function PageSidebar({
               className="w-full text-left px-3 py-2 text-xs transition-colors duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 flex items-center gap-2.5"
               style={{
                 color: isActive ? '#1D4ED8' : '#374151',
-                background: isActive ? '#EFF6FF' : 'transparent',
+                background: isActive ? '#F0F7F2' : 'transparent',
                 borderLeft: isActive ? '2px solid #2563EB' : '2px solid transparent',
                 fontWeight: isActive ? 600 : 400,
                 fontFamily: FONT,
@@ -151,7 +151,7 @@ export default function PageSidebar({
               onClick={() => onSelectPage(idx)}
               className="flex items-center justify-center w-full py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
               style={{
-                background: isActive ? '#EFF6FF' : 'transparent',
+                background: isActive ? '#F0F7F2' : 'transparent',
                 borderLeft: isActive ? '2px solid #2563EB' : '2px solid transparent',
               }}
               aria-current={isActive ? 'page' : undefined}

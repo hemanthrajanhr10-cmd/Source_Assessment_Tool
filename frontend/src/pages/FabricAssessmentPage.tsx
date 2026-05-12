@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Zap, MonitorSmartphone, CheckCircle2, AlertCircle,
@@ -328,7 +328,7 @@ export default function FabricAssessmentPage() {
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-2.5">
-          <Zap className="h-6 w-6 text-indigo-500" />
+          <Zap className="h-6 w-6 text-emerald-600" />
           Fabric Workspace Assessment
         </h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -381,14 +381,14 @@ export default function FabricAssessmentPage() {
             {step === 'waiting' && !userCode && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 text-sm text-slate-500">
-                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                  <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
                   Requesting device code from Microsoft…
                 </div>
                 <button
                   onClick={handleCancel}
                   aria-label="Cancel sign-in"
                   role="button"
-                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-transparent px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50 cursor-pointer"
+                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-transparent px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-600/50 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -405,15 +405,15 @@ export default function FabricAssessmentPage() {
                   href={verificationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
+                  className="flex items-center gap-2 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:underline transition-colors"
                 >
                   <ExternalLink className="h-4 w-4 shrink-0" />
                   {verificationUrl}
                 </a>
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-5 py-3 text-center">
-                    <p className="text-xs text-indigo-500/70 font-medium mb-0.5">Your code</p>
-                    <p className="text-2xl font-mono font-bold tracking-widest text-indigo-600">{userCode}</p>
+                  <div className="flex-1 rounded-xl border-2 border-emerald-200 bg-emerald-50 px-5 py-3 text-center">
+                    <p className="text-xs text-emerald-600/70 font-medium mb-0.5">Your code</p>
+                    <p className="text-2xl font-mono font-bold tracking-widest text-emerald-700">{userCode}</p>
                   </div>
                   <button
                     onClick={handleCopy}
@@ -443,7 +443,7 @@ export default function FabricAssessmentPage() {
                     'border border-slate-300 bg-transparent px-4 py-2',
                     'text-sm text-slate-500',
                     'hover:bg-slate-50 hover:text-slate-700',
-                    'transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50',
+                    'transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-600/50',
                     'cursor-pointer',
                     'sm:w-auto sm:mx-auto',
                   ].join(' ')}
@@ -474,7 +474,7 @@ export default function FabricAssessmentPage() {
               </span>
               <h2 className="text-sm font-semibold text-slate-900">Select Workspaces</h2>
               {selectedWsIds.size > 0 && (
-                <span className="ml-auto text-xs text-indigo-600 font-medium">
+                <span className="ml-auto text-xs text-emerald-700 font-medium">
                   {selectedWsIds.size} selected
                 </span>
               )}
@@ -483,7 +483,7 @@ export default function FabricAssessmentPage() {
             <div className="p-6 space-y-4">
               {workspacesLoading ? (
                 <div className="flex items-center gap-3 text-sm text-slate-500">
-                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                  <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
                   Loading accessible workspaces…
                 </div>
               ) : wsDone ? (
@@ -510,7 +510,7 @@ export default function FabricAssessmentPage() {
                         </div>
                         <button
                           onClick={toggleAllWorkspaces}
-                          className="shrink-0 text-xs text-indigo-600 hover:text-indigo-700 hover:underline font-medium transition-colors"
+                          className="shrink-0 text-xs text-emerald-700 hover:text-emerald-800 hover:underline font-medium transition-colors"
                         >
                           {filteredWorkspaces.every(w => selectedWsIds.has(w.id))
                             ? 'Deselect all'
@@ -526,7 +526,7 @@ export default function FabricAssessmentPage() {
                           >
                             <input
                               type="checkbox"
-                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/50 bg-white"
+                              className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600/50 bg-white"
                               checked={selectedWsIds.has(ws.id)}
                               onChange={() => toggleWorkspace(ws.id)}
                             />
@@ -543,7 +543,7 @@ export default function FabricAssessmentPage() {
                                   {ws.report_count} report{ws.report_count !== 1 ? 's' : ''}
                                 </span>
                                 {ws.state !== 'Active' && (
-                                  <span className="text-indigo-500">{ws.state}</span>
+                                  <span className="text-emerald-600">{ws.state}</span>
                                 )}
                               </div>
                             </div>
@@ -585,7 +585,7 @@ export default function FabricAssessmentPage() {
               </span>
               <h2 className="text-sm font-semibold text-slate-900">Select Models &amp; Reports</h2>
               {selectedItemCount > 0 && (
-                <span className="ml-auto text-xs text-indigo-600 font-medium">
+                <span className="ml-auto text-xs text-emerald-700 font-medium">
                   {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''},{' '}
                   {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}
                 </span>
@@ -595,7 +595,7 @@ export default function FabricAssessmentPage() {
             <div className="p-6 space-y-4">
               {itemsLoading ? (
                 <div className="flex items-center gap-3 text-sm text-slate-500">
-                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                  <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
                   Loading models and reports…
                 </div>
               ) : itemsDone ? (
@@ -624,7 +624,7 @@ export default function FabricAssessmentPage() {
                         </div>
                         <button
                           onClick={toggleAllItems}
-                          className="shrink-0 text-xs text-indigo-600 hover:text-indigo-700 hover:underline font-medium transition-colors"
+                          className="shrink-0 text-xs text-emerald-700 hover:text-emerald-800 hover:underline font-medium transition-colors"
                         >
                           {allItemsSelected ? 'Deselect all' : 'Select all'}
                         </button>
@@ -662,11 +662,11 @@ export default function FabricAssessmentPage() {
                                   {ws.datasets.length > 0 && (
                                     <div>
                                       <div className="flex items-center gap-2 px-5 py-1.5 bg-slate-50/40">
-                                        <Database className="h-3 w-3 text-indigo-400 shrink-0" />
+                                        <Database className="h-3 w-3 text-emerald-500 shrink-0" />
                                         <span className="text-xs font-medium text-slate-500 flex-1">Semantic Models</span>
                                         <button
                                           onClick={() => toggleWorkspaceDatasets(ws)}
-                                          className="text-xs text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
+                                          className="text-xs text-emerald-700 hover:text-emerald-800 hover:underline transition-colors"
                                         >
                                           {ws.datasets.every(d => selectedDatasetIds.has(d.id)) ? 'Deselect' : 'Select'} all
                                         </button>
@@ -680,7 +680,7 @@ export default function FabricAssessmentPage() {
                                         >
                                           <input
                                             type="checkbox"
-                                            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/50 bg-white"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600/50 bg-white"
                                             checked={selectedDatasetIds.has(ds.id)}
                                             onChange={() => toggleDataset(ds.id)}
                                           />
@@ -694,11 +694,11 @@ export default function FabricAssessmentPage() {
                                   {ws.reports.length > 0 && (
                                     <div>
                                       <div className="flex items-center gap-2 px-5 py-1.5 bg-slate-50/40">
-                                        <FileText className="h-3 w-3 text-indigo-400/70 shrink-0" />
+                                        <FileText className="h-3 w-3 text-emerald-500/70 shrink-0" />
                                         <span className="text-xs font-medium text-slate-500 flex-1">Reports</span>
                                         <button
                                           onClick={() => toggleWorkspaceReports(ws)}
-                                          className="text-xs text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
+                                          className="text-xs text-emerald-700 hover:text-emerald-800 hover:underline transition-colors"
                                         >
                                           {ws.reports.every(r => selectedReportIds.has(r.id)) ? 'Deselect' : 'Select'} all
                                         </button>
@@ -712,7 +712,7 @@ export default function FabricAssessmentPage() {
                                         >
                                           <input
                                             type="checkbox"
-                                            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/50 bg-white"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600/50 bg-white"
                                             checked={selectedReportIds.has(rpt.id)}
                                             onChange={() => toggleReport(rpt.id)}
                                           />

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+﻿import { useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -44,8 +44,8 @@ function LockedTabOverlay({ requiredLevel, currentLevel }: { requiredLevel: Acce
       <div
         className="flex items-center justify-center h-14 w-14 rounded-2xl"
         style={{
-          background: 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(99,102,241,0.04) 100%)',
-          border: '1px solid rgba(196,181,253,0.30)',
+          background: 'linear-gradient(135deg, rgba(45,106,79,0.06) 0%, rgba(64,145,108,0.04) 100%)',
+          border: '1px solid rgba(143,202,170,0.30)',
           boxShadow: 'var(--elevation-1)',
         }}
       >
@@ -261,7 +261,7 @@ export default function JobDetailPage() {
         }}
       >
         <p className="font-medium">Job not found.</p>
-        <Link to="/jobs" className="mt-2 inline-block text-sm text-violet-600 hover:text-violet-700 transition-colors">
+        <Link to="/jobs" className="mt-2 inline-block text-sm text-emerald-700 hover:text-emerald-800 transition-colors">
           Back to Jobs
         </Link>
       </div>
@@ -294,7 +294,7 @@ export default function JobDetailPage() {
         {/* Top accent line */}
         <div
           className="h-0.5"
-          style={{ background: 'linear-gradient(90deg, #7c3aed, #6366f1, #a78bfa, transparent)' }}
+          style={{ background: 'linear-gradient(90deg, #2d6a4f, #40916c, #74c69d, transparent)' }}
           aria-hidden="true"
         />
 
@@ -307,12 +307,12 @@ export default function JobDetailPage() {
                 <div
                   className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
                   style={{
-                    background: 'linear-gradient(135deg, rgba(124,58,237,0.10) 0%, rgba(99,102,241,0.06) 100%)',
-                    border: '1px solid rgba(196,181,253,0.35)',
+                    background: 'linear-gradient(135deg, rgba(45,106,79,0.10) 0%, rgba(64,145,108,0.06) 100%)',
+                    border: '1px solid rgba(143,202,170,0.35)',
                     boxShadow: 'var(--elevation-1)',
                   }}
                 >
-                  <Database className="h-4.5 w-4.5 text-violet-600" style={{ height: '18px', width: '18px' }} aria-hidden="true" />
+                  <Database className="h-4.5 w-4.5 text-emerald-700" style={{ height: '18px', width: '18px' }} aria-hidden="true" />
                 </div>
                 <h1 className="text-xl font-bold text-slate-900 font-display tracking-tight">
                   {status.label ?? 'Unlabeled Assessment'}
@@ -365,7 +365,7 @@ export default function JobDetailPage() {
               value: (
                 <span className="tabular-nums font-medium text-slate-700">
                   {elapsed(status.started_at, status.completed_at)}
-                  {isRunning && <span className="ml-1 text-violet-400 animate-pulse">…</span>}
+                  {isRunning && <span className="ml-1 text-emerald-500 animate-pulse">…</span>}
                 </span>
               ),
             },
@@ -402,7 +402,7 @@ export default function JobDetailPage() {
           <div className="px-6 pb-5 space-y-2">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400 shrink-0" aria-hidden="true" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-500 shrink-0" aria-hidden="true" />
                 <span className="text-xs text-slate-500 truncate max-w-sm">
                   {status.status === 'pending' ? 'Queued — waiting to start…' : (status.progress_message ?? 'Running assessment…')}
                 </span>
@@ -410,20 +410,20 @@ export default function JobDetailPage() {
               <span
                 className="text-xs font-bold tabular-nums px-2 py-0.5 rounded-full shrink-0"
                 style={{
-                  background: 'rgba(124,58,237,0.08)',
-                  color: '#7c3aed',
-                  border: '1px solid rgba(196,181,253,0.35)',
+                  background: 'rgba(45,106,79,0.08)',
+                  color: '#2d6a4f',
+                  border: '1px solid rgba(143,202,170,0.35)',
                 }}
               >
                 {progress}%
               </span>
             </div>
-            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(124,58,237,0.08)' }}>
+            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(45,106,79,0.08)' }}>
               <div
                 className="h-full rounded-full transition-all duration-700 ease-out"
                 style={{
                   width: `${progress}%`,
-                  background: 'linear-gradient(90deg, #7c3aed, #6366f1)',
+                  background: 'linear-gradient(90deg, #2d6a4f, #40916c)',
                 }}
                 role="progressbar"
                 aria-valuenow={progress}
@@ -560,9 +560,9 @@ export default function JobDetailPage() {
                         <li key={id}>
                           <button
                             onClick={() => setActiveTab(id)}
-                            className={`w-full flex items-center gap-2 px-3 py-1.5 mx-1 text-xs transition-all duration-120 rounded-lg focus-visible:ring-2 focus-visible:ring-violet-500/40 focus-visible:outline-none ${
+                            className={`w-full flex items-center gap-2 px-3 py-1.5 mx-1 text-xs transition-all duration-120 rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-600/35 focus-visible:outline-none ${
                               isActive
-                                ? 'bg-violet-50 text-violet-700 font-semibold'
+                                ? 'bg-emerald-50 text-emerald-800 font-semibold'
                                 : isLocked
                                   ? 'text-slate-300 cursor-default'
                                   : 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800'
@@ -574,7 +574,7 @@ export default function JobDetailPage() {
                             aria-selected={isActive}
                             role="tab"
                           >
-                            <span className={`shrink-0 ${isActive ? 'text-violet-600' : isLocked ? 'text-slate-300' : 'text-slate-400'}`}>
+                            <span className={`shrink-0 ${isActive ? 'text-emerald-700' : isLocked ? 'text-slate-300' : 'text-slate-400'}`}>
                               {tab.icon}
                             </span>
                             <span className="truncate flex-1 text-left">{tab.label}</span>
@@ -584,7 +584,7 @@ export default function JobDetailPage() {
                               <span
                                 className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold shrink-0 ${
                                   isActive
-                                    ? 'bg-violet-100 text-violet-600'
+                                    ? 'bg-emerald-100 text-emerald-700'
                                     : 'bg-slate-100 text-slate-400'
                                 }`}
                               >
@@ -635,9 +635,9 @@ export default function JobDetailPage() {
                       <span
                         className="text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-full"
                         style={{
-                          background: 'rgba(124,58,237,0.07)',
-                          color: '#7c3aed',
-                          border: '1px solid rgba(196,181,253,0.30)',
+                          background: 'rgba(45,106,79,0.07)',
+                          color: '#2d6a4f',
+                          border: '1px solid rgba(143,202,170,0.30)',
                         }}
                       >
                         {data.length.toLocaleString()} row{data.length !== 1 ? 's' : ''}

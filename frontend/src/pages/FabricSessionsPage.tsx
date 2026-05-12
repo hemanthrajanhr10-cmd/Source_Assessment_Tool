@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+﻿import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Zap, PlusCircle, CheckCircle2, XCircle, Loader2, Clock, StopCircle, BarChart3 } from 'lucide-react'
 import { api } from '../api/client'
@@ -53,7 +53,7 @@ export default function FabricSessionsPage() {
       <div className="page-header">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-2.5">
-            <BarChart3 className="h-6 w-6 text-indigo-500" />
+            <BarChart3 className="h-6 w-6 text-emerald-600" />
             Fabric Assessments
           </h1>
           <p className="mt-1 text-sm text-slate-500">Power BI / Fabric workspace assessment history</p>
@@ -95,7 +95,7 @@ export default function FabricSessionsPage() {
                 <tr
                   key={s.fabric_session_id}
                   onClick={() => navigate(`/fabric/sessions/${s.fabric_session_id}`)}
-                  className={`cursor-pointer transition-colors hover:bg-indigo-50/40 ${
+                  className={`cursor-pointer transition-colors hover:bg-emerald-50/40 ${
                     idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
                   }`}
                 >

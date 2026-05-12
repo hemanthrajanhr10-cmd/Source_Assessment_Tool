@@ -1,4 +1,4 @@
-// Unified Assessment only — SQL Server and Fabric standalone assessments are handled in their respective sections.
+﻿// Unified Assessment only — SQL Server and Fabric standalone assessments are handled in their respective sections.
 // This page always runs a combined Source DB + Fabric assessment ("both" mode).
 // Do NOT add Source-only or Fabric-only entry points here.
 
@@ -108,13 +108,13 @@ function Stepper({ phase }: { phase: Phase }) {
                   done
                     ? 'bg-emerald-500 text-white'
                     : active
-                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-200'
+                    ? 'bg-emerald-700 text-white shadow-lg shadow-emerald-200'
                     : 'bg-slate-100 text-slate-400 border border-slate-200'
                 }`}
               >
                 {done ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
               </div>
-              <span className={`mt-1.5 text-xs font-medium ${active ? 'text-violet-700' : done ? 'text-emerald-600' : 'text-slate-400'}`}>
+              <span className={`mt-1.5 text-xs font-medium ${active ? 'text-emerald-800' : done ? 'text-emerald-600' : 'text-slate-400'}`}>
                 {label}
               </span>
             </div>
@@ -367,7 +367,7 @@ export default function UnifiedAssessmentPage() {
                 onChange={e => setSessionLabel(e.target.value)}
                 placeholder="e.g. Q2 2026 Full Assessment"
                 className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl
-                           focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400
+                           focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-400
                            bg-white text-slate-800 placeholder-slate-400"
               />
             </div>
@@ -443,7 +443,7 @@ export default function UnifiedAssessmentPage() {
                 onChange={e => setFabricLabel(e.target.value)}
                 placeholder="e.g. Production Fabric Q2"
                 className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl
-                           focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400
+                           focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-400
                            bg-white text-slate-800 placeholder-slate-400"
               />
             </div>
@@ -565,7 +565,7 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
       <button
         type="button"
         onClick={handleOpen}
-        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-800 transition-colors"
         title="Pick from your saved Hybrid Connections"
       >
         <Share2 className="h-3.5 w-3.5" />
@@ -575,7 +575,7 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
       {open && (
         <div className="absolute top-full mt-1.5 left-0 z-50 w-72 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50">
-            <Share2 className="h-3.5 w-3.5 text-indigo-500" />
+            <Share2 className="h-3.5 w-3.5 text-emerald-600" />
             <span className="text-xs font-semibold text-slate-700">Your Hybrid Connections</span>
           </div>
           {loading && (
@@ -587,7 +587,7 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
           {!loading && !error && connections.length === 0 && (
             <div className="px-3 py-4 text-xs text-slate-400 text-center">
               No saved connections.{' '}
-              <a href="/hybrid-connection" className="text-indigo-600 underline underline-offset-2">Create one</a> first.
+              <a href="/hybrid-connection" className="text-emerald-700 underline underline-offset-2">Create one</a> first.
             </div>
           )}
           {!loading && connections.map(hc => (
@@ -595,10 +595,10 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
               key={hc.connection_id}
               type="button"
               onClick={() => { onSelect(hc.endpoint_host, hc.endpoint_port, hc.connection_id); setOpen(false) }}
-              className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0"
+              className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-emerald-50 transition-colors border-b border-slate-50 last:border-0"
             >
-              <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-                <Share2 className="h-3.5 w-3.5 text-indigo-500" />
+              <div className="h-7 w-7 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Share2 className="h-3.5 w-3.5 text-emerald-600" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-slate-800 truncate">{hc.name}</p>
@@ -637,9 +637,9 @@ function ServerCard({
       >
         <div
           className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, #7c3aed20, #6366f110)', border: '1px solid rgba(124,58,237,0.15)' }}
+          style={{ background: 'linear-gradient(135deg, #2d6a4f20, #40916c10)', border: '1px solid rgba(45,106,79,0.15)' }}
         >
-          <Server className="h-3.5 w-3.5 text-violet-600" />
+          <Server className="h-3.5 w-3.5 text-emerald-700" />
         </div>
         <span className="flex-1 text-sm font-semibold text-slate-800">
           {srv.server || `Server ${index + 1}`}
@@ -673,7 +673,7 @@ function ServerCard({
                   const opt = DB_TYPE_OPTIONS.find(o => o.value === e.target.value)
                   updateServer(srv.id, { db_type: e.target.value as DbType, port: opt?.defaultPort || 1433 })
                 }}
-                className="text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white focus:ring-1 focus:ring-violet-500/40 focus:outline-none"
+                className="text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white focus:ring-1 focus:ring-emerald-600/35 focus:outline-none"
               >
                 {DB_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -685,7 +685,7 @@ function ServerCard({
                   value={srv.server}
                   onChange={e => updateServer(srv.id, { server: e.target.value, connectivity: null })}
                   placeholder="hostname or IP"
-                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-violet-500/40 focus:outline-none"
+                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-emerald-600/35 focus:outline-none"
                 />
                 <HybridConnectionPicker
                   onSelect={(host, port, connectionId) =>
@@ -700,7 +700,7 @@ function ServerCard({
                 type="number"
                 value={srv.port}
                 onChange={e => updateServer(srv.id, { port: Number(e.target.value) })}
-                className="w-20 text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-violet-500/40 focus:outline-none"
+                className="w-20 text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-emerald-600/35 focus:outline-none"
               />
             </div>
           </div>
@@ -713,7 +713,7 @@ function ServerCard({
                 value={srv.username}
                 onChange={e => updateServer(srv.id, { username: e.target.value })}
                 placeholder="login"
-                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-violet-500/40 focus:outline-none"
+                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-emerald-600/35 focus:outline-none"
               />
             </div>
             <div>
@@ -724,7 +724,7 @@ function ServerCard({
                   value={srv.password}
                   onChange={e => updateServer(srv.id, { password: e.target.value })}
                   placeholder="password"
-                  className="w-full text-sm border border-slate-200 rounded-lg pl-3 pr-9 py-2 bg-white focus:ring-1 focus:ring-violet-500/40 focus:outline-none"
+                  className="w-full text-sm border border-slate-200 rounded-lg pl-3 pr-9 py-2 bg-white focus:ring-1 focus:ring-emerald-600/35 focus:outline-none"
                 />
                 <button
                   type="button"
@@ -743,7 +743,7 @@ function ServerCard({
             <select
               value={srv.access_level}
               onChange={e => updateServer(srv.id, { access_level: e.target.value as AccessLevel })}
-              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-violet-500/40 focus:outline-none"
+              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-emerald-600/35 focus:outline-none"
             >
               {ACCESS_LEVEL_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -757,7 +757,7 @@ function ServerCard({
               onClick={() => testConnectivity(srv)}
               disabled={!srv.server || srv.connectivity_loading}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg
-                         border border-slate-200 bg-white text-slate-600 hover:border-violet-300 hover:text-violet-700
+                         border border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-800
                          disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {srv.connectivity_loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
@@ -767,7 +767,7 @@ function ServerCard({
               onClick={() => loadDatabases(srv)}
               disabled={!srv.server || !srv.username || srv.dbs_loading}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg
-                         border border-slate-200 bg-white text-slate-600 hover:border-violet-300 hover:text-violet-700
+                         border border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-800
                          disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {srv.dbs_loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
@@ -834,7 +834,7 @@ function ServerCard({
                       })
                     }
                   }}
-                  className="text-[10px] font-semibold text-violet-600 hover:text-violet-800 uppercase tracking-wider transition-colors"
+                  className="text-[10px] font-semibold text-emerald-700 hover:text-emerald-900 uppercase tracking-wider transition-colors"
                 >
                   {srv.selected_dbs.length === filteredDbs.length ? 'Unselect All' : 'Select All'}
                 </button>
@@ -852,9 +852,9 @@ function ServerCard({
                           : srv.selected_dbs.filter(s => s.name !== db.name)
                         updateServer(srv.id, { selected_dbs: next })
                       }}
-                      className="rounded border-slate-300 text-violet-600 focus:ring-violet-500/40"
+                      className="rounded border-slate-300 text-emerald-700 focus:ring-emerald-600/35"
                     />
-                    <span className="text-sm text-slate-700 group-hover:text-violet-700 transition-colors">{db.name}</span>
+                    <span className="text-sm text-slate-700 group-hover:text-emerald-800 transition-colors">{db.name}</span>
                     {db.size_mb != null && (
                       <span className="text-xs text-slate-400 ml-auto">{db.size_mb.toFixed(0)} MB</span>
                     )}
@@ -917,20 +917,20 @@ function FabricAuthPanel({
           href={verificationUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700 hover:underline"
         >
           <ExternalLink className="h-3.5 w-3.5" />
           {verificationUrl}
         </a>
         <p className="text-xs text-slate-600">2. Enter this code when prompted:</p>
         <div className="flex items-center gap-2">
-          <code className="flex-1 text-center text-xl font-bold tracking-widest text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg py-3">
+          <code className="flex-1 text-center text-xl font-bold tracking-widest text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg py-3">
             {userCode}
           </code>
           <button
             onClick={copyCode}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
-                       border border-slate-200 text-slate-600 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-700 transition-colors"
+                       border border-slate-200 text-slate-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-800 transition-colors"
           >
             {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? 'Copied!' : 'Copy'}
@@ -939,7 +939,7 @@ function FabricAuthPanel({
       </div>
 
       <div className="flex items-center gap-2 text-xs text-slate-500">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
         Waiting for you to authenticate…
       </div>
     </div>
@@ -976,12 +976,12 @@ function FabricWorkspacePicker({
             onChange={e => setFilter(e.target.value)}
             placeholder="Filter workspaces…"
             className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl bg-white
-                       focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+                       focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-400"
           />
         </div>
         <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
           {filtered.map(ws => (
-            <label key={ws.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-violet-200 hover:bg-violet-50/30 cursor-pointer transition-colors">
+            <label key={ws.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/30 cursor-pointer transition-colors">
               <input
                 type="checkbox"
                 checked={selectedIds.has(ws.id)}
@@ -990,9 +990,9 @@ function FabricWorkspacePicker({
                   e.target.checked ? next.add(ws.id) : next.delete(ws.id)
                   setSelectedIds(next)
                 }}
-                className="rounded border-slate-300 text-violet-600 focus:ring-violet-500/40"
+                className="rounded border-slate-300 text-emerald-700 focus:ring-emerald-600/35"
               />
-              <Building2 className="h-4 w-4 text-indigo-500 shrink-0" />
+              <Building2 className="h-4 w-4 text-emerald-600 shrink-0" />
               <span className="flex-1 text-sm text-slate-800">{ws.name}</span>
               <span className="text-xs text-slate-400">{ws.dataset_count}M · {ws.report_count}R</span>
             </label>
@@ -1042,7 +1042,7 @@ function FabricItemPicker({
           onChange={e => setFilter(e.target.value)}
           placeholder="Filter items…"
           className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl bg-white
-                     focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400"
+                     focus:outline-none focus:ring-2 focus:ring-emerald-600/30 focus:border-emerald-400"
         />
       </div>
       <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
@@ -1060,7 +1060,7 @@ function FabricItemPicker({
                 }}
                 className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
               >
-                <Building2 className="h-4 w-4 text-indigo-500 shrink-0" />
+                <Building2 className="h-4 w-4 text-emerald-600 shrink-0" />
                 <span className="flex-1 text-sm font-semibold text-slate-800">Workspace</span>
                 {expanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
               </button>
@@ -1076,9 +1076,9 @@ function FabricItemPicker({
                           e.target.checked ? next.add(d.id) : next.delete(d.id)
                           setSelectedDatasetIds(next)
                         }}
-                        className="rounded border-slate-300 text-violet-600 focus:ring-violet-500/40"
+                        className="rounded border-slate-300 text-emerald-700 focus:ring-emerald-600/35"
                       />
-                      <Database className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                      <Database className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                       <span className="text-sm text-slate-700">{d.name}</span>
                     </label>
                   ))}
@@ -1092,9 +1092,9 @@ function FabricItemPicker({
                           e.target.checked ? next.add(r.id) : next.delete(r.id)
                           setSelectedReportIds(next)
                         }}
-                        className="rounded border-slate-300 text-violet-600 focus:ring-violet-500/40"
+                        className="rounded border-slate-300 text-emerald-700 focus:ring-emerald-600/35"
                       />
-                      <FileText className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                      <FileText className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                       <span className="text-sm text-slate-700">{r.name}</span>
                     </label>
                   ))}

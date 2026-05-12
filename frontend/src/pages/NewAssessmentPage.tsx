@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+﻿import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Server, Database, User, Lock, Eye, EyeOff,
@@ -94,7 +94,7 @@ function HybridConnectionPicker({
       <button
         type="button"
         onClick={handleOpen}
-        className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 disabled:opacity-40 transition-colors"
+        className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-800 disabled:opacity-40 transition-colors"
         title="Pick from your saved Hybrid Connections"
       >
         <Share2 className="h-3.5 w-3.5" />
@@ -104,7 +104,7 @@ function HybridConnectionPicker({
       {open && (
         <div className="absolute top-full mt-1.5 left-0 z-50 w-72 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden animate-slide-down">
           <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50">
-            <Share2 className="h-3.5 w-3.5 text-indigo-500" />
+            <Share2 className="h-3.5 w-3.5 text-emerald-600" />
             <span className="text-xs font-semibold text-slate-700">Your Hybrid Connections</span>
           </div>
 
@@ -121,7 +121,7 @@ function HybridConnectionPicker({
           {!loading && !error && connections.length === 0 && (
             <div className="px-3 py-4 text-xs text-slate-400 text-center">
               No saved connections.{' '}
-              <a href="/hybrid-connection" className="text-indigo-600 underline underline-offset-2">
+              <a href="/hybrid-connection" className="text-emerald-700 underline underline-offset-2">
                 Create one
               </a>{' '}
               first.
@@ -133,10 +133,10 @@ function HybridConnectionPicker({
               key={hc.connection_id}
               type="button"
               onClick={() => handlePick(hc)}
-              className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-indigo-50 transition-colors border-b border-slate-50 last:border-0"
+              className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-emerald-50 transition-colors border-b border-slate-50 last:border-0"
             >
-              <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
-                <Share2 className="h-3.5 w-3.5 text-indigo-500" />
+              <div className="h-7 w-7 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                <Share2 className="h-3.5 w-3.5 text-emerald-600" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-slate-800 truncate">{hc.name}</p>
@@ -194,7 +194,7 @@ function Toggle({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent
-          transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40
+          transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40
           ${checked ? 'bg-indigo-600' : 'bg-slate-300'}`}
       >
         <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform
@@ -285,7 +285,7 @@ function ServerCard({
     <div className="card overflow-hidden animate-slide-up" style={{ animationDelay: `${index * 60}ms` }}>
       {/* Card header */}
       <div className="flex items-center gap-3 px-5 py-3.5 bg-slate-50 border-b border-slate-200">
-        <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 text-xs font-bold shrink-0">
+        <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold shrink-0">
           {index + 1}
         </div>
         <div className="flex-1 min-w-0">
@@ -346,7 +346,7 @@ function ServerCard({
                     onClick={() => set({ db_type: opt.value, port: opt.defaultPort, service_name: '', available_dbs: null, selected_dbs: [] })}
                     className={`flex-1 rounded-xl border-2 px-3 py-2 text-center text-xs font-semibold transition-all ${
                       entry.db_type === opt.value
-                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                        ? 'border-indigo-500 bg-emerald-50 text-emerald-800'
                         : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
                     }`}
                   >
@@ -414,7 +414,7 @@ function ServerCard({
                   title="Test TCP connectivity"
                 >
                   {entry.connectivity_loading
-                    ? <Spinner size="sm" className="text-indigo-500" />
+                    ? <Spinner size="sm" className="text-emerald-600" />
                     : <Search className="h-3.5 w-3.5" />}
                   Detect
                 </button>
@@ -483,7 +483,7 @@ function ServerCard({
             {entry.db_type === 'mssql' && (
               <div className="sm:col-span-2">
                 <label className="form-label flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                   Database Access Level <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
@@ -494,12 +494,12 @@ function ServerCard({
                       onClick={() => set({ access_level: opt.value })}
                       className={`rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
                         entry.access_level === opt.value
-                          ? 'border-indigo-500 bg-indigo-50'
+                          ? 'border-indigo-500 bg-emerald-50'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       }`}
                     >
                       <p className={`text-xs font-semibold ${
-                        entry.access_level === opt.value ? 'text-indigo-700' : 'text-slate-700'
+                        entry.access_level === opt.value ? 'text-emerald-800' : 'text-slate-700'
                       }`}>
                         {opt.label}
                       </p>
@@ -549,7 +549,7 @@ function ServerCard({
                 className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 transition-colors"
               >
                 {entry.dbs_loading
-                  ? <><Spinner size="sm" className="text-indigo-500" /> Loading…</>
+                  ? <><Spinner size="sm" className="text-emerald-600" /> Loading…</>
                   : <><RefreshCw className="h-3.5 w-3.5" /> Browse Databases</>}
               </button>
             </div>
@@ -570,13 +570,13 @@ function ServerCard({
                 {entry.available_dbs.map((db) => {
                   const sel = entry.selected_dbs.find((d) => d.name === db.name)
                   return (
-                    <div key={db.name} className={`transition-colors ${sel ? 'bg-indigo-50/60' : 'hover:bg-slate-50'}`}>
+                    <div key={db.name} className={`transition-colors ${sel ? 'bg-emerald-50/60' : 'hover:bg-slate-50'}`}>
                       <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={!!sel}
                           onChange={() => toggleDb(db)}
-                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/40 bg-white"
+                          className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-600/40 bg-white"
                         />
                         <span className="text-sm font-medium text-slate-800 flex-1">{db.name}</span>
                         {db.size_mb != null && (
@@ -584,7 +584,7 @@ function ServerCard({
                         )}
                       </label>
                       {sel && (
-                        <div className="px-4 pb-3 pt-0 flex flex-wrap items-center gap-4 border-t border-indigo-100 bg-indigo-50/40">
+                        <div className="px-4 pb-3 pt-0 flex flex-wrap items-center gap-4 border-t border-emerald-100 bg-emerald-50/40">
                           <Toggle
                             checked={sel.include_null_analysis}
                             onChange={(v) => updateSelectedDb(db.name, { include_null_analysis: v })}
@@ -619,7 +619,7 @@ function ServerCard({
                 Click "Browse Databases" to list available databases, or{' '}
                 <button
                   type="button"
-                  className="underline text-indigo-600 hover:text-indigo-700"
+                  className="underline text-emerald-700 hover:text-emerald-800"
                   onClick={() => {
                     const name = prompt('Enter database name:')
                     if (name?.trim()) {
@@ -733,7 +733,7 @@ export default function NewAssessmentPage() {
         {/* Session label */}
         <div className="card overflow-hidden">
           <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
-            <Zap className="h-4 w-4 text-indigo-500" />
+            <Zap className="h-4 w-4 text-emerald-600" />
             <h2 className="text-sm font-semibold text-slate-700">Session Details</h2>
           </div>
           <div className="p-6">
@@ -777,7 +777,7 @@ export default function NewAssessmentPage() {
           <button
             type="button"
             onClick={addServer}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm font-medium text-slate-400 hover:border-indigo-300 hover:text-indigo-600 hover:bg-indigo-50/40 transition-all"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm font-medium text-slate-400 hover:border-indigo-300 hover:text-emerald-700 hover:bg-emerald-50/40 transition-all"
           >
             <Plus className="h-4 w-4" />
             Add Another Server

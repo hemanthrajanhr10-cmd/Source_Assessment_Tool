@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Shield, Copy, Check, ArrowRight } from 'lucide-react'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -77,7 +77,7 @@ export default function MFASetupPage() {
               border: '1.5px solid rgba(79,70,229,0.2)',
             }}
           >
-            <Shield className="h-7 w-7 text-indigo-600" />
+            <Shield className="h-7 w-7 text-emerald-700" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 font-display">Two-factor authentication</h1>
           <p className="text-sm text-slate-500 mt-1.5 text-center max-w-xs">

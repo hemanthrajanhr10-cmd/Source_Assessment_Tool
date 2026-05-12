@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+﻿import { useRef, useState, useCallback } from 'react'
 
 interface StatCardProps {
   label: string
@@ -18,7 +18,7 @@ export default function StatCard({
   value,
   icon,
   sub,
-  accent = 'bg-indigo-50 text-indigo-600',
+  accent = 'bg-emerald-50 text-emerald-700',
 }: StatCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [transform, setTransform] = useState('')

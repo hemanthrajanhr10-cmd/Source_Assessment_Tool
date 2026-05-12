@@ -151,7 +151,10 @@ async def poll_for_job(gateway_key: str):
     Returns the next pending job assigned to this gateway, or job_id=null if idle.
     """
     # Confirm gateway exists
-    gw = azure_store.get_gateway(gateway_key)
+    try:
+        gw = azure_store.get_gateway(gateway_key)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database unavailable — retry shortly.")
     if not gw:
         raise HTTPException(status_code=403, detail="Unknown gateway key.")
 
@@ -166,13 +169,17 @@ async def poll_for_job(gateway_key: str):
     payload = json.loads(job["gateway_payload"])
 
     # Mark job as running and clear the credential payload immediately
-    job_store.update_job(
-        job_id,
-        status=JobStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
-        progress_message="Agent picked up job — running locally…",
-    )
-    azure_store.clear_gateway_payload(job_id)
+    try:
+        job_store.update_job(
+            job_id,
+            status=JobStatus.RUNNING,
+            started_at=datetime.now(timezone.utc),
+            progress_message="Agent picked up job — running locally…",
+        )
+        azure_store.clear_gateway_payload(job_id)
+    except Exception:
+        logger.exception("Failed to mark job %s as running after gateway poll", job_id)
+        raise HTTPException(status_code=500, detail="Failed to claim job — please retry.")
 
     logger.info("Gateway %s…%s picked up job %s", gateway_key[:4], gateway_key[-4:], job_id)
     return GatewayPollResponse(job_id=job_id, payload=payload)
@@ -185,7 +192,10 @@ async def submit_job_results(job_id: str, body: GatewaySubmitRequest):
     Results are persisted to Azure SQL and an Excel report is generated.
     """
     # Verify job exists
-    record = job_store.get_job(job_id)
+    try:
+        record = job_store.get_job(job_id)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Database unavailable — retry shortly.")
     if record is None:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
 

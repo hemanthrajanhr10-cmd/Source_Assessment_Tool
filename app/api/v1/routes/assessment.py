@@ -45,12 +45,12 @@ def _run_assessment_task(job_id: str, request: AssessmentRequest) -> None:
     Executed in FastAPI's default thread-pool executor (not the event loop).
     Updates job state before, during, and after the assessment run.
     """
-    job_store.update_job(
-        job_id,
-        status=JobStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
-    )
     try:
+        job_store.update_job(
+            job_id,
+            status=JobStatus.RUNNING,
+            started_at=datetime.now(timezone.utc),
+        )
         results, report_path = assessment_service.run_assessment(job_id, request)
         job_store.update_job(
             job_id,

@@ -1,4 +1,4 @@
-import { forwardRef } from 'react'
+﻿import { forwardRef } from 'react'
 import Spinner from './Spinner'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
@@ -36,8 +36,8 @@ const variantStyles: Record<Variant, string> = {
 /* Inline styles per variant */
 const variantInlineStyle: Record<Variant, React.CSSProperties> = {
   primary: {
-    background: 'linear-gradient(135deg, #2d6a4f 0%, #40916c 100%)',
-    boxShadow: '0 4px 16px rgba(45, 106, 79, 0.28), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
+    background: 'linear-gradient(135deg, #7D4A20 0%, #A06535 100%)',
+    boxShadow: '0 4px 16px rgba(125, 74, 32, 0.28), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
   },
   secondary: {
     boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
@@ -88,7 +88,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {loading ? (
           <Spinner
             size={size === 'sm' ? 'sm' : 'md'}
-            className={variant === 'primary' ? 'text-white/80' : 'text-emerald-700'}
+            className={variant === 'primary' ? 'text-white/80' : 'text-earth-700'}
           />
         ) : (
           leftIcon

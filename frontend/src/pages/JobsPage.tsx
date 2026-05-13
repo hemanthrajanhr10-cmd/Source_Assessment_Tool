@@ -56,7 +56,7 @@ export default function JobsPage() {
 
       {isLoading && (
         <div className="flex items-center justify-center py-24">
-          <Spinner size="xl" className="text-emerald-600" />
+          <Spinner size="xl" className="text-earth-600" />
         </div>
       )}
 
@@ -64,7 +64,7 @@ export default function JobsPage() {
         <div className="card p-8 text-center">
           <p className="font-medium text-red-600">Failed to load jobs.</p>
           <p className="mt-1 text-sm text-slate-500">
-            <button className="text-emerald-700 hover:text-emerald-800" onClick={() => refetch()}>Retry</button>
+            <button className="text-earth-700 hover:text-earth-800" onClick={() => refetch()}>Retry</button>
           </p>
         </div>
       )}
@@ -107,7 +107,7 @@ export default function JobsPage() {
                 {sorted.map((job, idx) => (
                   <tr
                     key={job.job_id}
-                    className={`transition-colors cursor-pointer hover:bg-emerald-50/40 ${
+                    className={`transition-colors cursor-pointer hover:bg-earth-50/40 ${
                       idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
                     }`}
                     onClick={() => navigate(`/jobs/${job.job_id}`)}
@@ -132,7 +132,7 @@ export default function JobsPage() {
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <button
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-800 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-earth-600 hover:text-earth-800 transition-colors"
                         onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${job.job_id}`) }}
                         aria-label={`View job ${job.job_id}`}
                       >

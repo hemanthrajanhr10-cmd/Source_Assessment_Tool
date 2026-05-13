@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+﻿import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Database, Layers, List, Network, Zap,
   PlusCircle, LogOut, Shield, ChevronDown,
@@ -90,17 +90,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           ${open ? 'translate-x-0' : '-translate-x-full'}
         `}
         style={{
-          background: 'linear-gradient(180deg, #ffffff 0%, #FAFCFA 100%)',
+          background: 'linear-gradient(180deg, #ffffff 0%, #FAF5EE 100%)',
           boxShadow: open
-            ? '6px 0 40px rgba(45,106,79,0.07), 2px 0 8px rgba(0,0,0,0.04)'
-            : '1px 0 0 0 rgba(209,221,212,0.7)',
+            ? '6px 0 40px rgba(125,74,32,0.07), 2px 0 8px rgba(0,0,0,0.04)'
+            : '1px 0 0 0 rgba(212,196,160,0.7)',
         }}
         aria-label="Sidebar navigation"
       >
         {/* ── Logo ────────────────────────────────────────────────────────── */}
         <div
           className="flex items-center justify-between h-16 px-4 border-b border-slate-200/60 shrink-0"
-          style={{ background: 'linear-gradient(180deg, rgba(240,247,244,0.6) 0%, rgba(255,255,255,0) 100%)' }}
+          style={{ background: 'linear-gradient(180deg, rgba(247,241,232,0.6) 0%, rgba(255,255,255,0) 100%)' }}
         >
           <NavLink
             to="/"
@@ -114,7 +114,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div
                 className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100"
                 style={{
-                  background: 'rgba(45, 106, 79, 0.12)',
+                  background: 'rgba(125, 74, 32, 0.12)',
                   animation: 'pulseRing 2.4s ease-out infinite',
                   borderRadius: '12px',
                 }}
@@ -123,19 +123,19 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div
                 className="relative flex items-center justify-center h-9 w-9 rounded-xl"
                 style={{
-                  background: 'linear-gradient(135deg, #2d6a4f 0%, #40916c 100%)',
-                  boxShadow: '0 4px 12px rgba(45,106,79,0.28), inset 0 1px 0 rgba(255,255,255,0.20)',
+                  background: 'linear-gradient(135deg, #7D4A20 0%, #A06535 100%)',
+                  boxShadow: '0 4px 12px rgba(125,74,32,0.28), inset 0 1px 0 rgba(255,255,255,0.20)',
                   transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 220ms ease',
                 }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLDivElement
                   el.style.transform = 'scale(1.08) rotate(-3deg)'
-                  el.style.boxShadow = '0 6px 20px rgba(45,106,79,0.40), inset 0 1px 0 rgba(255,255,255,0.20)'
+                  el.style.boxShadow = '0 6px 20px rgba(125,74,32,0.40), inset 0 1px 0 rgba(255,255,255,0.20)'
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLDivElement
                   el.style.transform = 'scale(1) rotate(0deg)'
-                  el.style.boxShadow = '0 4px 12px rgba(45,106,79,0.28), inset 0 1px 0 rgba(255,255,255,0.20)'
+                  el.style.boxShadow = '0 4px 12px rgba(125,74,32,0.28), inset 0 1px 0 rgba(255,255,255,0.20)'
                 }}
               >
                 <Database className="h-4.5 w-4.5 text-white" aria-hidden="true" style={{ height: '18px', width: '18px' }} />
@@ -144,7 +144,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
             <div>
               <p className="text-sm font-bold text-slate-900 leading-tight font-display tracking-tight">
-                Source<span className="font-extrabold" style={{ color: '#2d6a4f' }}>SAT</span>
+                Source<span className="font-extrabold" style={{ color: '#7D4A20' }}>SAT</span>
               </p>
               <p className="text-[9px] text-slate-400 leading-tight tracking-widest uppercase mt-0.5">
                 Assessment Tool
@@ -156,7 +156,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <button
             onClick={onClose}
             className="lg:hidden p-1.5 rounded-lg text-slate-400 transition-colors focus-visible:ring-2"
-            onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(240,247,244,0.8)'; el.style.color = '#2d6a4f' }}
+            onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(247,241,232,0.8)'; el.style.color = '#7D4A20' }}
             onMouseLeave={(e) => { const el = e.currentTarget; el.style.backgroundColor = ''; el.style.color = '' }}
             aria-label="Close sidebar"
           >
@@ -175,7 +175,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div className="flex items-center gap-2 px-2 mb-2.5">
                 <div
                   className="h-1 w-1 rounded-full shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #2d6a4f, #52b788)' }}
+                  style={{ background: 'linear-gradient(135deg, #7D4A20, #C98A50)' }}
                   aria-hidden="true"
                 />
                 <p className="section-title">{group.label}</p>
@@ -199,9 +199,9 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                       }
                       style={({ isActive }) => ({
                         ...(isActive ? {
-                          background: 'rgba(45,106,79,0.07)',
-                          color: '#1b4332',
-                          borderColor: 'rgba(143,202,170,0.35)',
+                          background: 'rgba(125,74,32,0.07)',
+                          color: '#5C3312',
+                          borderColor: 'rgba(224,176,122,0.35)',
                         } : {}),
                         boxShadow: isActive ? 'var(--elevation-1)' : undefined,
                         transform: 'translateX(0)',
@@ -211,7 +211,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         const el = e.currentTarget as HTMLAnchorElement
                         if (!el.style.color || el.style.color !== 'rgb(27, 67, 50)') {
                           el.style.transform = 'translateX(2px)'
-                          el.style.backgroundColor = 'rgba(240,247,244,0.6)'
+                          el.style.backgroundColor = 'rgba(247,241,232,0.6)'
                         }
                       }}
                       onMouseLeave={(e) => {
@@ -225,7 +225,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         <>
                           <Icon
                             className="h-4 w-4 shrink-0 transition-colors duration-120 text-slate-400"
-                            style={isActive ? { color: '#2d6a4f' } : {}}
+                            style={isActive ? { color: '#7D4A20' } : {}}
                             aria-hidden="true"
                           />
                           <span className="flex-1">{label}</span>
@@ -233,8 +233,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                             <span
                               className="h-1.5 w-1.5 rounded-full shrink-0"
                               style={{
-                                background: 'linear-gradient(135deg, #2d6a4f, #52b788)',
-                                boxShadow: '0 0 6px rgba(45,106,79,0.45)',
+                                background: 'linear-gradient(135deg, #7D4A20, #C98A50)',
+                                boxShadow: '0 0 6px rgba(125,74,32,0.45)',
                               }}
                               aria-hidden="true"
                             />
@@ -252,7 +252,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         {/* ── User footer ─────────────────────────────────────────────────── */}
         <div
           className="border-t border-slate-200/60 p-3 shrink-0"
-          style={{ background: 'linear-gradient(0deg, rgba(240,247,244,0.5) 0%, rgba(255,255,255,0) 100%)' }}
+          style={{ background: 'linear-gradient(0deg, rgba(247,241,232,0.5) 0%, rgba(255,255,255,0) 100%)' }}
         >
           <div className="relative" ref={menuRef}>
             <button
@@ -260,7 +260,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
                          transition-all duration-150 group
                          focus-visible:ring-2 focus-visible:outline-none"
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(240,247,244,0.7)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(247,241,232,0.7)' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '' }}
               aria-expanded={menuOpen}
               aria-haspopup="menu"
@@ -270,15 +270,15 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 <div
                   className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
                   style={{
-                    background: 'linear-gradient(135deg, #2d6a4f 0%, #40916c 100%)',
-                    boxShadow: '0 2px 8px rgba(45,106,79,0.28)',
+                    background: 'linear-gradient(135deg, #7D4A20 0%, #A06535 100%)',
+                    boxShadow: '0 2px 8px rgba(125,74,32,0.28)',
                   }}
                 >
                   {initials}
                 </div>
                 {/* Online status dot */}
                 <span
-                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 border-2 border-white"
+                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-earth-500 border-2 border-white"
                   style={{ boxShadow: '0 0 6px rgba(5,150,105,0.50)' }}
                   aria-hidden="true"
                 />
@@ -303,7 +303,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div
                 className="absolute bottom-full left-0 right-0 mb-2 rounded-2xl border border-slate-200/80 bg-white py-1.5 z-50 overflow-hidden"
                 style={{
-                  boxShadow: '0 -8px 32px rgba(45,106,79,0.08), 0 -2px 8px rgba(0,0,0,0.06)',
+                  boxShadow: '0 -8px 32px rgba(125,74,32,0.08), 0 -2px 8px rgba(0,0,0,0.06)',
                   animation: 'scaleIn 0.20s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   transformOrigin: 'bottom center',
                 }}
@@ -312,13 +312,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 {/* Top accent line */}
                 <div
                   className="h-0.5 mx-3 mb-2 rounded-full"
-                  style={{ background: 'linear-gradient(90deg, #2d6a4f, #40916c, #74c69d)' }}
+                  style={{ background: 'linear-gradient(90deg, #7D4A20, #A06535, #E0B07A)' }}
                   aria-hidden="true"
                 />
 
                 {user?.mfa_enabled ? (
-                  <div className="px-4 py-2 mx-1.5 mb-1 rounded-xl bg-emerald-50 border border-emerald-100">
-                    <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
+                  <div className="px-4 py-2 mx-1.5 mb-1 rounded-xl bg-earth-50 border border-earth-100">
+                    <span className="inline-flex items-center gap-1.5 text-xs text-earth-700 font-medium">
                       <Shield className="h-3 w-3" aria-hidden="true" />
                       MFA enabled
                     </span>
@@ -329,11 +329,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-slate-600
                                transition-colors rounded-xl"
                     style={{ width: 'calc(100% - 12px)', marginLeft: '6px' }}
-                    onMouseEnter={(e) => { const el = e.currentTarget; el.style.color = '#1b4332'; el.style.backgroundColor = 'rgba(240,247,244,0.8)' }}
+                    onMouseEnter={(e) => { const el = e.currentTarget; el.style.color = '#5C3312'; el.style.backgroundColor = 'rgba(247,241,232,0.8)' }}
                     onMouseLeave={(e) => { const el = e.currentTarget; el.style.color = ''; el.style.backgroundColor = '' }}
                     role="menuitem"
                   >
-                    <Shield className="h-4 w-4" style={{ color: '#2d6a4f' }} aria-hidden="true" />
+                    <Shield className="h-4 w-4" style={{ color: '#7D4A20' }} aria-hidden="true" />
                     Enable MFA
                   </button>
                 )}
@@ -353,7 +353,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
           {/* Bottom branding */}
           <div className="flex items-center justify-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-            <Sparkles className="h-2.5 w-2.5" style={{ color: '#52b788' }} aria-hidden="true" />
+            <Sparkles className="h-2.5 w-2.5" style={{ color: '#C98A50' }} aria-hidden="true" />
             <span className="text-[9px] text-slate-300 tracking-widest uppercase font-medium">
               UBTI Intelligence
             </span>

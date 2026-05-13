@@ -23,7 +23,7 @@ const FONT = "'Segoe UI', system-ui, -apple-system, sans-serif"
 // ── Field type badge ──────────────────────────────────────────────────────────
 
 const FIELD_TYPE_STYLE: Record<string, { bg: string; color: string; border: string; label: string }> = {
-  measure:     { bg: '#EBF5EE', color: '#6D28D9', border: '#DDD6FE', label: 'Measure' },
+  measure:     { bg: '#F2E8D8', color: '#6D28D9', border: '#DDD6FE', label: 'Measure' },
   column:      { bg: '#F3F4F6', color: '#374151', border: '#D1D5DB', label: 'Column' },
   aggregation: { bg: '#FFFBEB', color: '#B45309', border: '#FDE68A', label: 'Aggregation' },
   hierarchy:   { bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA', label: 'Hierarchy' },
@@ -78,13 +78,13 @@ function FieldRow({ field, isSelected }: { field: VisualField; isSelected?: bool
         onClick={() => canExpand && setOpen(o => !o)}
         style={{
           borderBottom: '1px solid #F3F4F6',
-          background: isSelected ? '#F0F7F2' : undefined,
+          background: isSelected ? '#F8F2E8' : undefined,
           outline: isSelected ? '1px solid #93C5FD' : undefined,
           borderRadius: isSelected ? 4 : undefined,
           transition: 'background 120ms',
         }}
         onMouseEnter={e => {
-          if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = canExpand ? '#F0F7F2' : '#F9FAFB'
+          if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = canExpand ? '#F8F2E8' : '#F9FAFB'
         }}
         onMouseLeave={e => {
           if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = ''
@@ -510,7 +510,7 @@ export default function VisualDetailModal({
             style={{ borderColor: '#E5E7EB' }}>
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0"
-                style={{ background: '#F0F7F2' }}>{iconEl}</div>
+                style={{ background: '#F8F2E8' }}>{iconEl}</div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate" style={{ color: '#111827' }}>{displayTitle}</p>
                 <p className="text-xs" style={{ color: '#9CA3AF' }}>{displayType}</p>
@@ -600,7 +600,7 @@ export default function VisualDetailModal({
             style={{ background: '#fff', borderColor: '#E5E7EB' }}>
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0"
-                style={{ background: '#F0F7F2' }}>
+                style={{ background: '#F8F2E8' }}>
                 {iconEl}
               </div>
               <div className="min-w-0">
@@ -627,7 +627,7 @@ export default function VisualDetailModal({
             {/* Stats chips */}
             <div className="flex items-center gap-2 flex-wrap px-0.5">
               <span className="text-xs px-2.5 py-1 rounded-full border font-medium"
-                style={{ color: '#1D4ED8', borderColor: '#BFDBFE', background: '#F0F7F2' }}>
+                style={{ color: '#1D4ED8', borderColor: '#BFDBFE', background: '#F8F2E8' }}>
                 {displayType}
               </span>
               {fields.length > 0 && (

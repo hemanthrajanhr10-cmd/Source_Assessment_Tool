@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Menu, PlusCircle, Bell, Activity } from 'lucide-react'
 import Button from '../ui/Button'
@@ -71,7 +71,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
       <button
         onClick={onMenuClick}
         className="lg:hidden p-2 rounded-xl text-slate-500 transition-colors mr-3 focus-visible:ring-2"
-        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(240,247,244,0.8)'; el.style.color = '#2d6a4f' }}
+        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(247,241,232,0.8)'; el.style.color = '#7D4A20' }}
         onMouseLeave={(e) => { const el = e.currentTarget; el.style.backgroundColor = ''; el.style.color = '' }}
         aria-label="Open navigation"
       >
@@ -106,8 +106,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
             boxShadow: '0 0 8px rgba(5,150,105,0.08)',
           }}
         >
-          <Activity className="h-3 w-3 text-emerald-500" aria-hidden="true" />
-          <span className="text-[10px] font-semibold text-emerald-600 tracking-wide">
+          <Activity className="h-3 w-3 text-earth-500" aria-hidden="true" />
+          <span className="text-[10px] font-semibold text-earth-600 tracking-wide">
             Operational
           </span>
         </div>
@@ -115,7 +115,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         {/* Notification bell */}
         <button
           className="relative p-2 rounded-xl text-slate-400 transition-colors focus-visible:ring-2"
-        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(240,247,244,0.8)'; el.style.color = '#2d6a4f' }}
+        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(247,241,232,0.8)'; el.style.color = '#7D4A20' }}
         onMouseLeave={(e) => { const el = e.currentTarget; el.style.backgroundColor = ''; el.style.color = '' }}
           aria-label="Notifications"
           title="Notifications"
@@ -124,7 +124,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           {notifPulse && (
             <span
               className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: '#2d6a4f', boxShadow: '0 0 6px rgba(45,106,79,0.55)' }}
+              style={{ backgroundColor: '#7D4A20', boxShadow: '0 0 6px rgba(125,74,32,0.55)' }}
               aria-hidden="true"
             />
           )}

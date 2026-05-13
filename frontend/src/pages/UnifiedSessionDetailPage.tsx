@@ -29,7 +29,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   pending:      { label: 'Pending',      color: 'text-slate-600', bg: 'bg-slate-100',   icon: Clock },
   running:      { label: 'Running',      color: 'text-blue-700',  bg: 'bg-blue-50',     icon: Loader2 },
   source_done:  { label: 'Source done — awaiting Fabric', color: 'text-amber-700', bg: 'bg-amber-50', icon: Clock },
-  completed:    { label: 'Completed',    color: 'text-emerald-700', bg: 'bg-emerald-50', icon: CheckCircle2 },
+  completed:    { label: 'Completed',    color: 'text-earth-700', bg: 'bg-earth-50', icon: CheckCircle2 },
   partial:      { label: 'Partial',      color: 'text-amber-700', bg: 'bg-amber-50',    icon: AlertTriangle },
   failed:       { label: 'Failed',       color: 'text-red-700',   bg: 'bg-red-50',      icon: XCircle },
   cancelled:    { label: 'Cancelled',    color: 'text-slate-500', bg: 'bg-slate-100',   icon: XCircle },
@@ -53,7 +53,7 @@ const MODE_LABELS: Record<string, string> = {
 }
 
 const JOB_STATUS_COLOR: Record<string, string> = {
-  completed: 'text-emerald-600',
+  completed: 'text-earth-600',
   running:   'text-blue-600',
   failed:    'text-red-600',
   pending:   'text-slate-500',
@@ -108,7 +108,7 @@ function SourceSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
       <div className="grid grid-cols-3 gap-4">
         {[
           { label: 'Total jobs', value: src.total_jobs },
-          { label: 'Completed', value: src.completed_jobs, color: 'text-emerald-600' },
+          { label: 'Completed', value: src.completed_jobs, color: 'text-earth-600' },
           { label: 'Failed', value: src.failed_jobs, color: src.failed_jobs > 0 ? 'text-red-600' : undefined },
         ].map(({ label, value, color }) => (
           <div key={label} className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3 text-center">
@@ -136,7 +136,7 @@ function SourceSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
                   : job.status}
               </span>
               {job.status === 'running' && <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500 shrink-0" />}
-              {job.status === 'completed' && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
+              {job.status === 'completed' && <CheckCircle2 className="h-3.5 w-3.5 text-earth-500 shrink-0" />}
               {job.status === 'failed' && <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />}
             </div>
           ))}
@@ -168,10 +168,10 @@ function SourceSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
         {canNavigate && onViewDashboard ? (
           <button
             onClick={onViewDashboard}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 hover:border-emerald-200 transition-colors cursor-pointer group"
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-earth-50 hover:bg-earth-100 border border-earth-100 hover:border-earth-200 transition-colors cursor-pointer group"
           >
-            <span className="text-sm font-medium text-emerald-800">View Full Dashboard</span>
-            <ArrowRight className="h-4 w-4 text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
+            <span className="text-sm font-medium text-earth-800">View Full Dashboard</span>
+            <ArrowRight className="h-4 w-4 text-earth-600 group-hover:translate-x-0.5 transition-transform" />
           </button>
         ) : (
           <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 opacity-50 cursor-default">
@@ -240,7 +240,7 @@ function FabricSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
         <div className="space-y-1.5">
           {workspaces.map(ws => (
             <div key={ws.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100">
-              <Building2 className="h-4 w-4 text-emerald-500 shrink-0" />
+              <Building2 className="h-4 w-4 text-earth-500 shrink-0" />
               <span className="flex-1 text-sm font-medium text-slate-800">{ws.name}</span>
               <span className="text-xs text-slate-400">{ws.dataset_count} models · {ws.report_count} reports</span>
             </div>
@@ -266,10 +266,10 @@ function FabricSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
         {canNavigate && onViewDashboard ? (
           <button
             onClick={onViewDashboard}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 hover:border-emerald-200 transition-colors cursor-pointer group"
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-earth-50 hover:bg-earth-100 border border-earth-100 hover:border-earth-200 transition-colors cursor-pointer group"
           >
-            <span className="text-sm font-medium text-emerald-800">View Full Dashboard</span>
-            <ArrowRight className="h-4 w-4 text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
+            <span className="text-sm font-medium text-earth-800">View Full Dashboard</span>
+            <ArrowRight className="h-4 w-4 text-earth-600 group-hover:translate-x-0.5 transition-transform" />
           </button>
         ) : (
           <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100 opacity-50 cursor-default">
@@ -305,7 +305,7 @@ function ComparisonTable({ session }: { session: UnifiedSession }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden" style={{ boxShadow: 'var(--elevation-1)' }}>
       <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-        <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #2d6a4f, #0ea5e9)' }}>
+        <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #7D4A20, #0ea5e9)' }}>
           <BarChart2 className="h-4 w-4 text-white" />
         </div>
         <span className="text-sm font-bold text-slate-900">Side-by-Side Comparison</span>
@@ -315,10 +315,10 @@ function ComparisonTable({ session }: { session: UnifiedSession }) {
           <thead>
             <tr className="bg-slate-50 border-b border-slate-100">
               <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider w-1/3">Metric</th>
-              <th className="text-left px-5 py-3 text-xs font-semibold text-emerald-700 uppercase tracking-wider w-1/3">
+              <th className="text-left px-5 py-3 text-xs font-semibold text-earth-700 uppercase tracking-wider w-1/3">
                 <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5" /> Source DB</span>
               </th>
-              <th className="text-left px-5 py-3 text-xs font-semibold text-emerald-700 uppercase tracking-wider w-1/3">
+              <th className="text-left px-5 py-3 text-xs font-semibold text-earth-700 uppercase tracking-wider w-1/3">
                 <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Fabric</span>
               </th>
             </tr>
@@ -393,7 +393,7 @@ export default function UnifiedSessionDetailPage() {
       {/* ── Sticky summary bar ─────────────────────────────────────────────── */}
       <div
         className="sticky top-0 z-10 rounded-2xl border border-slate-200/80 bg-white/95 backdrop-blur-md px-5 py-4"
-        style={{ boxShadow: '0 2px 16px rgba(45,106,79,0.08)' }}
+        style={{ boxShadow: '0 2px 16px rgba(125,74,32,0.08)' }}
       >
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -408,10 +408,10 @@ export default function UnifiedSessionDetailPage() {
             className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
             style={{
               background: session.mode === 'source'
-                ? 'linear-gradient(135deg, #2d6a4f, #40916c)'
+                ? 'linear-gradient(135deg, #7D4A20, #A06535)'
                 : session.mode === 'fabric'
-                ? 'linear-gradient(135deg, #2d6a4f, #0ea5e9)'
-                : 'linear-gradient(135deg, #2d6a4f, #0ea5e9)',
+                ? 'linear-gradient(135deg, #7D4A20, #0ea5e9)'
+                : 'linear-gradient(135deg, #7D4A20, #0ea5e9)',
             }}
           >
             {session.mode === 'source' ? <Database className="h-4.5 w-4.5 text-white" style={{ height: '18px', width: '18px' }} /> :
@@ -427,9 +427,9 @@ export default function UnifiedSessionDetailPage() {
               <span
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-md"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(45,106,79,0.08), rgba(64,145,108,0.06))',
-                  color: '#2d6a4f',
-                  border: '1px solid rgba(143,202,170,0.30)',
+                  background: 'linear-gradient(135deg, rgba(125,74,32,0.08), rgba(160,101,53,0.06))',
+                  color: '#7D4A20',
+                  border: '1px solid rgba(224,176,122,0.30)',
                 }}
               >
                 {MODE_LABELS[session.mode]}
@@ -452,7 +452,7 @@ export default function UnifiedSessionDetailPage() {
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-earth-700 hover:bg-earth-50 transition-colors disabled:opacity-40"
             title="Refresh"
           >
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
@@ -476,7 +476,7 @@ export default function UnifiedSessionDetailPage() {
         <CollapsibleSection
           title="Source Database Assessment"
           icon={Database}
-          iconBg="linear-gradient(135deg, #2d6a4f, #40916c)"
+          iconBg="linear-gradient(135deg, #7D4A20, #A06535)"
           badge={
             (session.source?.status || session.source_status)
               ? <StatusBadge status={session.source?.status || session.source_status!} />
@@ -502,7 +502,7 @@ export default function UnifiedSessionDetailPage() {
         <CollapsibleSection
           title="Fabric Assessment"
           icon={Zap}
-          iconBg="linear-gradient(135deg, #2d6a4f, #0ea5e9)"
+          iconBg="linear-gradient(135deg, #7D4A20, #0ea5e9)"
           badge={
             (session.fabric?.status || session.fabric_status)
               ? <StatusBadge status={session.fabric?.status || session.fabric_status!} />

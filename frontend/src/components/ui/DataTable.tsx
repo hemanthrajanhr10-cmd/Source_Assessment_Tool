@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo } from 'react'
 import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import Spinner from './Spinner'
 
@@ -27,7 +27,7 @@ function formatValue(value: unknown): React.ReactNode {
     return (
       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
         value
-          ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+          ? 'bg-earth-50 text-earth-700 ring-1 ring-earth-200'
           : 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
       }`}>
         {value ? 'Yes' : 'No'}

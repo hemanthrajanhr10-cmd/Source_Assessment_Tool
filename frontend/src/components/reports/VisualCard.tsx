@@ -133,7 +133,7 @@ export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardP
       <div className="flex items-start gap-2.5 p-3">
         {/* Icon */}
         <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded mt-0.5"
-          style={{ background: '#F0F7F2' }}>
+          style={{ background: '#F8F2E8' }}>
           {icon}
         </div>
 
@@ -145,7 +145,7 @@ export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardP
           </p>
           <span
             className="inline-block mt-1 text-xs px-1.5 py-0.5 rounded border font-medium leading-none"
-            style={{ color: '#0078D4', borderColor: '#B3D4F5', background: '#F0F7F2', fontSize: '10px' }}
+            style={{ color: '#0078D4', borderColor: '#B3D4F5', background: '#F8F2E8', fontSize: '10px' }}
           >
             {displayType}
           </span>

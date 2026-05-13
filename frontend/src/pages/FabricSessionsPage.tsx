@@ -10,7 +10,7 @@ import Loader3D from '../components/ui/Loader3D'
 function FabricStatusBadge({ status }: { status: string }) {
   if (status === 'completed')
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-earth-50 text-earth-700 ring-1 ring-earth-200">
         <CheckCircle2 className="h-3 w-3" /> Completed
       </span>
     )
@@ -53,7 +53,7 @@ export default function FabricSessionsPage() {
       <div className="page-header">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-2.5">
-            <BarChart3 className="h-6 w-6 text-emerald-600" />
+            <BarChart3 className="h-6 w-6 text-earth-600" />
             Fabric Assessments
           </h1>
           <p className="mt-1 text-sm text-slate-500">Power BI / Fabric workspace assessment history</p>
@@ -95,7 +95,7 @@ export default function FabricSessionsPage() {
                 <tr
                   key={s.fabric_session_id}
                   onClick={() => navigate(`/fabric/sessions/${s.fabric_session_id}`)}
-                  className={`cursor-pointer transition-colors hover:bg-emerald-50/40 ${
+                  className={`cursor-pointer transition-colors hover:bg-earth-50/40 ${
                     idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
                   }`}
                 >

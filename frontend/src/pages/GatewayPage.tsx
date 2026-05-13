@@ -47,7 +47,7 @@ function CopyButton({ text, className = '' }: { text: string; className?: string
       title={copied ? 'Copied!' : 'Copy to clipboard'}
       className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all
         ${copied
-          ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+          ? 'border-earth-300 bg-earth-50 text-earth-700'
           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-800'}
         ${className}`}
     >
@@ -61,18 +61,18 @@ function CopyButton({ text, className = '' }: { text: string; className?: string
 
 function ConnectionStringBox({ value }: { value: string }) {
   return (
-    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 space-y-2">
+    <div className="rounded-xl border border-earth-200 bg-earth-50 p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-earth-800">
           <KeyRound className="h-3.5 w-3.5" />
           Gateway Connection String
         </div>
         <CopyButton text={value} />
       </div>
-      <p className="break-all font-mono text-[11px] text-emerald-900 leading-relaxed bg-white border border-emerald-100 rounded-lg px-3 py-2 select-all">
+      <p className="break-all font-mono text-[11px] text-earth-900 leading-relaxed bg-white border border-earth-100 rounded-lg px-3 py-2 select-all">
         {value}
       </p>
-      <p className="text-[10px] text-emerald-700">
+      <p className="text-[10px] text-earth-700">
         Paste this into the <strong>Hybrid Connection Manager</strong> on your laptop to connect it to Azure Relay.
       </p>
     </div>
@@ -191,7 +191,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
-        <Plus className="h-4 w-4 text-emerald-600" />
+        <Plus className="h-4 w-4 text-earth-600" />
         <h2 className="text-sm font-semibold text-slate-700">Create Hybrid Connection</h2>
         <span className="ml-auto text-xs text-slate-400">Saved to your account</span>
       </div>
@@ -274,7 +274,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
         )}
 
         {result && result.status === 'provisioned' && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-700 animate-slide-down space-y-3">
+          <div className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-2.5 text-sm text-earth-700 animate-slide-down space-y-3">
             <div className="flex items-start gap-2">
               <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
               <span>
@@ -314,7 +314,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
-    provisioned:     { label: 'Provisioned',   cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    provisioned:     { label: 'Provisioned',   cls: 'bg-earth-50 text-earth-700 border-earth-200' },
     created:         { label: 'Saved',          cls: 'bg-blue-50 text-blue-700 border-blue-200' },
     config_missing:  { label: 'Saved (manual setup needed)', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
     error:           { label: 'Provision failed', cls: 'bg-red-50 text-red-700 border-red-200' },
@@ -373,7 +373,7 @@ function MyConnectionsListControlled() {
 
       <div className="card overflow-hidden">
         <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
-          <Share2 className="h-4 w-4 text-emerald-600" />
+          <Share2 className="h-4 w-4 text-earth-600" />
           <h2 className="text-sm font-semibold text-slate-700">My Hybrid Connections</h2>
           <button
             onClick={load}
@@ -404,8 +404,8 @@ function MyConnectionsListControlled() {
             {connections.map((hc) => (
               <div key={hc.connection_id} className="px-6 py-4 hover:bg-slate-50 transition-colors space-y-3">
                 <div className="flex items-center gap-4">
-                  <div className="h-9 w-9 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-                    <Share2 className="h-4 w-4 text-emerald-600" />
+                  <div className="h-9 w-9 rounded-lg bg-earth-50 border border-earth-100 flex items-center justify-center shrink-0">
+                    <Share2 className="h-4 w-4 text-earth-600" />
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -468,7 +468,7 @@ const STEPS: Step[] = [
           'Windows 7+ or Windows Server 2008 R2+ on the HCM machine',
         ].map((item) => (
           <li key={item} className="flex items-start gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+            <CheckCircle2 className="h-4 w-4 text-earth-500 mt-0.5 shrink-0" />
             <span>{item}</span>
           </li>
         ))}
@@ -514,7 +514,7 @@ const STEPS: Step[] = [
           href="https://learn.microsoft.com/en-us/azure/app-service/app-service-hybrid-connections"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-emerald-700 hover:text-emerald-800 font-medium transition-colors"
+          className="inline-flex items-center gap-1.5 text-earth-700 hover:text-earth-800 font-medium transition-colors"
         >
           <ExternalLink className="h-3.5 w-3.5" />
           Official HCM documentation
@@ -556,7 +556,7 @@ const STEPS: Step[] = [
           <li>Paste the Gateway Connection String and click <strong className="text-slate-800">Save</strong>.</li>
           <li>
             The status indicator in HCM should turn green —{' '}
-            <span className="inline-flex items-center gap-1 text-emerald-700 font-medium">
+            <span className="inline-flex items-center gap-1 text-earth-700 font-medium">
               <Wifi className="h-3.5 w-3.5" /> Connected
             </span>.
           </li>
@@ -584,7 +584,7 @@ function SetupStep({ step, defaultOpen }: { step: Step; defaultOpen: boolean }) 
         className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-slate-50 transition-colors"
         aria-expanded={open}
       >
-        <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+        <div className="shrink-0 flex items-center justify-center h-7 w-7 rounded-full bg-earth-50 border border-earth-200 text-earth-800 text-xs font-bold">
           {step.n}
         </div>
         <span className="flex-1 text-sm font-semibold text-slate-800">{step.title}</span>
@@ -631,7 +631,7 @@ function ConnectivityTest() {
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
-        <Network className="h-4 w-4 text-emerald-600" />
+        <Network className="h-4 w-4 text-earth-600" />
         <h2 className="text-sm font-semibold text-slate-700">Test Connectivity</h2>
         <span className="ml-auto text-xs text-slate-400">
           Verify the Azure app can reach your SQL Server through HCM
@@ -695,11 +695,11 @@ function ConnectivityTest() {
         {result && (
           <div className={`animate-slide-down rounded-xl border px-4 py-3 ${
             result.reachable
-              ? 'border-emerald-200 bg-emerald-50'
+              ? 'border-earth-200 bg-earth-50'
               : 'border-red-200 bg-red-50'
           }`}>
             <div className={`flex items-center gap-2 text-sm font-semibold ${
-              result.reachable ? 'text-emerald-700' : 'text-red-700'
+              result.reachable ? 'text-earth-700' : 'text-red-700'
             }`}>
               {result.reachable
                 ? <><Wifi className="h-4 w-4" /> Reachable{result.latency_ms != null ? ` — ${result.latency_ms} ms` : ''}</>
@@ -758,8 +758,8 @@ export default function HybridConnectionPage() {
         ].map(({ icon: Icon, title, body }) => (
           <div key={title} className="card p-4 animate-fade-slide">
             <div className="flex items-center gap-2 mb-2">
-              <div className="h-7 w-7 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-                <Icon className="h-4 w-4 text-emerald-600" />
+              <div className="h-7 w-7 rounded-lg bg-earth-50 border border-earth-100 flex items-center justify-center shrink-0">
+                <Icon className="h-4 w-4 text-earth-600" />
               </div>
               <p className="text-sm font-semibold text-slate-800">{title}</p>
             </div>

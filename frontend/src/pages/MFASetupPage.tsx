@@ -38,7 +38,7 @@ export default function MFASetupPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="animate-spin h-8 w-8 border-2 border-emerald-600 border-t-transparent rounded-full" />
+        <div className="animate-spin h-8 w-8 border-2 border-earth-600 border-t-transparent rounded-full" />
       </div>
     )
   }
@@ -58,7 +58,7 @@ export default function MFASetupPage() {
           className="h-16 w-16 rounded-full flex items-center justify-center mb-4"
           style={{ background: 'rgba(5,150,105,0.1)', border: '1.5px solid rgba(5,150,105,0.25)' }}
         >
-          <Check className="h-8 w-8 text-emerald-600" />
+          <Check className="h-8 w-8 text-earth-600" />
         </div>
         <h2 className="text-xl font-bold text-slate-900 font-display">MFA Enabled</h2>
         <p className="text-slate-500 mt-2 text-sm">Redirecting to dashboard…</p>
@@ -73,11 +73,11 @@ export default function MFASetupPage() {
           <div
             className="h-14 w-14 rounded-2xl flex items-center justify-center mb-4"
             style={{
-              background: 'rgba(45,106,79,0.08)',
-              border: '1.5px solid rgba(45,106,79,0.2)',
+              background: 'rgba(125,74,32,0.08)',
+              border: '1.5px solid rgba(125,74,32,0.2)',
             }}
           >
-            <Shield className="h-7 w-7 text-emerald-700" />
+            <Shield className="h-7 w-7 text-earth-700" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 font-display">Two-factor authentication</h1>
           <p className="text-sm text-slate-500 mt-1.5 text-center max-w-xs">
@@ -117,7 +117,7 @@ export default function MFASetupPage() {
                 className="shrink-0 p-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors"
                 title="Copy secret"
               >
-                {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Check className="h-4 w-4 text-earth-600" /> : <Copy className="h-4 w-4" />}
               </button>
             </div>
           </div>
@@ -148,9 +148,9 @@ export default function MFASetupPage() {
             onClick={() => confirm.mutate()}
             disabled={code.length !== 6 || confirm.isPending}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold
-                       bg-emerald-700 text-white hover:bg-emerald-800
+                       bg-earth-700 text-white hover:bg-earth-800
                        transition-all duration-200 disabled:opacity-50 active:scale-[0.98]
-                       shadow-sm hover:shadow-md hover:shadow-emerald-200/60"
+                       shadow-sm hover:shadow-md hover:shadow-earth-200/60"
           >
             {confirm.isPending ? 'Enabling MFA…' : (
               <>Enable MFA <ArrowRight className="h-4 w-4" /></>

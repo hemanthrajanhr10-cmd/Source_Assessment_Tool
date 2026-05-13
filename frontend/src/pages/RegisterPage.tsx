@@ -159,9 +159,9 @@ export default function RegisterPage() {
               type="submit"
               disabled={loading}
               className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold mt-2
-                         bg-emerald-700 text-white hover:bg-emerald-800
+                         bg-earth-700 text-white hover:bg-earth-800
                          transition-all duration-200 disabled:opacity-50 active:scale-[0.98]
-                         shadow-sm hover:shadow-md hover:shadow-emerald-200/60"
+                         shadow-sm hover:shadow-md hover:shadow-earth-200/60"
             >
               {loading ? 'Creating account…' : (
                 <>Create account <ArrowRight className="h-4 w-4" /></>
@@ -172,7 +172,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-slate-500 mt-6">
           Already have an account?{' '}
-          <Link to="/login" className="text-emerald-700 font-medium hover:text-emerald-800 transition-colors">
+          <Link to="/login" className="text-earth-700 font-medium hover:text-earth-800 transition-colors">
             Sign in
           </Link>
         </p>

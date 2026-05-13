@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+﻿import { useEffect, useRef } from 'react'
 import type { ActivityEvent } from '../types/api'
 
 interface LiveActivityFeedProps {
@@ -86,7 +86,7 @@ export default function LiveActivityFeed({ events }: LiveActivityFeedProps) {
                 fontWeight: 600,
                 padding: '1px 5px',
                 borderRadius: 9999,
-                background: ev.type === 'model' ? '#EEF2FF' : ev.type === 'report' ? '#F0FDF4' : '#F3F4F6',
+                background: ev.type === 'model' ? '#EEF2FF' : ev.type === 'report' ? '#FDF6EE' : '#F3F4F6',
                 color: ev.type === 'model' ? '#4338CA' : ev.type === 'report' ? '#15803D' : '#6B7280',
                 textTransform: 'uppercase',
                 letterSpacing: '0.04em',

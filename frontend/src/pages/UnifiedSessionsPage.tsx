@@ -15,16 +15,16 @@ import Spinner from '../components/ui/Spinner'
 import { formatDateTime, elapsed } from '../utils/dateTime'
 
 const MODE_META: Record<string, { label: string; icon: React.ElementType; gradient: string }> = {
-  source: { label: 'Source DB',         icon: Database, gradient: 'linear-gradient(135deg, #2d6a4f, #40916c)' },
-  fabric: { label: 'Fabric',            icon: Zap,      gradient: 'linear-gradient(135deg, #2d6a4f, #0ea5e9)' },
-  both:   { label: 'Full Assessment',   icon: Layers3,  gradient: 'linear-gradient(135deg, #2d6a4f, #0ea5e9)' },
+  source: { label: 'Source DB',         icon: Database, gradient: 'linear-gradient(135deg, #7D4A20, #A06535)' },
+  fabric: { label: 'Fabric',            icon: Zap,      gradient: 'linear-gradient(135deg, #7D4A20, #0ea5e9)' },
+  both:   { label: 'Full Assessment',   icon: Layers3,  gradient: 'linear-gradient(135deg, #7D4A20, #0ea5e9)' },
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   pending:     { label: 'Pending',   color: 'text-slate-600', bg: 'bg-slate-100',   icon: Clock },
   running:     { label: 'Running',   color: 'text-blue-700',  bg: 'bg-blue-50',     icon: Loader2 },
   source_done: { label: 'Source done', color: 'text-amber-700', bg: 'bg-amber-50',  icon: Clock },
-  completed:   { label: 'Completed', color: 'text-emerald-700', bg: 'bg-emerald-50', icon: CheckCircle2 },
+  completed:   { label: 'Completed', color: 'text-earth-700', bg: 'bg-earth-50', icon: CheckCircle2 },
   partial:     { label: 'Partial',   color: 'text-amber-700', bg: 'bg-amber-50',    icon: AlertTriangle },
   failed:      { label: 'Failed',    color: 'text-red-700',   bg: 'bg-red-50',      icon: XCircle },
   cancelled:   { label: 'Cancelled', color: 'text-slate-500', bg: 'bg-slate-100',   icon: XCircle },
@@ -50,13 +50,13 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
     <button
       onClick={onClick}
       className="group w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-200 bg-white
-                 hover:border-emerald-200 hover:bg-emerald-50/20 hover:shadow-md transition-all duration-150 text-left"
+                 hover:border-earth-200 hover:bg-earth-50/20 hover:shadow-md transition-all duration-150 text-left"
       style={{ boxShadow: 'var(--elevation-1)' }}
     >
       {/* Mode icon */}
       <div
         className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-        style={{ background: meta.gradient, boxShadow: '0 3px 10px rgba(45,106,79,0.2)' }}
+        style={{ background: meta.gradient, boxShadow: '0 3px 10px rgba(125,74,32,0.2)' }}
       >
         <Icon className="h-5 w-5 text-white" />
       </div>
@@ -72,9 +72,9 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
           <span
             className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0"
             style={{
-              background: 'rgba(45,106,79,0.07)',
-              color: '#2d6a4f',
-              border: '1px solid rgba(143,202,170,0.30)',
+              background: 'rgba(125,74,32,0.07)',
+              color: '#7D4A20',
+              border: '1px solid rgba(224,176,122,0.30)',
             }}
           >
             {meta.label}
@@ -103,7 +103,7 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
       </div>
 
       <StatusBadge status={session.status} />
-      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-emerald-500 transition-colors shrink-0" />
+      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-earth-500 transition-colors shrink-0" />
     </button>
   )
 }

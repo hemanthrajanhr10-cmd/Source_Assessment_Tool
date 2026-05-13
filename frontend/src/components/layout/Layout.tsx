@@ -39,7 +39,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="flex items-center gap-2">
               <div
                 className="h-5 w-5 rounded-md flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #2d6a4f, #40916c)' }}
+                style={{ background: 'linear-gradient(135deg, #7D4A20, #A06535)' }}
                 aria-hidden="true"
               >
                 <Database className="h-3 w-3 text-white" />
@@ -53,9 +53,9 @@ export default function Layout({ children }: LayoutProps) {
             <span
               className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md"
               style={{
-                background: 'linear-gradient(135deg, rgba(45,106,79,0.08), rgba(64,145,108,0.06))',
-                color: '#2d6a4f',
-                border: '1px solid rgba(143,202,170,0.30)',
+                background: 'linear-gradient(135deg, rgba(125,74,32,0.08), rgba(160,101,53,0.06))',
+                color: '#7D4A20',
+                border: '1px solid rgba(224,176,122,0.30)',
               }}
             >
               v2.0

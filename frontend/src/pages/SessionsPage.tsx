@@ -12,7 +12,7 @@ import { formatDateTime, elapsed } from '../utils/dateTime'
 
 function SessionStatusBadge({ status }: { status: SessionStatus }) {
   const map: Record<SessionStatus, { icon: React.ReactNode; label: string; cls: string }> = {
-    completed: { icon: <CheckCircle2 className="h-3 w-3" />, label: 'Completed', cls: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' },
+    completed: { icon: <CheckCircle2 className="h-3 w-3" />, label: 'Completed', cls: 'bg-earth-50 text-earth-700 ring-1 ring-earth-200' },
     partial:   { icon: <AlertTriangle className="h-3 w-3" />, label: 'Partial',   cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'    },
     failed:    { icon: <XCircle className="h-3 w-3" />,       label: 'Failed',    cls: 'bg-red-50 text-red-700 ring-1 ring-red-200'           },
     running:   { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: 'Running', cls: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200'  },
@@ -31,7 +31,7 @@ function ProgressBar({ completed, total, failed }: { completed: number; total: n
   if (total === 0) return null
   return (
     <div className="w-28 h-1.5 rounded-full bg-slate-200 overflow-hidden flex">
-      <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(completed / total) * 100}%` }} />
+      <div className="h-full bg-earth-500 transition-all" style={{ width: `${(completed / total) * 100}%` }} />
       <div className="h-full bg-red-400 transition-all"     style={{ width: `${(failed / total) * 100}%` }} />
     </div>
   )
@@ -89,7 +89,7 @@ export default function SessionsPage() {
         <div className="card p-8 text-center">
           <p className="font-medium text-red-600">Failed to load sessions.</p>
           <p className="mt-1 text-sm text-slate-500">
-            <button className="text-emerald-700 hover:text-emerald-800" onClick={() => refetch()}>Retry</button>
+            <button className="text-earth-700 hover:text-earth-800" onClick={() => refetch()}>Retry</button>
           </p>
         </div>
       )}
@@ -129,7 +129,7 @@ export default function SessionsPage() {
                 {sorted.map((session, idx) => (
                   <tr
                     key={session.session_id}
-                    className={`transition-colors cursor-pointer hover:bg-emerald-50/40 ${
+                    className={`transition-colors cursor-pointer hover:bg-earth-50/40 ${
                       idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
                     }`}
                     onClick={() => navigate(`/sessions/${session.session_id}`)}
@@ -170,7 +170,7 @@ export default function SessionsPage() {
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <button
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:text-emerald-800 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-earth-600 hover:text-earth-800 transition-colors"
                         onClick={(e) => { e.stopPropagation(); navigate(`/sessions/${session.session_id}`) }}
                       >
                         View <ExternalLink className="h-3.5 w-3.5" />

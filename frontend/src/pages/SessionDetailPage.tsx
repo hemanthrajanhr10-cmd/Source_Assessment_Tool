@@ -64,7 +64,7 @@ function ProgressDetails({ job }: { job: SessionJobInfo }) {
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100/40 transition-colors text-left"
       >
-        <ListChecks className="h-4 w-4 text-emerald-600 shrink-0" />
+        <ListChecks className="h-4 w-4 text-earth-600 shrink-0" />
         <span className="text-xs font-semibold text-slate-700 flex-1">
           Assessment Progress — {completedCount} / {total} steps done
         </span>
@@ -82,14 +82,14 @@ function ProgressDetails({ job }: { job: SessionJobInfo }) {
             return (
               <div key={step.key} className="flex items-center gap-1.5">
                 {done ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-earth-400 shrink-0" />
                 ) : active ? (
                   <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin shrink-0" />
                 ) : (
                   <div className="h-3.5 w-3.5 rounded-full border border-slate-300 shrink-0" />
                 )}
                 <span className={`text-xs truncate ${
-                  done   ? 'text-emerald-400 font-medium' :
+                  done   ? 'text-earth-400 font-medium' :
                   active ? 'text-blue-400 font-medium' :
                            'text-slate-400'
                 }`}>
@@ -106,7 +106,7 @@ function ProgressDetails({ job }: { job: SessionJobInfo }) {
 
 function JobStatusIcon({ status }: { status: JobStatus }) {
   switch (status) {
-    case 'completed':  return <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+    case 'completed':  return <CheckCircle2 className="h-4 w-4 text-earth-400" />
     case 'failed':     return <XCircle className="h-4 w-4 text-red-400" />
     case 'running':    return <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
     case 'cancelled':  return <StopCircle className="h-4 w-4 text-slate-500" />
@@ -116,7 +116,7 @@ function JobStatusIcon({ status }: { status: JobStatus }) {
 
 function JobStatusBadge({ status }: { status: JobStatus }) {
   const map: Record<JobStatus, string> = {
-    completed:  'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20',
+    completed:  'bg-earth-500/10 text-earth-400 ring-1 ring-earth-500/20',
     failed:     'bg-red-500/10    text-red-400    ring-1 ring-red-500/20',
     running:    'bg-blue-500/10   text-blue-400   ring-1 ring-blue-500/20',
     pending:    'bg-slate-100 text-slate-500 ring-1 ring-slate-200',
@@ -137,7 +137,7 @@ function SessionBanner({ status, completed, total, failed }: {
   const config: Record<SessionStatus, { border: string; text: string; bg: string; icon: React.ReactNode }> = {
     pending:   { bg: 'bg-slate-50',    border: 'border-slate-200',     text: 'text-slate-500',   icon: <Clock className="h-5 w-5" /> },
     running:   { bg: 'bg-blue-50',         border: 'border-blue-200',      text: 'text-blue-700',   icon: <Loader2 className="h-5 w-5 animate-spin" /> },
-    completed: { bg: 'bg-emerald-50',     border: 'border-emerald-200',   text: 'text-emerald-700', icon: <CheckCircle2 className="h-5 w-5" /> },
+    completed: { bg: 'bg-earth-50',     border: 'border-earth-200',   text: 'text-earth-700', icon: <CheckCircle2 className="h-5 w-5" /> },
     partial:   { bg: 'bg-amber-50',       border: 'border-amber-200',     text: 'text-amber-700',  icon: <AlertTriangle className="h-5 w-5" /> },
     failed:    { bg: 'bg-red-50',         border: 'border-red-200',       text: 'text-red-700',    icon: <XCircle className="h-5 w-5" /> },
     cancelled: { bg: 'bg-slate-100',    border: 'border-slate-200',     text: 'text-slate-500',   icon: <StopCircle className="h-5 w-5" /> },
@@ -160,7 +160,7 @@ function SessionBanner({ status, completed, total, failed }: {
       {total > 0 && (
         <div className="space-y-1">
           <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden flex">
-            <div className="h-full bg-emerald-500/70 transition-all duration-500" style={{ width: `${(completed / total) * 100}%` }} />
+            <div className="h-full bg-earth-500/70 transition-all duration-500" style={{ width: `${(completed / total) * 100}%` }} />
             <div className="h-full bg-red-500/70 transition-all duration-500" style={{ width: `${(failed / total) * 100}%` }} />
           </div>
           <p className={`text-xs ${text}`}>{pct}% complete</p>
@@ -374,7 +374,7 @@ export default function SessionDetailPage() {
       {session.jobs.length > 0 && (
         <div className="card overflow-hidden">
           <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
-            <Database className="h-4 w-4 text-emerald-600" />
+            <Database className="h-4 w-4 text-earth-600" />
             <h2 className="text-sm font-semibold text-slate-800">Databases</h2>
             <span className="ml-auto text-xs text-slate-400">{session.jobs.length} total</span>
           </div>

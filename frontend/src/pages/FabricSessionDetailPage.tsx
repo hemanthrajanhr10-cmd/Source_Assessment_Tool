@@ -24,7 +24,7 @@ import AssessmentProgress from '../components/AssessmentProgress'
 
 const COMPLEXITY_COLORS: Record<string, { bg: string; text: string; border: string; hex: string }> = {
   'None':         { bg: 'bg-slate-100/50',     text: 'text-slate-500',    border: 'border-slate-200',    hex: '#71717a' },
-  'Simple':       { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', hex: '#10b981' },
+  'Simple':       { bg: 'bg-earth-50', text: 'text-earth-700', border: 'border-earth-200', hex: '#10b981' },
   'Moderate':     { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200',   hex: '#f59e0b' },
   'Complex':      { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200',  hex: '#f97316' },
   'Very Complex': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200',     hex: '#ef4444' },
@@ -43,7 +43,7 @@ function ComplexityBadge({ c, small }: { c: MeasureComplexity; small?: boolean }
 
 function StorageBadge({ mode }: { mode: string }) {
   const cls =
-    mode === 'DirectLake'  ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+    mode === 'DirectLake'  ? 'bg-earth-50 text-earth-800 border-earth-200' :
     mode === 'DirectQuery' ? 'bg-blue-50 text-blue-700 border-blue-200' :
     mode === 'Composite'   ? 'bg-orange-50 text-orange-700 border-orange-200' :
                              'bg-slate-100/50   text-slate-500   border-slate-200'
@@ -155,7 +155,7 @@ function MeasureRow({ m }: { m: FabricMeasure }) {
     <div className="border border-slate-200 rounded-lg overflow-hidden">
       <button onClick={() => setOpen(o => !o)}
         className="w-full flex items-center gap-2 px-3 py-2 bg-slate-50/40 hover:bg-slate-100/50 transition-colors text-left">
-        <Hash className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+        <Hash className="h-3.5 w-3.5 text-earth-500 shrink-0" />
         <span className="flex-1 text-xs font-mono font-semibold text-slate-800 truncate">{m.name}</span>
         {m.table && <span className="text-xs text-slate-500 shrink-0 mr-1">{m.table}</span>}
         {m.complexity && <ComplexityBadge c={m.complexity} small />}
@@ -283,7 +283,7 @@ function RelationshipsTable({ rels }: { rels: FabricRelationship[] }) {
               <td className="px-3 py-1.5 text-slate-500">{r.cross_filter}</td>
               <td className="px-3 py-1.5">
                 {r.is_active
-                  ? <span className="text-emerald-400 font-medium">✓ Active</span>
+                  ? <span className="text-earth-400 font-medium">✓ Active</span>
                   : <span className="text-slate-400">Inactive</span>}
               </td>
             </tr>
@@ -298,11 +298,11 @@ function RelationshipsTable({ rels }: { rels: FabricRelationship[] }) {
 
 const DATA_TYPE_COLORS: Record<string, string> = {
   string:   'bg-sky-500/10    text-sky-400    border-sky-500/30',
-  int64:    'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
-  double:   'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
-  decimal:  'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
+  int64:    'bg-earth-500/10 text-earth-500 border-earth-500/30',
+  double:   'bg-earth-500/10 text-earth-500 border-earth-500/30',
+  decimal:  'bg-earth-500/10 text-earth-500 border-earth-500/30',
   boolean:  'bg-amber-50       text-amber-700  border-amber-200',
-  datetime: 'bg-teal-500/10   text-teal-400   border-teal-500/30',
+  datetime: 'bg-earth-500/10  text-earth-400  border-earth-500/30',
   binary:   'bg-slate-100/50   text-slate-500   border-slate-200',
 }
 
@@ -341,7 +341,7 @@ function ColumnRow({ col }: { col: FabricTableColumn }) {
         )}
       </div>
       {open && col.expression && (
-        <div className="ml-9 mr-3 mb-2 rounded bg-slate-50 text-emerald-400 font-mono text-xs p-2 overflow-x-auto border border-slate-200">
+        <div className="ml-9 mr-3 mb-2 rounded bg-slate-50 text-earth-400 font-mono text-xs p-2 overflow-x-auto border border-slate-200">
           {col.expression}
         </div>
       )}
@@ -407,7 +407,7 @@ function TableRow({ table }: { table: FabricTable }) {
               <div className="flex items-center gap-3 px-4 pb-3 text-xs text-slate-500">
                 <span>{visibleCols.length} visible</span>
                 {hiddenCols.length > 0 && <span>{hiddenCols.length} hidden</span>}
-                {calcCols.length > 0 && <span className="text-emerald-600">{calcCols.length} calculated</span>}
+                {calcCols.length > 0 && <span className="text-earth-600">{calcCols.length} calculated</span>}
               </div>
             </>
           )}
@@ -433,7 +433,7 @@ function TablesPanel({ tables }: { tables: FabricTable[] }) {
           value={filter}
           onChange={e => setFilter(e.target.value)}
           placeholder="Filter tables…"
-          className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/40"
+          className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-earth-600/40"
         />
       </div>
 
@@ -484,7 +484,7 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <button className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100/50 transition-all text-left"
         onClick={() => setOpen(!open)}>
-        <Database className="h-4 w-4 text-emerald-600 shrink-0" />
+        <Database className="h-4 w-4 text-earth-600 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-900 truncate">{ds.name}</p>
           <p className="text-xs text-slate-500">by {ds.configured_by || 'unknown'}</p>
@@ -494,7 +494,7 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
             complexityPct >= 60 ? 'bg-red-50 text-red-700 border-red-200'
             : complexityPct >= 25 ? 'bg-amber-50 text-amber-700 border-amber-200'
-            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            : 'bg-earth-50 text-earth-700 border-earth-200'
           }`}>
             <BarChart2 className="h-3 w-3" />
             {complexityPct >= 60 ? 'High' : complexityPct >= 25 ? 'Medium' : 'Low'} ({complexityPct})
@@ -511,7 +511,7 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-0 border-b border-slate-100">
             {[
               { icon: <Table2 className="h-3.5 w-3.5 text-slate-500" />,     label: 'Tables',      value: ds.table_count },
-              { icon: <Hash className="h-3.5 w-3.5 text-emerald-500" />,     label: 'Measures',    value: ds.measure_count },
+              { icon: <Hash className="h-3.5 w-3.5 text-earth-500" />,     label: 'Measures',    value: ds.measure_count },
               { icon: <Calculator className="h-3.5 w-3.5 text-amber-400" />, label: 'Calc Cols',  value: ds.calculated_column_count },
               { icon: <Database className="h-3.5 w-3.5 text-orange-400" />, label: 'Calc Tables', value: ds.calculated_table_count },
               { icon: <Link2 className="h-3.5 w-3.5 text-blue-400" />,      label: 'Rels',        value: ds.relationship_count },
@@ -544,7 +544,7 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
               <div className={`h-2.5 rounded-full transition-all ${
                 complexityPct >= 60 ? 'bg-gradient-to-r from-orange-500 to-red-500'
                 : complexityPct >= 25 ? 'bg-gradient-to-r from-yellow-500 to-amber-500'
-                : 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                : 'bg-gradient-to-r from-earth-500 to-teal-500'
               }`} style={{ width: `${complexityPct}%` }} />
             </div>
           </div>
@@ -556,12 +556,12 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
                 onClick={() => setSubTab(t.id)}
                 className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors ${
                   subTab === t.id
-                    ? 'border-emerald-600 text-emerald-700'
+                    ? 'border-earth-600 text-earth-700'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}>
                 {t.label}
                 <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                  subTab === t.id ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  subTab === t.id ? 'bg-earth-100 text-earth-700' : 'bg-slate-100 text-slate-500'
                 }`}>{t.count}</span>
               </button>
             ))}
@@ -613,7 +613,7 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
           {ds.web_url && (
             <div className="px-4 pb-3">
               <a href={ds.web_url} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-emerald-700 hover:text-emerald-800 hover:underline transition-colors">
+                className="inline-flex items-center gap-1.5 text-xs text-earth-700 hover:text-earth-800 hover:underline transition-colors">
                 <ExternalLink className="h-3.5 w-3.5" /> Open in Power BI
               </a>
             </div>
@@ -647,19 +647,19 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
 
   const storageChartData = Object.entries(storageDist).map(([label, value]) => ({
     label, value,
-    color: label === 'DirectLake' ? '#52b788' : label === 'DirectQuery' ? '#3b82f6' : label === 'Composite' ? '#f97316' : '#52525b',
+    color: label === 'DirectLake' ? '#C98A50' : label === 'DirectQuery' ? '#3b82f6' : label === 'Composite' ? '#f97316' : '#52525b',
   }))
 
   const KPI_ITEMS = [
-    { label: 'Workspaces',      value: summary.workspace_count,          color: 'text-emerald-700',  bg: 'bg-emerald-50',      border: 'border-emerald-200',     icon: <Zap className="h-5 w-5 text-emerald-600" /> },
+    { label: 'Workspaces',      value: summary.workspace_count,          color: 'text-earth-700',  bg: 'bg-earth-50',      border: 'border-earth-200',     icon: <Zap className="h-5 w-5 text-earth-600" /> },
     { label: 'Semantic Models', value: summary.dataset_count,            color: 'text-blue-600',    bg: 'bg-blue-50',        border: 'border-blue-200',       icon: <Database className="h-5 w-5 text-blue-500" /> },
-    { label: 'Reports',         value: summary.report_count,             color: 'text-emerald-700',  bg: 'bg-emerald-50',      border: 'border-emerald-200',     icon: <FileText className="h-5 w-5 text-emerald-600" /> },
+    { label: 'Reports',         value: summary.report_count,             color: 'text-earth-700',  bg: 'bg-earth-50',      border: 'border-earth-200',     icon: <FileText className="h-5 w-5 text-earth-600" /> },
     { label: 'Paginated',       value: summary.paginated_report_count,   color: 'text-orange-600',  bg: 'bg-orange-50',      border: 'border-orange-200',     icon: <BookOpen className="h-5 w-5 text-orange-500" /> },
     { label: 'Total Visuals',   value: summary.total_visuals ?? 0,       color: 'text-sky-600',     bg: 'bg-sky-50',         border: 'border-sky-200',        icon: <Eye className="h-5 w-5 text-sky-500" /> },
-    { label: 'Measures',        value: summary.total_measures,           color: 'text-emerald-700',  bg: 'bg-emerald-50',      border: 'border-emerald-200',     icon: <Hash className="h-5 w-5 text-emerald-600" /> },
+    { label: 'Measures',        value: summary.total_measures,           color: 'text-earth-700',  bg: 'bg-earth-50',      border: 'border-earth-200',     icon: <Hash className="h-5 w-5 text-earth-600" /> },
     { label: 'Calc. Tables',    value: summary.total_calculated_tables,  color: 'text-amber-700',   bg: 'bg-amber-50',       border: 'border-amber-200',      icon: <Table2 className="h-5 w-5 text-amber-600" /> },
-    { label: 'Calc. Columns',   value: summary.total_calculated_columns, color: 'text-teal-600',    bg: 'bg-teal-50',        border: 'border-teal-200',       icon: <Calculator className="h-5 w-5 text-teal-500" /> },
-    { label: 'Relationships',   value: summary.total_relationships ?? 0, color: 'text-emerald-700', bg: 'bg-emerald-50',     border: 'border-emerald-200',    icon: <GitMerge className="h-5 w-5 text-emerald-600" /> },
+    { label: 'Calc. Columns',   value: summary.total_calculated_columns, color: 'text-earth-500',    bg: 'bg-earth-50',       border: 'border-earth-200',      icon: <Calculator className="h-5 w-5 text-earth-400" /> },
+    { label: 'Relationships',   value: summary.total_relationships ?? 0, color: 'text-earth-700', bg: 'bg-earth-50',     border: 'border-earth-200',    icon: <GitMerge className="h-5 w-5 text-earth-600" /> },
   ]
 
   return (
@@ -679,7 +679,7 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card p-4">
           <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-emerald-600" />
+            <TrendingUp className="h-4 w-4 text-earth-600" />
             DAX Complexity Distribution
           </h3>
           <div className="flex items-center gap-6">
@@ -710,7 +710,7 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
       {/* Workspace quick-view table */}
       <div className="card overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-          <Zap className="h-4 w-4 text-emerald-600" />
+          <Zap className="h-4 w-4 text-earth-600" />
           <h3 className="text-sm font-semibold text-slate-700">Workspaces</h3>
         </div>
         <div className="overflow-x-auto">
@@ -728,10 +728,10 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
                   <td className="px-4 py-2 font-medium text-slate-800">{ws.name}</td>
                   <td className="px-4 py-2 text-slate-500">{ws.type}</td>
                   <td className="px-4 py-2 font-semibold text-blue-400">{ws.dataset_count}</td>
-                  <td className="px-4 py-2 font-semibold text-emerald-500">{ws.report_count}</td>
+                  <td className="px-4 py-2 font-semibold text-earth-500">{ws.report_count}</td>
                   <td className="px-4 py-2 font-semibold text-orange-400">{ws.paginated_report_count}</td>
                   <td className="px-4 py-2 text-sky-400">{ws.reports.reduce((s, r) => s + (r.visual_count ?? 0), 0)}</td>
-                  <td className="px-4 py-2 text-emerald-500">{ws.datasets.reduce((s, d) => s + d.measure_count, 0)}</td>
+                  <td className="px-4 py-2 text-earth-500">{ws.datasets.reduce((s, d) => s + d.measure_count, 0)}</td>
                 </tr>
               ))}
             </tbody>
@@ -781,7 +781,7 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
 
   const typeBadge = (t: string) => {
     const map: Record<string, string> = {
-      'Measure':     'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
+      'Measure':     'bg-earth-500/10 text-earth-500 border-earth-500/30',
       'Calc Column': 'bg-amber-50       text-amber-700  border-amber-200',
       'Calc Table':  'bg-orange-500/10 text-orange-400 border-orange-500/30',
     }
@@ -825,7 +825,7 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
               onClick={() => setFilter(l)}
               className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
                 filter === l
-                  ? 'bg-emerald-600 text-white'
+                  ? 'bg-earth-600 text-white'
                   : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
               }`}>{l}</button>
           ))}
@@ -978,7 +978,7 @@ export default function FabricSessionDetailPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-2.5">
-            <Zap className="h-6 w-6 text-emerald-600" />
+            <Zap className="h-6 w-6 text-earth-600" />
             {session.label || 'Fabric Assessment'}
           </h1>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -998,7 +998,7 @@ export default function FabricSessionDetailPage() {
               </>
             )}
             {session.status === 'completed' && (
-              <span className="inline-flex items-center gap-1.5 text-sm text-emerald-700">
+              <span className="inline-flex items-center gap-1.5 text-sm text-earth-700">
                 <CheckCircle2 className="h-4 w-4" /> Completed
                 {session.completed_at && ` · ${formatDateTime(session.completed_at)}`}
               </span>
@@ -1020,7 +1020,7 @@ export default function FabricSessionDetailPage() {
           <button
             onClick={handleExport}
             disabled={exporting}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 disabled:opacity-50 transition-colors">
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-earth-50 hover:bg-earth-100 text-earth-700 border border-earth-200 disabled:opacity-50 transition-colors">
             {exporting
               ? <><Loader2 className="h-4 w-4 animate-spin" /> Exporting…</>
               : <><Download className="h-4 w-4" /> Export Excel</>}
@@ -1045,7 +1045,7 @@ export default function FabricSessionDetailPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'border-emerald-600 text-emerald-700 bg-emerald-50/40'
+                    ? 'border-earth-600 text-earth-700 bg-earth-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                 }`}>
                 {tab.icon}
@@ -1065,7 +1065,7 @@ export default function FabricSessionDetailPage() {
                 {workspaces.map(ws => (
                   <div key={ws.id} className="card overflow-hidden border-2 border-slate-200">
                     <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
-                      <Zap className="h-4 w-4 text-emerald-600" />
+                      <Zap className="h-4 w-4 text-earth-600" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-slate-900">{ws.name}</p>
                         <p className="text-xs text-slate-500">

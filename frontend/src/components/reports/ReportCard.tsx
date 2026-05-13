@@ -52,7 +52,7 @@ export default function ReportCard({ report, onClick }: ReportCardProps) {
       <div className="flex items-start justify-between mb-3">
         <div
           className="flex items-center justify-center w-10 h-10 rounded"
-          style={{ background: '#F0F7F2' }}
+          style={{ background: '#F8F2E8' }}
         >
           <BarChart2 size={22} style={{ color: '#0078D4' }} />
         </div>

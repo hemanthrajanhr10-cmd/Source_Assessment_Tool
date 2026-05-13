@@ -13,8 +13,8 @@ const FONT = "'Segoe UI', system-ui, -apple-system, sans-serif"
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { bg: string; color: string; label: string }> = {
     queued:    { bg: '#F3F4F6', color: '#6B7280', label: 'Queued' },
-    running:   { bg: '#F0F7F2', color: '#1D4ED8', label: 'Running' },
-    completed: { bg: '#F0FDF4', color: '#15803D', label: 'Completed' },
+    running:   { bg: '#F8F2E8', color: '#1D4ED8', label: 'Running' },
+    completed: { bg: '#FDF6EE', color: '#15803D', label: 'Completed' },
     failed:    { bg: '#FFF1F2', color: '#BE123C', label: 'Failed' },
     cancelled: { bg: '#F3F4F6', color: '#6B7280', label: 'Cancelled' },
   }

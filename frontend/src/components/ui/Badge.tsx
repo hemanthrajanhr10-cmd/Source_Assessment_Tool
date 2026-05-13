@@ -1,4 +1,4 @@
-import type { JobStatus } from '../../types/api'
+﻿import type { JobStatus } from '../../types/api'
 import { CheckCircle2, XCircle, Loader2, Clock, StopCircle } from 'lucide-react'
 
 type Variant = 'default' | 'success' | 'warning' | 'error' | 'info' | 'neutral'
@@ -12,7 +12,7 @@ interface BadgeProps {
 
 const variantStyles: Record<Variant, string> = {
   default: 'bg-slate-100     text-slate-600   ring-1 ring-slate-200',
-  success: 'bg-emerald-50    text-emerald-700  ring-1 ring-emerald-200',
+  success: 'bg-earth-50    text-earth-700  ring-1 ring-earth-200',
   warning: 'bg-amber-50      text-amber-700    ring-1 ring-amber-200',
   error:   'bg-red-50        text-red-700      ring-1 ring-red-200',
   info:    'bg-blue-50       text-blue-700     ring-1 ring-blue-200',
@@ -21,7 +21,7 @@ const variantStyles: Record<Variant, string> = {
 
 const dotStyles: Record<Variant, string> = {
   default: 'bg-slate-400',
-  success: 'bg-emerald-500',
+  success: 'bg-earth-500',
   warning: 'bg-amber-500',
   error:   'bg-red-500',
   info:    'bg-blue-500',

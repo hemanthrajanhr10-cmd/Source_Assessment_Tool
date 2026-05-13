@@ -49,13 +49,13 @@ function displayLabel(type: string): string {
 function typeChipStyle(type: string): { bg: string; color: string } {
   const t = type.toLowerCase().replace(/\s+/g, '')
   if (t === 'slicer')
-    return { bg: '#F0F7F2', color: '#1D4ED8' }
+    return { bg: '#F8F2E8', color: '#1D4ED8' }
   if (['columnchart', 'clusteredcolumnchart', 'stackedcolumnchart',
        'hundredpercentstackedcolumnchart', 'barchart', 'clusteredbarchart',
        'stackedbarchart', 'hundredpercentstackedbarchart', 'lineclusteredcolumnchart'].includes(t))
     return { bg: '#EEF2FF', color: '#4338CA' }
   if (['pivottable', 'matrix'].includes(t))
-    return { bg: '#EBF5EE', color: '#6D28D9' }
+    return { bg: '#F2E8D8', color: '#6D28D9' }
   if (['tableex', 'table'].includes(t))
     return { bg: '#F0FDFA', color: '#0F766E' }
   if (['card', 'kpivisual', 'kpi'].includes(t))

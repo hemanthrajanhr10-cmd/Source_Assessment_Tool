@@ -18,7 +18,7 @@ export default function StatCard({
   value,
   icon,
   sub,
-  accent = 'bg-emerald-50 text-emerald-700',
+  accent = 'bg-earth-50 text-earth-700',
 }: StatCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [transform, setTransform] = useState('')

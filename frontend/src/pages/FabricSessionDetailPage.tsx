@@ -647,7 +647,7 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
 
   const storageChartData = Object.entries(storageDist).map(([label, value]) => ({
     label, value,
-    color: label === 'DirectLake' ? '#C98A50' : label === 'DirectQuery' ? '#3b82f6' : label === 'Composite' ? '#f97316' : '#52525b',
+    color: label === 'DirectLake' ? '#0D7F97' : label === 'DirectQuery' ? '#3b82f6' : label === 'Composite' ? '#f97316' : '#52525b',
   }))
 
   const KPI_ITEMS = [

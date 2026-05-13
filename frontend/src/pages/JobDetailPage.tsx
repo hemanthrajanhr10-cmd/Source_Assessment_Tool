@@ -44,8 +44,8 @@ function LockedTabOverlay({ requiredLevel, currentLevel }: { requiredLevel: Acce
       <div
         className="flex items-center justify-center h-14 w-14 rounded-2xl"
         style={{
-          background: 'linear-gradient(135deg, rgba(125,74,32,0.06) 0%, rgba(160,101,53,0.04) 100%)',
-          border: '1px solid rgba(224,176,122,0.30)',
+          background: 'linear-gradient(135deg, rgba(184,53,16,0.05) 0%, rgba(13,127,151,0.03) 100%)',
+          border: '1px solid rgba(184,53,16,0.20)',
           boxShadow: 'var(--elevation-1)',
         }}
       >
@@ -294,7 +294,7 @@ export default function JobDetailPage() {
         {/* Top accent line */}
         <div
           className="h-0.5"
-          style={{ background: 'linear-gradient(90deg, #7D4A20, #A06535, #E0B07A, transparent)' }}
+          style={{ background: 'linear-gradient(90deg, #B83510, #0D7F97, #177B44, transparent)' }}
           aria-hidden="true"
         />
 
@@ -307,8 +307,8 @@ export default function JobDetailPage() {
                 <div
                   className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
                   style={{
-                    background: 'linear-gradient(135deg, rgba(125,74,32,0.10) 0%, rgba(160,101,53,0.06) 100%)',
-                    border: '1px solid rgba(224,176,122,0.35)',
+                    background: 'linear-gradient(135deg, rgba(184,53,16,0.08) 0%, rgba(13,127,151,0.04) 100%)',
+                    border: '1px solid rgba(184,53,16,0.25)',
                     boxShadow: 'var(--elevation-1)',
                   }}
                 >
@@ -410,20 +410,20 @@ export default function JobDetailPage() {
               <span
                 className="text-xs font-bold tabular-nums px-2 py-0.5 rounded-full shrink-0"
                 style={{
-                  background: 'rgba(125,74,32,0.08)',
-                  color: '#7D4A20',
-                  border: '1px solid rgba(224,176,122,0.35)',
+                  background: 'rgba(184,53,16,0.07)',
+                  color: '#B83510',
+                  border: '1px solid rgba(184,53,16,0.25)',
                 }}
               >
                 {progress}%
               </span>
             </div>
-            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(125,74,32,0.08)' }}>
+            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(184,53,16,0.08)' }}>
               <div
                 className="h-full rounded-full transition-all duration-700 ease-out"
                 style={{
                   width: `${progress}%`,
-                  background: 'linear-gradient(90deg, #7D4A20, #A06535)',
+                  background: 'linear-gradient(90deg, #B83510, #DE4A1F)',
                 }}
                 role="progressbar"
                 aria-valuenow={progress}
@@ -635,9 +635,9 @@ export default function JobDetailPage() {
                       <span
                         className="text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-full"
                         style={{
-                          background: 'rgba(125,74,32,0.07)',
-                          color: '#7D4A20',
-                          border: '1px solid rgba(224,176,122,0.30)',
+                          background: 'rgba(184,53,16,0.07)',
+                          color: '#B83510',
+                          border: '1px solid rgba(184,53,16,0.22)',
                         }}
                       >
                         {data.length.toLocaleString()} row{data.length !== 1 ? 's' : ''}

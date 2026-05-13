@@ -900,7 +900,8 @@ IF OBJECT_ID('dbo.hybrid_connections', 'U') IS NULL
         endpoint_port              INT            NOT NULL DEFAULT 1433,
         service_bus_namespace      NVARCHAR(500)  NOT NULL,
         status                     VARCHAR(50)    NOT NULL DEFAULT 'created',
-        listener_connection_string NVARCHAR(MAX)  NULL,   -- Azure Relay listener conn string (for HCM)
+        listener_connection_string NVARCHAR(MAX)  NULL,   -- Azure Relay listener conn string (for HCM on-prem agent)
+        sender_connection_string   NVARCHAR(MAX)  NULL,   -- Azure Relay sender conn string (for SAT gateway relay config)
         created_at                 DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_hybrid_connections PRIMARY KEY (connection_id)
     );
@@ -912,6 +913,12 @@ IF NOT EXISTS (
     WHERE object_id = OBJECT_ID('dbo.hybrid_connections') AND name = 'listener_connection_string'
 )
     ALTER TABLE dbo.hybrid_connections ADD listener_connection_string NVARCHAR(MAX) NULL;
+-- Migration: add sender_connection_string to existing hybrid_connections table
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.hybrid_connections') AND name = 'sender_connection_string'
+)
+    ALTER TABLE dbo.hybrid_connections ADD sender_connection_string NVARCHAR(MAX) NULL;
 
 -- ─── unified_sessions (groups source + fabric assessments under one session) ───
 IF OBJECT_ID('dbo.unified_sessions', 'U') IS NULL

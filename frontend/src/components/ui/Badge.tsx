@@ -11,20 +11,20 @@ interface BadgeProps {
 }
 
 const variantStyles: Record<Variant, string> = {
-  default: 'bg-slate-100     text-slate-600   ring-1 ring-slate-200',
-  success: 'bg-earth-50    text-earth-700  ring-1 ring-earth-200',
-  warning: 'bg-amber-50      text-amber-700    ring-1 ring-amber-200',
-  error:   'bg-red-50        text-red-700      ring-1 ring-red-200',
-  info:    'bg-blue-50       text-blue-700     ring-1 ring-blue-200',
-  neutral: 'bg-slate-100     text-slate-500    ring-1 ring-slate-200',
+  default: 'bg-slate-100    text-slate-600   ring-1 ring-slate-200',
+  success: 'bg-grove-50    text-grove-700   ring-1 ring-grove-200',
+  warning: 'bg-amber-50    text-amber-700   ring-1 ring-amber-200',
+  error:   'bg-red-50      text-red-700     ring-1 ring-red-200',
+  info:    'bg-tide-50     text-tide-700    ring-1 ring-tide-200',
+  neutral: 'bg-slate-100   text-slate-500   ring-1 ring-slate-200',
 }
 
 const dotStyles: Record<Variant, string> = {
   default: 'bg-slate-400',
-  success: 'bg-earth-500',
+  success: 'bg-grove-500',
   warning: 'bg-amber-500',
   error:   'bg-red-500',
-  info:    'bg-blue-500',
+  info:    'bg-tide-500',
   neutral: 'bg-slate-400',
 }
 

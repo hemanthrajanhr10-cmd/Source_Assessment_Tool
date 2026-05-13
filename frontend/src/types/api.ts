@@ -266,7 +266,8 @@ export interface HybridConnection {
   service_bus_namespace: string
   status: 'created' | 'provisioned' | 'config_missing' | 'error'
   created_at: string
-  listener_connection_string?: string | null
+  listener_connection_string?: string | null  // for HCM on-prem agent
+  sender_connection_string?: string | null    // for SAT gateway relay config
   error_detail?: string | null
 }
 

@@ -637,7 +637,7 @@ function ServerCard({
       >
         <div
           className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, #7D4A2020, #A0653510)', border: '1px solid rgba(125,74,32,0.15)' }}
+          style={{ background: 'linear-gradient(135deg, rgba(184,53,16,0.10), rgba(13,127,151,0.06))', border: '1px solid rgba(184,53,16,0.15)' }}
         >
           <Server className="h-3.5 w-3.5 text-earth-700" />
         </div>
@@ -901,7 +901,7 @@ function FabricAuthPanel({
       <div className="flex items-center gap-3">
         <div
           className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, #7D4A20, #0ea5e9)' }}
+          style={{ background: 'linear-gradient(135deg, #B83510, #0D7F97)' }}
         >
           <MonitorSmartphone className="h-5 w-5 text-white" />
         </div>

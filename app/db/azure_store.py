@@ -1200,6 +1200,7 @@ def create_hybrid_connection(
     service_bus_namespace: str,
     status: str = "created",
     listener_connection_string: Optional[str] = None,
+    sender_connection_string: Optional[str] = None,
 ) -> None:
     conn = _get_conn()
     try:
@@ -1207,10 +1208,12 @@ def create_hybrid_connection(
         cur.execute(
             """INSERT INTO dbo.hybrid_connections
                (connection_id, user_id, name, endpoint_host, endpoint_port,
-                service_bus_namespace, status, listener_connection_string)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                service_bus_namespace, status, listener_connection_string,
+                sender_connection_string)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (connection_id, user_id, name, endpoint_host, endpoint_port,
-             service_bus_namespace, status, listener_connection_string),
+             service_bus_namespace, status, listener_connection_string,
+             sender_connection_string),
         )
         conn.commit()
     finally:
@@ -1224,7 +1227,7 @@ def list_hybrid_connections(user_id: str) -> list[dict]:
         cur.execute(
             """SELECT connection_id, user_id, name, endpoint_host, endpoint_port,
                       service_bus_namespace, status, created_at,
-                      listener_connection_string
+                      listener_connection_string, sender_connection_string
                FROM dbo.hybrid_connections
                WHERE user_id = ?
                ORDER BY created_at DESC""",
@@ -1251,7 +1254,7 @@ def get_hybrid_connection(connection_id: str, user_id: str) -> Optional[dict]:
         cur.execute(
             """SELECT connection_id, user_id, name, endpoint_host, endpoint_port,
                       service_bus_namespace, status, created_at,
-                      listener_connection_string
+                      listener_connection_string, sender_connection_string
                FROM dbo.hybrid_connections
                WHERE connection_id = ? AND user_id = ?""",
             (connection_id, user_id),

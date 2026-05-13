@@ -60,31 +60,39 @@
 
   /* ── Color tokens ─────────────────────────────────────────────────────────── */
 
-  --color-canvas:   #F7F1E8;   /* warm parchment earth canvas */
+  --color-canvas:   #F3F5F7;   /* cool-neutral canvas — three-element palette base */
   --color-base:     #FFFFFF;
-  --color-subtle:   #F0E9DC;
-  --color-muted:    #E6D9C4;
+  --color-subtle:   #EBECF1;
+  --color-muted:    #E0E2EA;
   --color-overlay:  rgba(255, 255, 255, 0.75);
 
-  --color-border:        #D4C4A8;
-  --color-border-strong: #C4A87C;
-  --color-border-focus:  #7D4A20;   /* brand earth */
+  --color-border:        #CDD0DC;
+  --color-border-strong: #A8ADC4;
+  --color-border-focus:  #B83510;   /* ember-600 */
 
   --color-text-primary:   #0D1117;
-  --color-text-secondary: #4A5568;
-  --color-text-tertiary:  #8896A5;
+  --color-text-secondary: #404555;
+  --color-text-tertiary:  #767A8C;
 
-  /* ── Brand — Earth / Terracotta ──────────────────────────────────────────── */
-  --brand-50:       #FDF6EE;
-  --brand-100:      #F7E8D3;
-  --brand-200:      #EECFA7;
-  --brand-300:      #E0B07A;
-  --brand-400:      #C98A50;
-  --brand-500:      #A06535;
-  --brand-600:      #7D4A20;
-  --brand-700:      #5C3312;
-  --brand-gradient: linear-gradient(135deg, #7D4A20 0%, #A06535 100%);
-  --brand-gradient-subtle: linear-gradient(135deg, rgba(125,74,32,0.08) 0%, rgba(160,101,53,0.04) 100%);
+  /* ── Brand — Ember (Volcanic/Fire) ───────────────────────────────────────── */
+  --brand-50:       #FFF4EF;
+  --brand-100:      #FFE5D9;
+  --brand-200:      #FFCBB5;
+  --brand-300:      #FFA07C;
+  --brand-400:      #F5714A;
+  --brand-500:      #DE4A1F;
+  --brand-600:      #B83510;
+  --brand-700:      #91240A;
+  --brand-gradient: linear-gradient(135deg, #B83510 0%, #DE4A1F 100%);
+  --brand-gradient-subtle: linear-gradient(135deg, rgba(184,53,16,0.08) 0%, rgba(222,74,31,0.04) 100%);
+
+  /* ── Tide (Ocean/Water) — navigation + connectivity ─────────────────────── */
+  --tide-500:  #0D7F97;
+  --tide-600:  #0A6678;
+
+  /* ── Grove (Nature/Forest) — success + completion ───────────────────────── */
+  --grove-500: #177B44;
+  --grove-600: #136137;
 
   /* ── Motion tokens ────────────────────────────────────────────────────────── */
 
@@ -141,8 +149,8 @@
   }
 
   ::selection {
-    background: rgba(125, 74, 32, 0.14);
-    color: #5C3312;
+    background: rgba(184, 53, 16, 0.14);
+    color: #91240A;
   }
 
   ::-webkit-scrollbar {
@@ -153,11 +161,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(125, 74, 32, 0.18);
+    background: rgba(184, 53, 16, 0.18);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(125, 74, 32, 0.32);
+    background: rgba(184, 53, 16, 0.32);
   }
 
   input[type="number"]::-webkit-outer-spin-button,
@@ -221,9 +229,9 @@
     box-shadow:
       var(--elevation-4),
       var(--elevation-border-2),
-      0 0 0 1px rgba(125, 74, 32, 0.08);
+      0 0 0 1px rgba(184, 53, 16, 0.08);
     transform: translateY(-2px) translateZ(0);
-    border-color: rgba(224, 176, 122, 0.5);
+    border-color: rgba(255, 160, 124, 0.5);
   }
   .card:active {
     box-shadow: var(--elevation-1), var(--elevation-border-1);
@@ -247,30 +255,36 @@
 
   /* ══ Card — Accent Top Border ═════════════════════════════════════════════ */
 
-  .card-accent-earth::after {
+  /* Ember — volcanic/fire accent (primary brand) */
+  .card-accent-earth::after,
+  .card-accent-ember::after {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #7D4A20, #C98A50);
+    background: linear-gradient(90deg, #B83510, #F5714A);
     border-radius: 12px 12px 0 0;
   }
 
+  /* Tide — ocean/water accent (navigation, connectivity) */
+  .card-accent-tide::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #0A6678, #1298B2);
+    border-radius: 12px 12px 0 0;
+  }
+
+  /* Grove — nature/forest accent (success, completion) */
+  .card-accent-grove::after,
+  .card-accent-emerald::after,
   .card-accent-violet::after {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #7D4A20, #C98A50);
-    border-radius: 12px 12px 0 0;
-  }
-
-  .card-accent-emerald::after {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #7D4A20, #C98A50);
+    background: linear-gradient(90deg, #136137, #1E9657);
     border-radius: 12px 12px 0 0;
   }
 
@@ -296,7 +310,7 @@
     box-shadow:
       var(--elevation-3),
       inset 0 1px 0 rgba(255, 255, 255, 0.96),
-      inset 0 0 0 1px rgba(125, 74, 32, 0.04);
+      inset 0 0 0 1px rgba(184, 53, 16, 0.04);
   }
 
   /* Header glass */
@@ -304,8 +318,8 @@
     background: rgba(255, 255, 255, 0.88) !important;
     backdrop-filter: blur(20px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(20px) saturate(200%) !important;
-    border-bottom-color: rgba(212, 196, 160, 0.5) !important;
-    box-shadow: var(--elevation-2), 0 0 0 1px rgba(125,74,32,0.04) !important;
+    border-bottom-color: rgba(205, 208, 220, 0.5) !important;
+    box-shadow: var(--elevation-2), 0 0 0 1px rgba(184,53,16,0.04) !important;
   }
 
   /* ══ Form controls ═══════════════════════════════════════════════════════ */
@@ -322,12 +336,12 @@
       box-shadow var(--duration-fast) var(--easing-standard);
   }
   .form-input:hover:not(:disabled) {
-    border-color: rgba(201, 138, 80, 0.55);
+    border-color: rgba(245, 113, 74, 0.50);
   }
   .form-input:focus {
     border-color: var(--color-border-focus);
     box-shadow:
-      0 0 0 3px rgba(125, 74, 32, 0.10),
+      0 0 0 3px rgba(184, 53, 16, 0.10),
       var(--elevation-1),
       inset 0 1px 0 rgba(255,255,255,0.9);
     outline: 2px solid transparent;
@@ -349,7 +363,7 @@
   .page-header {
     @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 pb-6;
     border-bottom: 1px solid;
-    border-image: linear-gradient(90deg, rgba(125,74,32,0.15) 0%, rgba(212,196,160,0.4) 60%, transparent 100%) 1;
+    border-image: linear-gradient(90deg, rgba(184,53,16,0.15) 0%, rgba(205,208,220,0.5) 60%, transparent 100%) 1;
   }
 
   /* ══ Scrollbar (thin variant for tables) ══════════════════════════════════ */
@@ -362,14 +376,14 @@
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: rgba(125, 74, 32, 0.15);
+    background: rgba(184, 53, 16, 0.15);
     border-radius: 9999px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: rgba(125, 74, 32, 0.28);
+    background: rgba(184, 53, 16, 0.28);
   }
 
-  /* ══ Tab underline — earth gradient ══════════════════════════════════════ */
+  /* ══ Tab underline — ember gradient ══════════════════════════════════════ */
 
   .tab-active {
     position: relative;
@@ -381,20 +395,29 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, #7D4A20, #C98A50);
+    background: linear-gradient(90deg, #B83510, #F5714A);
     border-radius: 1px 1px 0 0;
   }
 
   /* ══ Glow utilities ═══════════════════════════════════════════════════════ */
 
-  .glow-earth {
-    box-shadow: 0 0 24px rgba(125, 74, 32, 0.22), 0 0 8px rgba(125, 74, 32, 0.10);
+  .glow-earth,
+  .glow-ember {
+    box-shadow: 0 0 24px rgba(184, 53, 16, 0.22), 0 0 8px rgba(184, 53, 16, 0.10);
   }
-  .glow-earth-strong {
-    box-shadow: 0 0 48px rgba(125, 74, 32, 0.34), 0 0 16px rgba(125, 74, 32, 0.18);
+  .glow-earth-strong,
+  .glow-ember-strong {
+    box-shadow: 0 0 48px rgba(184, 53, 16, 0.34), 0 0 16px rgba(184, 53, 16, 0.18);
   }
-  .glow-earth-soft {
-    box-shadow: 0 0 24px rgba(160, 101, 53, 0.22);
+  .glow-earth-soft,
+  .glow-ember-soft {
+    box-shadow: 0 0 24px rgba(222, 74, 31, 0.20);
+  }
+  .glow-tide {
+    box-shadow: 0 0 24px rgba(13, 127, 151, 0.22), 0 0 8px rgba(13, 127, 151, 0.10);
+  }
+  .glow-grove {
+    box-shadow: 0 0 24px rgba(23, 123, 68, 0.22), 0 0 8px rgba(23, 123, 68, 0.10);
   }
 
   /* ══ Button shimmer — primary variant ════════════════════════════════════ */
@@ -437,8 +460,8 @@
   /* ══ Status alert banners ═════════════════════════════════════════════════ */
 
   .alert-success {
-    @apply rounded-2xl border border-earth-200/80 bg-earth-50/80 text-earth-700;
-    box-shadow: 0 0 0 1px rgba(125,74,32,0.06), var(--elevation-1);
+    @apply rounded-2xl border border-grove-200/80 bg-grove-50/80 text-grove-700;
+    box-shadow: 0 0 0 1px rgba(23,123,68,0.06), var(--elevation-1);
   }
   .alert-error {
     @apply rounded-2xl border border-red-200/80 bg-red-50/80 text-red-700;
@@ -449,9 +472,9 @@
     box-shadow: 0 0 0 1px rgba(217,119,6,0.06), var(--elevation-1);
   }
   .alert-info {
-    @apply rounded-2xl border bg-earth-50/80 text-earth-700;
-    border-color: rgba(125,74,32,0.25);
-    box-shadow: 0 0 0 1px rgba(125,74,32,0.06), var(--elevation-1);
+    @apply rounded-2xl border bg-tide-50/80 text-tide-700;
+    border-color: rgba(13,127,151,0.25);
+    box-shadow: 0 0 0 1px rgba(13,127,151,0.06), var(--elevation-1);
   }
 
   /* ══ Page entry animation ═════════════════════════════════════════════════ */
@@ -495,18 +518,18 @@
   }
   .nav-item.active {
     background: var(--brand-gradient-subtle);
-    color: #5C3312;
+    color: #91240A;
     @apply font-semibold;
-    border: 1px solid rgba(224, 176, 122, 0.30);
-    border-left: 2.5px solid #7D4A20;
+    border: 1px solid rgba(255, 160, 124, 0.30);
+    border-left: 2.5px solid #B83510;
     padding-left: calc(0.75rem - 1.5px);
     box-shadow:
       var(--elevation-1),
       inset 0 1px 0 rgba(255, 255, 255, 0.85),
-      0 0 0 1px rgba(125, 74, 32, 0.04);
+      0 0 0 1px rgba(184, 53, 16, 0.04);
   }
   .nav-item.active .nav-icon {
-    color: #7D4A20;
+    color: #B83510;
   }
 
   /* ══ Surface elevation helpers ════════════════════════════════════════════ */
@@ -537,17 +560,17 @@
     transform: translateY(1px) !important;
   }
 
-  /* ══ Aurora animated background — warm earth ═════════════════════════════ */
+  /* ══ Aurora animated background — tri-element ════════════════════════════ */
 
   .aurora-bg {
     background: linear-gradient(
       -45deg,
-      #F5EDE0,
-      #EDE1CE,
-      #F2E8D8,
-      #F8F2E8,
-      #EAE0D0,
-      #F0E8D8
+      #FFF4EF,
+      #EDF8FA,
+      #F3F5F7,
+      #EDF9F0,
+      #F3F5F7,
+      #FFF4EF
     );
     background-size: 400% 400%;
     animation: aurora 16s ease-in-out infinite;
@@ -585,7 +608,7 @@
     z-index: -1;
     border-radius: inherit;
     margin: -1px;
-    background: linear-gradient(135deg, rgba(125,74,32,0.28), rgba(160,101,53,0.18), rgba(224,176,122,0.28));
+    background: linear-gradient(135deg, rgba(184,53,16,0.28), rgba(13,127,151,0.18), rgba(23,123,68,0.22));
   }
 
   /* ══ Connection topology signal line ══════════════════════════════════════ */
@@ -604,7 +627,7 @@
     position: absolute;
     inset: 0;
     border-radius: 9999px;
-    background: linear-gradient(90deg, transparent 0%, #7D4A20 40%, #A06535 60%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, #0D7F97 40%, #B83510 60%, transparent 100%);
     background-size: 200% 100%;
     animation: shimmer 2s linear infinite;
   }
@@ -631,7 +654,7 @@
 
   .divider-gradient {
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(125,74,32,0.20) 30%, rgba(160,101,53,0.20) 70%, transparent);
+    background: linear-gradient(90deg, transparent, rgba(184,53,16,0.18) 30%, rgba(13,127,151,0.18) 70%, transparent);
   }
 }
 
@@ -683,8 +706,8 @@
 }
 
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 20px rgba(125, 74, 32, 0.12); }
-  50%      { box-shadow: 0 0 40px rgba(125, 74, 32, 0.28); }
+  0%, 100% { box-shadow: 0 0 20px rgba(184, 53, 16, 0.12); }
+  50%      { box-shadow: 0 0 40px rgba(184, 53, 16, 0.28); }
 }
 
 @keyframes pulseRing {

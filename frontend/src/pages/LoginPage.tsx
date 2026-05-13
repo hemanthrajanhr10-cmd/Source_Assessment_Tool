@@ -13,10 +13,10 @@ const BASE_URL = (import.meta as ImportMeta & { env: Record<string, string> }).e
 
 const FEATURES = [
   { icon: CheckCircle2, text: '25+ assessment dimensions', color: 'text-earth-600' },
-  { icon: Zap,          text: 'Schema complexity scoring',  color: 'text-earth-600'  },
-  { icon: Shield,       text: 'PII indicator scanning',     color: 'text-earth-500'   },
-  { icon: BarChart3,    text: 'Professional Excel reports', color: 'text-earth-500' },
-  { icon: Network,      text: 'Hybrid Connection support',  color: 'text-earth-500'  },
+  { icon: Zap,          text: 'Schema complexity scoring',  color: 'text-tide-600'  },
+  { icon: Shield,       text: 'PII indicator scanning',     color: 'text-grove-600'  },
+  { icon: BarChart3,    text: 'Professional Excel reports', color: 'text-earth-600' },
+  { icon: Network,      text: 'Hybrid Connection support',  color: 'text-tide-600'  },
 ]
 
 export default function LoginPage() {
@@ -86,13 +86,13 @@ export default function LoginPage() {
       {/* ── Left panel — Aurora animated brand panel ─────────────────────────── */}
       <div
         className="hidden lg:flex lg:w-1/2 xl:w-5/12 flex-col justify-between p-12 relative overflow-hidden"
-        style={{ borderRight: '1px solid rgba(224, 176, 122, 0.25)' }}
+        style={{ borderRight: '1px solid rgba(205, 210, 220, 0.30)' }}
       >
         {/* Aurora animated gradient background */}
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(-45deg, #F5EDE0, #EDE1CE, #F2E8D8, #F8F2E8, #EAE0D0, #F0E8D8)',
+            background: 'linear-gradient(-45deg, #FFF4EF, #EDF9F0, #EDF8FA, #FFF4EF, #EDF9F0, #EDF8FA)',
             backgroundSize: '400% 400%',
             animation: 'aurora 16s ease-in-out infinite',
           }}
@@ -103,7 +103,7 @@ export default function LoginPage() {
         <div
           className="absolute inset-0 opacity-[0.28]"
           style={{
-            backgroundImage: 'radial-gradient(circle, rgba(125,74,32,0.5) 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(circle, rgba(184,53,16,0.38) 1px, transparent 1px)',
             backgroundSize: '26px 26px',
           }}
           aria-hidden="true"
@@ -120,42 +120,42 @@ export default function LoginPage() {
 
         {/* ── Floating 3D Orbs ────────────────────────────────────────────── */}
 
-        {/* Large forest orb — top right */}
+        {/* Ember orb — top right (volcanic fire) */}
         <div
           className="absolute top-16 right-8 h-52 w-52 rounded-full opacity-35 orb-float"
           style={{
-            background: 'radial-gradient(circle at 35% 35%, #E0B07A 0%, #7D4A20 55%, transparent 72%)',
+            background: 'radial-gradient(circle at 35% 35%, #FFA07C 0%, #B83510 55%, transparent 72%)',
             filter: 'blur(28px)',
             animationDuration: '10s',
           }}
           aria-hidden="true"
         />
 
-        {/* Medium sage orb — center-right */}
+        {/* Tide orb — center-right (ocean water) */}
         <div
           className="absolute top-1/3 right-4 h-36 w-36 rounded-full opacity-28 orb-float-delayed"
           style={{
-            background: 'radial-gradient(circle at 40% 40%, #EECFA7 0%, #A06535 60%, transparent 80%)',
+            background: 'radial-gradient(circle at 40% 40%, #8DD4DF 0%, #0D7F97 60%, transparent 80%)',
             filter: 'blur(18px)',
           }}
           aria-hidden="true"
         />
 
-        {/* Small moss orb — bottom left */}
+        {/* Grove orb — bottom left (nature green) */}
         <div
           className="absolute bottom-28 left-8 h-28 w-28 rounded-full opacity-30 orb-float-slow"
           style={{
-            background: 'radial-gradient(circle, #F7E8D3 0%, #C98A50 60%, transparent 80%)',
+            background: 'radial-gradient(circle, #86D0A4 0%, #177B44 60%, transparent 80%)',
             filter: 'blur(14px)',
           }}
           aria-hidden="true"
         />
 
-        {/* Tiny teal accent orb — bottom right */}
+        {/* Ember accent orb — bottom right */}
         <div
           className="absolute bottom-16 right-20 h-16 w-16 rounded-full opacity-22 orb-float"
           style={{
-            background: 'radial-gradient(circle, #E0B07A 0%, #C98A50 70%, transparent 90%)',
+            background: 'radial-gradient(circle, #FFA07C 0%, #DE4A1F 70%, transparent 90%)',
             filter: 'blur(10px)',
             animationDuration: '7s',
             animationDelay: '1s',
@@ -171,15 +171,15 @@ export default function LoginPage() {
             <div
               className="flex items-center justify-center h-12 w-12 rounded-2xl"
               style={{
-                background: 'linear-gradient(135deg, #7D4A20 0%, #A06535 100%)',
-                boxShadow: '0 8px 24px rgba(125,74,32,0.30), inset 0 1px 0 rgba(255,255,255,0.20)',
+                background: 'linear-gradient(135deg, #B83510 0%, #DE4A1F 100%)',
+                boxShadow: '0 8px 24px rgba(184,53,16,0.30), inset 0 1px 0 rgba(255,255,255,0.20)',
               }}
             >
               <Database className="h-6 w-6 text-white" aria-hidden="true" />
             </div>
             <div>
               <p className="text-lg font-bold text-slate-900 font-display tracking-tight">
-                Source<span className="font-extrabold" style={{ color: '#7D4A20' }}>SAT</span>
+                Source<span className="font-extrabold" style={{ color: '#B83510' }}>SAT</span>
               </p>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Assessment Tool</p>
             </div>
@@ -190,9 +190,9 @@ export default function LoginPage() {
         <div className="relative z-10 space-y-10">
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-sm"
-              style={{ border: '1px solid rgba(224,176,122,0.50)' }}>
-              <Sparkles className="h-3.5 w-3.5" style={{ color: '#7D4A20' }} aria-hidden="true" />
-              <span className="text-xs font-semibold tracking-wide" style={{ color: '#5C3312' }}>Enterprise Database Intelligence</span>
+              style={{ border: '1px solid rgba(184,53,16,0.35)' }}>
+              <Sparkles className="h-3.5 w-3.5" style={{ color: '#0D7F97' }} aria-hidden="true" />
+              <span className="text-xs font-semibold tracking-wide" style={{ color: '#91240A' }}>Enterprise Database Intelligence</span>
             </div>
 
             <h1
@@ -200,7 +200,7 @@ export default function LoginPage() {
               style={{ letterSpacing: '-0.04em' }}
             >
               SQL Server<br />
-              <span className="font-black" style={{ color: '#7D4A20' }}>Intelligence</span>{' '}
+              <span className="font-black" style={{ color: '#B83510' }}>Intelligence</span>{' '}
               <span className="text-slate-700">Platform</span>
             </h1>
             <p className="text-slate-500 text-sm leading-relaxed max-w-xs">
@@ -241,7 +241,7 @@ export default function LoginPage() {
         {/* Bottom tagline */}
         <div className="relative z-10 flex items-center gap-2">
           <div className="h-px flex-1" style={{
-            background: 'linear-gradient(90deg, rgba(125,74,32,0.22), transparent)',
+            background: 'linear-gradient(90deg, rgba(184,53,16,0.22), transparent)',
           }} />
           <p className="text-xs text-slate-400 tracking-widest uppercase">
             UBTI Platform
@@ -259,14 +259,14 @@ export default function LoginPage() {
           <div
             className="flex items-center justify-center h-14 w-14 rounded-2xl mb-4"
             style={{
-              background: 'linear-gradient(135deg, #7D4A20 0%, #A06535 100%)',
-              boxShadow: '0 8px 24px rgba(125,74,32,0.28)',
+              background: 'linear-gradient(135deg, #B83510 0%, #DE4A1F 100%)',
+              boxShadow: '0 8px 24px rgba(184,53,16,0.28)',
             }}
           >
             <Database className="h-7 w-7 text-white" aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-black text-slate-900 font-display tracking-tight">
-            Source<span className="font-extrabold" style={{ color: '#7D4A20' }}>SAT</span>
+            Source<span className="font-extrabold" style={{ color: '#B83510' }}>SAT</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1 tracking-widest uppercase">Assessment Tool</p>
         </div>
@@ -280,21 +280,21 @@ export default function LoginPage() {
           <div
             className="relative rounded-3xl p-px"
             style={{
-              background: 'linear-gradient(135deg, rgba(125,74,32,0.22) 0%, rgba(224,176,122,0.14) 50%, rgba(160,101,53,0.18) 100%)',
+              background: 'linear-gradient(135deg, rgba(184,53,16,0.20) 0%, rgba(13,127,151,0.10) 50%, rgba(23,123,68,0.14) 100%)',
             }}
           >
             <div
               className="rounded-[23px] px-8 py-10 relative overflow-hidden"
               style={{
                 background: '#ffffff',
-                boxShadow: '0 24px 64px rgba(125,74,32,0.10), 0 4px 16px rgba(0,0,0,0.06)',
+                boxShadow: '0 24px 64px rgba(184,53,16,0.08), 0 4px 16px rgba(0,0,0,0.06)',
               }}
             >
               {/* Card rim light */}
               <div
                 className="absolute inset-0 pointer-events-none"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(247,241,232,0.70) 0%, transparent 50%)',
+                  background: 'linear-gradient(135deg, rgba(255,244,239,0.70) 0%, transparent 50%)',
                   borderRadius: 'inherit',
                 }}
                 aria-hidden="true"
@@ -361,8 +361,8 @@ export default function LoginPage() {
                             className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400
                                        transition-colors focus-visible:outline-none
                                        focus-visible:ring-2 focus-visible:ring-offset-1 rounded-lg p-0.5"
-                            style={{ ['--tw-ring-color' as string]: 'rgba(125,74,32,0.35)' }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7D4A20' }}
+                            style={{ ['--tw-ring-color' as string]: 'rgba(184,53,16,0.35)' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#B83510' }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '' }}
                             aria-label={showPassword ? 'Hide password' : 'Show password'}
                           >
@@ -393,8 +393,8 @@ export default function LoginPage() {
                                    focus-visible:ring-2 focus-visible:ring-offset-2
                                    focus-visible:outline-none disabled:opacity-50"
                         style={{
-                          background: 'linear-gradient(135deg, #7D4A20 0%, #A06535 100%)',
-                          boxShadow: '0 4px 16px rgba(125,74,32,0.30), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
+                          background: 'linear-gradient(135deg, #B83510 0%, #DE4A1F 100%)',
+                          boxShadow: '0 4px 16px rgba(184,53,16,0.30), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
                         }}
                       >
                         {loading ? 'Signing in…' : (
@@ -424,12 +424,12 @@ export default function LoginPage() {
                           background: '#ffffff',
                           boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
                         }}
-                        onMouseEnter={(e) => { const el = e.currentTarget; el.style.borderColor = 'rgba(224,176,122,0.6)'; el.style.backgroundColor = 'rgba(247,241,232,0.6)' }}
+                        onMouseEnter={(e) => { const el = e.currentTarget; el.style.borderColor = 'rgba(184,53,16,0.40)'; el.style.backgroundColor = 'rgba(255,244,239,0.6)' }}
                         onMouseLeave={(e) => { const el = e.currentTarget; el.style.borderColor = ''; el.style.backgroundColor = '' }}
                         aria-label="Sign in with Microsoft"
                       >
                         {oauthLoading === 'microsoft' ? (
-                          <svg className="animate-spin h-4 w-4" style={{ color: '#7D4A20' }} viewBox="0 0 24 24" fill="none">
+                          <svg className="animate-spin h-4 w-4" style={{ color: '#B83510' }} viewBox="0 0 24 24" fill="none">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/>
                           </svg>
@@ -458,12 +458,12 @@ export default function LoginPage() {
                           background: '#ffffff',
                           boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
                         }}
-                        onMouseEnter={(e) => { const el = e.currentTarget; el.style.borderColor = 'rgba(224,176,122,0.6)'; el.style.backgroundColor = 'rgba(247,241,232,0.6)' }}
+                        onMouseEnter={(e) => { const el = e.currentTarget; el.style.borderColor = 'rgba(184,53,16,0.40)'; el.style.backgroundColor = 'rgba(255,244,239,0.6)' }}
                         onMouseLeave={(e) => { const el = e.currentTarget; el.style.borderColor = ''; el.style.backgroundColor = '' }}
                         aria-label="Sign in with Google"
                       >
                         {oauthLoading === 'google' ? (
-                          <svg className="animate-spin h-4 w-4" style={{ color: '#7D4A20' }} viewBox="0 0 24 24" fill="none">
+                          <svg className="animate-spin h-4 w-4" style={{ color: '#B83510' }} viewBox="0 0 24 24" fill="none">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/>
                           </svg>
@@ -489,9 +489,9 @@ export default function LoginPage() {
                       <Link
                         to="/register"
                         className="font-semibold transition-colors focus-visible:outline-none focus-visible:underline"
-                        style={{ color: '#7D4A20' }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#5C3312' }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#7D4A20' }}
+                        style={{ color: '#B83510' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#91240A' }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#B83510' }}
                       >
                         Create account
                       </Link>
@@ -504,12 +504,12 @@ export default function LoginPage() {
                       <div
                         className="h-16 w-16 rounded-2xl flex items-center justify-center mb-5"
                         style={{
-                          background: 'linear-gradient(135deg, rgba(125,74,32,0.08) 0%, rgba(160,101,53,0.05) 100%)',
-                          border: '1.5px solid rgba(224,176,122,0.40)',
+                          background: 'linear-gradient(135deg, rgba(184,53,16,0.07) 0%, rgba(13,127,151,0.04) 100%)',
+                          border: '1.5px solid rgba(184,53,16,0.30)',
                           boxShadow: 'var(--elevation-2)',
                         }}
                       >
-                        <Shield className="h-8 w-8" style={{ color: '#7D4A20' }} aria-hidden="true" />
+                        <Shield className="h-8 w-8" style={{ color: '#B83510' }} aria-hidden="true" />
                       </div>
                       <h2
                         className="text-xl font-black text-slate-900 font-display"
@@ -561,8 +561,8 @@ export default function LoginPage() {
                                    focus-visible:ring-2 focus-visible:ring-offset-2
                                    focus-visible:outline-none disabled:opacity-50"
                         style={{
-                          background: 'linear-gradient(135deg, #7D4A20 0%, #A06535 100%)',
-                          boxShadow: '0 4px 16px rgba(125,74,32,0.28), inset 0 1px 0 rgba(255,255,255,0.15)',
+                          background: 'linear-gradient(135deg, #B83510 0%, #DE4A1F 100%)',
+                          boxShadow: '0 4px 16px rgba(184,53,16,0.28), inset 0 1px 0 rgba(255,255,255,0.15)',
                         }}
                       >
                         {loading ? 'Verifying…' : 'Verify code'}
@@ -573,7 +573,7 @@ export default function LoginPage() {
                         onClick={() => { setStep('credentials'); setMfaCode(''); setError('') }}
                         className="w-full text-sm text-slate-400 transition-colors py-1.5
                                    focus-visible:outline-none focus-visible:underline"
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#7D4A20' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#B83510' }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '' }}
                       >
                         ← Back to sign in

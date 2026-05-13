@@ -59,22 +59,28 @@ function CopyButton({ text, className = '' }: { text: string; className?: string
 
 // ── Listener connection string display box ────────────────────────────────────
 
-function ConnectionStringBox({ value }: { value: string }) {
+function ConnectionStringBox({
+  value,
+  label,
+  hint,
+}: {
+  value: string
+  label: string
+  hint: React.ReactNode
+}) {
   return (
     <div className="rounded-xl border border-earth-200 bg-earth-50 p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-earth-800">
           <KeyRound className="h-3.5 w-3.5" />
-          Gateway Connection String
+          {label}
         </div>
         <CopyButton text={value} />
       </div>
       <p className="break-all font-mono text-[11px] text-earth-900 leading-relaxed bg-white border border-earth-100 rounded-lg px-3 py-2 select-all">
         {value}
       </p>
-      <p className="text-[10px] text-earth-700">
-        Paste this into the <strong>Hybrid Connection Manager</strong> on your laptop to connect it to Azure Relay.
-      </p>
+      <p className="text-[10px] text-earth-700">{hint}</p>
     </div>
   )
 }
@@ -150,6 +156,7 @@ interface CreateResult {
   errorDetail: string | null
   name: string
   listenerConnectionString: string | null
+  senderConnectionString: string | null
 }
 
 function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
@@ -178,6 +185,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
         errorDetail: data.error_detail ?? null,
         name: data.name,
         listenerConnectionString: data.listener_connection_string ?? null,
+        senderConnectionString: data.sender_connection_string ?? null,
       })
       setName(''); setHost(''); setPort('1433')
       onCreated()
@@ -278,12 +286,23 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
             <div className="flex items-start gap-2">
               <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
               <span>
-                <strong>{result.name}</strong> was created and provisioned in Azure.
-                Copy the connection string below and paste it into the Hybrid Connection Manager on your laptop.
+                <strong>{result.name}</strong> was created and provisioned in the Azure Relay Namespace.
+                Copy the strings below — HCM gets the Listener string, your gateway config gets the Sender string.
               </span>
             </div>
             {result.listenerConnectionString && (
-              <ConnectionStringBox value={result.listenerConnectionString} />
+              <ConnectionStringBox
+                value={result.listenerConnectionString}
+                label="HCM Listener String"
+                hint={<>Paste into <strong>Hybrid Connection Manager</strong> on your on-premises machine.</>}
+              />
+            )}
+            {result.senderConnectionString && (
+              <ConnectionStringBox
+                value={result.senderConnectionString}
+                label="Gateway Sender String"
+                hint={<>Paste into your gateway's <strong>Relay Config</strong> so the SAT server can dispatch jobs through this connection.</>}
+              />
             )}
           </div>
         )}
@@ -339,6 +358,7 @@ function ConnectionItem({
   onDelete: (id: string) => void
 }) {
   const [showString, setShowString] = useState(false)
+  const hasStrings = !!(hc.listener_connection_string || hc.sender_connection_string)
 
   return (
     <div className="px-5 py-3.5 hover:bg-slate-50/70 transition-colors duration-150">
@@ -364,10 +384,10 @@ function ConnectionItem({
             {hc.created_at ? new Date(hc.created_at).toLocaleDateString() : '—'}
           </span>
 
-          {hc.listener_connection_string && (
+          {hasStrings && (
             <button
               onClick={() => setShowString((v) => !v)}
-              title={showString ? 'Hide connection string' : 'Show connection string'}
+              title={showString ? 'Hide connection strings' : 'Show connection strings'}
               className={`p-1.5 rounded-lg transition-all duration-150 ${
                 showString
                   ? 'bg-earth-100 text-earth-700'
@@ -391,13 +411,26 @@ function ConnectionItem({
         </div>
       </div>
 
-      {/* Collapsible connection string */}
-      {showString && hc.listener_connection_string && (
+      {/* Collapsible connection strings */}
+      {showString && hasStrings && (
         <div
-          className="mt-3 ml-11 animate-slide-down"
+          className="mt-3 ml-11 space-y-2 animate-slide-down"
           style={{ animationDuration: '180ms', animationTimingFunction: 'cubic-bezier(0,0,0.2,1)' }}
         >
-          <ConnectionStringBox value={hc.listener_connection_string} />
+          {hc.listener_connection_string && (
+            <ConnectionStringBox
+              value={hc.listener_connection_string}
+              label="HCM Listener String"
+              hint={<>Paste into <strong>Hybrid Connection Manager</strong> on your on-premises machine.</>}
+            />
+          )}
+          {hc.sender_connection_string && (
+            <ConnectionStringBox
+              value={hc.sender_connection_string}
+              label="Gateway Sender String"
+              hint={<>Paste into your gateway's <strong>Relay Config</strong> so the SAT server can dispatch jobs through this connection.</>}
+            />
+          )}
         </div>
       )}
     </div>
@@ -464,10 +497,10 @@ function MyConnectionsListControlled() {
         </div>
 
         {/* Hint bar — shown only when there are connections with strings */}
-        {connections.some((c) => c.listener_connection_string) && (
+        {connections.some((c) => c.listener_connection_string || c.sender_connection_string) && (
           <div className="flex items-center gap-1.5 px-5 py-2 bg-slate-50/50 border-b border-slate-100 text-[11px] text-slate-400">
             <KeyRound className="h-3 w-3" />
-            <span>Tap the key icon on any row to reveal its connection string.</span>
+            <span>Tap the key icon on any row to reveal its HCM Listener and Gateway Sender strings.</span>
           </div>
         )}
 
@@ -538,42 +571,57 @@ const STEPS: Step[] = [
       <div className="space-y-3 text-sm text-slate-600">
         <p>
           Fill in the <strong className="text-slate-800">Create Hybrid Connection</strong> form above and click
-          {' '}<strong className="text-slate-800">Create Connection</strong>. The connection is saved to your account
-          and provisioned automatically in Azure when the server is configured with the required Azure credentials.
+          {' '}<strong className="text-slate-800">Create Connection</strong>. The connection is provisioned directly
+          in an <strong className="text-slate-800">Azure Relay Namespace</strong> — not bound to the App Service plan —
+          so there is no tier limit on how many you can create.
         </p>
         <p>
-          If auto-provisioning is not available on your deployment, you can create the connection directly in Azure Portal:
+          On success you will receive two connection strings:
         </p>
-        <ol className="space-y-2 list-decimal list-inside text-slate-500">
-          <li>Open <strong className="text-slate-700">App Service → Networking → Hybrid connections</strong>.</li>
-          <li>Click <strong className="text-slate-700">Add hybrid connection → Create new hybrid connection</strong>.</li>
-          <li>Enter the same name, endpoint host/port, and Service Bus namespace you used above.</li>
-        </ol>
+        <ul className="space-y-1.5 text-slate-500 list-none pl-0">
+          <li className="flex items-start gap-2">
+            <KeyRound className="h-3.5 w-3.5 text-earth-500 mt-0.5 shrink-0" />
+            <span><strong className="text-slate-700">HCM Listener String</strong> — paste into Hybrid Connection Manager on the on-premises machine.</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <KeyRound className="h-3.5 w-3.5 text-earth-500 mt-0.5 shrink-0" />
+            <span><strong className="text-slate-700">Gateway Sender String</strong> — paste into your gateway's Relay Config so the SAT server can dispatch jobs.</span>
+          </li>
+        </ul>
+        <p className="text-xs text-slate-400">
+          If auto-provisioning is unavailable, create the Hybrid Connection manually under{' '}
+          <strong className="text-slate-600">Azure Portal → Relay Namespace → Hybrid Connections → Add</strong>.
+        </p>
       </div>
     ),
   },
   {
     n: 3,
-    title: 'Install Hybrid Connection Manager on your laptop',
+    title: 'Install Hybrid Connection Manager on the on-premises machine',
     body: (
       <div className="space-y-3 text-sm text-slate-600">
-        <p>The HCM creates an outbound relay from your laptop to Azure.</p>
+        <p>
+          The HCM runs on the machine that can reach your SQL Server (on-premises or VPN-connected laptop).
+          It makes a single outbound connection to Azure Relay on port 443 — no inbound firewall rules needed.
+        </p>
         <ol className="space-y-2 list-decimal list-inside">
           <li>
-            On the Hybrid connections page in Azure Portal, click{' '}
-            <strong className="text-slate-800">Download connection manager</strong>.
+            Download the HCM installer from Microsoft (link below) or from{' '}
+            <strong className="text-slate-800">Azure Portal → Relay Namespace → Hybrid Connections → Download connection manager</strong>.
           </li>
-          <li>Run the installer on the machine that has VPN access to the SQL Server (your laptop).</li>
-          <li>After install, open <strong className="text-slate-800">Hybrid Connection Manager UI</strong> from the Start menu.</li>
+          <li>Run the installer on the target machine (Windows 7+ / Server 2008 R2+).</li>
+          <li>Open <strong className="text-slate-800">Hybrid Connection Manager UI</strong> from the Start menu.</li>
+          <li>Click <strong className="text-slate-800">Enter connection string manually</strong> and paste the <strong className="text-slate-800">HCM Listener String</strong> from step 2.</li>
+          <li>The status indicator should turn green — <span className="text-earth-700 font-medium">Connected</span>.</li>
         </ol>
         <a
-          href="https://learn.microsoft.com/en-us/azure/app-service/app-service-hybrid-connections"
+          href="https://learn.microsoft.com/en-us/azure/azure-relay/relay-hybrid-connections-dotnet-get-started"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-earth-700 hover:text-earth-800 font-medium transition-colors"
         >
           <ExternalLink className="h-3.5 w-3.5" />
-          Official HCM documentation
+          Azure Relay Hybrid Connections documentation
         </a>
       </div>
     ),
@@ -599,30 +647,26 @@ const STEPS: Step[] = [
   },
   {
     n: 5,
-    title: 'Configure HCM with the Gateway Connection String',
+    title: 'Configure your gateway with the Sender String',
     body: (
       <div className="space-y-3 text-sm text-slate-600">
         <p>
-          After creating a Hybrid Connection above, the app generates a <strong className="text-slate-800">Gateway Connection String</strong>.
-          Copy it from the connection card (or from the banner shown immediately after creation) and follow these steps:
+          The <strong className="text-slate-800">Gateway Sender String</strong> authorises the SAT server to dispatch
+          assessment jobs to your on-premises agent through the relay. Copy it from the connection card (or from the
+          banner shown immediately after creation) and paste it into your gateway's{' '}
+          <strong className="text-slate-800">Relay Config</strong> in the Gateways page.
         </p>
         <ol className="space-y-2 list-decimal list-inside">
-          <li>Open <strong className="text-slate-800">Hybrid Connection Manager UI</strong> from the Start menu.</li>
-          <li>Click <strong className="text-slate-800">Enter connection string manually</strong>.</li>
-          <li>Paste the Gateway Connection String and click <strong className="text-slate-800">Save</strong>.</li>
-          <li>
-            The status indicator in HCM should turn green —{' '}
-            <span className="inline-flex items-center gap-1 text-earth-700 font-medium">
-              <Wifi className="h-3.5 w-3.5" /> Connected
-            </span>.
-          </li>
-          <li>Use the connectivity test below to confirm the Azure app can reach the SQL Server through the relay.</li>
+          <li>Go to <strong className="text-slate-800">Gateways</strong> and find your registered gateway.</li>
+          <li>Click <strong className="text-slate-800">Configure Relay</strong>.</li>
+          <li>Paste the Gateway Sender String and save.</li>
+          <li>Use the connectivity test below to confirm the SAT server can reach the SQL Server through the relay.</li>
         </ol>
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
           <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-xs text-amber-700">
-            The Gateway Connection String is unique to your account and this Hybrid Connection.
-            Keep it confidential — anyone with this string can register as a listener for your relay endpoint.
+            Both connection strings are unique to your account and this Hybrid Connection.
+            Keep them confidential — the Listener string grants relay access to HCM; the Sender string grants the server permission to send jobs.
           </p>
         </div>
       </div>

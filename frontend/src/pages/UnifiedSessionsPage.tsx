@@ -15,9 +15,9 @@ import Spinner from '../components/ui/Spinner'
 import { formatDateTime, elapsed } from '../utils/dateTime'
 
 const MODE_META: Record<string, { label: string; icon: React.ElementType; gradient: string }> = {
-  source: { label: 'Source DB',         icon: Database, gradient: 'linear-gradient(135deg, #7D4A20, #A06535)' },
-  fabric: { label: 'Fabric',            icon: Zap,      gradient: 'linear-gradient(135deg, #7D4A20, #0ea5e9)' },
-  both:   { label: 'Full Assessment',   icon: Layers3,  gradient: 'linear-gradient(135deg, #7D4A20, #0ea5e9)' },
+  source: { label: 'Source DB',         icon: Database, gradient: 'linear-gradient(135deg, #B83510, #DE4A1F)' },
+  fabric: { label: 'Fabric',            icon: Zap,      gradient: 'linear-gradient(135deg, #0D7F97, #177B44)' },
+  both:   { label: 'Full Assessment',   icon: Layers3,  gradient: 'linear-gradient(135deg, #B83510, #0D7F97)' },
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
@@ -56,7 +56,7 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
       {/* Mode icon */}
       <div
         className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-        style={{ background: meta.gradient, boxShadow: '0 3px 10px rgba(125,74,32,0.2)' }}
+        style={{ background: meta.gradient, boxShadow: '0 3px 10px rgba(0,0,0,0.15)' }}
       >
         <Icon className="h-5 w-5 text-white" />
       </div>
@@ -72,9 +72,9 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
           <span
             className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0"
             style={{
-              background: 'rgba(125,74,32,0.07)',
-              color: '#7D4A20',
-              border: '1px solid rgba(224,176,122,0.30)',
+              background: 'rgba(184,53,16,0.07)',
+              color: '#B83510',
+              border: '1px solid rgba(184,53,16,0.22)',
             }}
           >
             {meta.label}

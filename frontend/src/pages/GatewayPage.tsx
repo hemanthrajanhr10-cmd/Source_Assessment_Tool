@@ -327,6 +327,83 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+// ── Single connection row with collapsible string ────────────────────────────
+
+function ConnectionItem({
+  hc,
+  deleting,
+  onDelete,
+}: {
+  hc: HybridConnection
+  deleting: boolean
+  onDelete: (id: string) => void
+}) {
+  const [showString, setShowString] = useState(false)
+
+  return (
+    <div className="px-5 py-3.5 hover:bg-slate-50/70 transition-colors duration-150">
+      <div className="flex items-center gap-3">
+        {/* Icon */}
+        <div className="h-8 w-8 rounded-lg bg-earth-50 border border-earth-100 flex items-center justify-center shrink-0">
+          <Share2 className="h-3.5 w-3.5 text-earth-600" />
+        </div>
+
+        {/* Name + endpoint */}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-800 truncate leading-tight">{hc.name}</p>
+          <p className="text-[11px] text-slate-400 font-mono truncate mt-0.5">
+            {hc.endpoint_host}:{hc.endpoint_port}
+          </p>
+        </div>
+
+        {/* Actions row */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <StatusBadge status={hc.status} />
+
+          <span className="text-[11px] text-slate-400 tabular-nums hidden sm:block mx-1">
+            {hc.created_at ? new Date(hc.created_at).toLocaleDateString() : '—'}
+          </span>
+
+          {hc.listener_connection_string && (
+            <button
+              onClick={() => setShowString((v) => !v)}
+              title={showString ? 'Hide connection string' : 'Show connection string'}
+              className={`p-1.5 rounded-lg transition-all duration-150 ${
+                showString
+                  ? 'bg-earth-100 text-earth-700'
+                  : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600'
+              }`}
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+            </button>
+          )}
+
+          <button
+            onClick={() => onDelete(hc.connection_id)}
+            disabled={deleting}
+            className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors disabled:opacity-50"
+            title="Delete"
+          >
+            {deleting
+              ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              : <Trash2 className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Collapsible connection string */}
+      {showString && hc.listener_connection_string && (
+        <div
+          className="mt-3 ml-11 animate-slide-down"
+          style={{ animationDuration: '180ms', animationTimingFunction: 'cubic-bezier(0,0,0.2,1)' }}
+        >
+          <ConnectionStringBox value={hc.listener_connection_string} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── My Connections list ───────────────────────────────────────────────────────
 
 function MyConnectionsListControlled() {
@@ -350,10 +427,7 @@ function MyConnectionsListControlled() {
 
   useEffect(() => { load() }, [])
 
-  const handleCreated = () => {
-    // Reload the list from the server to get accurate data (including created_at)
-    load()
-  }
+  const handleCreated = () => { load() }
 
   const handleDelete = async (id: string) => {
     setDeleting(id)
@@ -372,9 +446,14 @@ function MyConnectionsListControlled() {
       <CreateConnectionForm onCreated={handleCreated} />
 
       <div className="card overflow-hidden">
-        <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-slate-200 bg-slate-50">
           <Share2 className="h-4 w-4 text-earth-600" />
           <h2 className="text-sm font-semibold text-slate-700">My Hybrid Connections</h2>
+          {connections.length > 0 && (
+            <span className="ml-1 text-[11px] font-semibold text-slate-400 bg-slate-200 rounded-full px-1.5 py-px">
+              {connections.length}
+            </span>
+          )}
           <button
             onClick={load}
             className="ml-auto p-1.5 rounded-lg hover:bg-slate-200 transition-colors text-slate-500"
@@ -383,6 +462,14 @@ function MyConnectionsListControlled() {
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
+
+        {/* Hint bar — shown only when there are connections with strings */}
+        {connections.some((c) => c.listener_connection_string) && (
+          <div className="flex items-center gap-1.5 px-5 py-2 bg-slate-50/50 border-b border-slate-100 text-[11px] text-slate-400">
+            <KeyRound className="h-3 w-3" />
+            <span>Tap the key icon on any row to reveal its connection string.</span>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-start gap-2 m-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
@@ -402,43 +489,12 @@ function MyConnectionsListControlled() {
         ) : (
           <div className="divide-y divide-slate-100">
             {connections.map((hc) => (
-              <div key={hc.connection_id} className="px-6 py-4 hover:bg-slate-50 transition-colors space-y-3">
-                <div className="flex items-center gap-4">
-                  <div className="h-9 w-9 rounded-lg bg-earth-50 border border-earth-100 flex items-center justify-center shrink-0">
-                    <Share2 className="h-4 w-4 text-earth-600" />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate">{hc.name}</p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {hc.endpoint_host}:{hc.endpoint_port}
-                      <span className="mx-1.5 text-slate-300">·</span>
-                      {hc.service_bus_namespace}.servicebus.windows.net
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <StatusBadge status={hc.status} />
-                    <span className="text-[11px] text-slate-400 hidden sm:block">
-                      {hc.created_at ? new Date(hc.created_at).toLocaleDateString() : '—'}
-                    </span>
-                    <button
-                      onClick={() => handleDelete(hc.connection_id)}
-                      disabled={deleting === hc.connection_id}
-                      className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors disabled:opacity-50"
-                      title="Delete"
-                    >
-                      {deleting === hc.connection_id
-                        ? <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                        : <Trash2 className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-                </div>
-
-                {hc.listener_connection_string && (
-                  <ConnectionStringBox value={hc.listener_connection_string} />
-                )}
-              </div>
+              <ConnectionItem
+                key={hc.connection_id}
+                hc={hc}
+                deleting={deleting === hc.connection_id}
+                onDelete={handleDelete}
+              />
             ))}
           </div>
         )}

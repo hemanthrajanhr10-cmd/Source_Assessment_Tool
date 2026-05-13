@@ -556,12 +556,12 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
                 onClick={() => setSubTab(t.id)}
                 className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors ${
                   subTab === t.id
-                    ? 'border-indigo-600 text-emerald-700'
+                    ? 'border-emerald-600 text-emerald-700'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
                 }`}>
                 {t.label}
                 <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                  subTab === t.id ? 'bg-indigo-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                  subTab === t.id ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
                 }`}>{t.count}</span>
               </button>
             ))}
@@ -825,7 +825,7 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
               onClick={() => setFilter(l)}
               className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
                 filter === l
-                  ? 'bg-indigo-600 text-white'
+                  ? 'bg-emerald-600 text-white'
                   : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
               }`}>{l}</button>
           ))}
@@ -1045,7 +1045,7 @@ export default function FabricSessionDetailPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'border-indigo-600 text-emerald-700 bg-emerald-50/40'
+                    ? 'border-emerald-600 text-emerald-700 bg-emerald-50/40'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                 }`}>
                 {tab.icon}

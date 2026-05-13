@@ -52,7 +52,7 @@ interface ServerEntry {
 function HybridConnectionPicker({
   onSelect,
 }: {
-  onSelect: (host: string, port: number, connectionId: string) => void
+  onSelect: (host: string, port: number) => void
 }) {
   const [open, setOpen]               = useState(false)
   const [connections, setConnections] = useState<HybridConnection[]>([])
@@ -85,7 +85,7 @@ function HybridConnectionPicker({
 
   const handlePick = (hc: HybridConnection) => {
     // Pass connection_id so the caller can set gateway_key for relay routing
-    onSelect(hc.endpoint_host, hc.endpoint_port, hc.connection_id)
+    onSelect(hc.endpoint_host, hc.endpoint_port)
     setOpen(false)
   }
 
@@ -195,7 +195,7 @@ function Toggle({
         onClick={() => onChange(!checked)}
         className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent
           transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/40
-          ${checked ? 'bg-indigo-600' : 'bg-slate-300'}`}
+          ${checked ? 'bg-emerald-600' : 'bg-slate-300'}`}
       >
         <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform
           ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
@@ -346,7 +346,7 @@ function ServerCard({
                     onClick={() => set({ db_type: opt.value, port: opt.defaultPort, service_name: '', available_dbs: null, selected_dbs: [] })}
                     className={`flex-1 rounded-xl border-2 px-3 py-2 text-center text-xs font-semibold transition-all ${
                       entry.db_type === opt.value
-                        ? 'border-indigo-500 bg-emerald-50 text-emerald-800'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800'
                         : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
                     }`}
                   >
@@ -402,8 +402,8 @@ function ServerCard({
                   title="Port"
                 />
                 <HybridConnectionPicker
-                  onSelect={(host, port, connectionId) =>
-                    set({ server: host, port, gateway_key: connectionId, connectivity: null })
+                  onSelect={(host, port) =>
+                    set({ server: host, port, gateway_key: null, connectivity: null })
                   }
                 />
                 <button
@@ -494,7 +494,7 @@ function ServerCard({
                       onClick={() => set({ access_level: opt.value })}
                       className={`rounded-xl border-2 px-3 py-2.5 text-left transition-all ${
                         entry.access_level === opt.value
-                          ? 'border-indigo-500 bg-emerald-50'
+                          ? 'border-emerald-600 bg-emerald-50'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       }`}
                     >
@@ -777,7 +777,7 @@ export default function NewAssessmentPage() {
           <button
             type="button"
             onClick={addServer}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm font-medium text-slate-400 hover:border-indigo-300 hover:text-emerald-700 hover:bg-emerald-50/40 transition-all"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-slate-200 text-sm font-medium text-slate-400 hover:border-emerald-300 hover:text-emerald-700 hover:bg-emerald-50/40 transition-all"
           >
             <Plus className="h-4 w-4" />
             Add Another Server

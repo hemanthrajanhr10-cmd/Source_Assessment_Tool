@@ -340,11 +340,11 @@ export default function FabricAssessmentPage() {
 
         {/* ── Step 1 — Sign in ─────────────────────────────────────────────── */}
         <div className={`card overflow-hidden border-2 transition-colors ${
-          !authDone ? 'border-indigo-300' : 'border-slate-200'
+          !authDone ? 'border-emerald-400' : 'border-slate-200'
         }`}>
           <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
             <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold
-              ${authDone ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'}`}>
+              ${authDone ? 'bg-emerald-500 text-white' : 'bg-emerald-600 text-white'}`}>
               {authDone ? <CheckCircle2 className="h-4 w-4" /> : '1'}
             </span>
             <h2 className="text-sm font-semibold text-slate-900">Sign in with Microsoft</h2>
@@ -465,11 +465,11 @@ export default function FabricAssessmentPage() {
         {/* ── Step 2 — Select Workspaces ───────────────────────────────────── */}
         {(step === 'picking' || wsDone) && (
           <div className={`card overflow-hidden border-2 transition-colors ${
-            !wsDone ? 'border-indigo-300' : 'border-slate-200'
+            !wsDone ? 'border-emerald-400' : 'border-slate-200'
           }`}>
             <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
               <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold
-                ${wsDone ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'}`}>
+                ${wsDone ? 'bg-emerald-500 text-white' : 'bg-emerald-600 text-white'}`}>
                 {wsDone ? <CheckCircle2 className="h-4 w-4" /> : '2'}
               </span>
               <h2 className="text-sm font-semibold text-slate-900">Select Workspaces</h2>
@@ -576,11 +576,11 @@ export default function FabricAssessmentPage() {
         {/* ── Step 3 — Select Models & Reports ────────────────────────────── */}
         {(step === 'picking-items' || itemsDone) && (
           <div className={`card overflow-hidden border-2 transition-colors ${
-            !itemsDone ? 'border-indigo-300' : 'border-slate-200'
+            !itemsDone ? 'border-emerald-400' : 'border-slate-200'
           }`}>
             <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
               <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold
-                ${itemsDone ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'}`}>
+                ${itemsDone ? 'bg-emerald-500 text-white' : 'bg-emerald-600 text-white'}`}>
                 {itemsDone ? <CheckCircle2 className="h-4 w-4" /> : '3'}
               </span>
               <h2 className="text-sm font-semibold text-slate-900">Select Models &amp; Reports</h2>
@@ -755,9 +755,9 @@ export default function FabricAssessmentPage() {
 
         {/* ── Step 4 — Label & Run ─────────────────────────────────────────── */}
         {itemsDone && (
-          <div className="card overflow-hidden border-2 border-indigo-300">
+          <div className="card overflow-hidden border-2 border-emerald-400">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
-              <span className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold bg-indigo-600 text-white">
+              <span className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold bg-emerald-600 text-white">
                 4
               </span>
               <h2 className="text-sm font-semibold text-slate-900">Label &amp; Start Assessment</h2>

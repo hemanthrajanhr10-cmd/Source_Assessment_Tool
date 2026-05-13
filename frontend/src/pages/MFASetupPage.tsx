@@ -38,7 +38,7 @@ export default function MFASetupPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="animate-spin h-8 w-8 border-2 border-indigo-500 border-t-transparent rounded-full" />
+        <div className="animate-spin h-8 w-8 border-2 border-emerald-600 border-t-transparent rounded-full" />
       </div>
     )
   }
@@ -73,8 +73,8 @@ export default function MFASetupPage() {
           <div
             className="h-14 w-14 rounded-2xl flex items-center justify-center mb-4"
             style={{
-              background: 'rgba(79,70,229,0.08)',
-              border: '1.5px solid rgba(79,70,229,0.2)',
+              background: 'rgba(45,106,79,0.08)',
+              border: '1.5px solid rgba(45,106,79,0.2)',
             }}
           >
             <Shield className="h-7 w-7 text-emerald-700" />
@@ -148,9 +148,9 @@ export default function MFASetupPage() {
             onClick={() => confirm.mutate()}
             disabled={code.length !== 6 || confirm.isPending}
             className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold
-                       bg-indigo-600 text-white hover:bg-indigo-700
+                       bg-emerald-700 text-white hover:bg-emerald-800
                        transition-all duration-200 disabled:opacity-50 active:scale-[0.98]
-                       shadow-sm hover:shadow-md hover:shadow-indigo-200/60"
+                       shadow-sm hover:shadow-md hover:shadow-emerald-200/60"
           >
             {confirm.isPending ? 'Enabling MFA…' : (
               <>Enable MFA <ArrowRight className="h-4 w-4" /></>

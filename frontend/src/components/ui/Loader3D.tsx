@@ -74,7 +74,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
                 position: 'absolute',
                 inset: 0,
                 borderRadius: '50%',
-                border: '1.5px solid rgba(139,92,246,0.35)',
+                border: '1.5px solid rgba(45,106,79,0.35)',
                 animation: `l3d-pulse 2.4s ease-out ${i * 1.2}s infinite`,
               }}
               aria-hidden="true"
@@ -87,7 +87,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
               position: 'absolute',
               inset: -16 * scale,
               borderRadius: '50%',
-              border: '1px solid rgba(139,92,246,0.2)',
+              border: '1px solid rgba(64,145,108,0.2)',
               animation: 'l3d-orbit-slow 8s linear infinite',
             }}
             aria-hidden="true"
@@ -115,8 +115,8 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
             <div style={{
               position: 'absolute', bottom: -3, right: '25%',
               width: 5, height: 5, borderRadius: '50%',
-              background: 'radial-gradient(circle, #818cf8, #4f46e5)',
-              boxShadow: '0 0 5px #818cf8',
+              background: 'radial-gradient(circle, #74c69d, #2d6a4f)',
+              boxShadow: '0 0 5px #74c69d',
             }} />
           </div>
 
@@ -138,7 +138,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
               <div key={i} style={{
                 position: 'absolute', inset: 0,
                 borderRadius: 18 * scale,
-                background: 'linear-gradient(135deg, #2d6a4f, #4f46e5)',
+                background: 'linear-gradient(135deg, #2d6a4f, #52b788)',
                 transform: `translateZ(${z}px)`,
                 opacity: op,
                 filter: `blur(${blur}px)`,
@@ -149,8 +149,8 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
             <div style={{
               position: 'absolute', inset: 0,
               borderRadius: 18 * scale,
-              background: 'linear-gradient(145deg, #52b788 0%, #215a40 40%, #4f46e5 100%)',
-              boxShadow: '0 8px 24px rgba(109,40,217,0.45), 0 2px 8px rgba(109,40,217,0.3), inset 0 1px 0 rgba(255,255,255,0.25)',
+              background: 'linear-gradient(145deg, #52b788 0%, #215a40 40%, #2d6a4f 100%)',
+              boxShadow: '0 8px 24px rgba(45,106,79,0.45), 0 2px 8px rgba(45,106,79,0.3), inset 0 1px 0 rgba(255,255,255,0.25)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

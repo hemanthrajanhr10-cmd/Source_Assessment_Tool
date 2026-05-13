@@ -266,7 +266,7 @@ function FabricSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
         {canNavigate && onViewDashboard ? (
           <button
             onClick={onViewDashboard}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-indigo-100 border border-emerald-100 hover:border-emerald-200 transition-colors cursor-pointer group"
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 hover:border-emerald-200 transition-colors cursor-pointer group"
           >
             <span className="text-sm font-medium text-emerald-800">View Full Dashboard</span>
             <ArrowRight className="h-4 w-4 text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
@@ -410,7 +410,7 @@ export default function UnifiedSessionDetailPage() {
               background: session.mode === 'source'
                 ? 'linear-gradient(135deg, #2d6a4f, #40916c)'
                 : session.mode === 'fabric'
-                ? 'linear-gradient(135deg, #4f46e5, #0ea5e9)'
+                ? 'linear-gradient(135deg, #2d6a4f, #0ea5e9)'
                 : 'linear-gradient(135deg, #2d6a4f, #0ea5e9)',
             }}
           >
@@ -502,7 +502,7 @@ export default function UnifiedSessionDetailPage() {
         <CollapsibleSection
           title="Fabric Assessment"
           icon={Zap}
-          iconBg="linear-gradient(135deg, #4f46e5, #0ea5e9)"
+          iconBg="linear-gradient(135deg, #2d6a4f, #0ea5e9)"
           badge={
             (session.fabric?.status || session.fabric_status)
               ? <StatusBadge status={session.fabric?.status || session.fabric_status!} />

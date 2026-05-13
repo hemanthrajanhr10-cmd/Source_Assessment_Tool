@@ -16,7 +16,7 @@ import { formatDateTime, elapsed } from '../utils/dateTime'
 
 const MODE_META: Record<string, { label: string; icon: React.ElementType; gradient: string }> = {
   source: { label: 'Source DB',         icon: Database, gradient: 'linear-gradient(135deg, #2d6a4f, #40916c)' },
-  fabric: { label: 'Fabric',            icon: Zap,      gradient: 'linear-gradient(135deg, #4f46e5, #0ea5e9)' },
+  fabric: { label: 'Fabric',            icon: Zap,      gradient: 'linear-gradient(135deg, #2d6a4f, #0ea5e9)' },
   both:   { label: 'Full Assessment',   icon: Layers3,  gradient: 'linear-gradient(135deg, #2d6a4f, #0ea5e9)' },
 }
 

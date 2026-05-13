@@ -530,7 +530,7 @@ function SourceAssessmentForm({
 
 // ── Hybrid Connection Picker ──────────────────────────────────────────────────
 
-function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: number, connectionId: string) => void }) {
+function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: number) => void }) {
   const [open, setOpen]               = useState(false)
   const [connections, setConnections] = useState<HybridConnection[]>([])
   const [loading, setLoading]         = useState(false)
@@ -594,7 +594,7 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
             <button
               key={hc.connection_id}
               type="button"
-              onClick={() => { onSelect(hc.endpoint_host, hc.endpoint_port, hc.connection_id); setOpen(false) }}
+              onClick={() => { onSelect(hc.endpoint_host, hc.endpoint_port); setOpen(false) }}
               className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-emerald-50 transition-colors border-b border-slate-50 last:border-0"
             >
               <div className="h-7 w-7 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
@@ -688,8 +688,8 @@ function ServerCard({
                   className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-emerald-600/35 focus:outline-none"
                 />
                 <HybridConnectionPicker
-                  onSelect={(host, port, connectionId) =>
-                    updateServer(srv.id, { server: host, port, gateway_key: connectionId, connectivity: null })
+                  onSelect={(host, port) =>
+                    updateServer(srv.id, { server: host, port, gateway_key: null, connectivity: null })
                   }
                 />
               </div>
@@ -901,7 +901,7 @@ function FabricAuthPanel({
       <div className="flex items-center gap-3">
         <div
           className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, #4f46e5, #0ea5e9)' }}
+          style={{ background: 'linear-gradient(135deg, #2d6a4f, #0ea5e9)' }}
         >
           <MonitorSmartphone className="h-5 w-5 text-white" />
         </div>

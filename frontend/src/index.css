@@ -393,13 +393,7 @@
   .glow-earth-strong {
     box-shadow: 0 0 48px rgba(125, 74, 32, 0.34), 0 0 16px rgba(125, 74, 32, 0.18);
   }
-  .glow-violet {
-    box-shadow: 0 0 24px rgba(125, 74, 32, 0.22), 0 0 8px rgba(125, 74, 32, 0.10);
-  }
-  .glow-violet-strong {
-    box-shadow: 0 0 48px rgba(125, 74, 32, 0.34), 0 0 16px rgba(125, 74, 32, 0.18);
-  }
-  .glow-emerald {
+  .glow-earth-soft {
     box-shadow: 0 0 24px rgba(160, 101, 53, 0.22);
   }
 

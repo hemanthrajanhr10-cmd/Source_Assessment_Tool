@@ -544,7 +544,7 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
               <div className={`h-2.5 rounded-full transition-all ${
                 complexityPct >= 60 ? 'bg-gradient-to-r from-orange-500 to-red-500'
                 : complexityPct >= 25 ? 'bg-gradient-to-r from-yellow-500 to-amber-500'
-                : 'bg-gradient-to-r from-earth-500 to-teal-500'
+                : 'bg-gradient-to-r from-earth-400 to-earth-300'
               }`} style={{ width: `${complexityPct}%` }} />
             </div>
           </div>

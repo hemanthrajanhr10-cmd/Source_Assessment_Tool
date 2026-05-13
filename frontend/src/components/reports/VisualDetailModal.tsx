@@ -23,7 +23,7 @@ const FONT = "'Segoe UI', system-ui, -apple-system, sans-serif"
 // ── Field type badge ──────────────────────────────────────────────────────────
 
 const FIELD_TYPE_STYLE: Record<string, { bg: string; color: string; border: string; label: string }> = {
-  measure:     { bg: '#F2E8D8', color: '#6D28D9', border: '#DDD6FE', label: 'Measure' },
+  measure:     { bg: '#EDF9F0', color: '#136137', border: '#C6EAD0', label: 'Measure' },
   column:      { bg: '#F3F4F6', color: '#374151', border: '#D1D5DB', label: 'Column' },
   aggregation: { bg: '#FFFBEB', color: '#B45309', border: '#FDE68A', label: 'Aggregation' },
   hierarchy:   { bg: '#FFF7ED', color: '#C2410C', border: '#FED7AA', label: 'Hierarchy' },
@@ -78,13 +78,13 @@ function FieldRow({ field, isSelected }: { field: VisualField; isSelected?: bool
         onClick={() => canExpand && setOpen(o => !o)}
         style={{
           borderBottom: '1px solid #F3F4F6',
-          background: isSelected ? '#F8F2E8' : undefined,
-          outline: isSelected ? '1px solid #93C5FD' : undefined,
+          background: isSelected ? '#FFF4EF' : undefined,
+          outline: isSelected ? '1px solid rgba(184,53,16,0.35)' : undefined,
           borderRadius: isSelected ? 4 : undefined,
           transition: 'background 120ms',
         }}
         onMouseEnter={e => {
-          if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = canExpand ? '#F8F2E8' : '#F9FAFB'
+          if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = canExpand ? '#FFF4EF' : '#F9FAFB'
         }}
         onMouseLeave={e => {
           if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = ''
@@ -257,7 +257,7 @@ function BarPreview() {
     <div className="flex items-end gap-2 w-full px-4" style={{ height: 120 }}>
       {bars.map(b => (
         <div key={b.label} className="flex-1 flex flex-col items-center gap-1">
-          <div className="w-full rounded-t" style={{ height: `${b.pct}%`, background: '#4338CA' }} />
+          <div className="w-full rounded-t" style={{ height: `${b.pct}%`, background: '#0D7F97' }} />
           <span className="text-xs" style={{ color: '#6B7280' }}>{b.label}</span>
         </div>
       ))}
@@ -320,9 +320,9 @@ function SlicerPreview({ fields }: { fields?: VisualField[] }) {
       {chips.map((c, i) => (
         <span key={c} className="px-3 py-1 rounded-full text-xs border font-medium"
           style={{
-            background: i === 0 ? '#1D4ED8' : '#fff',
+            background: i === 0 ? '#B83510' : '#fff',
             color: i === 0 ? '#fff' : '#111827',
-            borderColor: i === 0 ? '#1D4ED8' : '#E5E7EB',
+            borderColor: i === 0 ? '#B83510' : '#E5E7EB',
           }}>
           {c.length > 18 ? c.slice(0, 17) + '…' : c}
         </span>
@@ -510,7 +510,7 @@ export default function VisualDetailModal({
             style={{ borderColor: '#E5E7EB' }}>
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0"
-                style={{ background: '#F8F2E8' }}>{iconEl}</div>
+                style={{ background: '#F9FAFB' }}>{iconEl}</div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold truncate" style={{ color: '#111827' }}>{displayTitle}</p>
                 <p className="text-xs" style={{ color: '#9CA3AF' }}>{displayType}</p>
@@ -554,7 +554,7 @@ export default function VisualDetailModal({
             </span>
             <button type="button" onClick={handleDismiss}
               className="py-1.5 px-5 rounded-lg text-sm font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-              style={{ background: '#1D4ED8' }}>
+              style={{ background: '#B83510' }}>
               Close
             </button>
           </div>
@@ -600,7 +600,7 @@ export default function VisualDetailModal({
             style={{ background: '#fff', borderColor: '#E5E7EB' }}>
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0"
-                style={{ background: '#F8F2E8' }}>
+                style={{ background: '#F9FAFB' }}>
                 {iconEl}
               </div>
               <div className="min-w-0">
@@ -627,7 +627,7 @@ export default function VisualDetailModal({
             {/* Stats chips */}
             <div className="flex items-center gap-2 flex-wrap px-0.5">
               <span className="text-xs px-2.5 py-1 rounded-full border font-medium"
-                style={{ color: '#1D4ED8', borderColor: '#BFDBFE', background: '#F8F2E8' }}>
+                style={{ color: '#B83510', borderColor: 'rgba(184,53,16,0.25)', background: '#FFF4EF' }}>
                 {displayType}
               </span>
               {fields.length > 0 && (
@@ -636,7 +636,7 @@ export default function VisualDetailModal({
                 </span>
               )}
               {measureCount > 0 && (
-                <span className="text-xs" style={{ color: '#6D28D9' }}>
+                <span className="text-xs" style={{ color: '#177B44' }}>
                   {measureCount} measure{measureCount !== 1 ? 's' : ''}
                 </span>
               )}
@@ -699,7 +699,7 @@ export default function VisualDetailModal({
             </span>
             <button type="button" onClick={handleDismiss}
               className="py-1.5 px-5 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex-shrink-0"
-              style={{ background: '#1D4ED8' }}>
+              style={{ background: '#B83510' }}>
               Close
             </button>
           </div>

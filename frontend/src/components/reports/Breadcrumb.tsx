@@ -64,7 +64,7 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
                 onClick={item.onClick}
                 className="text-sm truncate max-w-xs hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                 style={{
-                  color: '#0078D4',
+                  color: '#B83510',
                   cursor: item.onClick ? 'pointer' : 'default',
                   background: 'none',
                   border: 'none',

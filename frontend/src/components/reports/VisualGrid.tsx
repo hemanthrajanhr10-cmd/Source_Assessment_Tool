@@ -49,21 +49,21 @@ function displayLabel(type: string): string {
 function typeChipStyle(type: string): { bg: string; color: string } {
   const t = type.toLowerCase().replace(/\s+/g, '')
   if (t === 'slicer')
-    return { bg: '#F8F2E8', color: '#1D4ED8' }
+    return { bg: '#FFF4EF', color: '#B83510' }
   if (['columnchart', 'clusteredcolumnchart', 'stackedcolumnchart',
        'hundredpercentstackedcolumnchart', 'barchart', 'clusteredbarchart',
        'stackedbarchart', 'hundredpercentstackedbarchart', 'lineclusteredcolumnchart'].includes(t))
-    return { bg: '#EEF2FF', color: '#4338CA' }
+    return { bg: '#EDF8FA', color: '#0A6678' }
   if (['pivottable', 'matrix'].includes(t))
-    return { bg: '#F2E8D8', color: '#6D28D9' }
+    return { bg: '#EDF9F0', color: '#136137' }
   if (['tableex', 'table'].includes(t))
-    return { bg: '#F0FDFA', color: '#0F766E' }
+    return { bg: '#EDF8FA', color: '#084E5B' }
   if (['card', 'kpivisual', 'kpi'].includes(t))
-    return { bg: '#ECFDF5', color: '#047857' }
+    return { bg: '#EDF9F0', color: '#177B44' }
   if (['linechart', 'areachart', 'stackedareachart'].includes(t))
-    return { bg: '#ECFEFF', color: '#0E7490' }
+    return { bg: '#EDF8FA', color: '#0D7F97' }
   if (['donutchart', 'piechart'].includes(t))
-    return { bg: '#FFF1F2', color: '#BE123C' }
+    return { bg: '#FFF4EF', color: '#B83510' }
   return { bg: '#F9FAFB', color: '#374151' }
 }
 
@@ -71,25 +71,25 @@ function typeChipStyle(type: string): { bg: string; color: string } {
 
 function VisualTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
   const t = type.toLowerCase().replace(/\s+/g, '')
-  if (t === 'slicer') return <Filter size={size} style={{ color: '#1D4ED8' }} />
+  if (t === 'slicer') return <Filter size={size} style={{ color: '#B83510' }} />
   if (['linechart', 'areachart', 'stackedareachart'].includes(t))
-    return <Activity size={size} style={{ color: '#0E7490' }} />
+    return <Activity size={size} style={{ color: '#0D7F97' }} />
   if (['barchart', 'clusteredbarchart', 'stackedbarchart', 'columnchart',
        'clusteredcolumnchart', 'stackedcolumnchart', 'hundredpercentstackedcolumnchart',
        'hundredpercentstackedbarchart', 'lineclusteredcolumnchart'].includes(t))
-    return <BarChart2 size={size} style={{ color: '#4338CA' }} />
+    return <BarChart2 size={size} style={{ color: '#0A6678' }} />
   if (['card', 'kpivisual', 'kpi'].includes(t))
-    return <TrendingUp size={size} style={{ color: '#047857' }} />
+    return <TrendingUp size={size} style={{ color: '#177B44' }} />
   if (['tableex', 'table'].includes(t))
-    return <Table2 size={size} style={{ color: '#0F766E' }} />
+    return <Table2 size={size} style={{ color: '#084E5B' }} />
   if (['matrix', 'pivottable'].includes(t))
-    return <LayoutGrid size={size} style={{ color: '#6D28D9' }} />
+    return <LayoutGrid size={size} style={{ color: '#136137' }} />
   if (['donutchart', 'piechart'].includes(t))
-    return <PieChart size={size} style={{ color: '#BE123C' }} />
+    return <PieChart size={size} style={{ color: '#B83510' }} />
   if (t === 'scatterchart')
-    return <ScatterChart size={size} style={{ color: '#0078D4' }} />
+    return <ScatterChart size={size} style={{ color: '#0D7F97' }} />
   if (['waterfallchart', 'funnelchart', 'ribbonchart', 'treemap'].includes(t))
-    return <TrendingDown size={size} style={{ color: '#0078D4' }} />
+    return <TrendingDown size={size} style={{ color: '#0D7F97' }} />
   if (t === 'textbox')
     return <Type size={size} style={{ color: '#6B7280' }} />
   if (t === 'image')
@@ -144,8 +144,8 @@ function MiniPreview({ visual }: { visual: MockVisual }) {
         {['(All)', 'A', 'B', 'C'].map((c, i) => (
           <span key={c} style={{
             padding: '2px 10px', fontSize: 11, borderRadius: 999, fontWeight: 500,
-            border: '1px solid', borderColor: i === 0 ? '#1D4ED8' : '#D1D5DB',
-            background: i === 0 ? '#1D4ED8' : '#fff',
+            border: '1px solid', borderColor: i === 0 ? '#B83510' : '#D1D5DB',
+            background: i === 0 ? '#B83510' : '#fff',
             color: i === 0 ? '#fff' : '#374151',
           }}>{c}</span>
         ))}
@@ -163,7 +163,7 @@ function MiniPreview({ visual }: { visual: MockVisual }) {
         {bars.map((p, i) => (
           <div key={i} style={{
             flex: 1, height: `${p * 100}%`,
-            background: `hsl(${240 + i * 8}, 60%, ${50 + i * 2}%)`,
+            background: `hsl(${189 + i * 8}, 60%, ${38 + i * 5}%)`,
             borderRadius: '2px 2px 0 0',
           }} />
         ))}
@@ -180,8 +180,8 @@ function MiniPreview({ visual }: { visual: MockVisual }) {
     return (
       <div className="flex items-center justify-center w-full" style={{ height: PREVIEW_H - 16, padding: '8px 16px' }}>
         <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-          <path d={areaPath} fill="#ECFEFF" fillOpacity={0.6} />
-          <polyline points={polyline} fill="none" stroke="#0E7490" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={areaPath} fill="#EDF8FA" fillOpacity={0.6} />
+          <polyline points={polyline} fill="none" stroke="#0D7F97" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
     )
@@ -191,7 +191,7 @@ function MiniPreview({ visual }: { visual: MockVisual }) {
     const sz = Math.min(100, PREVIEW_H - 20)
     const r = sz / 2 - 4
     const cx = sz / 2, cy = sz / 2
-    const segs = [{ pct: 0.45, color: '#BE123C' }, { pct: 0.3, color: '#7C3AED' }, { pct: 0.25, color: '#0E7490' }]
+    const segs = [{ pct: 0.45, color: '#B83510' }, { pct: 0.3, color: '#0D7F97' }, { pct: 0.25, color: '#177B44' }]
     let angle = -Math.PI / 2
     const arcs = segs.map(s => {
       const a1 = angle, a2 = angle + s.pct * 2 * Math.PI
@@ -256,7 +256,7 @@ function VisualThumbnailCard({ visual, onClick }: { visual: MockVisual; onClick:
       aria-label={`${displayTitle} — click to inspect field bindings`}
       style={{
         background: '#FFFFFF',
-        border: `1px solid ${hovered ? '#93C5FD' : '#E5E7EB'}`,
+        border: `1px solid ${hovered ? 'rgba(184,53,16,0.35)' : '#E5E7EB'}`,
         borderRadius: 8,
         boxShadow: hovered
           ? '0 4px 16px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)'

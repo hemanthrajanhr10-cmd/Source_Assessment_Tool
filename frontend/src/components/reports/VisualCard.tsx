@@ -64,32 +64,34 @@ export function normalizeVisualType(raw: string): string {
 
 export function getVisualIcon(raw: string, size = 18): React.ReactNode {
   const t = raw.toLowerCase()
-  const blue = '#0078D4'
-  const gray = '#605E5C'
+  const ember = '#B83510'
+  const tide  = '#0D7F97'
+  const grove = '#177B44'
+  const gray  = '#605E5C'
 
-  if (t === 'slicer') return <Filter size={size} style={{ color: blue }} />
+  if (t === 'slicer') return <Filter size={size} style={{ color: ember }} />
   if (['linechart', 'areachart', 'stackedareachart', 'line chart'].includes(t))
-    return <Activity size={size} style={{ color: blue }} />
+    return <Activity size={size} style={{ color: tide }} />
   if (['barchart', 'clusteredbarchart', 'stackedbarchart', 'columnchart',
        'clusteredcolumnchart', 'stackedcolumnchart', 'hundredpercentstackedcolumnchart',
        'hundredpercentstackedbarchart', 'bar chart', 'column chart'].includes(t))
-    return <BarChart2 size={size} style={{ color: blue }} />
+    return <BarChart2 size={size} style={{ color: tide }} />
   if (['lineclusteredcolumnchart'].includes(t))
-    return <TrendingUp size={size} style={{ color: blue }} />
+    return <TrendingUp size={size} style={{ color: tide }} />
   if (['card', 'kpivisual', 'kpi card', 'kpi'].includes(t))
-    return <TrendingUp size={size} style={{ color: blue }} />
+    return <TrendingUp size={size} style={{ color: grove }} />
   if (['tableex', 'table'].includes(t))
-    return <Table2 size={size} style={{ color: blue }} />
+    return <Table2 size={size} style={{ color: tide }} />
   if (['matrix', 'pivottable'].includes(t))
-    return <LayoutGrid size={size} style={{ color: blue }} />
+    return <LayoutGrid size={size} style={{ color: grove }} />
   if (['donutchart', 'piechart', 'donut chart', 'pie chart'].includes(t))
-    return <PieChart size={size} style={{ color: blue }} />
+    return <PieChart size={size} style={{ color: ember }} />
   if (['scatterchart'].includes(t))
-    return <ScatterChart size={size} style={{ color: blue }} />
+    return <ScatterChart size={size} style={{ color: tide }} />
   if (['waterfallchart', 'funnelchart'].includes(t))
-    return <TrendingDown size={size} style={{ color: blue }} />
+    return <TrendingDown size={size} style={{ color: tide }} />
   if (['treemap', 'ribbonchart'].includes(t))
-    return <LayoutGrid size={size} style={{ color: blue }} />
+    return <LayoutGrid size={size} style={{ color: grove }} />
   if (['textbox'].includes(t))
     return <Type size={size} style={{ color: gray }} />
   if (['image'].includes(t))
@@ -133,7 +135,7 @@ export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardP
       <div className="flex items-start gap-2.5 p-3">
         {/* Icon */}
         <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded mt-0.5"
-          style={{ background: '#F8F2E8' }}>
+          style={{ background: '#F9FAFB' }}>
           {icon}
         </div>
 
@@ -145,7 +147,7 @@ export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardP
           </p>
           <span
             className="inline-block mt-1 text-xs px-1.5 py-0.5 rounded border font-medium leading-none"
-            style={{ color: '#0078D4', borderColor: '#B3D4F5', background: '#F8F2E8', fontSize: '10px' }}
+            style={{ color: '#B83510', borderColor: 'rgba(184,53,16,0.25)', background: '#FFF4EF', fontSize: '10px' }}
           >
             {displayType}
           </span>
@@ -177,7 +179,7 @@ export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardP
               </>
             : <span>No field data</span>
         }
-        <span className="ml-auto" style={{ color: '#0078D4' }}>View details →</span>
+        <span className="ml-auto" style={{ color: '#B83510' }}>View details →</span>
       </div>
     </div>
   )

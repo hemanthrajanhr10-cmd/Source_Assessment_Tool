@@ -10,7 +10,7 @@ const STATUS_CONFIG: Record<AssessmentStatus, { color: string; label: string }> 
   pass: { color: '#107C10', label: 'Pass' },
   fail: { color: '#D13438', label: 'Fail' },
   warning: { color: '#FF8C00', label: 'Warning' },
-  'in-progress': { color: '#0078D4', label: 'In Progress' },
+  'in-progress': { color: '#0D7F97', label: 'In Progress' },
   'not-assessed': { color: '#8A8886', label: 'Not Assessed' },
 }
 
@@ -52,9 +52,9 @@ export default function ReportCard({ report, onClick }: ReportCardProps) {
       <div className="flex items-start justify-between mb-3">
         <div
           className="flex items-center justify-center w-10 h-10 rounded"
-          style={{ background: '#F8F2E8' }}
+          style={{ background: '#EDF8FA' }}
         >
-          <BarChart2 size={22} style={{ color: '#0078D4' }} />
+          <BarChart2 size={22} style={{ color: '#0D7F97' }} />
         </div>
         {/* Assessment status badge */}
         <span

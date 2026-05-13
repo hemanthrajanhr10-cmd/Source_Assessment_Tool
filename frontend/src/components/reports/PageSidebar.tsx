@@ -47,9 +47,9 @@ export default function PageSidebar({
               onClick={() => { onSelectPage(idx); onItemClick?.() }}
               className="w-full text-left px-3 py-2 text-xs transition-colors duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 flex items-center gap-2.5"
               style={{
-                color: isActive ? '#1D4ED8' : '#374151',
-                background: isActive ? '#F8F2E8' : 'transparent',
-                borderLeft: isActive ? '2px solid #2563EB' : '2px solid transparent',
+                color: isActive ? '#B83510' : '#374151',
+                background: isActive ? '#FFF4EF' : 'transparent',
+                borderLeft: isActive ? '2px solid #B83510' : '2px solid transparent',
                 fontWeight: isActive ? 600 : 400,
                 fontFamily: FONT,
               }}
@@ -65,7 +65,7 @@ export default function PageSidebar({
                 className="inline-flex items-center justify-center rounded-full flex-shrink-0"
                 style={{
                   width: 18, height: 18,
-                  background: isActive ? '#2563EB' : '#E5E7EB',
+                  background: isActive ? '#B83510' : '#E5E7EB',
                   color: isActive ? '#fff' : '#6B7280',
                   fontSize: 9, fontWeight: 700,
                 }}
@@ -151,8 +151,8 @@ export default function PageSidebar({
               onClick={() => onSelectPage(idx)}
               className="flex items-center justify-center w-full py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
               style={{
-                background: isActive ? '#F8F2E8' : 'transparent',
-                borderLeft: isActive ? '2px solid #2563EB' : '2px solid transparent',
+                background: isActive ? '#FFF4EF' : 'transparent',
+                borderLeft: isActive ? '2px solid #B83510' : '2px solid transparent',
               }}
               aria-current={isActive ? 'page' : undefined}
               aria-label={`Page ${idx + 1}: ${page.name}`}
@@ -161,7 +161,7 @@ export default function PageSidebar({
                 className="inline-flex items-center justify-center rounded-full"
                 style={{
                   width: 20, height: 20,
-                  background: isActive ? '#2563EB' : '#E5E7EB',
+                  background: isActive ? '#B83510' : '#E5E7EB',
                   color: isActive ? '#fff' : '#6B7280',
                   fontSize: 9, fontWeight: 700,
                 }}

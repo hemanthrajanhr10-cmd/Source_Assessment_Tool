@@ -84,7 +84,7 @@ export default function ReportListView({ reports, onSelectReport }: ReportListVi
               type="button"
               onClick={() => setQuery('')}
               className="text-xs font-medium hover:underline focus:outline-none"
-              style={{ color: '#0078D4' }}
+              style={{ color: '#B83510' }}
             >
               Clear search
             </button>

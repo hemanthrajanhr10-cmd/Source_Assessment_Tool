@@ -358,7 +358,23 @@ function ConnectionItem({
   onDelete: (id: string) => void
 }) {
   const [showString, setShowString] = useState(false)
+  const [rebinding, setRebinding] = useState(false)
+  const [rebindMsg, setRebindMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const hasStrings = !!(hc.listener_connection_string || hc.sender_connection_string)
+
+  const handleRebind = async () => {
+    setRebinding(true)
+    setRebindMsg(null)
+    try {
+      const { data } = await api.rebindHybridConnection(hc.connection_id)
+      setRebindMsg({ ok: true, text: data.message })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setRebindMsg({ ok: false, text: msg })
+    } finally {
+      setRebinding(false)
+    }
+  }
 
   return (
     <div className="px-5 py-3.5 hover:bg-slate-50/70 transition-colors duration-150">
@@ -399,6 +415,15 @@ function ConnectionItem({
           )}
 
           <button
+            onClick={handleRebind}
+            disabled={rebinding || deleting}
+            title="Re-apply App Service binding (fixes 'Not Reachable' for on-premises servers)"
+            className="p-1.5 rounded-lg hover:bg-earth-50 hover:text-earth-700 text-slate-400 transition-colors disabled:opacity-50"
+          >
+            <Network className={`h-3.5 w-3.5 ${rebinding ? 'animate-spin' : ''}`} />
+          </button>
+
+          <button
             onClick={() => onDelete(hc.connection_id)}
             disabled={deleting}
             className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 text-slate-400 transition-colors disabled:opacity-50"
@@ -410,6 +435,20 @@ function ConnectionItem({
           </button>
         </div>
       </div>
+
+      {/* Rebind feedback */}
+      {rebindMsg && (
+        <div className={`mt-2 ml-11 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs animate-slide-down ${
+          rebindMsg.ok
+            ? 'border-green-200 bg-green-50 text-green-700'
+            : 'border-red-200 bg-red-50 text-red-700'
+        }`}>
+          {rebindMsg.ok
+            ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+            : <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
+          <span>{rebindMsg.text}</span>
+        </div>
+      )}
 
       {/* Collapsible connection strings */}
       {showString && hasStrings && (

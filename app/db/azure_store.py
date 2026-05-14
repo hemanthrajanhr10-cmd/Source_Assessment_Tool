@@ -880,19 +880,22 @@ def timeout_stale_pending_jobs(older_than_minutes: int = 30) -> int:
     conn = _get_conn()
     try:
         cur = conn.cursor()
+        timeout_error_msg = (
+            "Job timed out in Pending state - the gateway agent did not "
+            "pick up or complete this job within the expected window. "
+            "Ensure the agent is running and can reach this server."
+        )
         cur.execute(
             """
             UPDATE dbo.jobs
             SET status           = 'failed',
                 completed_at     = SYSUTCDATETIME(),
-                error            = 'Job timed out in Pending state — the gateway agent did not '
-                                   'pick up or complete this job within the expected window. '
-                                   'Ensure the agent is running and can reach this server.',
+                error            = ?,
                 progress_message = NULL
             WHERE status = 'pending'
               AND DATEDIFF(MINUTE, created_at, SYSUTCDATETIME()) >= ?
             """,
-            (older_than_minutes,),
+            (timeout_error_msg, older_than_minutes),
         )
         count = cur.rowcount
         conn.commit()

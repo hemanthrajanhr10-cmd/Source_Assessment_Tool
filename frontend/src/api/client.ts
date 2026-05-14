@@ -146,6 +146,9 @@ export const api = {
   deleteHybridConnection: (connectionId: string) =>
     http.delete(`/api/v1/hybrid-connections/${connectionId}`),
 
+  rebindHybridConnection: (connectionId: string) =>
+    http.post<{ ok: boolean; message: string }>(`/api/v1/hybrid-connections/${connectionId}/rebind`, {}),
+
   // ── Session (multi-server) ────────────────────────────────────────────────
   detectConnectivity: (servers: { server: string; port: number }[]) =>
     http.post<ConnectivityResult[]>('/api/v1/detect-connectivity', { servers }),

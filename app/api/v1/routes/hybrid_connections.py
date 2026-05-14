@@ -230,6 +230,58 @@ def _ensure_user_namespace(
         return namespace, str(exc)
 
 
+def _bind_to_app_service(
+    credential,
+    subscription_id: str,
+    resource_group: str,
+    app_service_name: str,
+    namespace: str,
+    hc_name: str,
+    endpoint_host: str,
+    endpoint_port: int,
+    sender_key: str,
+) -> Optional[str]:
+    """
+    Create the App Service Hybrid Connection binding that makes TCP connections
+    to endpoint_host:endpoint_port transparently routed through the Azure Relay.
+
+    Returns None on success, or an error string on failure.
+    """
+    try:
+        from azure.mgmt.web import WebSiteManagementClient
+        from azure.mgmt.web.models import HybridConnection as WebHybridConnection
+
+        web_client = WebSiteManagementClient(credential, subscription_id)
+        relay_arm_uri = (
+            f"/subscriptions/{subscription_id}/resourceGroups/{resource_group}"
+            f"/providers/Microsoft.Relay/namespaces/{namespace}"
+            f"/hybridConnections/{hc_name}"
+        )
+        web_client.web_apps.create_or_update_hybrid_connection(
+            resource_group_name=resource_group,
+            name=app_service_name,
+            namespace_name=namespace,
+            relay_name=hc_name,
+            connection_envelope=WebHybridConnection(
+                relay_arm_uri=relay_arm_uri,
+                hostname=endpoint_host,
+                port=endpoint_port,
+                send_key_name="defaultSender",
+                send_key_value=sender_key,
+            ),
+        )
+        logger.info(
+            "App Service '%s' binding created for HC '%s' → %s:%d",
+            app_service_name, hc_name, endpoint_host, endpoint_port,
+        )
+        return None
+    except Exception as exc:
+        logger.warning(
+            "App Service binding for HC '%s' failed: %s", hc_name, exc
+        )
+        return str(exc)
+
+
 def _provision_hybrid_connection(
     name: str,
     endpoint_host: str,
@@ -241,9 +293,8 @@ def _provision_hybrid_connection(
       1. Create the Relay Hybrid Connection entity in the given namespace.
       2. Create defaultListener (Listen) and defaultSender (Send) auth rules.
       3. Fetch and return both connection strings.
-
-    The HC lives entirely in the Azure Relay Namespace — it is NOT bound to the
-    App Service plan, so there is no per-plan tier limit on how many you can create.
+      4. Bind to the App Service so TCP connections to endpoint_host:endpoint_port
+         are transparently routed through the relay (requires AZURE_APP_SERVICE_NAME).
 
     Returns (status, listener_connection_string, sender_connection_string, error_detail).
     status is one of: 'provisioned' | 'config_missing' | 'error'
@@ -341,11 +392,38 @@ def _provision_hybrid_connection(
         )
 
         logger.info("HC '%s' provisioned in Relay namespace '%s'", name, namespace)
+
+        # ── 4. Bind to App Service (transparent TCP routing through relay) ───────
+        # When AZURE_APP_SERVICE_NAME is set, the App Service will intercept any
+        # TCP connection to endpoint_host:endpoint_port and route it through the
+        # relay to the on-premises HCM agent.  Without this binding the raw socket
+        # connect in test_connectivity() and pyodbc connections will time out.
+        app_service_name = os.environ.get("AZURE_APP_SERVICE_NAME", "").strip()
+        binding_error: Optional[str] = None
+        if app_service_name:
+            binding_error = _bind_to_app_service(
+                credential=credential,
+                subscription_id=subscription_id,
+                resource_group=resource_group,
+                app_service_name=app_service_name,
+                namespace=namespace,
+                hc_name=name,
+                endpoint_host=endpoint_host,
+                endpoint_port=endpoint_port,
+                sender_key=sender_keys.primary_key,
+            )
+        else:
+            logger.warning(
+                "AZURE_APP_SERVICE_NAME not set — App Service binding skipped for HC '%s'. "
+                "Set this env var so that TCP connections to %s:%d are routed through the relay.",
+                name, endpoint_host, endpoint_port,
+            )
+
         return (
             "provisioned",
             listener_keys.primary_connection_string,
             sender_keys.primary_connection_string,
-            None,
+            binding_error,
         )
 
     except Exception as exc:
@@ -380,6 +458,24 @@ def _deprovision_hybrid_connection(
 
         credential = _get_azure_credential()
         relay_client = _RelayClient(credential, subscription_id)
+
+        # Remove App Service binding first (so the relay entity can be deleted cleanly)
+        app_service_name = os.environ.get("AZURE_APP_SERVICE_NAME", "").strip()
+        if app_service_name:
+            try:
+                from azure.mgmt.web import WebSiteManagementClient
+                web_client = WebSiteManagementClient(credential, subscription_id)
+                web_client.web_apps.delete_hybrid_connection(
+                    resource_group_name=resource_group,
+                    name=app_service_name,
+                    namespace_name=namespace,
+                    relay_name=hc_name,
+                )
+                logger.info("Removed App Service binding for HC '%s'", hc_name)
+            except Exception as exc:
+                if "NotFound" not in str(exc) and "not found" not in str(exc).lower():
+                    logger.warning("Failed to remove App Service binding for HC '%s': %s", hc_name, exc)
+                    errors.append(f"App Service binding delete: {exc}")
 
         try:
             relay_client.hybrid_connections.delete(
@@ -620,3 +716,95 @@ async def delete_hybrid_connection(
             + azure_error
         )
     return response
+
+
+@router.post(
+    "/{connection_id}/rebind",
+    summary="Re-apply App Service binding for an existing Hybrid Connection",
+    description=(
+        "Adds or refreshes the App Service Hybrid Connection binding so that TCP connections "
+        "to the mapped hostname:port are transparently routed through the Azure Relay. "
+        "Use this to fix connections created before AZURE_APP_SERVICE_NAME was configured, "
+        "or after the App Service binding is lost."
+    ),
+)
+async def rebind_hybrid_connection(
+    connection_id: str,
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = current_user["user_id"]
+    record = azure_store.get_hybrid_connection(connection_id, user_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Hybrid connection not found.")
+
+    subscription_id = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+    resource_group  = os.environ.get("AZURE_RESOURCE_GROUP", "").strip()
+    app_service_name = os.environ.get("AZURE_APP_SERVICE_NAME", "").strip()
+
+    if not subscription_id or not resource_group:
+        raise HTTPException(
+            status_code=422,
+            detail="AZURE_SUBSCRIPTION_ID and AZURE_RESOURCE_GROUP must be configured.",
+        )
+    if not app_service_name:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "AZURE_APP_SERVICE_NAME is not configured. "
+                "Set this environment variable on the App Service to enable binding."
+            ),
+        )
+
+    sender_cs = record.get("sender_connection_string") or ""
+    if not sender_cs:
+        raise HTTPException(
+            status_code=422,
+            detail="No sender connection string stored for this HC. Delete and recreate it.",
+        )
+
+    # Extract the primary key from the sender connection string
+    # Format: Endpoint=...;SharedAccessKeyName=...;SharedAccessKey=<key>;EntityPath=...
+    sender_key: Optional[str] = None
+    for part in sender_cs.split(";"):
+        if part.lower().startswith("sharedaccesskey="):
+            sender_key = part.split("=", 1)[1]
+            break
+
+    if not sender_key:
+        raise HTTPException(
+            status_code=422,
+            detail="Could not parse sender key from stored connection string.",
+        )
+
+    try:
+        credential = _get_azure_credential()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    loop = asyncio.get_event_loop()
+    binding_error = await loop.run_in_executor(
+        None,
+        _bind_to_app_service,
+        credential,
+        subscription_id,
+        resource_group,
+        app_service_name,
+        record["service_bus_namespace"],
+        record["name"],
+        record["endpoint_host"],
+        record["endpoint_port"],
+        sender_key,
+    )
+
+    if binding_error:
+        raise HTTPException(
+            status_code=502,
+            detail=f"App Service binding failed: {binding_error}",
+        )
+
+    logger.info(
+        "User %s rebound HC '%s' (id=%s) to App Service '%s'",
+        user_id, record["name"], connection_id, app_service_name,
+    )
+    return {"ok": True, "message": f"Binding applied to App Service '{app_service_name}'."}
+

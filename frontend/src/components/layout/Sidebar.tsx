@@ -13,12 +13,14 @@ const NAV_GROUPS = [
     label: 'Unified Assessment',
     element: 'ocean',
     dotGradient:      'linear-gradient(135deg, #0056B3, #38A8F5)',
-    activeBg:         'rgba(0,86,179,0.07)',
+    activeBg:         'rgba(0,86,179,0.09)',
     activeText:       '#003D82',
-    activeBorder:     'rgba(56,168,245,0.35)',
+    activeBorder:     'rgba(56,168,245,0.40)',
     activeIconColor:  '#0056B3',
     activeDotGlow:    'rgba(0,86,179,0.45)',
-    hoverBg:          'rgba(239,247,255,0.6)',
+    hoverBg:          'rgba(0,86,179,0.07)',
+    hoverText:        '#003D82',
+    hoverIconColor:   '#0056B3',
     items: [
       { to: '/unified/new',      label: 'New Assessment', icon: Combine,         exact: true },
       { to: '/unified/sessions', label: 'All Reports',    icon: LayoutDashboard },
@@ -28,12 +30,14 @@ const NAV_GROUPS = [
     label: 'SQL Server',
     element: 'tide',
     dotGradient:      'linear-gradient(135deg, #0891B2, #22D3EE)',
-    activeBg:         'rgba(8,145,178,0.07)',
+    activeBg:         'rgba(8,145,178,0.09)',
     activeText:       '#0E7490',
-    activeBorder:     'rgba(34,211,238,0.35)',
+    activeBorder:     'rgba(34,211,238,0.40)',
     activeIconColor:  '#0891B2',
     activeDotGlow:    'rgba(8,145,178,0.45)',
-    hoverBg:          'rgba(236,254,255,0.6)',
+    hoverBg:          'rgba(8,145,178,0.07)',
+    hoverText:        '#0E7490',
+    hoverIconColor:   '#0891B2',
     items: [
       { to: '/',                   label: 'Source Only',       icon: PlusCircle, exact: true },
       { to: '/sessions',           label: 'Sessions',          icon: Layers  },
@@ -45,12 +49,14 @@ const NAV_GROUPS = [
     label: 'Microsoft Fabric',
     element: 'grove',
     dotGradient:      'linear-gradient(135deg, #0D9488, #2DD4BF)',
-    activeBg:         'rgba(13,148,136,0.07)',
+    activeBg:         'rgba(13,148,136,0.09)',
     activeText:       '#0F766E',
-    activeBorder:     'rgba(45,212,191,0.35)',
+    activeBorder:     'rgba(45,212,191,0.40)',
     activeIconColor:  '#0D9488',
     activeDotGlow:    'rgba(13,148,136,0.45)',
-    hoverBg:          'rgba(240,253,250,0.6)',
+    hoverBg:          'rgba(13,148,136,0.07)',
+    hoverText:        '#0F766E',
+    hoverIconColor:   '#0D9488',
     items: [
       { to: '/fabric/new',      label: 'Fabric Only',  icon: Zap       },
       { to: '/fabric/sessions', label: 'Assessments',  icon: BarChart3 },
@@ -60,12 +66,14 @@ const NAV_GROUPS = [
     label: 'SAP Systems',
     element: 'sand',
     dotGradient:      'linear-gradient(135deg, #7B5E00, #C49A0F)',
-    activeBg:         'rgba(123,94,0,0.07)',
+    activeBg:         'rgba(123,94,0,0.09)',
     activeText:       '#5C4500',
-    activeBorder:     'rgba(196,154,15,0.35)',
+    activeBorder:     'rgba(196,154,15,0.40)',
     activeIconColor:  '#7B5E00',
     activeDotGlow:    'rgba(123,94,0,0.45)',
-    hoverBg:          'rgba(254,252,232,0.6)',
+    hoverBg:          'rgba(123,94,0,0.07)',
+    hoverText:        '#5C4500',
+    hoverIconColor:   '#7B5E00',
     items: [
       { to: '/sap/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/sap/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -246,15 +254,25 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                       })}
                       onMouseEnter={(e) => {
                         const el = e.currentTarget as HTMLAnchorElement
-                        if (!el.getAttribute('aria-current')) {
+                        if (!el.classList.contains('font-semibold')) {
                           el.style.transform = 'translateX(2px)'
                           el.style.backgroundColor = group.hoverBg
+                          el.style.color = group.hoverText
+                          el.style.borderColor = group.activeBorder
+                          const icon = el.querySelector('svg') as SVGElement | null
+                          if (icon) icon.style.color = group.hoverIconColor
                         }
                       }}
                       onMouseLeave={(e) => {
                         const el = e.currentTarget as HTMLAnchorElement
-                        el.style.transform = ''
-                        if (!el.getAttribute('aria-current')) el.style.backgroundColor = ''
+                        if (!el.classList.contains('font-semibold')) {
+                          el.style.transform = ''
+                          el.style.backgroundColor = ''
+                          el.style.color = ''
+                          el.style.borderColor = 'transparent'
+                          const icon = el.querySelector('svg') as SVGElement | null
+                          if (icon) icon.style.color = ''
+                        }
                       }}
                       aria-current={undefined}
                     >

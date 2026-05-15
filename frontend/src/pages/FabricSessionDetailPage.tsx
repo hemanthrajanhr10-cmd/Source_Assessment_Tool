@@ -6,8 +6,9 @@ import {
   Loader2, CheckCircle2, XCircle, AlertCircle, ExternalLink,
   Table2, Hash, Calculator, Link2, Eye,
   ArrowLeft, ArrowRight, Code2, StopCircle, Download, TrendingUp,
-  Activity, GitMerge, BookOpen, Filter,
+  Activity, GitMerge, BookOpen, Filter, Copy, Check, Network,
 } from 'lucide-react'
+import LineageTab from '../components/fabric/LineageTab'
 import { api } from '../api/client'
 import type {
   FabricDataset, FabricWorkspace,
@@ -90,12 +91,12 @@ function DonutChart({ data, size = 130 }: {
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {arcs.map((a, i) => (
-        <path key={i} d={a.path} fill={a.color} stroke="#09090b" strokeWidth="1.5" />
+        <path key={i} d={a.path} fill={a.color} stroke="#ffffff" strokeWidth="2" />
       ))}
-      <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="middle"
-        fontSize="13" fontWeight="700" fill="#f4f4f5">{total}</text>
+      <text x={cx} y={cy - 3} textAnchor="middle" dominantBaseline="middle"
+        fontSize="14" fontWeight="800" fill="#0D1117">{total}</text>
       <text x={cx} y={cy + 11} textAnchor="middle" dominantBaseline="middle"
-        fontSize="8" fill="#71717a">total</text>
+        fontSize="8" fontWeight="600" fill="#64748b">total</text>
     </svg>
   )
 }
@@ -138,38 +139,63 @@ function getComplexityDistribution(ds: FabricDataset) {
 
 // ── Tab navigation ────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'models' | 'reports' | 'complexity'
+type Tab = 'overview' | 'models' | 'reports' | 'complexity' | 'lineage'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'overview',    label: 'Overview',           icon: <Activity className="h-4 w-4" /> },
-  { id: 'models',      label: 'Semantic Models',    icon: <Database className="h-4 w-4" /> },
-  { id: 'reports',     label: 'Reports & Visuals',  icon: <FileText className="h-4 w-4" /> },
-  { id: 'complexity',  label: 'Complexity Analysis', icon: <TrendingUp className="h-4 w-4" /> },
+  { id: 'overview',   label: 'Overview',            icon: <Activity className="h-4 w-4" /> },
+  { id: 'models',     label: 'Semantic Models',     icon: <Database className="h-4 w-4" /> },
+  { id: 'reports',    label: 'Reports & Visuals',   icon: <FileText className="h-4 w-4" /> },
+  { id: 'complexity', label: 'Complexity Analysis', icon: <TrendingUp className="h-4 w-4" /> },
+  { id: 'lineage',    label: 'Measure Lineage',     icon: <Network className="h-4 w-4" /> },
 ]
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
+      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all shrink-0"
+      style={{
+        background: copied ? 'rgba(13,148,136,0.10)' : 'rgba(0,86,179,0.07)',
+        color: copied ? '#0F766E' : '#0056B3',
+        border: `1px solid ${copied ? 'rgba(13,148,136,0.25)' : 'rgba(0,86,179,0.18)'}`,
+      }}
+      title="Copy DAX expression"
+    >
+      {copied ? <Check className="h-2.5 w-2.5" /> : <Copy className="h-2.5 w-2.5" />}
+      {copied ? 'Copied!' : 'Copy'}
+    </button>
+  )
+}
+
 function MeasureRow({ m }: { m: FabricMeasure }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
+    <div className="rounded-xl overflow-hidden transition-all" style={{ border: '1px solid rgba(197,213,236,0.8)', boxShadow: open ? '0 2px 12px rgba(0,86,179,0.08)' : undefined }}>
       <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-2 bg-slate-50/40 hover:bg-slate-100/50 transition-colors text-left">
-        <Hash className="h-3.5 w-3.5 text-earth-500 shrink-0" />
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors"
+        style={{ background: open ? 'linear-gradient(135deg, rgba(0,86,179,0.05) 0%, rgba(0,132,212,0.02) 100%)' : 'rgba(248,250,253,0.8)' }}>
+        <Hash className="h-3.5 w-3.5 text-brand-600 shrink-0" />
         <span className="flex-1 text-xs font-mono font-semibold text-slate-800 truncate">{m.name}</span>
-        {m.table && <span className="text-xs text-slate-500 shrink-0 mr-1">{m.table}</span>}
+        {m.table && <span className="text-xs text-slate-400 shrink-0 mr-1 bg-slate-100 px-1.5 py-0.5 rounded">{m.table}</span>}
         {m.complexity && <ComplexityBadge c={m.complexity} small />}
-        {open ? <ChevronUp className="h-3 w-3 text-slate-500 ml-1 shrink-0" />
-               : <ChevronDown className="h-3 w-3 text-slate-500 ml-1 shrink-0" />}
+        {open ? <ChevronUp className="h-3 w-3 text-slate-400 ml-1 shrink-0" />
+               : <ChevronDown className="h-3 w-3 text-slate-400 ml-1 shrink-0" />}
       </button>
       {open && (
-        <div className="border-t border-slate-100 bg-slate-50/40 p-3 space-y-2.5">
+        <div className="border-t p-3 space-y-2.5" style={{ borderColor: 'rgba(197,213,236,0.5)', background: 'rgba(248,250,253,0.6)' }}>
           {m.expression && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1">
-                <Code2 className="h-3 w-3" /> DAX Expression
-              </p>
-              <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-32">
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                  <Code2 className="h-3 w-3" /> DAX Expression
+                </p>
+                <CopyButton text={m.expression} />
+              </div>
+              <pre className="text-xs font-mono rounded-lg px-3 py-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-32 border"
+                style={{ background: 'rgba(0,86,179,0.03)', borderColor: 'rgba(0,86,179,0.10)' }}>
                 {m.expression}
               </pre>
             </div>
@@ -211,33 +237,38 @@ function CalcItemRow({ item, type }: { item: FabricCalculatedColumn | FabricCalc
   const cx = item.complexity
   const hasExpr = !!item.expression
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
+    <div className="rounded-xl overflow-hidden transition-all" style={{ border: '1px solid rgba(197,213,236,0.8)', boxShadow: open ? '0 2px 12px rgba(0,86,179,0.08)' : undefined }}>
       <button onClick={() => hasExpr && setOpen(o => !o)}
-        className={`w-full flex items-center gap-2 px-3 py-2 bg-slate-50/40 text-left ${hasExpr ? 'hover:bg-slate-100/50 cursor-pointer' : ''} transition-colors`}>
+        className={`w-full flex items-center gap-2 px-3 py-2.5 text-left ${hasExpr ? 'cursor-pointer' : ''} transition-colors`}
+        style={{ background: open ? 'linear-gradient(135deg, rgba(217,119,6,0.05) 0%, rgba(251,191,36,0.02) 100%)' : 'rgba(248,250,253,0.8)' }}>
         {type === 'col'
-          ? <Calculator className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-          : <Table2 className="h-3.5 w-3.5 text-orange-500 shrink-0" />}
+          ? <Calculator className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+          : <Table2 className="h-3.5 w-3.5 text-orange-600 shrink-0" />}
         <span className="flex-1 text-xs font-mono font-semibold text-slate-800 truncate">{item.name}</span>
         {'table' in item && item.table && (
-          <span className="text-xs text-slate-500 shrink-0 mr-1">{(item as FabricCalculatedColumn).table}</span>
+          <span className="text-xs text-slate-400 shrink-0 mr-1 bg-slate-100 px-1.5 py-0.5 rounded">{(item as FabricCalculatedColumn).table}</span>
         )}
         {'data_type' in item && (item as FabricCalculatedColumn).data_type && (
-          <span className="text-xs text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 mr-1">
+          <span className="text-xs text-slate-400 bg-slate-100 rounded px-1.5 py-0.5 mr-1">
             {(item as FabricCalculatedColumn).data_type}
           </span>
         )}
         {cx && cx.level !== 'None' && <ComplexityBadge c={cx} small />}
         {hasExpr && (
-          open ? <ChevronUp className="h-3 w-3 text-slate-500 ml-1 shrink-0" />
-               : <ChevronDown className="h-3 w-3 text-slate-500 ml-1 shrink-0" />
+          open ? <ChevronUp className="h-3 w-3 text-slate-400 ml-1 shrink-0" />
+               : <ChevronDown className="h-3 w-3 text-slate-400 ml-1 shrink-0" />
         )}
       </button>
       {open && hasExpr && (
-        <div className="border-t border-slate-100 bg-slate-50/40 p-3">
-          <p className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1">
-            <Code2 className="h-3 w-3" /> DAX Expression
-          </p>
-          <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-28">
+        <div className="border-t p-3" style={{ borderColor: 'rgba(197,213,236,0.5)', background: 'rgba(248,250,253,0.6)' }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+              <Code2 className="h-3 w-3" /> DAX Expression
+            </p>
+            <CopyButton text={item.expression!} />
+          </div>
+          <pre className="text-xs font-mono rounded-lg px-3 py-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-28 border"
+            style={{ background: 'rgba(0,86,179,0.03)', borderColor: 'rgba(0,86,179,0.10)' }}>
             {item.expression}
           </pre>
           {cx && cx.score > 0 && (
@@ -341,8 +372,15 @@ function ColumnRow({ col }: { col: FabricTableColumn }) {
         )}
       </div>
       {open && col.expression && (
-        <div className="ml-9 mr-3 mb-2 rounded bg-slate-50 text-earth-400 font-mono text-xs p-2 overflow-x-auto border border-slate-200">
-          {col.expression}
+        <div className="ml-9 mr-3 mb-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1"><Code2 className="h-2.5 w-2.5" /> DAX</span>
+            <CopyButton text={col.expression} />
+          </div>
+          <pre className="rounded-lg font-mono text-xs p-2 overflow-x-auto border text-slate-700"
+            style={{ background: 'rgba(0,86,179,0.03)', borderColor: 'rgba(0,86,179,0.10)' }}>
+            {col.expression}
+          </pre>
         </div>
       )}
     </div>
@@ -550,19 +588,21 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
           </div>
 
           {/* Sub-tab nav */}
-          <div className="flex border-b border-slate-200 bg-slate-50/40 px-4">
+          <div className="flex px-4" style={{ borderBottom: '1px solid rgba(197,213,236,0.6)', background: 'rgba(248,250,253,0.6)' }}>
             {SUB_TABS.map(t => (
               <button key={t.id}
                 onClick={() => setSubTab(t.id)}
-                className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                  subTab === t.id
-                    ? 'border-earth-600 text-earth-700'
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                }`}>
+                className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors"
+                style={{
+                  borderBottomColor: subTab === t.id ? '#0056B3' : 'transparent',
+                  color: subTab === t.id ? '#003D82' : '#64748B',
+                }}>
                 {t.label}
-                <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                  subTab === t.id ? 'bg-earth-100 text-earth-700' : 'bg-slate-100 text-slate-500'
-                }`}>{t.count}</span>
+                <span className="rounded-full px-1.5 py-0.5 text-xs font-semibold"
+                  style={{
+                    background: subTab === t.id ? 'rgba(0,86,179,0.10)' : 'rgba(148,163,184,0.12)',
+                    color: subTab === t.id ? '#003D82' : '#64748B',
+                  }}>{t.count}</span>
               </button>
             ))}
           </div>
@@ -651,43 +691,107 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
   }))
 
   const KPI_ITEMS = [
-    { label: 'Workspaces',      value: summary.workspace_count,          color: 'text-earth-700',  bg: 'bg-earth-50',      border: 'border-earth-200',     icon: <Zap className="h-5 w-5 text-earth-600" /> },
-    { label: 'Semantic Models', value: summary.dataset_count,            color: 'text-blue-600',    bg: 'bg-blue-50',        border: 'border-blue-200',       icon: <Database className="h-5 w-5 text-blue-500" /> },
-    { label: 'Reports',         value: summary.report_count,             color: 'text-earth-700',  bg: 'bg-earth-50',      border: 'border-earth-200',     icon: <FileText className="h-5 w-5 text-earth-600" /> },
-    { label: 'Paginated',       value: summary.paginated_report_count,   color: 'text-orange-600',  bg: 'bg-orange-50',      border: 'border-orange-200',     icon: <BookOpen className="h-5 w-5 text-orange-500" /> },
-    { label: 'Total Visuals',   value: summary.total_visuals ?? 0,       color: 'text-sky-600',     bg: 'bg-sky-50',         border: 'border-sky-200',        icon: <Eye className="h-5 w-5 text-sky-500" /> },
-    { label: 'Measures',        value: summary.total_measures,           color: 'text-earth-700',  bg: 'bg-earth-50',      border: 'border-earth-200',     icon: <Hash className="h-5 w-5 text-earth-600" /> },
-    { label: 'Calc. Tables',    value: summary.total_calculated_tables,  color: 'text-amber-700',   bg: 'bg-amber-50',       border: 'border-amber-200',      icon: <Table2 className="h-5 w-5 text-amber-600" /> },
-    { label: 'Calc. Columns',   value: summary.total_calculated_columns, color: 'text-earth-500',    bg: 'bg-earth-50',       border: 'border-earth-200',      icon: <Calculator className="h-5 w-5 text-earth-400" /> },
-    { label: 'Relationships',   value: summary.total_relationships ?? 0, color: 'text-earth-700', bg: 'bg-earth-50',     border: 'border-earth-200',    icon: <GitMerge className="h-5 w-5 text-earth-600" /> },
+    { label: 'Workspaces',      value: summary.workspace_count,          iconBg: 'linear-gradient(135deg,#0056B3,#0084D4)',  glow: 'rgba(0,86,179,0.20)',   icon: <Zap className="h-4 w-4 text-white" />,        numColor: '#003D82' },
+    { label: 'Semantic Models', value: summary.dataset_count,            iconBg: 'linear-gradient(135deg,#0891B2,#22D3EE)',  glow: 'rgba(8,145,178,0.20)',  icon: <Database className="h-4 w-4 text-white" />,   numColor: '#0E7490' },
+    { label: 'Reports',         value: summary.report_count,             iconBg: 'linear-gradient(135deg,#0D9488,#2DD4BF)',  glow: 'rgba(13,148,136,0.20)', icon: <FileText className="h-4 w-4 text-white" />,   numColor: '#0F766E' },
+    { label: 'Paginated',       value: summary.paginated_report_count,   iconBg: 'linear-gradient(135deg,#D97706,#FBBF24)',  glow: 'rgba(217,119,6,0.20)',  icon: <BookOpen className="h-4 w-4 text-white" />,   numColor: '#92400E' },
+    { label: 'Total Visuals',   value: summary.total_visuals ?? 0,       iconBg: 'linear-gradient(135deg,#38A8F5,#7EC8FF)',  glow: 'rgba(56,168,245,0.20)', icon: <Eye className="h-4 w-4 text-white" />,        numColor: '#0056B3' },
+    { label: 'Measures',        value: summary.total_measures,           iconBg: 'linear-gradient(135deg,#0056B3,#38A8F5)',  glow: 'rgba(0,86,179,0.20)',   icon: <Hash className="h-4 w-4 text-white" />,       numColor: '#003D82' },
+    { label: 'Calc. Tables',    value: summary.total_calculated_tables,  iconBg: 'linear-gradient(135deg,#F59E0B,#FCD34D)',  glow: 'rgba(245,158,11,0.20)', icon: <Table2 className="h-4 w-4 text-white" />,     numColor: '#92400E' },
+    { label: 'Calc. Columns',   value: summary.total_calculated_columns, iconBg: 'linear-gradient(135deg,#F97316,#FB923C)',  glow: 'rgba(249,115,22,0.20)', icon: <Calculator className="h-4 w-4 text-white" />, numColor: '#9A3412' },
+    { label: 'Relationships',   value: summary.total_relationships ?? 0, iconBg: 'linear-gradient(135deg,#8B5CF6,#A78BFA)',  glow: 'rgba(139,92,246,0.20)', icon: <GitMerge className="h-4 w-4 text-white" />,   numColor: '#5B21B6' },
   ]
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 gap-3">
-        {KPI_ITEMS.map(({ label, value, color, bg, border, icon }) => (
-          <div key={label} className={`rounded-xl ${bg} border ${border} p-3 flex flex-col items-center text-center`}>
-            <div className="mb-1">{icon}</div>
-            <p className={`text-xl font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-slate-500 leading-tight mt-0.5">{label}</p>
+
+      {/* ── Hero banner ──────────────────────────────────────────────────────── */}
+      <div className="relative rounded-2xl overflow-hidden px-6 py-5"
+        style={{
+          background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 50%, #0891B2 100%)',
+          boxShadow: '0 8px 32px rgba(0,86,179,0.28), 0 2px 8px rgba(0,0,0,0.08)',
+        }}>
+        {/* Decorative orbs */}
+        <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-10 -translate-y-12 translate-x-12"
+          style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }} />
+        <div className="absolute bottom-0 left-16 w-32 h-32 rounded-full opacity-10 translate-y-8"
+          style={{ background: 'radial-gradient(circle, #38A8F5 0%, transparent 70%)' }} />
+
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-white/70 text-xs font-medium uppercase tracking-widest mb-0.5">Assessment Overview</p>
+            <h2 className="text-white text-xl font-bold leading-tight">
+              {summary.workspace_count} Workspace{summary.workspace_count !== 1 ? 's' : ''} Assessed
+            </h2>
+            <p className="text-white/60 text-xs mt-1">
+              {summary.dataset_count} models · {summary.report_count} reports · {summary.total_measures} measures
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-white/60 text-[10px] uppercase tracking-wider">Total Visuals</p>
+              <p className="text-white text-2xl font-black">{summary.total_visuals ?? 0}</p>
+            </div>
+            <div className="w-px h-10 bg-white/20" />
+            <div className="text-right">
+              <p className="text-white/60 text-[10px] uppercase tracking-wider">DAX Items</p>
+              <p className="text-white text-2xl font-black">
+                {(summary.total_measures ?? 0) + (summary.total_calculated_tables ?? 0) + (summary.total_calculated_columns ?? 0)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── KPI Cards ─────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-3">
+        {KPI_ITEMS.map(({ label, value, iconBg, glow, icon, numColor }) => (
+          <div key={label}
+            className="rounded-xl p-3 flex flex-col items-center text-center group cursor-default transition-all duration-200"
+            style={{
+              background: '#ffffff',
+              border: '1px solid rgba(197,213,236,0.8)',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget
+              el.style.transform = 'translateY(-2px)'
+              el.style.boxShadow = `0 8px 24px ${glow}, 0 2px 8px rgba(0,0,0,0.06)`
+              el.style.borderColor = glow
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget
+              el.style.transform = ''
+              el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
+              el.style.borderColor = 'rgba(197,213,236,0.8)'
+            }}
+          >
+            <div className="mb-1.5 flex items-center justify-center h-8 w-8 rounded-xl"
+              style={{ background: iconBg, boxShadow: `0 2px 8px ${glow}` }}>
+              {icon}
+            </div>
+            <p className="text-lg font-black" style={{ color: numColor }}>{value}</p>
+            <p className="text-[10px] text-slate-400 leading-tight mt-0.5 font-medium">{label}</p>
           </div>
         ))}
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="card p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-earth-600" />
+      {/* ── Charts row ────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(197,213,236,0.8)', boxShadow: '0 2px 8px rgba(0,86,179,0.04)' }}>
+          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+            <span className="flex items-center justify-center h-6 w-6 rounded-lg"
+              style={{ background: 'linear-gradient(135deg,#0056B3,#0084D4)' }}>
+              <TrendingUp className="h-3.5 w-3.5 text-white" />
+            </span>
             DAX Complexity Distribution
           </h3>
           <div className="flex items-center gap-6">
             <DonutChart data={complexityChartData} size={130} />
-            <div className="flex-1 space-y-1.5">
+            <div className="flex-1 space-y-2">
               {complexityChartData.map(d => (
                 <div key={d.label} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: d.color }} />
+                  <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: d.color }} />
                   <span className="text-xs text-slate-500 flex-1">{d.label}</span>
                   <span className="text-xs font-bold text-slate-800">{d.value}</span>
                 </div>
@@ -696,9 +800,12 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
           </div>
         </div>
 
-        <div className="card p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-            <Database className="h-4 w-4 text-blue-400" />
+        <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(197,213,236,0.8)', boxShadow: '0 2px 8px rgba(0,86,179,0.04)' }}>
+          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+            <span className="flex items-center justify-center h-6 w-6 rounded-lg"
+              style={{ background: 'linear-gradient(135deg,#0891B2,#22D3EE)' }}>
+              <Database className="h-3.5 w-3.5 text-white" />
+            </span>
             Storage Mode — Semantic Models
           </h3>
           {storageChartData.length > 0
@@ -707,31 +814,43 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
         </div>
       </div>
 
-      {/* Workspace quick-view table */}
-      <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-          <Zap className="h-4 w-4 text-earth-600" />
-          <h3 className="text-sm font-semibold text-slate-700">Workspaces</h3>
+      {/* ── Workspace table ───────────────────────────────────────────────────── */}
+      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'rgba(197,213,236,0.8)', boxShadow: '0 2px 8px rgba(0,86,179,0.04)' }}>
+        <div className="px-5 py-3.5 flex items-center gap-3"
+          style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.06) 0%, rgba(0,132,212,0.03) 100%)', borderBottom: '1px solid rgba(197,213,236,0.6)' }}>
+          <span className="flex items-center justify-center h-6 w-6 rounded-lg"
+            style={{ background: 'linear-gradient(135deg,#0056B3,#0084D4)', boxShadow: '0 2px 6px rgba(0,86,179,0.25)' }}>
+            <Zap className="h-3.5 w-3.5 text-white" />
+          </span>
+          <h3 className="text-sm font-bold text-slate-800">Workspaces</h3>
+          <span className="ml-auto text-xs text-slate-400">{workspaces.length} workspace{workspaces.length !== 1 ? 's' : ''}</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                {['Workspace', 'Type', 'Models', 'Reports', 'Paginated', 'Visuals', 'Measures'].map(h => (
-                  <th key={h} className="text-left px-4 py-2 font-semibold text-slate-500">{h}</th>
+            <thead>
+              <tr style={{ background: 'rgba(239,246,255,0.7)', borderBottom: '1px solid rgba(197,213,236,0.6)' }}>
+                {['Workspace', 'Type', 'Models', 'Reports', 'Paginated', 'Visuals', 'Measures'].map((h, hi) => (
+                  <th key={h} className={`px-4 py-2.5 font-semibold text-slate-500 ${hi === 0 ? 'text-left' : 'text-center'}`}>{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {workspaces.map(ws => (
-                <tr key={ws.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-2 font-medium text-slate-800">{ws.name}</td>
-                  <td className="px-4 py-2 text-slate-500">{ws.type}</td>
-                  <td className="px-4 py-2 font-semibold text-blue-400">{ws.dataset_count}</td>
-                  <td className="px-4 py-2 font-semibold text-earth-500">{ws.report_count}</td>
-                  <td className="px-4 py-2 font-semibold text-orange-400">{ws.paginated_report_count}</td>
-                  <td className="px-4 py-2 text-sky-400">{ws.reports.reduce((s, r) => s + (r.visual_count ?? 0), 0)}</td>
-                  <td className="px-4 py-2 text-earth-500">{ws.datasets.reduce((s, d) => s + d.measure_count, 0)}</td>
+            <tbody>
+              {workspaces.map((ws) => (
+                <tr key={ws.id}
+                  className="transition-colors"
+                  style={{ borderBottom: '1px solid rgba(197,213,236,0.4)' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(0,86,179,0.03)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = '' }}
+                >
+                  <td className="px-4 py-2.5 font-semibold text-slate-800">{ws.name}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">{ws.type}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#0891B2' }}>{ws.dataset_count}</td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#0D9488' }}>{ws.report_count}</td>
+                  <td className="px-4 py-2.5 text-center font-bold text-amber-600">{ws.paginated_report_count}</td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#0056B3' }}>{ws.reports.reduce((s, r) => s + (r.visual_count ?? 0), 0)}</td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#5B21B6' }}>{ws.datasets.reduce((s, d) => s + d.measure_count, 0)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1039,15 +1158,30 @@ export default function FabricSessionDetailPage() {
       {results && workspaces.length > 0 && (
         <>
           {/* Tab bar */}
-          <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+          <div className="flex items-center gap-0.5 overflow-x-auto pb-0"
+            style={{ borderBottom: '1px solid rgba(197,213,236,0.7)' }}>
             {TABS.map(tab => (
               <button key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-earth-600 text-earth-700 bg-earth-50/40'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                }`}>
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap"
+                style={{
+                  borderBottomColor: activeTab === tab.id ? '#0056B3' : 'transparent',
+                  color: activeTab === tab.id ? '#003D82' : '#64748B',
+                  background: activeTab === tab.id ? 'rgba(0,86,179,0.05)' : 'transparent',
+                }}
+                onMouseEnter={e => {
+                  if (activeTab !== tab.id) {
+                    (e.currentTarget as HTMLButtonElement).style.color = '#0056B3'
+                    ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,86,179,0.04)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (activeTab !== tab.id) {
+                    (e.currentTarget as HTMLButtonElement).style.color = '#64748B'
+                    ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                  }
+                }}
+              >
                 {tab.icon}
                 {tab.label}
               </button>
@@ -1093,6 +1227,10 @@ export default function FabricSessionDetailPage() {
 
             {activeTab === 'complexity' && (
               <ComplexityTab workspaces={workspaces} />
+            )}
+
+            {activeTab === 'lineage' && (
+              <LineageTab workspaces={workspaces} />
             )}
           </div>
         </>

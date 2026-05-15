@@ -566,21 +566,3 @@ export default function SapSessionDetailPage() {
   )
 }
 
-function MetricGrid({ items }: { items: { label: string; value: string | number | boolean | null | undefined }[] }) {
-  return (
-    <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
-      {items.map(({ label, value }) => (
-        <div key={label}>
-          <dt className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</dt>
-          <dd className="mt-1 text-sm font-mono font-medium text-slate-800">
-            {value === null || value === undefined
-              ? <span className="text-slate-300">—</span>
-              : typeof value === 'boolean'
-                ? (value ? <span className="text-emerald-600">Yes</span> : <span className="text-slate-400">No</span>)
-                : String(value)}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  )
-}

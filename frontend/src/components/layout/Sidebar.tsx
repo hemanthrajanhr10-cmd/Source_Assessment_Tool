@@ -7,7 +7,7 @@ import {
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 
-// Tri-element nav groups: ember = brand/action, tide = connectivity/data, grove = fabric/success
+// Tri-element nav groups: ember = brand/action, tide = connectivity/data, grove = fabric/success, sand = SAP
 const NAV_GROUPS = [
   {
     label: 'Unified Assessment',
@@ -54,6 +54,21 @@ const NAV_GROUPS = [
     items: [
       { to: '/fabric/new',      label: 'Fabric Only',  icon: Zap       },
       { to: '/fabric/sessions', label: 'Assessments',  icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'SAP Systems',
+    element: 'sand',
+    dotGradient:      'linear-gradient(135deg, #7B5E00, #C49A0F)',
+    activeBg:         'rgba(123,94,0,0.07)',
+    activeText:       '#5C4500',
+    activeBorder:     'rgba(196,154,15,0.35)',
+    activeIconColor:  '#7B5E00',
+    activeDotGlow:    'rgba(123,94,0,0.45)',
+    hoverBg:          'rgba(254,252,232,0.6)',
+    items: [
+      { to: '/sap/new',      label: 'New Assessment', icon: PlusCircle },
+      { to: '/sap/sessions', label: 'Assessments',    icon: BarChart3  },
     ],
   },
 ]

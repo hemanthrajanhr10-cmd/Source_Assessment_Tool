@@ -22,6 +22,10 @@ import type {
   LoginRequest,
   MeResponse,
   RegisterRequest,
+  SapAssessmentRequest,
+  SapAssessmentResult,
+  SapJobResponse,
+  SapSessionRecord,
   SessionRequest,
   SessionStatusResponse,
   SetupMFAResponse,
@@ -250,6 +254,38 @@ export const api = {
       { responseType: 'blob' },
     )
     const filename = `${(label || 'fabric-assessment').replace(/\s+/g, '_')}_${sessionId.slice(0, 8)}.xlsx`
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  // ── SAP Assessments ───────────────────────────────────────────────────────
+  sapTestConnection: (data: SapAssessmentRequest) =>
+    http.post<{ success: boolean; message: string; system_info?: Record<string, string> }>(
+      '/api/v1/sap/test-connection',
+      data,
+    ),
+
+  sapStartAssessment: (data: SapAssessmentRequest) =>
+    http.post<SapJobResponse>('/api/v1/sap/assess', data),
+
+  sapGetJobStatus: (jobId: string) =>
+    http.get<{ job_id: string; status: string; progress_message?: string; error?: string }>(
+      `/api/v1/sap/jobs/${jobId}/status`,
+    ),
+
+  sapGetJobResults: (jobId: string) =>
+    http.get<SapAssessmentResult>(`/api/v1/sap/jobs/${jobId}/results`),
+
+  sapListSessions: () =>
+    http.get<SapSessionRecord[]>('/api/v1/sap/sessions'),
+
+  sapDownloadReport: async (jobId: string, label?: string) => {
+    const res = await http.get(`/api/v1/sap/jobs/${jobId}/report`, { responseType: 'blob' })
+    const filename = `${(label || 'sap-assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.xlsx`
     const url = URL.createObjectURL(res.data as Blob)
     const a = document.createElement('a')
     a.href = url

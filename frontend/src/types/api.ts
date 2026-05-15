@@ -2,6 +2,288 @@ export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancel
 export type SessionStatus = 'pending' | 'running' | 'completed' | 'partial' | 'failed' | 'cancelled'
 export type DbType = 'mssql' | 'postgres' | 'mysql' | 'oracle'
 
+// ── SAP ───────────────────────────────────────────────────────────────────────
+
+export type SapVariant =
+  | 'ecc'
+  | 's4hana'
+  | 'bw'
+  | 'hana'
+  | 'crm'
+  | 'srm'
+  | 'scm'
+  | 'pi_po'
+  | 'mdg'
+  | 'successfactors'
+
+export type SapConnectivityProtocol = 'rfc' | 'jdbc' | 'rest' | 'odata'
+
+export interface SapVariantMeta {
+  value: SapVariant
+  label: string
+  shortLabel: string
+  protocol: SapConnectivityProtocol
+  description: string
+}
+
+export const SAP_VARIANTS: SapVariantMeta[] = [
+  { value: 'ecc',            label: 'SAP ECC',                       shortLabel: 'ECC',           protocol: 'rfc',   description: 'ERP Central Component — RFC, ABAP programs, module volumes' },
+  { value: 's4hana',         label: 'SAP S/4HANA',                   shortLabel: 'S/4HANA',       protocol: 'rfc',   description: 'On-premise & Cloud — Fiori apps, BAdIs, migration objects' },
+  { value: 'bw',             label: 'SAP BW / BW/4HANA',             shortLabel: 'BW',            protocol: 'rfc',   description: 'Business Warehouse — InfoProviders, Process Chains, DTPs' },
+  { value: 'hana',           label: 'SAP HANA (Standalone)',          shortLabel: 'HANA',          protocol: 'jdbc',  description: 'In-memory DB — schemas, column/row store, calculation views' },
+  { value: 'crm',            label: 'SAP CRM',                       shortLabel: 'CRM',           protocol: 'rfc',   description: 'Customer Relationship Management — BPs, IC config, campaigns' },
+  { value: 'srm',            label: 'SAP SRM',                       shortLabel: 'SRM',           protocol: 'rfc',   description: 'Supplier Relationship Management — vendors, POs, catalogs' },
+  { value: 'scm',            label: 'SAP SCM / APO',                 shortLabel: 'SCM',           protocol: 'rfc',   description: 'Supply Chain — liveCache, planning areas, CIF systems' },
+  { value: 'pi_po',          label: 'SAP PI / PO',                   shortLabel: 'PI/PO',         protocol: 'rest',  description: 'Process Integration — iFlows, adapters, message monitoring' },
+  { value: 'mdg',            label: 'SAP MDG',                       shortLabel: 'MDG',           protocol: 'rfc',   description: 'Master Data Governance — governed entities, change requests' },
+  { value: 'successfactors', label: 'SAP SuccessFactors',            shortLabel: 'SFSF',          protocol: 'odata', description: 'Cloud HCM — modules, employees, MDF objects, integrations' },
+]
+
+/** RFC-based connection parameters (ECC, S/4HANA, BW, CRM, SRM, SCM, MDG) */
+export interface SapRfcParams {
+  host: string
+  sysnr: string
+  client: string
+  username: string
+  password: string
+}
+
+/** OData/REST extension used by S/4HANA alongside RFC */
+export interface SapODataParams {
+  api_base_url: string
+}
+
+/** JDBC connection parameters for standalone SAP HANA */
+export interface SapHanaParams {
+  host: string
+  port: number
+  instance_number: string
+  schema: string
+  username: string
+  password: string
+}
+
+/** REST/HTTP parameters for SAP PI/PO */
+export interface SapPiPoParams {
+  host: string
+  port: number
+  username: string
+  password: string
+  use_https: boolean
+}
+
+/** OAuth2 + OData parameters for SAP SuccessFactors */
+export interface SapSuccessFactorsParams {
+  api_url: string
+  company_id: string
+  client_id: string
+  client_secret: string
+  user_id: string
+}
+
+export interface SapAssessmentRequest {
+  variant: SapVariant
+  label?: string
+  /** RFC variants */
+  rfc?: SapRfcParams
+  /** S/4HANA OData extension */
+  odata?: SapODataParams
+  /** HANA JDBC */
+  hana?: SapHanaParams
+  /** PI/PO REST */
+  pi_po?: SapPiPoParams
+  /** SuccessFactors OAuth2 */
+  successfactors?: SapSuccessFactorsParams
+}
+
+// ── SAP Assessment Result ─────────────────────────────────────────────────────
+
+export interface SapSystemInfo {
+  system_id: string
+  client: string
+  basis_release: string
+  kernel_version: string
+  os_platform: string
+  db_layer: string
+}
+
+export interface SapObjectInventory {
+  total_repository_objects: number
+  custom_objects: number
+  standard_objects: number
+  custom_ratio_pct: number
+  deprecated_objects: number
+}
+
+export interface SapDataVolume {
+  key_object: string
+  row_count: number
+  size_mb: number
+}
+
+export interface SapUserProfile {
+  active_users: number
+  locked_users: number
+  dialog_users: number
+  system_users: number
+  role_count: number
+  profile_count: number
+}
+
+export interface SapPerformanceIndicators {
+  avg_response_ms: number
+  active_background_jobs: number
+  work_process_utilization_pct: number
+  short_dumps_last_24h: number
+}
+
+export interface SapExtractionReadiness {
+  supported_methods: string[]
+  delta_enabled_objects: number
+  existing_extractors: number
+  odp_available: boolean
+  slt_configured: boolean
+}
+
+// Variant-specific detail blocks
+export interface SapEccDetails {
+  z_table_count: number
+  standard_table_count: number
+  z_table_ratio_pct: number
+  abap_program_count: number
+  transport_landscape: string[]
+  module_volumes: Record<string, number>
+}
+
+export interface SapS4HanaDetails {
+  activated_business_functions: number
+  fiori_app_count: number
+  embedded_hana: boolean
+  badi_count: number
+  enhancement_spot_count: number
+  migration_object_count: number
+}
+
+export interface SapBwDetails {
+  info_cube_count: number
+  dso_adso_count: number
+  info_object_count: number
+  composite_provider_count: number
+  multi_provider_count: number
+  process_chain_count: number
+  transformation_count: number
+  dtp_count: number
+  source_system_connections: number
+  query_workbook_count: number
+  delta_mechanism_types: string[]
+}
+
+export interface SapHanaDetails {
+  schema_count: number
+  row_store_tables: number
+  column_store_tables: number
+  calculation_views: number
+  analytic_views: number
+  attribute_views: number
+  stored_procedures: number
+  sql_script_objects: number
+  replication_status: string
+  total_data_volume_gb: number
+}
+
+export interface SapCrmDetails {
+  business_partner_count: number
+  ic_profiles: number
+  campaign_objects: number
+  middleware_queues: number
+  custom_objects: number
+}
+
+export interface SapSrmDetails {
+  vendor_master_count: number
+  shopping_cart_count: number
+  purchase_order_count: number
+  catalog_items: number
+  workflow_tasks: number
+  backend_system_connections: number
+}
+
+export interface SapScmDetails {
+  live_cache_status: string
+  planning_area_count: number
+  model_version_count: number
+  cif_connected_systems: number
+  data_object_count: number
+}
+
+export interface SapPiPoDetails {
+  iflow_count: number
+  interface_count: number
+  adapter_types: string[]
+  avg_daily_messages: number
+  error_rate_pct: number
+  business_systems: number
+}
+
+export interface SapMdgDetails {
+  governed_entity_types: number
+  workflow_rule_count: number
+  governance_model: string
+  open_change_requests: number
+  consolidation_rules: number
+}
+
+export interface SapSuccessFactorsDetails {
+  active_modules: string[]
+  employee_count: number
+  mdf_object_count: number
+  integration_center_connections: number
+  replication_status: string
+}
+
+export interface SapAssessmentResult {
+  job_id: string
+  variant: SapVariant
+  label?: string
+  assessed_at: string
+  status: 'completed' | 'failed'
+  error?: string
+  system_info?: SapSystemInfo
+  object_inventory?: SapObjectInventory
+  data_volumes?: SapDataVolume[]
+  user_profile?: SapUserProfile
+  performance?: SapPerformanceIndicators
+  extraction_readiness?: SapExtractionReadiness
+  // Variant-specific
+  ecc?: SapEccDetails
+  s4hana?: SapS4HanaDetails
+  bw?: SapBwDetails
+  hana?: SapHanaDetails
+  crm?: SapCrmDetails
+  srm?: SapSrmDetails
+  scm?: SapScmDetails
+  pi_po?: SapPiPoDetails
+  mdg?: SapMdgDetails
+  successfactors?: SapSuccessFactorsDetails
+}
+
+export interface SapJobResponse {
+  job_id: string
+  status: JobStatus
+  message: string
+}
+
+export interface SapSessionRecord {
+  job_id: string
+  variant: SapVariant
+  label?: string
+  status: JobStatus
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: SapAssessmentResult
+}
+
 /** SQL Server access level — determines which assessments are run */
 export type AccessLevel = 'db_datareader' | 'view_database_state' | 'db_owner' | 'sysadmin'
 

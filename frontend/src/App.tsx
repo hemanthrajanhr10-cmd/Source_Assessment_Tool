@@ -16,6 +16,9 @@ const FabricSessionDetailPage    = lazy(() => import('./pages/FabricSessionDetai
 const UnifiedAssessmentPage      = lazy(() => import('./pages/UnifiedAssessmentPage'))
 const UnifiedSessionsPage        = lazy(() => import('./pages/UnifiedSessionsPage'))
 const UnifiedSessionDetailPage   = lazy(() => import('./pages/UnifiedSessionDetailPage'))
+const SapAssessmentPage          = lazy(() => import('./pages/SapAssessmentPage'))
+const SapSessionsPage            = lazy(() => import('./pages/SapSessionsPage'))
+const SapSessionDetailPage       = lazy(() => import('./pages/SapSessionDetailPage'))
 const LoginPage                  = lazy(() => import('./pages/LoginPage'))
 const RegisterPage               = lazy(() => import('./pages/RegisterPage'))
 const MFASetupPage               = lazy(() => import('./pages/MFASetupPage'))
@@ -78,6 +81,9 @@ function AppRoutes() {
                     <Route path="/unified/new" element={<UnifiedAssessmentPage />} />
                     <Route path="/unified/sessions" element={<UnifiedSessionsPage />} />
                     <Route path="/unified/sessions/:sessionId" element={<UnifiedSessionDetailPage />} />
+                    <Route path="/sap/new" element={<SapAssessmentPage />} />
+                    <Route path="/sap/sessions" element={<SapSessionsPage />} />
+                    <Route path="/sap/sessions/:jobId" element={<SapSessionDetailPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

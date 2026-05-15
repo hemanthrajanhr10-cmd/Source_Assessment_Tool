@@ -305,7 +305,7 @@ function ComparisonTable({ session }: { session: UnifiedSession }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden" style={{ boxShadow: 'var(--elevation-1)' }}>
       <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
-        <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #B83510, #0D7F97)' }}>
+        <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #0056B3, #0891B2)' }}>
           <BarChart2 className="h-4 w-4 text-white" />
         </div>
         <span className="text-sm font-bold text-slate-900">Side-by-Side Comparison</span>
@@ -408,10 +408,10 @@ export default function UnifiedSessionDetailPage() {
             className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
             style={{
               background: session.mode === 'source'
-                ? 'linear-gradient(135deg, #B83510, #DE4A1F)'
+                ? 'linear-gradient(135deg, #0056B3, #0084D4)'
                 : session.mode === 'fabric'
-                ? 'linear-gradient(135deg, #0D7F97, #177B44)'
-                : 'linear-gradient(135deg, #B83510, #0D7F97)',
+                ? 'linear-gradient(135deg, #0891B2, #0D9488)'
+                : 'linear-gradient(135deg, #0056B3, #0891B2)',
             }}
           >
             {session.mode === 'source' ? <Database className="h-4.5 w-4.5 text-white" style={{ height: '18px', width: '18px' }} /> :
@@ -427,9 +427,9 @@ export default function UnifiedSessionDetailPage() {
               <span
                 className="text-[10px] font-semibold px-2 py-0.5 rounded-md"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(184,53,16,0.07), rgba(13,127,151,0.04))',
-                  color: '#B83510',
-                  border: '1px solid rgba(184,53,16,0.22)',
+                  background: 'linear-gradient(135deg, rgba(0,86,179,0.07), rgba(8,145,178,0.04))',
+                  color: '#0056B3',
+                  border: '1px solid rgba(0,86,179,0.22)',
                 }}
               >
                 {MODE_LABELS[session.mode]}
@@ -476,7 +476,7 @@ export default function UnifiedSessionDetailPage() {
         <CollapsibleSection
           title="Source Database Assessment"
           icon={Database}
-          iconBg="linear-gradient(135deg, #B83510, #DE4A1F)"
+          iconBg="linear-gradient(135deg, #0056B3, #0084D4)"
           badge={
             (session.source?.status || session.source_status)
               ? <StatusBadge status={session.source?.status || session.source_status!} />
@@ -502,7 +502,7 @@ export default function UnifiedSessionDetailPage() {
         <CollapsibleSection
           title="Fabric Assessment"
           icon={Zap}
-          iconBg="linear-gradient(135deg, #0D7F97, #177B44)"
+          iconBg="linear-gradient(135deg, #0891B2, #0D9488)"
           badge={
             (session.fabric?.status || session.fabric_status)
               ? <StatusBadge status={session.fabric?.status || session.fabric_status!} />

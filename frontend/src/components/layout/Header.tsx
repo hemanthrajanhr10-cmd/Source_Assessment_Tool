@@ -71,7 +71,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
       <button
         onClick={onMenuClick}
         className="lg:hidden p-2 rounded-xl text-slate-500 transition-colors mr-3 focus-visible:ring-2"
-        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(255,244,239,0.8)'; el.style.color = '#B83510' }}
+        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(239,247,255,0.8)'; el.style.color = '#0056B3' }}
         onMouseLeave={(e) => { const el = e.currentTarget; el.style.backgroundColor = ''; el.style.color = '' }}
         aria-label="Open navigation"
       >
@@ -101,9 +101,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <div
           className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border"
           style={{
-            background: 'rgba(237, 249, 240, 0.8)',
-            borderColor: 'rgba(134, 208, 164, 0.5)',
-            boxShadow: '0 0 8px rgba(23,123,68,0.08)',
+            background: 'rgba(240, 253, 250, 0.8)',
+            borderColor: 'rgba(45, 212, 191, 0.5)',
+            boxShadow: '0 0 8px rgba(13,148,136,0.08)',
           }}
         >
           <Activity className="h-3 w-3 text-grove-500" aria-hidden="true" />
@@ -115,7 +115,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         {/* Notification bell */}
         <button
           className="relative p-2 rounded-xl text-slate-400 transition-colors focus-visible:ring-2"
-        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(255,244,239,0.8)'; el.style.color = '#B83510' }}
+        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(239,247,255,0.8)'; el.style.color = '#0056B3' }}
         onMouseLeave={(e) => { const el = e.currentTarget; el.style.backgroundColor = ''; el.style.color = '' }}
           aria-label="Notifications"
           title="Notifications"
@@ -124,7 +124,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           {notifPulse && (
             <span
               className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: '#B83510', boxShadow: '0 0 6px rgba(184,53,16,0.55)' }}
+              style={{ backgroundColor: '#0056B3', boxShadow: '0 0 6px rgba(0,86,179,0.55)' }}
               aria-hidden="true"
             />
           )}

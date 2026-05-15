@@ -36,8 +36,8 @@ const variantStyles: Record<Variant, string> = {
 /* Inline styles per variant */
 const variantInlineStyle: Record<Variant, React.CSSProperties> = {
   primary: {
-    background: 'linear-gradient(135deg, #B83510 0%, #DE4A1F 100%)',
-    boxShadow: '0 4px 16px rgba(184, 53, 16, 0.28), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
+    background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)',
+    boxShadow: '0 4px 16px rgba(0, 86, 179, 0.28), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
   },
   secondary: {
     boxShadow: 'var(--elevation-1), var(--elevation-border-1)',

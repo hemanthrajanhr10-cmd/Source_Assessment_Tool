@@ -15,9 +15,9 @@ import Spinner from '../components/ui/Spinner'
 import { formatDateTime, elapsed } from '../utils/dateTime'
 
 const MODE_META: Record<string, { label: string; icon: React.ElementType; gradient: string }> = {
-  source: { label: 'Source DB',         icon: Database, gradient: 'linear-gradient(135deg, #B83510, #DE4A1F)' },
-  fabric: { label: 'Fabric',            icon: Zap,      gradient: 'linear-gradient(135deg, #0D7F97, #177B44)' },
-  both:   { label: 'Full Assessment',   icon: Layers3,  gradient: 'linear-gradient(135deg, #B83510, #0D7F97)' },
+  source: { label: 'Source DB',         icon: Database, gradient: 'linear-gradient(135deg, #0056B3, #0084D4)' },
+  fabric: { label: 'Fabric',            icon: Zap,      gradient: 'linear-gradient(135deg, #0891B2, #0D9488)' },
+  both:   { label: 'Full Assessment',   icon: Layers3,  gradient: 'linear-gradient(135deg, #0056B3, #0891B2)' },
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
@@ -72,9 +72,9 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
           <span
             className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0"
             style={{
-              background: 'rgba(184,53,16,0.07)',
-              color: '#B83510',
-              border: '1px solid rgba(184,53,16,0.22)',
+              background: 'rgba(0,86,179,0.07)',
+              color: '#0056B3',
+              border: '1px solid rgba(0,86,179,0.22)',
             }}
           >
             {meta.label}

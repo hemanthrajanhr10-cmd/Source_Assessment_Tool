@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAssessmentProgress } from '../hooks/useAssessmentProgress'
 import PhaseStepperBar from './PhaseStepperBar'
 import LiveActivityFeed from './LiveActivityFeed'
@@ -8,45 +8,90 @@ interface AssessmentProgressProps {
   sessionLabel?: string
 }
 
-const FONT = "'Segoe UI', system-ui, -apple-system, sans-serif"
+const FONT = "'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, sans-serif"
+
+const KEYFRAMES = `
+  @keyframes ping-status {
+    0%   { transform: scale(0.9); opacity: 0.6; }
+    100% { transform: scale(2.6); opacity: 0;   }
+  }
+  @keyframes pulse-status {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.55; }
+  }
+  @keyframes bar-shimmer {
+    0%   { transform: translateX(-120%); }
+    100% { transform: translateX(280%);  }
+  }
+  @keyframes card-breathe {
+    0%,  100% { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 0   rgba(0,132,212,0),    0 4px 16px rgba(0,84,179,0.04); }
+    50%        { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 3px rgba(0,132,212,0.12), 0 8px 28px rgba(0,84,179,0.10); }
+  }
+  @keyframes header-scan {
+    0%   { transform: translateX(-100%); opacity: 0.6; }
+    60%  { opacity: 0.9; }
+    100% { transform: translateX(100%);  opacity: 0;   }
+  }
+  @keyframes pct-pop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.12); }
+    100% { transform: scale(1); }
+  }
+`
 
 function StatusBadge({ status }: { status: string }) {
-  const cfg: Record<string, { bg: string; color: string; label: string }> = {
-    queued:    { bg: '#F3F4F6', color: '#6B7280', label: 'Queued' },
-    running:   { bg: '#F8F2E8', color: '#1D4ED8', label: 'Running' },
-    completed: { bg: '#FDF6EE', color: '#15803D', label: 'Completed' },
-    failed:    { bg: '#FFF1F2', color: '#BE123C', label: 'Failed' },
-    cancelled: { bg: '#F3F4F6', color: '#6B7280', label: 'Cancelled' },
+  const cfg: Record<string, { bg: string; border: string; color: string; dot: string; label: string }> = {
+    queued:    { bg: '#EFF6FF', border: 'transparent',          color: '#404555', dot: '#9AB5D8',  label: 'Queued'    },
+    running:   { bg: 'rgba(0,132,212,0.07)', border: 'rgba(0,132,212,0.18)', color: '#003D82', dot: '#0084D4', label: 'Running' },
+    completed: { bg: 'rgba(20,184,166,0.07)', border: 'rgba(20,184,166,0.2)', color: '#0D9488', dot: '#14B8A6', label: 'Completed' },
+    failed:    { bg: '#FFF1F2', border: '#FECDD3',              color: '#BE123C', dot: '#EF4444', label: 'Failed'    },
+    cancelled: { bg: '#F8FAFC', border: 'transparent',          color: '#767A8C', dot: '#9CA3AF', label: 'Cancelled' },
   }
-  const { bg, color, label } = cfg[status] ?? cfg.queued
+  const { bg, border, color, dot, label } = cfg[status] ?? cfg.queued
+  const isRunning = status === 'running'
+
   return (
     <span
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 5,
-        padding: '2px 10px',
+        gap: 7,
+        padding: '3px 11px 3px 9px',
         borderRadius: 9999,
         background: bg,
+        border: `1px solid ${border}`,
         color,
         fontSize: 11,
         fontWeight: 700,
-        letterSpacing: '0.04em',
+        letterSpacing: '0.05em',
         textTransform: 'uppercase',
+        fontFamily: FONT,
       }}
     >
-      {status === 'running' && (
+      <span style={{ position: 'relative', width: 7, height: 7, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {isRunning && (
+          <span
+            style={{
+              position: 'absolute',
+              inset: -3,
+              borderRadius: '50%',
+              background: dot,
+              opacity: 0,
+              animation: 'ping-status 1.8s cubic-bezier(0,0,0.2,1) infinite',
+            }}
+          />
+        )}
         <span
           style={{
-            width: 6,
-            height: 6,
+            width: 7,
+            height: 7,
             borderRadius: '50%',
-            background: '#3B82F6',
+            background: dot,
             display: 'inline-block',
-            animation: 'pulse 1.5s ease-in-out infinite',
+            animation: isRunning ? 'pulse-status 1.8s ease-in-out infinite' : 'none',
           }}
         />
-      )}
+      </span>
       {label}
     </span>
   )
@@ -90,210 +135,317 @@ export default function AssessmentProgress({ sessionId, sessionLabel }: Assessme
     : 0
 
   const eta = formatETA(progress?.estimated_completion)
-  const isTerminal = progress?.status === 'completed' || progress?.status === 'failed' || progress?.status === 'cancelled'
+  const isRunning   = progress?.status === 'running'
+  const isCompleted = progress?.status === 'completed'
+  const isFailed    = progress?.status === 'failed'
+  const isTerminal  = isCompleted || isFailed || progress?.status === 'cancelled'
+
+  const displayPct = isCompleted ? 100 : pct
+
+  const barColor = isFailed
+    ? '#EF4444'
+    : isCompleted
+      ? '#14B8A6'
+      : 'linear-gradient(90deg, #003D82 0%, #0084D4 45%, #38A8F5 80%, #0084D4 100%)'
+
+  const barBg = isFailed ? '#FFF1F2' : isCompleted ? 'rgba(20,184,166,0.08)' : '#EFF6FF'
 
   return (
-    <div
-      style={{
-        fontFamily: FONT,
-        background: '#fff',
-        borderRadius: 12,
-        border: '1px solid #E5E7EB',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-        overflow: 'hidden',
-        maxWidth: 720,
-        margin: '0 auto',
-      }}
-    >
-      {/* ── Header strip ───────────────────────────────────────────────────── */}
+    <>
+      <style>{KEYFRAMES}</style>
       <div
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '14px 20px',
-          borderBottom: '1px solid #F3F4F6',
-          background: '#FAFAFA',
-          flexWrap: 'wrap',
-          gap: 8,
+          fontFamily: FONT,
+          background: '#FFFFFF',
+          borderRadius: 14,
+          border: '1px solid #C5D5EC',
+          overflow: 'hidden',
+          maxWidth: 740,
+          margin: '0 auto',
+          animation: isRunning ? 'card-breathe 3s ease-in-out infinite' : 'none',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <StatusBadge status={progress?.status ?? 'queued'} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>
-            {sessionLabel ?? 'Fabric Assessment'}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 12, color: '#6B7280' }}>
-          <span>Elapsed: <strong style={{ color: '#374151' }}>{formatSeconds(elapsed)}</strong></span>
-          {eta && !isTerminal && (
-            <span>ETA: <strong style={{ color: '#374151' }}>{eta}</strong></span>
-          )}
-        </div>
-      </div>
 
-      {/* ── Body ───────────────────────────────────────────────────────────── */}
-      <div style={{ padding: '20px 20px 16px' }}>
-
-        {/* Phase stepper */}
-        {progress && (
-          <div style={{ marginBottom: 24 }}>
-            <PhaseStepperBar
-              currentPhase={progress.phase}
-              phaseProgress={progress.phase_progress}
-              status={progress.status}
-            />
-          </div>
-        )}
-
-        {/* Main progress bar */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
-            <span style={{ color: '#6B7280' }}>
-              {progress?.current_item_name
-                ? `Processing: ${progress.current_item_name}`
-                : progress?.status === 'queued'
-                  ? 'Queued — waiting to start…'
-                  : 'Preparing…'}
-            </span>
-            <span style={{ fontWeight: 700, color: progress?.status === 'failed' ? '#DC2626' : '#374151' }}>
-              {progress?.status === 'completed' ? '100%' : `${pct}%`}
-            </span>
-          </div>
-          <div
-            style={{
-              height: 8,
-              borderRadius: 9999,
-              background: '#F3F4F6',
-              overflow: 'hidden',
-            }}
-            role="progressbar"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
+        {/* ── Header ──────────────────────────────────────────────────────────── */}
+        <div
+          style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '13px 20px',
+            background: 'linear-gradient(180deg, #FAFCFF 0%, #F5F8FE 100%)',
+            borderBottom: '1px solid #E8F0FB',
+            flexWrap: 'wrap',
+            gap: 8,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Scan-line shimmer on header when running */}
+          {isRunning && (
             <div
               style={{
-                height: '100%',
-                width: `${progress?.status === 'completed' ? 100 : pct}%`,
-                borderRadius: 9999,
-                background: progress?.status === 'failed'
-                  ? '#EF4444'
-                  : progress?.status === 'completed'
-                    ? '#10B981'
-                    : 'linear-gradient(90deg, #3B82F6 0%, #6366F1 100%)',
-                transition: 'width 0.5s ease',
+                position: 'absolute',
+                inset: 0,
+                background: 'linear-gradient(90deg, transparent 0%, rgba(0,132,212,0.06) 50%, transparent 100%)',
+                animation: 'header-scan 3.5s cubic-bezier(0.4,0,0.6,1) infinite',
+                pointerEvents: 'none',
               }}
             />
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative' }}>
+            <StatusBadge status={progress?.status ?? 'queued'} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#0D1117', letterSpacing: '-0.01em' }}>
+              {sessionLabel ?? 'Fabric Assessment'}
+            </span>
           </div>
-          {progress && progress.total_items > 0 && (
-            <div style={{ display: 'flex', gap: 16, marginTop: 5, fontSize: 11, color: '#9CA3AF' }}>
-              <span>{progress.processed_items} / {progress.total_items} items</span>
-              {progress.failed_items > 0 && (
-                <span style={{ color: '#F59E0B' }}>{progress.failed_items} failed</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 12, color: '#767A8C', position: 'relative' }}>
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+              Elapsed{' '}
+              <strong style={{ color: '#0D1117', fontWeight: 600 }}>{formatSeconds(elapsed)}</strong>
+            </span>
+            {eta && !isTerminal && (
+              <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                ETA{' '}
+                <strong style={{ color: '#0056B3', fontWeight: 600 }}>{eta}</strong>
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* ── Body ────────────────────────────────────────────────────────────── */}
+        <div style={{ padding: '22px 22px 18px' }}>
+
+          {/* Phase stepper */}
+          {progress && (
+            <div style={{ marginBottom: 28 }}>
+              <PhaseStepperBar
+                currentPhase={progress.phase}
+                phaseProgress={progress.phase_progress}
+                status={progress.status}
+              />
+            </div>
+          )}
+
+          {/* Main progress section */}
+          <div style={{ marginBottom: 20 }}>
+
+            {/* Label row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+              <span
+                style={{
+                  fontSize: 12,
+                  color: '#404555',
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '74%',
+                }}
+              >
+                {progress?.current_item_name
+                  ? `Processing: ${progress.current_item_name}`
+                  : progress?.status === 'queued'
+                    ? 'Queued — waiting to start'
+                    : 'Preparing'}
+              </span>
+              <span
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: isFailed ? '#DC2626' : isCompleted ? '#0D9488' : '#003D82',
+                  fontVariantNumeric: 'tabular-nums',
+                  letterSpacing: '-0.01em',
+                  flexShrink: 0,
+                }}
+              >
+                {displayPct}%
+              </span>
+            </div>
+
+            {/* Progress bar track */}
+            <div
+              style={{
+                height: 7,
+                borderRadius: 9999,
+                background: barBg,
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+              role="progressbar"
+              aria-valuenow={displayPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              {/* Fill */}
+              <div
+                style={{
+                  height: '100%',
+                  width: `${displayPct}%`,
+                  borderRadius: 9999,
+                  background: barColor,
+                  backgroundSize: '300% 100%',
+                  transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Shimmer overlay */}
+                {isRunning && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.32) 50%, transparent 100%)',
+                      animation: 'bar-shimmer 2.2s cubic-bezier(0.4,0,0.6,1) infinite',
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Item counter */}
+            {progress && progress.total_items > 0 && (
+              <div style={{ display: 'flex', gap: 14, marginTop: 6, fontSize: 11, color: '#9AB5D8', fontVariantNumeric: 'tabular-nums' }}>
+                <span>
+                  <strong style={{ color: '#404555', fontWeight: 600 }}>{progress.processed_items}</strong>
+                  {' / '}
+                  {progress.total_items} items
+                </span>
+                {progress.failed_items > 0 && (
+                  <span style={{ color: '#F59E0B', fontWeight: 500 }}>
+                    {progress.failed_items} with errors
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Failure reason */}
+          {isFailed && progress?.failure_reason && (
+            <div
+              style={{
+                padding: '10px 14px',
+                borderRadius: 8,
+                background: '#FFF1F2',
+                border: '1px solid #FECDD3',
+                color: '#BE123C',
+                fontSize: 12,
+                marginBottom: 18,
+                lineHeight: 1.5,
+              }}
+            >
+              <strong style={{ fontWeight: 700 }}>Error:</strong>{' '}{progress.failure_reason}
+            </div>
+          )}
+
+          {/* SSE error */}
+          {error && !progress && (
+            <div
+              style={{
+                padding: '8px 12px',
+                borderRadius: 6,
+                background: '#FFFBEB',
+                border: '1px solid #FDE68A',
+                color: '#92400E',
+                fontSize: 11,
+                marginBottom: 14,
+              }}
+            >
+              Connection issue — retrying ({error})
+            </div>
+          )}
+
+          {/* Activity feed */}
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                marginBottom: 8,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: '#9AB5D8',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                }}
+              >
+                Activity
+              </span>
+              {isRunning && (
+                <span
+                  style={{
+                    width: 4,
+                    height: 4,
+                    borderRadius: '50%',
+                    background: '#0084D4',
+                    display: 'inline-block',
+                    animation: 'pulse-status 1.4s ease-in-out infinite',
+                  }}
+                />
               )}
             </div>
-          )}
-        </div>
 
-        {/* Failure reason */}
-        {progress?.status === 'failed' && progress.failure_reason && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: 8,
-              background: '#FFF1F2',
-              border: '1px solid #FECDD3',
-              color: '#BE123C',
-              fontSize: 12,
-              marginBottom: 16,
-            }}
-          >
-            <strong>Error:</strong> {progress.failure_reason}
-          </div>
-        )}
-
-        {/* SSE connection error */}
-        {error && !progress && (
-          <div
-            style={{
-              padding: '8px 12px',
-              borderRadius: 6,
-              background: '#FFFBEB',
-              border: '1px solid #FDE68A',
-              color: '#92400E',
-              fontSize: 11,
-              marginBottom: 12,
-            }}
-          >
-            Connection issue — retrying… ({error})
-          </div>
-        )}
-
-        {/* Activity feed */}
-        <div>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              color: '#6B7280',
-              textTransform: 'uppercase',
-              letterSpacing: '0.06em',
-              marginBottom: 6,
-            }}
-          >
-            Activity
-          </div>
-          <div
-            style={{
-              border: '1px solid #F3F4F6',
-              borderRadius: 8,
-              padding: '8px 10px',
-              background: '#FAFAFA',
-            }}
-          >
-            <LiveActivityFeed events={progress?.activity_log ?? []} />
-          </div>
-        </div>
-
-        {/* Error summary */}
-        {progress && progress.errors.length > 0 && (
-          <details style={{ marginTop: 12 }}>
-            <summary
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: '#B45309',
-                cursor: 'pointer',
-                userSelect: 'none',
-              }}
-            >
-              {progress.errors.length} item{progress.errors.length !== 1 ? 's' : ''} with errors
-            </summary>
             <div
               style={{
-                marginTop: 8,
-                maxHeight: 120,
-                overflowY: 'auto',
-                fontSize: 11,
-                color: '#6B7280',
-                scrollbarWidth: 'thin',
+                border: '1px solid #E8F0FB',
+                borderRadius: 10,
+                padding: '8px 10px',
+                background: '#FAFCFF',
               }}
             >
-              {progress.errors.map((e, i) => (
-                <div key={i} style={{ padding: '3px 0', borderBottom: '1px solid #F3F4F6' }}>
-                  <strong style={{ color: '#374151' }}>{e.item}</strong>
-                  {' — '}
-                  <span style={{ color: '#B45309' }}>{e.error}</span>
-                </div>
-              ))}
+              <LiveActivityFeed
+                events={progress?.activity_log ?? []}
+                isRunning={isRunning}
+              />
             </div>
-          </details>
-        )}
-      </div>
+          </div>
 
-      {/* Pulse keyframe injected once */}
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
-    </div>
+          {/* Error summary */}
+          {progress && progress.errors.length > 0 && (
+            <details style={{ marginTop: 14 }}>
+              <summary
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: '#B45309',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                {progress.errors.length} item{progress.errors.length !== 1 ? 's' : ''} with errors
+              </summary>
+              <div
+                style={{
+                  marginTop: 8,
+                  maxHeight: 120,
+                  overflowY: 'auto',
+                  fontSize: 11,
+                  color: '#767A8C',
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: 'rgba(0,86,179,0.18) transparent',
+                }}
+              >
+                {progress.errors.map((e, i) => (
+                  <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid #EFF6FF' }}>
+                    <strong style={{ color: '#404555' }}>{e.item}</strong>
+                    {' — '}
+                    <span style={{ color: '#B45309' }}>{e.error}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      </div>
+    </>
   )
 }

@@ -9,21 +9,22 @@ import {
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { SageIntacctAssessmentResult } from '../types/api'
+import Loader3D from '../components/ui/Loader3D'
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
+// ── Design tokens (Ocean theme) ───────────────────────────────────────────────
 
 const SAGE = {
-  primary:    '#1B6B45',
-  mid:        '#2E7D5A',
-  light:      '#16A34A',
-  accent:     '#22C55E',
-  light50:    '#F0FDF4',
-  light100:   '#DCFCE7',
-  light200:   '#BBF7D0',
-  glow:       'rgba(34,197,94,0.18)',
-  shadow:     '0 2px 4px rgba(27,107,69,0.04), 0 8px 24px rgba(27,107,69,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowH:    '0 4px 8px rgba(27,107,69,0.06), 0 16px 40px rgba(27,107,69,0.10)',
-  shadowBtn:  '0 2px 8px rgba(27,107,69,0.28), inset 0 1px 0 rgba(255,255,255,0.16)',
+  primary:    '#0056B3',
+  mid:        '#0084D4',
+  light:      '#38A8F5',
+  accent:     '#38A8F5',
+  light50:    '#EFF7FF',
+  light100:   '#DBEEFF',
+  light200:   '#BAE0FF',
+  glow:       'rgba(0,86,179,0.15)',
+  shadow:     '0 2px 4px rgba(0,86,179,0.04), 0 8px 24px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowH:    '0 4px 8px rgba(0,86,179,0.06), 0 16px 40px rgba(0,86,179,0.10)',
+  shadowBtn:  '0 2px 8px rgba(0,86,179,0.30), inset 0 1px 0 rgba(255,255,255,0.16)',
 }
 
 // ── Assessment steps (terminal progress) ──────────────────────────────────────
@@ -539,6 +540,11 @@ export default function SageIntacctSessionDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Initial load spinner — shown until first status response arrives */}
+      {!loadError && status === 'pending' && !progressMessage && !results && (
+        <Loader3D message="Fetching assessment…" />
+      )}
 
       {/* Load error */}
       {loadError && (

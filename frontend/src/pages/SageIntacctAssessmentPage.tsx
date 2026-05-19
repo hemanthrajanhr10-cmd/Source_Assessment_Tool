@@ -13,16 +13,16 @@ import Spinner from '../components/ui/Spinner'
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
 const SAGE = {
-  primary:    '#1B6B45',
-  mid:        '#2E7D5A',
-  accent:     '#22C55E',
-  light50:    '#F0FDF4',
-  light100:   '#DCFCE7',
-  light200:   '#BBF7D0',
-  glow:       'rgba(34,197,94,0.18)',
-  shadowCard: '0 2px 4px rgba(27,107,69,0.04), 0 8px 24px rgba(27,107,69,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowHover:'0 4px 8px rgba(27,107,69,0.06), 0 16px 40px rgba(27,107,69,0.10), 0 2px 4px rgba(0,0,0,0.04)',
-  shadowBtn:  '0 2px 8px rgba(27,107,69,0.28), inset 0 1px 0 rgba(255,255,255,0.16)',
+  primary:    '#0056B3',
+  mid:        '#0084D4',
+  accent:     '#38A8F5',
+  light50:    '#EFF7FF',
+  light100:   '#DBEEFF',
+  light200:   '#BAE0FF',
+  glow:       'rgba(0,86,179,0.15)',
+  shadowCard: '0 2px 4px rgba(0,86,179,0.04), 0 8px 24px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowHover:'0 4px 8px rgba(0,86,179,0.06), 0 16px 40px rgba(0,86,179,0.10), 0 2px 4px rgba(0,0,0,0.04)',
+  shadowBtn:  '0 2px 8px rgba(0,86,179,0.30), inset 0 1px 0 rgba(255,255,255,0.16)',
 }
 
 // ── Component helpers ─────────────────────────────────────────────────────────

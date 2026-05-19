@@ -7,26 +7,27 @@ import {
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { SageIntacctSessionRecord } from '../types/api'
+import Loader3D from '../components/ui/Loader3D'
 
-// ── Design tokens (shared) ────────────────────────────────────────────────────
+// ── Design tokens (Ocean theme) ───────────────────────────────────────────────
 
 const SAGE = {
-  primary: '#1B6B45',
-  mid:     '#2E7D5A',
-  accent:  '#22C55E',
-  light50: '#F0FDF4',
-  light100:'#DCFCE7',
-  light200:'#BBF7D0',
-  glow:    'rgba(34,197,94,0.18)',
-  shadow:  '0 2px 4px rgba(27,107,69,0.04), 0 8px 24px rgba(27,107,69,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowH: '0 4px 8px rgba(27,107,69,0.06), 0 16px 40px rgba(27,107,69,0.10), 0 2px 4px rgba(0,0,0,0.04)',
+  primary: '#0056B3',
+  mid:     '#0084D4',
+  accent:  '#38A8F5',
+  light50: '#EFF7FF',
+  light100:'#DBEEFF',
+  light200:'#BAE0FF',
+  glow:    'rgba(0,86,179,0.15)',
+  shadow:  '0 2px 4px rgba(0,86,179,0.04), 0 8px 24px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowH: '0 4px 8px rgba(0,86,179,0.06), 0 16px 40px rgba(0,86,179,0.10), 0 2px 4px rgba(0,0,0,0.04)',
 }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { bg: string; text: string; icon: React.ElementType; dot?: string }> = {
-    completed: { bg: '#F0FDF4', text: '#166534', icon: CheckCircle2, dot: '#22C55E' },
+    completed: { bg: '#EFF7FF', text: '#003D82', icon: CheckCircle2, dot: '#38A8F5' },
     running:   { bg: '#EFF6FF', text: '#1E40AF', icon: Loader2,      dot: '#3B82F6' },
     pending:   { bg: '#FFFBEB', text: '#92400E', icon: Clock,         dot: '#F59E0B' },
     failed:    { bg: '#FFF5F5', text: '#991B1B', icon: XCircle,       dot: '#EF4444' },
@@ -344,18 +345,8 @@ export default function SageIntacctSessionsPage() {
         </div>
       )}
 
-      {/* Loading skeleton */}
-      {loading && (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-24 rounded-2xl border border-slate-100 animate-pulse"
-              style={{ background: `linear-gradient(90deg, #F8FAFC 0%, ${SAGE.light50} 50%, #F8FAFC 100%)` }}
-            />
-          ))}
-        </div>
-      )}
+      {/* Loading */}
+      {loading && <Loader3D message="Loading assessments…" />}
 
       {/* Sessions grid */}
       {!loading && sessions.length === 0 && <EmptyState />}

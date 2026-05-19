@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+﻿import { useState, Component, type ReactNode, type ErrorInfo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -1029,9 +1029,35 @@ function parseProgress(raw: string | null | undefined): ProgressData | null {
 }
 
 
+// ── Error Boundary ─────────────────────────────────────────────────────────────
+
+class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('FabricSessionDetailPage render error', error, info) }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+          <AlertCircle className="h-10 w-10 text-red-400" />
+          <p className="text-slate-700 font-medium">Something went wrong rendering this page.</p>
+          <p className="text-xs text-slate-500 max-w-sm">{(this.state.error as Error).message}</p>
+          <button
+            onClick={() => { this.setState({ error: null }); window.location.reload() }}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-earth-50 text-earth-700 border border-earth-200 hover:bg-earth-100 transition-colors"
+          >
+            Reload page
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export default function FabricSessionDetailPage() {
+function FabricSessionDetailPageInner() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate      = useNavigate()
   const location      = useLocation()
@@ -1040,11 +1066,14 @@ export default function FabricSessionDetailPage() {
   const queryClient   = useQueryClient()
   const [activeTab, setActiveTab]   = useState<Tab>('overview')
   const [exporting,  setExporting]  = useState(false)
+  const [wsPage, setWsPage]         = useState(5)
 
-  const { data: session, isLoading } = useQuery({
+  const { data: session, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['fabric-session', sessionId],
     queryFn:  () => api.getFabricSession(sessionId!).then(r => r.data),
-    refetchInterval: q => q.state.data?.status === 'running' ? 4000 : false,
+    refetchInterval: q => q.state.data?.status === 'running' ? 5000 : false,
+    retry: 3,
+    retryDelay: attempt => Math.min(1000 * 2 ** attempt, 10000),
     enabled: !!sessionId,
   })
 
@@ -1069,6 +1098,22 @@ export default function FabricSessionDetailPage() {
   }
 
   if (isLoading) return <Loader3D message="Loading session" size="lg" />
+
+  if (isError) return (
+    <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+      <AlertCircle className="h-10 w-10 text-red-400" />
+      <p className="text-slate-700 font-semibold">Failed to load session</p>
+      <p className="text-xs text-slate-500 max-w-sm">
+        {(queryError as Error)?.message ?? 'Network error. The server may be busy with a large assessment.'}
+      </p>
+      <button
+        onClick={() => refetch()}
+        className="px-4 py-2 rounded-lg text-sm font-medium bg-earth-50 text-earth-700 border border-earth-200 hover:bg-earth-100 transition-colors"
+      >
+        Retry
+      </button>
+    </div>
+  )
 
   if (!session) return (
     <div className="flex items-center gap-2 text-red-400">
@@ -1196,7 +1241,7 @@ export default function FabricSessionDetailPage() {
 
             {activeTab === 'models' && (
               <div className="space-y-4">
-                {workspaces.map(ws => (
+                {workspaces.slice(0, wsPage).map(ws => (
                   <div key={ws.id} className="card overflow-hidden border-2 border-slate-200">
                     <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
                       <Zap className="h-4 w-4 text-earth-600" />
@@ -1218,6 +1263,14 @@ export default function FabricSessionDetailPage() {
                     )}
                   </div>
                 ))}
+                {wsPage < workspaces.length && (
+                  <button
+                    onClick={() => setWsPage(p => p + 5)}
+                    className="w-full py-2.5 rounded-xl text-sm font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 transition-colors"
+                  >
+                    Show more workspaces ({workspaces.length - wsPage} remaining)
+                  </button>
+                )}
               </div>
             )}
 
@@ -1236,5 +1289,13 @@ export default function FabricSessionDetailPage() {
         </>
       )}
     </div>
+  )
+}
+
+export default function FabricSessionDetailPage() {
+  return (
+    <PageErrorBoundary>
+      <FabricSessionDetailPageInner />
+    </PageErrorBoundary>
   )
 }

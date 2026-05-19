@@ -22,9 +22,11 @@ Additional endpoints (for standalone use):
 """
 
 import asyncio
+import functools
 import io
 import json
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -455,16 +457,26 @@ async def _run_fabric_assessment(
     # Semaphore limits concurrent Fabric REST API calls.
     # 20 slots × ~3 calls/model = ~60 in-flight requests max, well within limit.
     _sem = asyncio.Semaphore(20)
+    _loop = asyncio.get_event_loop()
 
-    # ── Convenience: write legacy progress_message to DB ─────────────────────
-    def _db_progress(msg: str, md: int = 0, mt: int = 0, rd: int = 0, rt: int = 0) -> None:
+    # ── Throttled DB progress writer (max 1 write per 4 s) ───────────────────
+    # Runs the synchronous DB call in a thread pool so it never blocks the
+    # event loop — critical when processing hundreds of models/reports.
+    _last_db_progress: list[float] = [0.0]
+
+    def _write_db_progress(payload: str) -> None:
         try:
-            azure_store.update_fabric_session(
-                session_id,
-                progress_message=json.dumps({"msg": msg, "md": md, "mt": mt, "rd": rd, "rt": rt}),
-            )
+            azure_store.update_fabric_session(session_id, progress_message=payload)
         except Exception as exc:
             logger.warning("DB progress update failed: %s", exc)
+
+    def _db_progress(msg: str, md: int = 0, mt: int = 0, rd: int = 0, rt: int = 0, force: bool = False) -> None:
+        now = time.monotonic()
+        if not force and (now - _last_db_progress[0]) < 4.0:
+            return
+        _last_db_progress[0] = now
+        payload = json.dumps({"msg": msg, "md": md, "mt": mt, "rd": rd, "rt": rt})
+        _loop.run_in_executor(None, _write_db_progress, payload)
 
     tracker = await _progress_store.create(session_id)
     await tracker.set_status("running")
@@ -645,7 +657,7 @@ async def _run_fabric_assessment(
 
         # ── Phase 5: Assemble results + save ──────────────────────────────────
         await tracker.set_phase("saving")
-        _db_progress("Saving results…", md=total_models, mt=total_models, rd=total_reports, rt=total_reports)
+        _db_progress("Saving results…", md=total_models, mt=total_models, rd=total_reports, rt=total_reports, force=True)
 
         workspace_results: list[dict] = []
         for ws_id in workspace_ids:
@@ -671,17 +683,26 @@ async def _run_fabric_assessment(
             "summary":     summary,
         }
 
-        azure_store.update_fabric_session(
-            session_id,
-            status="completed",
-            completed_at=datetime.now(timezone.utc).isoformat(),
-            progress_message=json.dumps({
-                "msg": "Assessment complete",
-                "md": total_models, "mt": total_models,
-                "rd": total_reports, "rt": total_reports,
-            }),
-            results_json=json.dumps(fabric_results, default=str),
-        )
+        # Offload CPU-bound JSON serialisation + blocking DB write to a thread
+        # so the event loop stays responsive to other HTTP requests during save.
+        completed_at_str = datetime.now(timezone.utc).isoformat()
+        progress_final = json.dumps({
+            "msg": "Assessment complete",
+            "md": total_models, "mt": total_models,
+            "rd": total_reports, "rt": total_reports,
+        })
+
+        def _do_save() -> None:
+            results_json_str = json.dumps(fabric_results, default=str)
+            azure_store.update_fabric_session(
+                session_id,
+                status="completed",
+                completed_at=completed_at_str,
+                progress_message=progress_final,
+                results_json=results_json_str,
+            )
+
+        await _loop.run_in_executor(None, _do_save)
 
         await tracker.phase_done("saving")
         await tracker.set_status("completed")
@@ -720,7 +741,32 @@ async def get_session_progress(session_id: str, _: Any = Depends(get_current_use
         raise HTTPException(status_code=404, detail="Session not found")
 
     db_status = row.get("status", "running")
-    is_done   = db_status in ("completed", "failed", "cancelled")
+
+    # Orphan detection: if tracker is gone but DB still shows "running",
+    # the worker process was likely recycled mid-assessment. Auto-fail it
+    # after 60 minutes so the UI doesn't spin forever.
+    if db_status == "running":
+        created_at = row.get("created_at")
+        if created_at:
+            try:
+                if isinstance(created_at, str):
+                    from datetime import timezone as _tz
+                    created_dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                else:
+                    created_dt = created_at
+                age_minutes = (datetime.now(timezone.utc) - created_dt.astimezone(timezone.utc)).total_seconds() / 60
+                if age_minutes > 60:
+                    azure_store.update_fabric_session(
+                        session_id,
+                        status="failed",
+                        completed_at=datetime.now(timezone.utc).isoformat(),
+                        error="Assessment timed out — the server process was likely recycled. Please retry.",
+                    )
+                    db_status = "failed"
+            except Exception:
+                pass
+
+    is_done = db_status in ("completed", "failed", "cancelled")
     return {
         "assessment_id":    session_id,
         "status":           db_status,

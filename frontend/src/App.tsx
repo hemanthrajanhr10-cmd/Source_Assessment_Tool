@@ -19,6 +19,9 @@ const UnifiedSessionDetailPage   = lazy(() => import('./pages/UnifiedSessionDeta
 const SapAssessmentPage          = lazy(() => import('./pages/SapAssessmentPage'))
 const SapSessionsPage            = lazy(() => import('./pages/SapSessionsPage'))
 const SapSessionDetailPage       = lazy(() => import('./pages/SapSessionDetailPage'))
+const SageIntacctAssessmentPage  = lazy(() => import('./pages/SageIntacctAssessmentPage'))
+const SageIntacctSessionsPage    = lazy(() => import('./pages/SageIntacctSessionsPage'))
+const SageIntacctSessionDetailPage = lazy(() => import('./pages/SageIntacctSessionDetailPage'))
 const LoginPage                  = lazy(() => import('./pages/LoginPage'))
 const RegisterPage               = lazy(() => import('./pages/RegisterPage'))
 const MFASetupPage               = lazy(() => import('./pages/MFASetupPage'))
@@ -84,6 +87,9 @@ function AppRoutes() {
                     <Route path="/sap/new" element={<SapAssessmentPage />} />
                     <Route path="/sap/sessions" element={<SapSessionsPage />} />
                     <Route path="/sap/sessions/:jobId" element={<SapSessionDetailPage />} />
+                    <Route path="/sage-intacct/new" element={<SageIntacctAssessmentPage />} />
+                    <Route path="/sage-intacct/sessions" element={<SageIntacctSessionsPage />} />
+                    <Route path="/sage-intacct/sessions/:jobId" element={<SageIntacctSessionDetailPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

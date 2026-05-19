@@ -79,6 +79,23 @@ const NAV_GROUPS = [
       { to: '/sap/sessions', label: 'Assessments',    icon: BarChart3  },
     ],
   },
+  {
+    label: 'Sage Intacct',
+    element: 'sage',
+    dotGradient:      'linear-gradient(135deg, #1B6B45, #22C55E)',
+    activeBg:         'rgba(27,107,69,0.09)',
+    activeText:       '#14532D',
+    activeBorder:     'rgba(34,197,94,0.35)',
+    activeIconColor:  '#1B6B45',
+    activeDotGlow:    'rgba(34,197,94,0.50)',
+    hoverBg:          'rgba(27,107,69,0.07)',
+    hoverText:        '#14532D',
+    hoverIconColor:   '#1B6B45',
+    items: [
+      { to: '/sage-intacct/new',      label: 'New Assessment', icon: PlusCircle },
+      { to: '/sage-intacct/sessions', label: 'Assessments',    icon: BarChart3  },
+    ],
+  },
 ]
 
 interface SidebarProps {

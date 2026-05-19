@@ -26,6 +26,10 @@ import type {
   SapAssessmentResult,
   SapJobResponse,
   SapSessionRecord,
+  SageIntacctAssessmentRequest,
+  SageIntacctAssessmentResult,
+  SageIntacctJobResponse,
+  SageIntacctSessionRecord,
   SessionRequest,
   SessionStatusResponse,
   SetupMFAResponse,
@@ -286,6 +290,49 @@ export const api = {
   sapDownloadReport: async (jobId: string, label?: string) => {
     const res = await http.get(`/api/v1/sap/jobs/${jobId}/report`, { responseType: 'blob' })
     const filename = `${(label || 'sap-assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.xlsx`
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  // ── Sage Intacct Assessments ──────────────────────────────────────────────
+  sageTestConnection: (data: SageIntacctAssessmentRequest) =>
+    http.post<{ success: boolean; message: string; company_name?: string }>(
+      '/api/v1/sage-intacct/test-connection',
+      data,
+    ),
+
+  sageStartAssessment: (data: SageIntacctAssessmentRequest) =>
+    http.post<SageIntacctJobResponse>('/api/v1/sage-intacct/assess', data),
+
+  sageGetJobStatus: (jobId: string) =>
+    http.get<{ job_id: string; status: string; progress_message?: string; error?: string }>(
+      `/api/v1/sage-intacct/jobs/${jobId}/status`,
+    ),
+
+  sageGetJobResults: (jobId: string) =>
+    http.get<SageIntacctAssessmentResult>(`/api/v1/sage-intacct/jobs/${jobId}/results`),
+
+  sageListSessions: () =>
+    http.get<SageIntacctSessionRecord[]>('/api/v1/sage-intacct/sessions'),
+
+  sageDownloadExcelReport: async (jobId: string, label?: string) => {
+    const res = await http.get(`/api/v1/sage-intacct/jobs/${jobId}/report`, { responseType: 'blob' })
+    const filename = `${(label || 'sage-intacct-assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.xlsx`
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  sageDownloadWordReport: async (jobId: string, label?: string) => {
+    const res = await http.get(`/api/v1/sage-intacct/jobs/${jobId}/word-report`, { responseType: 'blob' })
+    const filename = `${(label || 'sage-intacct-assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.docx`
     const url = URL.createObjectURL(res.data as Blob)
     const a = document.createElement('a')
     a.href = url

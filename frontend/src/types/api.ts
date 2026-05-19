@@ -948,3 +948,153 @@ export interface UnifiedSession {
   source?: UnifiedSessionSourceData
   fabric?: UnifiedSessionFabricData
 }
+
+// ── Sage Intacct ──────────────────────────────────────────────────────────────
+
+export interface SageIntacctCredentials {
+  company_id: string
+  user_id: string
+  user_password: string
+  sender_id: string
+  sender_password: string
+  entity_id?: string
+}
+
+export interface SageIntacctAssessmentRequest {
+  credentials: SageIntacctCredentials
+  label?: string
+  include_transaction_details?: boolean
+  include_custom_objects?: boolean
+}
+
+export interface SageCompanyProfile {
+  company_id: string
+  company_name: string
+  entity_count: number
+  base_currency: string
+  fiscal_year_end_month: number
+  timezone: string
+  subscription_plan: string
+  modules_enabled: string[]
+}
+
+export interface SageUserProfile {
+  total_users: number
+  active_users: number
+  inactive_users: number
+  admin_users: number
+  role_count: number
+  permission_groups: number
+}
+
+export interface SageChartOfAccounts {
+  total_accounts: number
+  active_accounts: number
+  asset_accounts: number
+  liability_accounts: number
+  equity_accounts: number
+  revenue_accounts: number
+  expense_accounts: number
+  other_accounts: number
+  account_groups: number
+}
+
+export interface SageFinancialDimensions {
+  department_count: number
+  location_count: number
+  class_count: number
+  project_count: number
+  customer_count: number
+  vendor_count: number
+  employee_count: number
+  warehouse_count: number
+  item_count: number
+}
+
+export interface SageTransactionVolumes {
+  open_ar_invoices: number
+  closed_ar_invoices: number
+  total_ar_invoices: number
+  open_ap_bills: number
+  closed_ap_bills: number
+  total_ap_bills: number
+  gl_journal_entries: number
+  purchase_orders: number
+  sales_orders: number
+  contracts: number
+  expense_reports: number
+}
+
+export interface SageCashManagement {
+  checking_accounts: number
+  savings_accounts: number
+  credit_card_accounts: number
+  total_bank_accounts: number
+}
+
+export interface SageFixedAssets {
+  total_assets: number
+  active_assets: number
+  disposed_assets: number
+  depreciation_methods: string[]
+}
+
+export interface SageCustomization {
+  custom_dimensions: number
+  platform_extensions: number
+  user_defined_fields: number
+  custom_report_count: number
+  smart_rules_count: number
+  smart_events_count: number
+}
+
+export interface SageIntegrationHealth {
+  web_services_version: string
+  api_endpoint: string
+  session_timeout_minutes: number
+  multi_entity_enabled: boolean
+  consolidation_enabled: boolean
+}
+
+export interface SageDataQualityFlags {
+  vendors_without_gl_account: number
+  customers_without_terms: number
+  open_invoices_past_due: number
+  accounts_with_no_activity_days: number
+  duplicate_vendor_names: number
+  unposted_journal_entries: number
+}
+
+export interface SageIntacctAssessmentResult {
+  job_id: string
+  label?: string
+  assessed_at: string
+  status: 'completed' | 'failed'
+  error?: string
+  company_profile?: SageCompanyProfile
+  user_profile?: SageUserProfile
+  chart_of_accounts?: SageChartOfAccounts
+  financial_dimensions?: SageFinancialDimensions
+  transaction_volumes?: SageTransactionVolumes
+  cash_management?: SageCashManagement
+  fixed_assets?: SageFixedAssets
+  customization?: SageCustomization
+  integration_health?: SageIntegrationHealth
+  data_quality?: SageDataQualityFlags
+}
+
+export interface SageIntacctJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface SageIntacctSessionRecord {
+  job_id: string
+  label?: string
+  status: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: SageIntacctAssessmentResult
+}

@@ -48,6 +48,16 @@ class Settings(BaseSettings):
     oauth_google_client_secret: SecretStr = SecretStr("")
     oauth_google_redirect_uri: str = "http://localhost:8000/api/v1/auth/oauth/google/callback"
 
+    # Apple Sign In — register a Services ID at https://developer.apple.com
+    #   Set OAUTH_APPLE_CLIENT_ID (Services ID), OAUTH_APPLE_TEAM_ID,
+    #   OAUTH_APPLE_KEY_ID, and OAUTH_APPLE_PRIVATE_KEY (contents of .p8 file)
+    #   Redirect URI: {backend_url}/api/v1/auth/oauth/apple/callback (must be HTTPS in prod)
+    oauth_apple_client_id: str = ""         # Services ID (e.g. com.example.app)
+    oauth_apple_team_id: str = ""           # 10-char Apple Developer Team ID
+    oauth_apple_key_id: str = ""            # Key ID from developer.apple.com
+    oauth_apple_private_key: SecretStr = SecretStr("")  # Full .p8 key contents
+    oauth_apple_redirect_uri: str = "http://localhost:8000/api/v1/auth/oauth/apple/callback"
+
     # Frontend base URL — used to redirect back after OAuth callback
     frontend_url: str = "http://localhost:5173"
 

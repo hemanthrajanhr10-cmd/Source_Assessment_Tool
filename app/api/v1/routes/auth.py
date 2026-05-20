@@ -7,23 +7,28 @@ POST /api/v1/auth/verify-mfa                   — submit TOTP code → JWT
 POST /api/v1/auth/setup-mfa                    — generate TOTP secret + QR URI
 POST /api/v1/auth/confirm-mfa                  — verify code and enable MFA
 GET  /api/v1/auth/me                           — current user profile
+GET  /api/v1/auth/oauth/providers              — which OAuth providers are configured
 GET  /api/v1/auth/oauth/microsoft              — start Microsoft OAuth flow
 GET  /api/v1/auth/oauth/microsoft/callback     — Microsoft OAuth callback
 GET  /api/v1/auth/oauth/google                 — start Google OAuth flow
 GET  /api/v1/auth/oauth/google/callback        — Google OAuth callback
+GET  /api/v1/auth/oauth/apple                  — start Apple Sign In flow
+POST /api/v1/auth/oauth/apple/callback         — Apple Sign In callback (Apple posts form data)
 """
 
 import base64
 import io
+import time
 import urllib.parse
 from typing import Optional
 
 import qrcode
 import requests as http_requests
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 
+from jose import jwt as jose_jwt
 from app.config import settings
 from app.core.auth import (
     create_access_token,
@@ -158,6 +163,23 @@ async def me(current_user: dict = Depends(get_current_user)):
         "full_name": current_user.get("full_name"),
         "mfa_enabled": bool(current_user.get("mfa_enabled")),
         "created_at": str(current_user.get("created_at", "")),
+    }
+
+
+# ── OAuth providers status ────────────────────────────────────────────────────
+
+@router.get("/oauth/providers")
+async def oauth_providers():
+    """Return which OAuth providers are configured and available."""
+    return {
+        "microsoft": bool(settings.oauth_microsoft_client_id),
+        "google": bool(settings.oauth_google_client_id),
+        "apple": bool(
+            settings.oauth_apple_client_id
+            and settings.oauth_apple_team_id
+            and settings.oauth_apple_key_id
+            and settings.oauth_apple_private_key.get_secret_value()
+        ),
     }
 
 
@@ -320,3 +342,88 @@ async def oauth_google_callback(
     jwt_token = create_access_token(user["user_id"], user["email"])
     fe = settings.frontend_url.rstrip("/")
     return RedirectResponse(f"{fe}/auth/callback?token={jwt_token}")
+
+
+# ── Apple Sign In ─────────────────────────────────────────────────────────────
+
+def _apple_client_secret() -> str:
+    """Generate an Apple client_secret JWT valid for 6 months."""
+    private_key = settings.oauth_apple_private_key.get_secret_value()
+    now = int(time.time())
+    payload = {
+        "iss": settings.oauth_apple_team_id,
+        "iat": now,
+        "exp": now + 15_552_000,  # 180 days
+        "aud": "https://appleid.apple.com",
+        "sub": settings.oauth_apple_client_id,
+    }
+    return jose_jwt.encode(
+        payload,
+        private_key,
+        algorithm="ES256",
+        headers={"kid": settings.oauth_apple_key_id},
+    )
+
+
+@router.get("/oauth/apple", include_in_schema=False)
+async def oauth_apple_start():
+    """Redirect the browser to Apple for sign-in."""
+    if not settings.oauth_apple_client_id:
+        raise HTTPException(status_code=501, detail="Apple Sign In is not configured on this server.")
+
+    params = urllib.parse.urlencode({
+        "client_id": settings.oauth_apple_client_id,
+        "redirect_uri": settings.oauth_apple_redirect_uri,
+        "response_type": "code id_token",
+        "scope": "name email",
+        "response_mode": "form_post",
+    })
+    return RedirectResponse(f"https://appleid.apple.com/auth/authorize?{params}")
+
+
+@router.post("/oauth/apple/callback", include_in_schema=False)
+async def oauth_apple_callback(
+    code: Optional[str] = Form(default=None),
+    id_token: Optional[str] = Form(default=None),
+    error: Optional[str] = Form(default=None),
+    user: Optional[str] = Form(default=None),
+):
+    """Apple posts form data back to the callback URI. Decode id_token for the email."""
+    if error or not code or not id_token:
+        return _oauth_error_redirect(error or "access_denied")
+
+    try:
+        import json as _json_mod
+        # Decode the JWT payload without signature verification
+        parts = id_token.split(".")
+        if len(parts) < 2:
+            raise ValueError("invalid id_token")
+        padding = 4 - len(parts[1]) % 4
+        payload_bytes = base64.urlsafe_b64decode(parts[1] + "=" * (padding % 4))
+        claims = _json_mod.loads(payload_bytes)
+        email = (claims.get("email") or "").lower().strip()
+    except Exception:
+        return _oauth_error_redirect("token_decode_failed")
+
+    if not email:
+        return _oauth_error_redirect("no_email_returned")
+
+    # Apple sends the user's name only on the very first sign-in
+    full_name: Optional[str] = None
+    if user:
+        try:
+            import json as _json
+            user_data = _json.loads(user)
+            name = user_data.get("name", {})
+            parts = [name.get("firstName", ""), name.get("lastName", "")]
+            full_name = " ".join(p for p in parts if p).strip() or None
+        except Exception:
+            pass
+
+    sat_user = _oauth_upsert_user(email, full_name)
+    if not sat_user or not sat_user.get("is_active"):
+        return _oauth_error_redirect("account_inactive")
+
+    jwt_token = create_access_token(sat_user["user_id"], sat_user["email"])
+    fe = settings.frontend_url.rstrip("/")
+    return RedirectResponse(f"{fe}/auth/callback?token={jwt_token}", status_code=303)

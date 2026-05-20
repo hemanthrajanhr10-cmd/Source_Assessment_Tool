@@ -89,6 +89,9 @@ export const api = {
   me: () =>
     http.get<MeResponse>('/api/v1/auth/me'),
 
+  oauthProviders: () =>
+    http.get<{ microsoft: boolean; google: boolean; apple: boolean }>('/api/v1/auth/oauth/providers'),
+
   // ── Single-server assessment ──────────────────────────────────────────────
   testConnection: (data: AssessmentRequest) =>
     http.post<ConnectionTestResponse>('/api/v1/test-connection', data),

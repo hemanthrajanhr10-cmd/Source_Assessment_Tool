@@ -3,7 +3,7 @@ import type { FabricWorkspace, ReportPage, ReportVisual } from '../../types/api'
 import type { MockReport, MockPage, MockVisual, AssessmentStatus } from '../../data/mockReports'
 import { mockReports } from '../../data/mockReports'
 import Breadcrumb from './Breadcrumb'
-import ReportListView from './ReportListView'
+import LineageExplorer from './LineageExplorer'
 import ReportCanvasView from './ReportCanvasView'
 import VisualDetailModal from './VisualDetailModal'
 import type { VisualChecklist } from './VisualDetailModal'
@@ -50,7 +50,6 @@ function workspacesToMockReports(workspaces: FabricWorkspace[]): MockReport[] {
     for (const report of ws.reports) {
       const pages: MockPage[] = report.pages.map(p => convertPage(p, report.id))
 
-      // If the API returned no pages, synthesise placeholder pages from page_count
       if (pages.length === 0 && (report.page_count ?? 0) > 0) {
         const count = report.page_count ?? 1
         for (let i = 0; i < count; i++) {
@@ -80,7 +79,10 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
   const [selectedVisual, setSelectedVisual] = useState<MockVisual | null>(null)
   const [visualAssessments, setVisualAssessments] = useState<Record<string, AssessmentStatus>>({})
 
-  // Derive report list from real API data, fall back to mock data
+  // Selected workspace managed here so breadcrumbs stay in sync
+  const [lineageWorkspace, setLineageWorkspace] = useState<import('../../types/api').FabricWorkspace | null>(null)
+
+  // Derive flat report list for canvas lookup
   const apiReports = workspacesToMockReports(workspaces)
   const reports: MockReport[] = apiReports.length > 0 ? apiReports : mockReports
 
@@ -88,15 +90,28 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
 
   // ── Navigation ──────────────────────────────────────────────────────────────
 
-  const handleSelectReport = (reportId: string) => {
+  const handleSelectReport = (reportId: string, workspaceName: string) => {
     setSelectedReportId(reportId)
     setNavLevel('report')
+    // Preserve lineageWorkspace for breadcrumb — find it from workspaces if needed
+    if (!lineageWorkspace) {
+      const ws = workspaces.find(w => w.name === workspaceName) ?? null
+      setLineageWorkspace(ws)
+    }
   }
 
-  const handleBackToList = () => {
+  const handleBackToLineage = () => {
     setNavLevel('list')
     setSelectedReportId(null)
     setSelectedVisual(null)
+    // keep lineageWorkspace so we return to the same workspace's lineage
+  }
+
+  const handleBackToWorkspacePicker = () => {
+    setNavLevel('list')
+    setSelectedReportId(null)
+    setSelectedVisual(null)
+    setLineageWorkspace(null)
   }
 
   // ── Visual assessment ───────────────────────────────────────────────────────
@@ -119,11 +134,25 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
   // ── Breadcrumb ──────────────────────────────────────────────────────────────
 
   const breadcrumbItems = (() => {
-    const items = [{ label: 'Reports', onClick: navLevel !== 'list' ? handleBackToList : undefined }]
-    if (navLevel === 'report' && selectedReport) {
-      items.push({ label: selectedReport.name, onClick: undefined })
+    const root = {
+      label: 'Reports',
+      onClick: lineageWorkspace || navLevel === 'report' ? handleBackToWorkspacePicker : undefined,
     }
-    return items
+
+    if (navLevel === 'list' && lineageWorkspace) {
+      return [root, { label: lineageWorkspace.name, onClick: undefined }]
+    }
+
+    if (navLevel === 'report' && selectedReport) {
+      const items = [root]
+      if (lineageWorkspace) {
+        items.push({ label: lineageWorkspace.name, onClick: handleBackToLineage })
+      }
+      items.push({ label: selectedReport.name, onClick: undefined })
+      return items
+    }
+
+    return [root]
   })()
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -147,8 +176,10 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
       {/* Main content */}
       <div className="flex-1 overflow-hidden">
         {navLevel === 'list' && (
-          <ReportListView
-            reports={reports}
+          <LineageExplorer
+            workspaces={workspaces}
+            selectedWorkspace={lineageWorkspace}
+            onWorkspaceSelect={setLineageWorkspace}
             onSelectReport={handleSelectReport}
           />
         )}

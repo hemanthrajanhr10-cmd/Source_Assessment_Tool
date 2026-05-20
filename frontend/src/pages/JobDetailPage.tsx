@@ -10,7 +10,7 @@ import {
   Bot, Link2, Network, GitBranch, MessageSquare, MonitorCheck,
   ShieldCheck, AlertCircle, TrendingUp, BarChart, Layers,
   Settings, History, Key, ServerCog, FlaskConical, Wrench, PackageSearch,
-  HardDrive,
+  HardDrive, Map, Package, Archive, Calendar, ListOrdered, Gauge,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { StatusBadge } from '../components/ui/Badge'
@@ -93,11 +93,13 @@ const TAB_GROUPS = [
   {
     label: 'Schema & Design',
     ids: ['deprecated_data_types', 'missing_primary_keys', 'heap_tables',
-          'untrusted_constraints', 'sp_naming_violations', 'duplicate_indexes'],
+          'untrusted_constraints', 'sp_naming_violations', 'sp_complexity', 'view_complexity',
+          'duplicate_indexes', 'schema_classification', 'database_files'],
   },
   {
     label: 'Performance',
-    ids: ['missing_indexes', 'index_usage_stats', 'fragmentation_report', 'statistics_health'],
+    ids: ['missing_indexes', 'index_usage_stats', 'fragmentation_report', 'statistics_health',
+          'wait_statistics', 'query_store_top_queries'],
   },
   {
     label: 'Configuration',
@@ -106,8 +108,136 @@ const TAB_GROUPS = [
   {
     label: 'Features & Risks',
     ids: ['sql_agent_jobs', 'linked_servers', 'backup_history',
-          'cross_db_references', 'replication_status', 'service_broker'],
+          'cross_db_references', 'replication_status', 'service_broker',
+          'ssis_catalog_packages', 'ssis_execution_history', 'ssis_msdb_packages',
+          'sql_agent_job_schedules', 'sql_agent_job_steps', 'ssas_linked_servers'],
   },
+]
+
+function complexityBadge(value: unknown) {
+  const v = String(value ?? '')
+  const cfg =
+    v.startsWith('HIGH')   ? { cls: 'bg-red-50 text-red-700 ring-1 ring-red-200',       dot: 'bg-red-400'   } :
+    v === 'MEDIUM'         ? { cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200', dot: 'bg-amber-400' } :
+                             { cls: 'bg-earth-50 text-earth-700 ring-1 ring-earth-200', dot: 'bg-earth-400' }
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      {v}
+    </span>
+  )
+}
+
+function recommendationBadge(value: unknown) {
+  const v = String(value ?? '')
+  const cfg =
+    v.startsWith('RISK')    ? { cls: 'bg-red-50 text-red-700 ring-1 ring-red-200',       dot: 'bg-red-400'   } :
+    v.startsWith('CAUTION') ? { cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200', dot: 'bg-amber-400' } :
+                              { cls: 'bg-earth-50 text-earth-700 ring-1 ring-earth-200', dot: 'bg-earth-400' }
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      {v}
+    </span>
+  )
+}
+
+function ssisStatusBadge(value: unknown) {
+  const v = String(value ?? '')
+  const cfg =
+    v === 'Failed' || v === 'Ended Unexpectedly'
+      ? { cls: 'bg-red-50 text-red-700 ring-1 ring-red-200',       dot: 'bg-red-400'   } :
+    v === 'Succeeded' || v === 'Completed'
+      ? { cls: 'bg-earth-50 text-earth-700 ring-1 ring-earth-200', dot: 'bg-earth-400' } :
+    v === 'Running'
+      ? { cls: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',    dot: 'bg-blue-400'  } :
+      { cls: 'bg-slate-50 text-slate-600 ring-1 ring-slate-200',   dot: 'bg-slate-400' }
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      {v}
+    </span>
+  )
+}
+
+function perfFlagBadge(value: unknown) {
+  const v = String(value ?? '')
+  const cfg =
+    v.startsWith('CRITICAL') ? { cls: 'bg-red-50 text-red-700 ring-1 ring-red-200',       dot: 'bg-red-400'   } :
+    v.startsWith('WARNING')  ? { cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200', dot: 'bg-amber-400' } :
+                               { cls: 'bg-earth-50 text-earth-700 ring-1 ring-earth-200', dot: 'bg-earth-400' }
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      {v}
+    </span>
+  )
+}
+
+const VIEW_COMPLEXITY_COLUMNS: ColumnDef[] = [
+  { key: 'schema_name',      header: 'Schema',       align: 'left'  },
+  { key: 'view_name',        header: 'View',         align: 'left'  },
+  { key: 'line_count',       header: 'Lines',        align: 'right' },
+  { key: 'join_count',       header: 'JOINs',        align: 'right' },
+  { key: 'subquery_count',   header: 'Subqueries',   align: 'right' },
+  { key: 'has_union',        header: 'UNION',        align: 'left'  },
+  { key: 'has_cte',          header: 'CTE',          align: 'left'  },
+  { key: 'complexity_level', header: 'Complexity',   align: 'left', render: complexityBadge },
+]
+
+const DATABASE_FILES_COLUMNS: ColumnDef[] = [
+  { key: 'file_name',     header: 'File',         align: 'left'  },
+  { key: 'file_type',     header: 'Type',         align: 'left'  },
+  { key: 'size_mb',       header: 'Size (MB)',     align: 'right' },
+  { key: 'max_size',      header: 'Max Size',     align: 'left'  },
+  { key: 'auto_growth',   header: 'Auto Growth',  align: 'left'  },
+  { key: 'file_state',    header: 'State',        align: 'left'  },
+  { key: 'recommendation', header: 'Status',      align: 'left', render: recommendationBadge },
+]
+
+const SSIS_EXEC_COLUMNS: ColumnDef[] = [
+  { key: 'folder_name',    header: 'Folder',       align: 'left'  },
+  { key: 'project_name',   header: 'Project',      align: 'left'  },
+  { key: 'package_name',   header: 'Package',      align: 'left'  },
+  { key: 'status',         header: 'Status',       align: 'left', render: ssisStatusBadge },
+  { key: 'start_time',     header: 'Start',        align: 'left'  },
+  { key: 'end_time',       header: 'End',          align: 'left'  },
+  { key: 'duration_sec',   header: 'Duration (s)', align: 'right' },
+  { key: 'executed_as_name', header: 'Executed By', align: 'left' },
+]
+
+const WAIT_STATS_COLUMNS: ColumnDef[] = [
+  { key: 'wait_type',          header: 'Wait Type',        align: 'left'  },
+  { key: 'total_wait_sec',     header: 'Total Wait (s)',   align: 'right' },
+  { key: 'max_wait_sec',       header: 'Max Wait (s)',     align: 'right' },
+  { key: 'waiting_tasks_count', header: 'Tasks Waiting',  align: 'right' },
+  { key: 'pct_total_wait',     header: '% of Total',      align: 'right', render: pctCell },
+  { key: 'interpretation',     header: 'Interpretation',  align: 'left'  },
+]
+
+const QUERY_STORE_COLUMNS: ColumnDef[] = [
+  { key: 'query_id',          header: 'ID',           align: 'right' },
+  { key: 'query_text',        header: 'Query',        align: 'left'  },
+  { key: 'avg_duration_ms',   header: 'Avg (ms)',     align: 'right' },
+  { key: 'max_duration_ms',   header: 'Max (ms)',     align: 'right' },
+  { key: 'avg_cpu_ms',        header: 'Avg CPU (ms)', align: 'right' },
+  { key: 'avg_logical_reads', header: 'Logical Reads', align: 'right' },
+  { key: 'total_executions',  header: 'Executions',   align: 'right' },
+  { key: 'last_executed',     header: 'Last Run',     align: 'left'  },
+  { key: 'performance_flag',  header: 'Flag',         align: 'left', render: perfFlagBadge },
+]
+
+const SP_COMPLEXITY_COLUMNS: ColumnDef[] = [
+  { key: 'schema_name',        header: 'Schema',          align: 'left'  },
+  { key: 'procedure_name',     header: 'Procedure',       align: 'left'  },
+  { key: 'line_count',         header: 'Lines',           align: 'right' },
+  { key: 'param_count',        header: 'Params',          align: 'right' },
+  { key: 'uses_cursor',        header: 'Cursor',          align: 'left'  },
+  { key: 'uses_temp_table',    header: 'Temp Table',      align: 'left'  },
+  { key: 'uses_dynamic_sql',   header: 'Dynamic SQL',     align: 'left'  },
+  { key: 'has_error_handling', header: 'Error Handling',  align: 'left'  },
+  { key: 'uses_transactions',  header: 'Transactions',    align: 'left'  },
+  { key: 'complexity_level',   header: 'Complexity',      align: 'left', render: complexityBadge },
 ]
 
 interface TabDef {
@@ -154,7 +284,19 @@ const TABS: TabDef[] = [
   { id: 'heap_tables',    label: 'Heap Tables',   icon: <Layers className="h-3.5 w-3.5" />,          getData: (r) => r.heap_tables,    emptyMessage: 'No heap tables found.' },
   { id: 'untrusted_constraints', label: 'Untrusted Constraints', icon: <AlertTriangle className="h-3.5 w-3.5" />, getData: (r) => r.untrusted_constraints, emptyMessage: 'All constraints are trusted.' },
   { id: 'sp_naming_violations', label: 'SP Naming', icon: <FlaskConical className="h-3.5 w-3.5" />, getData: (r) => r.sp_naming_violations, emptyMessage: 'No sp_ prefix violations found.' },
-  { id: 'duplicate_indexes', label: 'Duplicate Indexes', icon: <Wrench className="h-3.5 w-3.5" />,  getData: (r) => r.duplicate_indexes, emptyMessage: 'No duplicate indexes detected.' },
+  { id: 'sp_complexity',         label: 'SP Complexity',      icon: <BarChart className="h-3.5 w-3.5" />,       getData: (r) => r.sp_complexity,         columns: SP_COMPLEXITY_COLUMNS,    emptyMessage: 'No stored procedure complexity data.' },
+  { id: 'view_complexity',       label: 'View Complexity',    icon: <BarChart2 className="h-3.5 w-3.5" />,      getData: (r) => r.view_complexity,       columns: VIEW_COMPLEXITY_COLUMNS,  emptyMessage: 'No view complexity data.' },
+  { id: 'duplicate_indexes',     label: 'Duplicate Indexes',  icon: <Wrench className="h-3.5 w-3.5" />,         getData: (r) => r.duplicate_indexes,     emptyMessage: 'No duplicate indexes detected.' },
+  { id: 'schema_classification', label: 'Schema Classes',     icon: <Map className="h-3.5 w-3.5" />,            getData: (r) => r.schema_classification, emptyMessage: 'No schema classification data.' },
+  { id: 'database_files',        label: 'Database Files',     icon: <HardDrive className="h-3.5 w-3.5" />,      getData: (r) => r.database_files,        columns: DATABASE_FILES_COLUMNS,   emptyMessage: 'No database file data.' },
+  { id: 'ssis_catalog_packages', label: 'SSIS Packages',      icon: <Package className="h-3.5 w-3.5" />,        getData: (r) => r.ssis_catalog_packages, emptyMessage: 'No SSIS catalog packages found.' },
+  { id: 'ssis_execution_history', label: 'SSIS Executions',   icon: <History className="h-3.5 w-3.5" />,        getData: (r) => r.ssis_execution_history, columns: SSIS_EXEC_COLUMNS,        emptyMessage: 'No SSIS execution history (30d).' },
+  { id: 'ssis_msdb_packages',    label: 'SSIS Legacy',        icon: <Archive className="h-3.5 w-3.5" />,        getData: (r) => r.ssis_msdb_packages,    emptyMessage: 'No legacy SSIS msdb packages.' },
+  { id: 'sql_agent_job_schedules', label: 'Agent Schedules',  icon: <Calendar className="h-3.5 w-3.5" />,       getData: (r) => r.sql_agent_job_schedules, emptyMessage: 'No SQL Agent job schedules found.' },
+  { id: 'sql_agent_job_steps',   label: 'Agent Job Steps',    icon: <ListOrdered className="h-3.5 w-3.5" />,    getData: (r) => r.sql_agent_job_steps,   emptyMessage: 'No SQL Agent job steps found.' },
+  { id: 'ssas_linked_servers',   label: 'SSAS Servers',       icon: <Cpu className="h-3.5 w-3.5" />,            getData: (r) => r.ssas_linked_servers,   emptyMessage: 'No SSAS linked servers detected.' },
+  { id: 'wait_statistics',       label: 'Wait Statistics',    icon: <Gauge className="h-3.5 w-3.5" />,          getData: (r) => r.wait_statistics,       columns: WAIT_STATS_COLUMNS,       emptyMessage: 'No wait statistics available.' },
+  { id: 'query_store_top_queries', label: 'Query Store',      icon: <Zap className="h-3.5 w-3.5" />,            getData: (r) => r.query_store_top_queries, columns: QUERY_STORE_COLUMNS,     emptyMessage: 'No Query Store data (may be disabled).' },
   { id: 'missing_indexes', label: 'Missing Indexes', icon: <TrendingUp className="h-3.5 w-3.5" />,  getData: (r) => r.missing_indexes, emptyMessage: 'No missing index recommendations.' },
   { id: 'index_usage_stats', label: 'Index Usage', icon: <BarChart className="h-3.5 w-3.5" />,      getData: (r) => r.index_usage_stats, emptyMessage: 'No index usage statistics.' },
   { id: 'fragmentation_report', label: 'Fragmentation', icon: <BarChart2 className="h-3.5 w-3.5" />, getData: (r) => r.fragmentation_report, emptyMessage: 'No significant fragmentation.' },

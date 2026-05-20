@@ -326,6 +326,7 @@ async def get_results(job_id: str, current_user: dict = Depends(get_current_user
         heap_tables=raw.get("heap_tables", []),
         untrusted_constraints=raw.get("untrusted_constraints", []),
         sp_naming_violations=raw.get("sp_naming_violations", []),
+        sp_complexity=raw.get("sp_complexity", []),
         duplicate_indexes=raw.get("duplicate_indexes", []),
         database_options_audit=raw.get("database_options_audit", []),
         object_permissions=raw.get("object_permissions", []),
@@ -340,6 +341,18 @@ async def get_results(job_id: str, current_user: dict = Depends(get_current_user
         weak_sql_logins=raw.get("weak_sql_logins", []),
         server_permissions=raw.get("server_permissions", []),
         deprecated_features_in_use=raw.get("deprecated_features_in_use", []),
+        # Extended engine assessment
+        schema_classification=raw.get("schema_classification", []),
+        view_complexity=raw.get("view_complexity", []),
+        database_files=raw.get("database_files", []),
+        ssis_catalog_packages=raw.get("ssis_catalog_packages", []),
+        ssis_execution_history=raw.get("ssis_execution_history", []),
+        ssis_msdb_packages=raw.get("ssis_msdb_packages", []),
+        sql_agent_job_schedules=raw.get("sql_agent_job_schedules", []),
+        sql_agent_job_steps=raw.get("sql_agent_job_steps", []),
+        ssas_linked_servers=raw.get("ssas_linked_servers", []),
+        wait_statistics=raw.get("wait_statistics", []),
+        query_store_top_queries=raw.get("query_store_top_queries", []),
     )
 
 

@@ -359,6 +359,19 @@ export const TAB_MIN_ACCESS: Record<string, AccessLevel> = {
   weak_sql_logins: 'sysadmin',
   server_permissions: 'sysadmin',
   deprecated_features_in_use: 'sysadmin',
+  ssis_msdb_packages: 'sysadmin',
+  sql_agent_job_schedules: 'sysadmin',
+  sql_agent_job_steps: 'sysadmin',
+  ssas_linked_servers: 'sysadmin',
+  // view_database_state
+  wait_statistics: 'view_database_state',
+  query_store_top_queries: 'view_database_state',
+  // db_datareader (extended)
+  schema_classification: 'db_datareader',
+  view_complexity: 'db_datareader',
+  database_files: 'db_datareader',
+  ssis_catalog_packages: 'db_datareader',
+  ssis_execution_history: 'db_datareader',
 }
 
 export const ACCESS_LEVEL_RANK: Record<AccessLevel, number> = {
@@ -504,6 +517,7 @@ export interface AssessmentResults {
   heap_tables?: Record<string, unknown>[]
   untrusted_constraints?: Record<string, unknown>[]
   sp_naming_violations?: Record<string, unknown>[]
+  sp_complexity?: Record<string, unknown>[]
   duplicate_indexes?: Record<string, unknown>[]
   database_options_audit?: Record<string, unknown>[]
   // New: db_owner
@@ -519,6 +533,18 @@ export interface AssessmentResults {
   weak_sql_logins?: Record<string, unknown>[]
   server_permissions?: Record<string, unknown>[]
   deprecated_features_in_use?: Record<string, unknown>[]
+  // Extended engine assessment
+  schema_classification?: Record<string, unknown>[]
+  view_complexity?: Record<string, unknown>[]
+  database_files?: Record<string, unknown>[]
+  ssis_catalog_packages?: Record<string, unknown>[]
+  ssis_execution_history?: Record<string, unknown>[]
+  ssis_msdb_packages?: Record<string, unknown>[]
+  sql_agent_job_schedules?: Record<string, unknown>[]
+  sql_agent_job_steps?: Record<string, unknown>[]
+  ssas_linked_servers?: Record<string, unknown>[]
+  wait_statistics?: Record<string, unknown>[]
+  query_store_top_queries?: Record<string, unknown>[]
 }
 
 // ── Gateway ───────────────────────────────────────────────────────────────────

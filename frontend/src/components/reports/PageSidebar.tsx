@@ -47,9 +47,9 @@ export default function PageSidebar({
               onClick={() => { onSelectPage(idx); onItemClick?.() }}
               className="w-full text-left px-3 py-2 text-xs transition-colors duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 flex items-center gap-2.5"
               style={{
-                color: isActive ? '#B83510' : '#374151',
-                background: isActive ? '#FFF4EF' : 'transparent',
-                borderLeft: isActive ? '2px solid #B83510' : '2px solid transparent',
+                color: isActive ? '#0056B3' : '#374151',
+                background: isActive ? '#EFF6FF' : 'transparent',
+                borderLeft: isActive ? '2px solid #0056B3' : '2px solid transparent',
                 fontWeight: isActive ? 600 : 400,
                 fontFamily: FONT,
               }}
@@ -65,7 +65,7 @@ export default function PageSidebar({
                 className="inline-flex items-center justify-center rounded-full flex-shrink-0"
                 style={{
                   width: 18, height: 18,
-                  background: isActive ? '#B83510' : '#E5E7EB',
+                  background: isActive ? '#0056B3' : '#E5E7EB',
                   color: isActive ? '#fff' : '#6B7280',
                   fontSize: 9, fontWeight: 700,
                 }}
@@ -132,7 +132,7 @@ export default function PageSidebar({
     return (
       <div
         className="flex flex-col flex-shrink-0 border-r overflow-y-auto"
-        style={{ width: 40, background: '#FAF9F8', borderColor: '#E5E7EB', fontFamily: FONT }}
+        style={{ width: 40, background: '#F5F9FF', borderColor: '#E5E7EB', fontFamily: FONT }}
         aria-label="Page navigation (compact)"
       >
         <div
@@ -151,8 +151,8 @@ export default function PageSidebar({
               onClick={() => onSelectPage(idx)}
               className="flex items-center justify-center w-full py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
               style={{
-                background: isActive ? '#FFF4EF' : 'transparent',
-                borderLeft: isActive ? '2px solid #B83510' : '2px solid transparent',
+                background: isActive ? '#EFF6FF' : 'transparent',
+                borderLeft: isActive ? '2px solid #0056B3' : '2px solid transparent',
               }}
               aria-current={isActive ? 'page' : undefined}
               aria-label={`Page ${idx + 1}: ${page.name}`}
@@ -161,7 +161,7 @@ export default function PageSidebar({
                 className="inline-flex items-center justify-center rounded-full"
                 style={{
                   width: 20, height: 20,
-                  background: isActive ? '#B83510' : '#E5E7EB',
+                  background: isActive ? '#0056B3' : '#E5E7EB',
                   color: isActive ? '#fff' : '#6B7280',
                   fontSize: 9, fontWeight: 700,
                 }}
@@ -181,7 +181,7 @@ export default function PageSidebar({
       className="flex flex-col flex-shrink-0 overflow-hidden transition-all duration-200 ease-in-out border-r"
       style={{
         width: collapsed ? 0 : 240,
-        background: '#FAF9F8',
+        background: '#F5F9FF',
         borderColor: '#E5E7EB',
         fontFamily: FONT,
       }}

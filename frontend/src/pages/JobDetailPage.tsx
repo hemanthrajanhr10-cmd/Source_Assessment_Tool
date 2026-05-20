@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from 'react'
+﻿import { useState, useCallback, useRef, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -203,8 +203,13 @@ function guessProgress(msg?: string): number {
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
   const [activeTab, setActiveTab] = useState('schemas')
+  const contentScrollRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
   const [downloadingWord, setDownloadingWord] = useState(false)
+
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+  }, [activeTab])
 
   const handleDownload = useCallback(async () => {
     if (!jobId || downloading) return
@@ -651,7 +656,7 @@ export default function JobDetailPage() {
                     </div>
 
                     {/* Data table */}
-                    <div className="flex-1 overflow-auto p-5">
+                    <div ref={contentScrollRef} className="flex-1 overflow-auto p-5">
                       <DataTable
                         key={activeTab}
                         data={data}

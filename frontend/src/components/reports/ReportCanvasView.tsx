@@ -24,15 +24,15 @@ export default function ReportCanvasView({ report, onVisualClick }: ReportCanvas
         height: '100%',
         minHeight: 540,
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
-        background: '#F3F4F6',
-        borderColor: '#E5E7EB',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        background: '#EFF6FF',
+        borderColor: 'rgba(197,213,236,0.70)',
+        boxShadow: '0 1px 4px rgba(0,86,179,0.08)',
       }}
     >
       {/* ── Top toolbar ─────────────────────────────────────────────────────── */}
       <div
         className="flex items-center justify-between px-4 flex-shrink-0 border-b"
-        style={{ height: 48, background: '#fff', borderColor: '#E5E7EB' }}
+        style={{ height: 48, background: '#ffffff', borderColor: 'rgba(197,213,236,0.70)' }}
       >
         {/* Left: hamburger (mobile) + sidebar toggle (desktop/xl) + report name */}
         <div className="flex items-center gap-2 min-w-0">
@@ -40,7 +40,7 @@ export default function ReportCanvasView({ report, onVisualClick }: ReportCanvas
           <button
             type="button"
             onClick={() => setMobileDrawerOpen(true)}
-            className="flex md:hidden items-center justify-center w-8 h-8 rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex-shrink-0 transition-colors"
+            className="flex md:hidden items-center justify-center w-8 h-8 rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 flex-shrink-0 transition-colors"
             aria-label="Open page navigation"
           >
             <Menu size={16} style={{ color: '#6B7280' }} />
@@ -50,7 +50,7 @@ export default function ReportCanvasView({ report, onVisualClick }: ReportCanvas
           <button
             type="button"
             onClick={() => setSidebarCollapsed(v => !v)}
-            className="hidden xl:flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex-shrink-0 transition-colors"
+            className="hidden xl:flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 flex-shrink-0 transition-colors"
             aria-label="Toggle page sidebar"
           >
             <ChevronRight
@@ -92,7 +92,7 @@ export default function ReportCanvasView({ report, onVisualClick }: ReportCanvas
               type="button"
               title={label}
               aria-label={label}
-              className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors"
+              className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-colors"
             >
               <Icon size={15} style={{ color: '#6B7280' }} />
             </button>

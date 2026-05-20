@@ -75,9 +75,9 @@ export default function PageTabStrip({ pages, activePageIndex, onSelectPage }: P
               className="flex items-center px-4 text-xs whitespace-nowrap transition-colors duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 flex-shrink-0"
               style={{
                 background: isActive ? '#fff' : 'transparent',
-                color: isActive ? '#B83510' : '#6B7280',
+                color: isActive ? '#0056B3' : '#6B7280',
                 fontWeight: isActive ? 600 : 400,
-                borderBottom: isActive ? '2px solid #B83510' : '2px solid transparent',
+                borderBottom: isActive ? '2px solid #0056B3' : '2px solid transparent',
                 borderTop: 'none',
                 borderLeft: 'none',
                 borderRight: 'none',

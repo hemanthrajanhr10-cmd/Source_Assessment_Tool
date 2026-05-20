@@ -2,7 +2,8 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Database, Mail, Lock, Eye, EyeOff, KeyRound,
-  ArrowRight, Shield, CheckCircle2, Sparkles, Zap, BarChart3, Network,
+  ArrowRight, Shield, CheckCircle2, Sparkles, Network,
+  Layers, Cloud, FileSpreadsheet,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { api, getApiErrorMessage } from '../api/client'
@@ -12,11 +13,12 @@ type Step = 'credentials' | 'mfa'
 const BASE_URL = (import.meta as ImportMeta & { env: Record<string, string> }).env.VITE_API_URL || ''
 
 const FEATURES = [
-  { icon: CheckCircle2, text: '25+ assessment dimensions', color: 'text-earth-600' },
-  { icon: Zap,          text: 'Schema complexity scoring',  color: 'text-tide-600'  },
-  { icon: Shield,       text: 'PII indicator scanning',     color: 'text-grove-600'  },
-  { icon: BarChart3,    text: 'Professional Excel reports', color: 'text-earth-600' },
-  { icon: Network,      text: 'Hybrid Connection support',  color: 'text-tide-600'  },
+  { icon: Database,         text: 'SQL Server estate analysis',           color: 'text-earth-600' },
+  { icon: Layers,           text: 'Microsoft Fabric workspace assessment', color: 'text-tide-600'  },
+  { icon: Cloud,            text: 'SAP Systems readiness review',          color: 'text-grove-600'  },
+  { icon: CheckCircle2,     text: 'Sage Intacct cloud ERP scanning',       color: 'text-earth-600' },
+  { icon: FileSpreadsheet,  text: 'Excel & Word report generation',        color: 'text-tide-600'  },
+  { icon: Network,          text: 'Hybrid Connection support',             color: 'text-grove-600' },
 ]
 
 export default function LoginPage() {
@@ -192,20 +194,20 @@ export default function LoginPage() {
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-sm"
               style={{ border: '1px solid rgba(0,86,179,0.35)' }}>
               <Sparkles className="h-3.5 w-3.5" style={{ color: '#0891B2' }} aria-hidden="true" />
-              <span className="text-xs font-semibold tracking-wide" style={{ color: '#003D82' }}>Enterprise Database Intelligence</span>
+              <span className="text-xs font-semibold tracking-wide" style={{ color: '#003D82' }}>Enterprise Assessment Intelligence</span>
             </div>
 
             <h1
               className="text-4xl font-black text-slate-900 font-display leading-[1.05]"
               style={{ letterSpacing: '-0.04em' }}
             >
-              SQL Server<br />
-              <span className="font-black" style={{ color: '#0056B3' }}>Intelligence</span>{' '}
+              Multi-Source<br />
+              <span className="font-black" style={{ color: '#0056B3' }}>Assessment</span>{' '}
               <span className="text-slate-700">Platform</span>
             </h1>
             <p className="text-slate-500 text-sm leading-relaxed max-w-xs">
-              Automated database discovery and migration readiness assessment
-              across SQL Server estates and Microsoft Fabric workspaces.
+              Unified readiness assessment across SQL Server estates,
+              Microsoft Fabric workspaces, SAP Systems, and Sage Intacct cloud ERP.
             </p>
           </div>
 

@@ -23,9 +23,10 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
       aria-label="Breadcrumb"
       className="flex items-center h-9 px-4 select-none overflow-hidden"
       style={{
-        background: '#F3F2F1',
+        background: 'linear-gradient(180deg, #EFF6FF 0%, #E8F0FB 100%)',
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
         minHeight: 36,
+        borderBottom: '1px solid rgba(197,213,236,0.60)',
       }}
     >
       {displayed.map((item, idx) => {
@@ -38,14 +39,14 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
               <ChevronRight
                 className="mx-1 flex-shrink-0"
                 size={13}
-                style={{ color: '#605E5C' }}
+                style={{ color: '#64748B' }}
                 aria-hidden
               />
             )}
             {isLast ? (
               <span
                 className="text-sm font-semibold truncate max-w-xs"
-                style={{ color: '#252423' }}
+                style={{ color: '#1E293B' }}
                 aria-current="page"
               >
                 {item.label}
@@ -53,7 +54,7 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
             ) : isEllipsis ? (
               <span
                 className="text-sm px-1"
-                style={{ color: '#605E5C' }}
+                style={{ color: '#64748B' }}
                 aria-hidden
               >
                 …
@@ -64,7 +65,7 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
                 onClick={item.onClick}
                 className="text-sm truncate max-w-xs hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
                 style={{
-                  color: '#B83510',
+                  color: '#0056B3',
                   cursor: item.onClick ? 'pointer' : 'default',
                   background: 'none',
                   border: 'none',

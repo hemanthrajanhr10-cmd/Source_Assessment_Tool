@@ -49,7 +49,7 @@ function displayLabel(type: string): string {
 function typeChipStyle(type: string): { bg: string; color: string } {
   const t = type.toLowerCase().replace(/\s+/g, '')
   if (t === 'slicer')
-    return { bg: '#FFF4EF', color: '#B83510' }
+    return { bg: '#EFF6FF', color: '#0056B3' }
   if (['columnchart', 'clusteredcolumnchart', 'stackedcolumnchart',
        'hundredpercentstackedcolumnchart', 'barchart', 'clusteredbarchart',
        'stackedbarchart', 'hundredpercentstackedbarchart', 'lineclusteredcolumnchart'].includes(t))
@@ -63,7 +63,7 @@ function typeChipStyle(type: string): { bg: string; color: string } {
   if (['linechart', 'areachart', 'stackedareachart'].includes(t))
     return { bg: '#EDF8FA', color: '#0D7F97' }
   if (['donutchart', 'piechart'].includes(t))
-    return { bg: '#FFF4EF', color: '#B83510' }
+    return { bg: '#EFF6FF', color: '#0056B3' }
   return { bg: '#F9FAFB', color: '#374151' }
 }
 
@@ -71,7 +71,7 @@ function typeChipStyle(type: string): { bg: string; color: string } {
 
 function VisualTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
   const t = type.toLowerCase().replace(/\s+/g, '')
-  if (t === 'slicer') return <Filter size={size} style={{ color: '#B83510' }} />
+  if (t === 'slicer') return <Filter size={size} style={{ color: '#0056B3' }} />
   if (['linechart', 'areachart', 'stackedareachart'].includes(t))
     return <Activity size={size} style={{ color: '#0D7F97' }} />
   if (['barchart', 'clusteredbarchart', 'stackedbarchart', 'columnchart',
@@ -85,7 +85,7 @@ function VisualTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
   if (['matrix', 'pivottable'].includes(t))
     return <LayoutGrid size={size} style={{ color: '#136137' }} />
   if (['donutchart', 'piechart'].includes(t))
-    return <PieChart size={size} style={{ color: '#B83510' }} />
+    return <PieChart size={size} style={{ color: '#0056B3' }} />
   if (t === 'scatterchart')
     return <ScatterChart size={size} style={{ color: '#0D7F97' }} />
   if (['waterfallchart', 'funnelchart', 'ribbonchart', 'treemap'].includes(t))
@@ -144,8 +144,8 @@ function MiniPreview({ visual }: { visual: MockVisual }) {
         {['(All)', 'A', 'B', 'C'].map((c, i) => (
           <span key={c} style={{
             padding: '2px 10px', fontSize: 11, borderRadius: 999, fontWeight: 500,
-            border: '1px solid', borderColor: i === 0 ? '#B83510' : '#D1D5DB',
-            background: i === 0 ? '#B83510' : '#fff',
+            border: '1px solid', borderColor: i === 0 ? '#0056B3' : '#D1D5DB',
+            background: i === 0 ? '#0056B3' : '#fff',
             color: i === 0 ? '#fff' : '#374151',
           }}>{c}</span>
         ))}
@@ -191,7 +191,7 @@ function MiniPreview({ visual }: { visual: MockVisual }) {
     const sz = Math.min(100, PREVIEW_H - 20)
     const r = sz / 2 - 4
     const cx = sz / 2, cy = sz / 2
-    const segs = [{ pct: 0.45, color: '#B83510' }, { pct: 0.3, color: '#0D7F97' }, { pct: 0.25, color: '#177B44' }]
+    const segs = [{ pct: 0.45, color: '#0056B3' }, { pct: 0.3, color: '#0D7F97' }, { pct: 0.25, color: '#177B44' }]
     let angle = -Math.PI / 2
     const arcs = segs.map(s => {
       const a1 = angle, a2 = angle + s.pct * 2 * Math.PI
@@ -256,10 +256,10 @@ function VisualThumbnailCard({ visual, onClick }: { visual: MockVisual; onClick:
       aria-label={`${displayTitle} — click to inspect field bindings`}
       style={{
         background: '#FFFFFF',
-        border: `1px solid ${hovered ? 'rgba(184,53,16,0.35)' : '#E5E7EB'}`,
+        border: `1px solid ${hovered ? 'rgba(0,86,179,0.35)' : '#E5E7EB'}`,
         borderRadius: 8,
         boxShadow: hovered
-          ? '0 4px 16px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)'
+          ? '0 4px 16px rgba(0,86,179,0.14), 0 1px 4px rgba(0,0,0,0.06)'
           : '0 1px 4px rgba(0,0,0,0.08)',
         transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
         transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
@@ -347,7 +347,7 @@ export default function VisualGrid({ page, onClickVisual }: VisualGridProps) {
   return (
     <div
       className="overflow-y-auto"
-      style={{ background: '#F3F4F6', padding: 20, minHeight: '100%' }}
+      style={{ background: '#EFF6FF', padding: 20, minHeight: '100%' }}
       aria-label={`Report page: ${page.name}`}
     >
       <div style={{

@@ -274,7 +274,12 @@ async def get_fabric_session(session_id: str, _: Any = Depends(get_current_user)
     row = azure_store.get_fabric_session(session_id)
     if not row:
         raise HTTPException(status_code=404, detail="Fabric session not found")
-    return _format_session_record(row, include_results=True)
+    # Parse potentially large results JSON off the event loop
+    loop = asyncio.get_event_loop()
+    record = await loop.run_in_executor(
+        None, functools.partial(_format_session_record, row, include_results=True)
+    )
+    return record
 
 
 @router.post("/sessions/{session_id}/cancel")

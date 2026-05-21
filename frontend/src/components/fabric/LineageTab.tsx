@@ -1,160 +1,38 @@
-import { useState, useRef, useLayoutEffect, useCallback, useEffect, forwardRef } from 'react'
+import React, { useState, useMemo, useCallback, startTransition } from 'react'
 import {
-  Hash, Calculator, Table2, BookOpen, Eye,
-  Search, Network, AlertCircle, BarChart2, Code2, Copy, Check,
-  Database, FolderOpen, ChevronDown,
+  Hash, BarChart2, Database,
+  FolderOpen, FileText, ChevronRight, Search, AlertCircle,
+  BookOpen, Eye, Code2, Copy, Check, ArrowRight,
 } from 'lucide-react'
-import type { FabricWorkspace, MeasureComplexity } from '../../types/api'
+import type { FabricWorkspace, FabricDataset, FabricReport, FabricMeasure, MeasureComplexity } from '../../types/api'
 
 // ── Keyframes ──────────────────────────────────────────────────────────────────
 
 const STYLES = `
 @keyframes lgFadeUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes lgFadeLeft {
-  from { opacity: 0; transform: translateX(-16px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes lgFadeRight {
-  from { opacity: 0; transform: translateX(16px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes lgScaleIn {
-  from { opacity: 0; transform: scale(0.92); }
-  to   { opacity: 1; transform: scale(1); }
+@keyframes lgFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 `
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-interface UsageEntry {
-  reportId: string
-  reportName: string
-  pageName: string
-  visualTitle: string
-  visualType: string
+interface ModelNode {
+  dataset: FabricDataset
+  reports: FabricReport[]
 }
 
-interface LineageItem {
-  key: string
-  name: string
-  table: string
-  modelName: string
-  workspaceName: string
-  expression?: string
-  complexity?: MeasureComplexity
-  type: 'Measure' | 'Calc Column' | 'Calc Table'
-  sourceType: 'model' | 'report-only'
-  usages: UsageEntry[]
-}
-
-interface GroupedUsage {
-  reportId: string
-  reportName: string
+interface MeasureUsage {
+  measure: FabricMeasure
   visualCount: number
   pageCount: number
 }
 
-// ── Data builder ───────────────────────────────────────────────────────────────
-
-function buildLineageData(workspaces: FabricWorkspace[]): LineageItem[] {
-  const items = new Map<string, LineageItem>()
-
-  workspaces.forEach(ws => {
-    ws.datasets.forEach(ds => {
-      ds.measures.forEach(m => {
-        const key = `${ws.name}||${ds.name}||${m.table}||${m.name}||measure`
-        items.set(key, {
-          key, name: m.name, table: m.table, modelName: ds.name,
-          workspaceName: ws.name, expression: m.expression,
-          complexity: m.complexity, type: 'Measure', sourceType: 'model', usages: [],
-        })
-      });
-      (ds.calculated_columns || []).forEach(c => {
-        const key = `${ws.name}||${ds.name}||${c.table}||${c.name}||calc_col`
-        items.set(key, {
-          key, name: c.name, table: c.table, modelName: ds.name,
-          workspaceName: ws.name, expression: c.expression,
-          complexity: c.complexity, type: 'Calc Column', sourceType: 'model', usages: [],
-        })
-      });
-      (ds.calculated_tables || []).forEach(t => {
-        const key = `${ws.name}||${ds.name}||${t.name}||${t.name}||calc_table`
-        items.set(key, {
-          key, name: t.name, table: t.name, modelName: ds.name,
-          workspaceName: ws.name, expression: t.expression,
-          complexity: t.complexity, type: 'Calc Table', sourceType: 'model', usages: [],
-        })
-      })
-    })
-  })
-
-  workspaces.forEach(ws => {
-    ws.reports.forEach(report => {
-      report.pages.forEach(page => {
-        page.visuals.forEach(visual => {
-          visual.fields.forEach(field => {
-            if (field.field_type !== 'measure' && field.field_type !== 'column') return
-            const usage: UsageEntry = {
-              reportId: report.id,
-              reportName: report.name,
-              pageName: page.name,
-              visualTitle: visual.title || visual.type || 'Visual',
-              visualType: visual.type,
-            }
-            let matched = false
-            for (const [, item] of items) {
-              if (
-                item.workspaceName === ws.name &&
-                item.name === field.name &&
-                (item.table === field.table || !field.table) &&
-                item.type === 'Measure' && field.field_type === 'measure'
-              ) { item.usages.push(usage); matched = true; break }
-              if (
-                item.workspaceName === ws.name &&
-                item.name === field.name &&
-                item.table === field.table &&
-                item.type === 'Calc Column' && field.field_type === 'column'
-              ) { item.usages.push(usage); matched = true; break }
-            }
-            if (!matched && field.field_type === 'measure') {
-              const key = `${ws.name}||report-only||${field.table || ''}||${field.name}||measure`
-              if (items.has(key)) {
-                items.get(key)!.usages.push(usage)
-              } else {
-                items.set(key, {
-                  key, name: field.name, table: field.table || '',
-                  modelName: 'Not in model catalog', workspaceName: ws.name,
-                  expression: field.expression, complexity: field.complexity,
-                  type: 'Measure', sourceType: 'report-only', usages: [usage],
-                })
-              }
-            }
-          })
-        })
-      })
-    })
-  })
-
-  return Array.from(items.values())
-}
-
-function groupUsagesByReport(usages: UsageEntry[]): GroupedUsage[] {
-  const byReport = new Map<string, { name: string; pages: Set<string>; visuals: number }>()
-  usages.forEach(u => {
-    if (!byReport.has(u.reportId)) byReport.set(u.reportId, { name: u.reportName, pages: new Set(), visuals: 0 })
-    const r = byReport.get(u.reportId)!
-    r.pages.add(u.pageName)
-    r.visuals += 1
-  })
-  return Array.from(byReport.entries()).map(([id, { name, pages, visuals }]) => ({
-    reportId: id, reportName: name, visualCount: visuals, pageCount: pages.size,
-  }))
-}
-
-// ── Complexity badge ───────────────────────────────────────────────────────────
+// ── Complexity colors ──────────────────────────────────────────────────────────
 
 const COMPLEXITY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   None:           { bg: 'rgba(148,163,184,0.10)', text: '#64748B', border: 'rgba(148,163,184,0.25)' },
@@ -179,24 +57,423 @@ function ComplexityPill({ c }: { c: MeasureComplexity }) {
   )
 }
 
-// ── Type meta ──────────────────────────────────────────────────────────────────
+// ── Column header ──────────────────────────────────────────────────────────────
 
-const TYPE_META = {
-  Measure:       { icon: <Hash size={11} />,        color: '#0056B3', bg: 'rgba(0,86,179,0.09)',  border: 'rgba(0,86,179,0.22)'  },
-  'Calc Column': { icon: <Calculator size={11} />,  color: '#B45309', bg: 'rgba(217,119,6,0.09)', border: 'rgba(217,119,6,0.22)' },
-  'Calc Table':  { icon: <Table2 size={11} />,      color: '#C2410C', bg: 'rgba(234,88,12,0.09)', border: 'rgba(234,88,12,0.22)' },
-} as const
+function ColHeader({ icon, title, count }: { icon: React.ReactNode; title: string; count?: number }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '10px 14px 10px',
+      borderBottom: '1.5px solid rgba(197,213,236,0.6)',
+      background: 'rgba(248,250,252,0.9)',
+      flexShrink: 0,
+    }}>
+      <div style={{
+        width: 28, height: 28, borderRadius: 8,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,86,179,0.08)', border: '1px solid rgba(0,86,179,0.15)',
+      }}>
+        <span style={{ color: '#0056B3' }}>{icon}</span>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: '#334155',
+          textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</p>
+        {count !== undefined && (
+          <p style={{ margin: 0, fontSize: 10, color: '#94A3B8' }}>{count} item{count !== 1 ? 's' : ''}</p>
+        )}
+      </div>
+    </div>
+  )
+}
 
-// ── Workspace picker ───────────────────────────────────────────────────────────
+// ── Arrow connector between columns ───────────────────────────────────────────
 
-function WorkspacePickerCard({
-  workspace, onClick, animDelay,
-}: { workspace: FabricWorkspace; onClick: () => void; animDelay: number }) {
+function ColArrow({ label }: { label?: string }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      width: 40, flexShrink: 0, gap: 4, paddingTop: 50,
+    }}>
+      <div style={{
+        width: 1, flex: 1, background: 'linear-gradient(to bottom, transparent, rgba(0,86,179,0.2) 30%, rgba(0,86,179,0.2) 70%, transparent)',
+        maxHeight: 80,
+      }} />
+      <ArrowRight size={16} style={{ color: 'rgba(0,86,179,0.35)', flexShrink: 0 }} />
+      {label && <p style={{ margin: 0, fontSize: 9, color: '#94A3B8', textAlign: 'center',
+        fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>}
+      <div style={{
+        width: 1, flex: 1, background: 'linear-gradient(to bottom, rgba(0,86,179,0.2), transparent)',
+        maxHeight: 80,
+      }} />
+    </div>
+  )
+}
+
+// ── Workspace card (Column 1) ──────────────────────────────────────────────────
+
+function WorkspaceCol({ workspace }: { workspace: FabricWorkspace }) {
+  return (
+    <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column',
+      border: '1.5px solid rgba(197,213,236,0.7)', borderRadius: 13, overflow: 'hidden',
+      background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+      animation: 'lgFadeUp 0.38s cubic-bezier(0.16,1,0.3,1) both',
+    }}>
+      <ColHeader icon={<FolderOpen size={14} />} title="Workspace" />
+      <div style={{ padding: '14px 14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,86,179,0.08)', border: '1px solid rgba(0,86,179,0.15)',
+        }}>
+          <FolderOpen size={20} style={{ color: '#0056B3' }} />
+        </div>
+        <div>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1.3 }}>
+            {workspace.name}
+          </p>
+          <p style={{ margin: '3px 0 0', fontSize: 11, color: '#94A3B8' }}>{workspace.type}</p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 2 }}>
+          {[
+            { icon: <Database size={11} />, label: 'Semantic Models', value: workspace.dataset_count },
+            { icon: <FileText size={11} />, label: 'Reports', value: workspace.report_count },
+          ].map(({ icon, label, value }) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#64748B' }}>
+                <span style={{ color: '#94A3B8' }}>{icon}</span>{label}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#1E293B' }}>{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Semantic model card (Column 2) ────────────────────────────────────────────
+
+function ModelCard({
+  node, isSelected, isActive, onClick, animDelay,
+}: {
+  node: ModelNode
+  isSelected: boolean
+  isActive: boolean
+  onClick: () => void
+  animDelay: number
+}) {
   const [hov, setHov] = useState(false)
-  const totalMeasures = workspace.datasets.reduce((s, ds) => s + ds.measure_count + (ds.calculated_column_count ?? 0), 0)
+  const ds = node.dataset
   return (
     <button
       onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 7,
+        padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+        border: `1.5px solid ${isSelected ? 'rgba(0,86,179,0.5)' : hov ? 'rgba(0,86,179,0.3)' : 'rgba(197,213,236,0.7)'}`,
+        background: isSelected ? 'rgba(0,86,179,0.06)' : hov ? 'rgba(0,86,179,0.03)' : 'white',
+        boxShadow: isSelected
+          ? '0 4px 16px rgba(0,86,179,0.14), inset 0 1px 0 rgba(255,255,255,0.9)'
+          : '0 1px 3px rgba(0,0,0,0.04)',
+        opacity: isActive ? 1 : 0.35,
+        transition: 'all 0.18s cubic-bezier(0.16,1,0.3,1)',
+        animation: `lgFadeUp 0.4s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: isSelected ? 'rgba(0,86,179,0.12)' : 'rgba(0,86,179,0.07)',
+          border: '1px solid rgba(0,86,179,0.15)',
+        }}>
+          <Database size={13} style={{ color: '#0056B3' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#1E293B', lineHeight: 1.3,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {ds.name}
+          </p>
+          <p style={{ margin: 0, fontSize: 10, color: '#94A3B8' }}>
+            {ds.measure_count}m · {ds.table_count}t · {node.reports.length} report{node.reports.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        {isSelected && <ChevronRight size={12} style={{ color: '#0056B3', flexShrink: 0 }} />}
+      </div>
+    </button>
+  )
+}
+
+// ── Report card (Column 3) ─────────────────────────────────────────────────────
+
+function ReportCard({
+  report, isSelected, isActive, onClick, animDelay,
+}: {
+  report: FabricReport
+  isSelected: boolean
+  isActive: boolean
+  onClick: () => void
+  animDelay: number
+}) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 6,
+        padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+        border: `1.5px solid ${isSelected ? 'rgba(13,148,136,0.5)' : hov ? 'rgba(13,148,136,0.28)' : 'rgba(197,213,236,0.7)'}`,
+        background: isSelected ? 'rgba(13,148,136,0.05)' : hov ? 'rgba(13,148,136,0.02)' : 'white',
+        boxShadow: isSelected
+          ? '0 4px 16px rgba(13,148,136,0.12), inset 0 1px 0 rgba(255,255,255,0.9)'
+          : '0 1px 3px rgba(0,0,0,0.04)',
+        opacity: isActive ? 1 : 0.3,
+        transition: 'all 0.18s cubic-bezier(0.16,1,0.3,1)',
+        animation: `lgFadeUp 0.4s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: isSelected ? 'rgba(13,148,136,0.10)' : 'rgba(13,148,136,0.06)',
+          border: '1px solid rgba(13,148,136,0.15)',
+        }}>
+          <BarChart2 size={13} style={{ color: '#0D9488' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#1E293B', lineHeight: 1.3,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {report.name}
+          </p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#94A3B8' }}>
+              <BookOpen size={9} />{report.page_count ?? 0} pages
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#94A3B8' }}>
+              <Eye size={9} />{report.visual_count} visuals
+            </span>
+          </div>
+        </div>
+        {isSelected && <ChevronRight size={12} style={{ color: '#0D9488', flexShrink: 0 }} />}
+      </div>
+    </button>
+  )
+}
+
+// ── Measure card (Column 4) ────────────────────────────────────────────────────
+
+function MeasureCard({
+  usage, animDelay,
+}: { usage: MeasureUsage; animDelay: number }) {
+  const [expanded, setExpanded] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const m = usage.measure
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!m.expression) return
+    navigator.clipboard.writeText(m.expression).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <div
+      onClick={() => setExpanded(x => !x)}
+      style={{
+        borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
+        border: `1.5px solid ${expanded ? 'rgba(139,92,246,0.42)' : 'rgba(197,213,236,0.7)'}`,
+        background: expanded ? 'rgba(139,92,246,0.03)' : 'white',
+        boxShadow: expanded
+          ? '0 4px 14px rgba(139,92,246,0.10)'
+          : '0 1px 3px rgba(0,0,0,0.04)',
+        transition: 'all 0.18s cubic-bezier(0.16,1,0.3,1)',
+        animation: `lgFadeUp 0.4s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px' }}>
+        <div style={{
+          width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)',
+        }}>
+          <Hash size={12} style={{ color: '#7C3AED' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#1E293B',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+            {m.name}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            <span style={{ fontSize: 10, color: '#94A3B8',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {m.table}
+            </span>
+            {usage.visualCount > 0 && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#94A3B8' }}>
+                <Eye size={9} />{usage.visualCount}
+              </span>
+            )}
+          </div>
+        </div>
+        {m.complexity && <ComplexityPill c={m.complexity} />}
+      </div>
+      {expanded && m.expression && (
+        <div style={{
+          padding: '0 11px 10px', borderTop: '1px solid rgba(197,213,236,0.4)', paddingTop: 8,
+          animation: 'lgFadeIn 0.16s ease both',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8',
+              textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Code2 size={9} /> DAX
+            </span>
+            <button
+              onClick={handleCopy}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 3,
+                padding: '2px 7px', borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: 'pointer', border: 'none',
+                background: copied ? 'rgba(13,148,136,0.10)' : 'rgba(139,92,246,0.08)',
+                color: copied ? '#0F766E' : '#7C3AED',
+              }}
+            >
+              {copied ? <><Check size={8} /> Copied!</> : <><Copy size={8} /> Copy</>}
+            </button>
+          </div>
+          <pre style={{
+            margin: 0, fontSize: 10, fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+            padding: '6px 8px', borderRadius: 6, overflowX: 'auto',
+            whiteSpace: 'pre-wrap', maxHeight: 100, color: '#334155',
+            background: 'rgba(139,92,246,0.04)', border: '1px solid rgba(139,92,246,0.14)',
+          }}>
+            {m.expression}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Unused measures card for "no model measures used" ─────────────────────────
+
+function UnusedModelMeasureCard({ m, animDelay }: { m: FabricMeasure; animDelay: number }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div
+      onClick={() => setExpanded(x => !x)}
+      style={{
+        borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
+        border: `1.5px solid ${expanded ? 'rgba(148,163,184,0.45)' : 'rgba(197,213,236,0.6)'}`,
+        background: expanded ? 'rgba(148,163,184,0.04)' : 'white',
+        opacity: 0.65,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        transition: 'all 0.18s cubic-bezier(0.16,1,0.3,1)',
+        animation: `lgFadeUp 0.4s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 11px' }}>
+        <div style={{
+          width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(148,163,184,0.10)', border: '1px solid rgba(148,163,184,0.22)',
+        }}>
+          <Hash size={12} style={{ color: '#94A3B8' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: '#64748B',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>
+            {m.name}
+          </p>
+          <p style={{ margin: 0, fontSize: 10, color: '#94A3B8' }}>{m.table} · unused</p>
+        </div>
+        {m.complexity && <ComplexityPill c={m.complexity} />}
+      </div>
+      {expanded && m.expression && (
+        <div style={{
+          padding: '0 11px 10px', borderTop: '1px solid rgba(197,213,236,0.4)', paddingTop: 8,
+          animation: 'lgFadeIn 0.16s ease both',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8',
+              textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Code2 size={9} /> DAX
+            </span>
+            <button
+              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(m.expression!).then(() => { }) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 3,
+                padding: '2px 7px', borderRadius: 4, fontSize: 9, fontWeight: 700, cursor: 'pointer', border: 'none',
+                background: 'rgba(148,163,184,0.10)', color: '#64748B',
+              }}
+            >
+              <Copy size={8} /> Copy
+            </button>
+          </div>
+          <pre style={{
+            margin: 0, fontSize: 10, fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+            padding: '6px 8px', borderRadius: 6, overflowX: 'auto',
+            whiteSpace: 'pre-wrap', maxHeight: 100, color: '#475569',
+            background: 'rgba(148,163,184,0.05)', border: '1px solid rgba(148,163,184,0.20)',
+          }}>
+            {m.expression}
+          </pre>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Scrollable column shell ────────────────────────────────────────────────────
+
+function ColShell({
+  children, width, accentColor, isEmpty, emptyMsg,
+}: {
+  children: React.ReactNode
+  width: number
+  accentColor?: string
+  isEmpty?: boolean
+  emptyMsg?: string
+}) {
+  return (
+    <div style={{
+      width, flexShrink: 0, display: 'flex', flexDirection: 'column',
+      border: `1.5px solid ${accentColor ? `${accentColor}35` : 'rgba(197,213,236,0.7)'}`,
+      borderRadius: 13, overflow: 'hidden',
+      background: 'white',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+    }}>
+      {isEmpty ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', padding: '40px 16px', gap: 8 }}>
+          <AlertCircle size={20} style={{ color: '#CBD5E1' }} />
+          <p style={{ margin: 0, fontSize: 12, color: '#94A3B8', textAlign: 'center' }}>{emptyMsg}</p>
+        </div>
+      ) : (
+        <div style={{ overflow: 'auto', flex: 1 }}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Workspace picker card (isolated component to allow useState) ───────────────
+
+function WsPickerCard({ ws, onSelect, animDelay }: {
+  ws: FabricWorkspace; onSelect: () => void; animDelay: number
+}) {
+  const [hov, setHov] = useState(false)
+  return (
+    <button
+      onClick={onSelect}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
@@ -205,9 +482,7 @@ function WorkspacePickerCard({
         border: `1.5px solid ${hov ? 'rgba(0,86,179,0.42)' : 'rgba(197,213,236,0.7)'}`,
         background: hov ? 'rgba(0,86,179,0.035)' : 'white',
         cursor: 'pointer', textAlign: 'left', width: '100%',
-        boxShadow: hov
-          ? '0 8px 28px rgba(0,86,179,0.11), 0 2px 8px rgba(0,86,179,0.07)'
-          : '0 1px 4px rgba(0,0,0,0.05)',
+        boxShadow: hov ? '0 8px 28px rgba(0,86,179,0.11)' : '0 1px 4px rgba(0,0,0,0.05)',
         transform: hov ? 'translateY(-3px)' : 'translateY(0)',
         transition: 'all 0.22s cubic-bezier(0.16,1,0.3,1)',
         animation: `lgFadeUp 0.42s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
@@ -215,25 +490,21 @@ function WorkspacePickerCard({
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{
-          width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+          width: 38, height: 38, borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: hov ? 'rgba(0,86,179,0.10)' : 'rgba(0,86,179,0.06)',
-          border: '1px solid rgba(0,86,179,0.14)',
+          background: 'rgba(0,86,179,0.07)', border: '1px solid rgba(0,86,179,0.14)',
         }}>
           <FolderOpen size={17} style={{ color: '#0056B3' }} />
         </div>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1.3 }}>
-            {workspace.name}
-          </p>
-          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94A3B8' }}>{workspace.type}</p>
+        <div>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1E293B' }}>{ws.name}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94A3B8' }}>{ws.type}</p>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 16 }}>
         {[
-          { icon: <Database size={10} />, n: workspace.dataset_count, label: 'models' },
-          { icon: <Network size={10} />,  n: totalMeasures,            label: 'calc items' },
-          { icon: <BarChart2 size={10} />, n: workspace.report_count, label: 'reports' },
+          { icon: <Database size={10} />, n: ws.dataset_count, label: 'models' },
+          { icon: <BarChart2 size={10} />, n: ws.report_count, label: 'reports' },
         ].map(({ icon, n, label }) => (
           <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <span style={{ color: '#94A3B8' }}>{icon}</span>
@@ -246,574 +517,427 @@ function WorkspacePickerCard({
   )
 }
 
-// ── Measure card (left, ref-forwarded) ─────────────────────────────────────────
+// ── Workspace picker (shown when >1 workspace) ─────────────────────────────────
 
-const MeasureCard = forwardRef<HTMLDivElement, {
-  item: LineageItem
-  isActive: boolean
-  expanded: boolean
-  onToggle: () => void
-  animDelay: number
-}>(function MeasureCard({ item, isActive, expanded, onToggle, animDelay }, ref) {
-  const [hov, setHov] = useState(false)
-  const meta = TYPE_META[item.type]
-  const [copied, setCopied] = useState(false)
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!item.expression) return
-    navigator.clipboard.writeText(item.expression).then(() => {
-      setCopied(true); setTimeout(() => setCopied(false), 2000)
-    })
-  }
-
+function WorkspacePicker({
+  workspaces, onSelect,
+}: { workspaces: FabricWorkspace[]; onSelect: (ws: FabricWorkspace) => void }) {
   return (
-    <div
-      ref={ref}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        borderRadius: 11, overflow: 'hidden',
-        border: `1.5px solid ${expanded ? 'rgba(0,86,179,0.38)' : hov ? 'rgba(0,86,179,0.32)' : 'rgba(197,213,236,0.7)'}`,
-        background: expanded ? 'rgba(0,86,179,0.03)' : hov ? 'rgba(0,86,179,0.02)' : 'white',
-        opacity: isActive ? 1 : 0.3,
-        boxShadow: (hov || expanded)
-          ? '0 4px 16px rgba(0,86,179,0.10), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)'
-          : '0 1px 3px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.8)',
-        transform: hov ? 'translateX(2px)' : 'translateX(0)',
-        transition: 'all 0.18s cubic-bezier(0.16,1,0.3,1)',
-        animation: `lgFadeLeft 0.46s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
-        position: 'relative', zIndex: 2, cursor: 'pointer',
-      }}
-      onClick={onToggle}
-    >
-      {/* Main row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px' }}>
-        {/* Type icon */}
-        <div style={{
-          width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: meta.bg, border: `1px solid ${meta.border}`,
-        }}>
-          <span style={{ color: meta.color }}>{meta.icon}</span>
-        </div>
-
-        {/* Name + table */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{
-            margin: 0, fontSize: 12, fontWeight: 700, color: '#1E293B', lineHeight: 1.3,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-          }}>
-            {item.name}
-          </p>
-          <p style={{ margin: '2px 0 0', fontSize: 10, color: '#94A3B8',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {item.table && item.table !== item.name ? `${item.table} · ` : ''}{item.modelName}
-          </p>
-        </div>
-
-        {/* Badges */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3, flexShrink: 0 }}>
-          {item.complexity && <ComplexityPill c={item.complexity} />}
-          {item.sourceType === 'report-only' && (
-            <span style={{
-              fontSize: 9, fontWeight: 700, color: '#B45309',
-              background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.22)',
-              borderRadius: 4, padding: '1px 5px',
-            }}>REPORT-ONLY</span>
-          )}
-        </div>
-
-        <ChevronDown size={12} style={{
-          color: '#94A3B8', flexShrink: 0,
-          transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
-          transition: 'transform 0.18s ease',
-        }} />
-      </div>
-
-      {/* Expanded DAX expression */}
-      {expanded && item.expression && (
-        <div style={{
-          padding: '0 12px 10px',
-          borderTop: '1px solid rgba(197,213,236,0.4)',
-          paddingTop: 8,
-          animation: 'lgScaleIn 0.18s cubic-bezier(0.16,1,0.3,1) both',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, fontWeight: 700, color: '#94A3B8',
-              textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              <Code2 size={9} /> DAX
-            </span>
-            <button
-              onClick={handleCopy}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 3,
-                padding: '2px 7px', borderRadius: 4, fontSize: 9, fontWeight: 700,
-                cursor: 'pointer', border: 'none',
-                background: copied ? 'rgba(13,148,136,0.10)' : 'rgba(0,86,179,0.07)',
-                color: copied ? '#0F766E' : '#0056B3',
-              }}
-            >
-              {copied ? <><Check size={8} /> Copied!</> : <><Copy size={8} /> Copy</>}
-            </button>
-          </div>
-          <pre style={{
-            margin: 0, fontSize: 10, fontFamily: 'ui-monospace, SFMono-Regular, monospace',
-            padding: '6px 8px', borderRadius: 6, overflowX: 'auto',
-            whiteSpace: 'pre-wrap', maxHeight: 100, color: '#334155',
-            background: 'rgba(0,86,179,0.03)', border: '1px solid rgba(0,86,179,0.12)',
-          }}>
-            {item.expression}
-          </pre>
-        </div>
-      )}
-    </div>
-  )
-})
-
-// ── Report usage card (right, ref-forwarded) ───────────────────────────────────
-
-const ReportUsageCard = forwardRef<HTMLDivElement, {
-  usage: GroupedUsage
-  isActive: boolean
-  animDelay: number
-}>(function ReportUsageCard({ usage, isActive, animDelay }, ref) {
-  const [hov, setHov] = useState(false)
-
-  return (
-    <div
-      ref={ref}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        padding: '8px 12px', borderRadius: 10,
-        border: `1.5px solid ${hov ? 'rgba(0,86,179,0.45)' : 'rgba(197,213,236,0.65)'}`,
-        background: hov ? 'rgba(0,86,179,0.03)' : 'white',
-        opacity: isActive ? 1 : 0.28,
-        boxShadow: hov
-          ? '0 4px 14px rgba(0,86,179,0.10), 0 1px 3px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.9)'
-          : '0 1px 3px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.8)',
-        transform: hov ? 'translateX(3px)' : 'translateX(0)',
-        transition: 'all 0.18s cubic-bezier(0.16,1,0.3,1)',
-        animation: `lgFadeRight 0.46s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
-        display: 'flex', alignItems: 'center', gap: 9,
-        position: 'relative', zIndex: 2,
-      }}
-    >
-      <div style={{
-        width: 26, height: 26, borderRadius: 7, flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: hov ? 'rgba(0,86,179,0.10)' : 'rgba(0,86,179,0.06)',
-        border: '1px solid rgba(0,86,179,0.14)',
-        transition: 'background 0.2s ease',
-      }}>
-        <BarChart2 size={12} style={{ color: '#0056B3' }} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{
-          margin: 0, fontSize: 12, fontWeight: 700, color: '#1E293B', lineHeight: 1.3,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {usage.reportName}
+    <div style={{ padding: '24px 0', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+      <style>{STYLES}</style>
+      <div style={{ marginBottom: 20 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1E293B' }}>
+          Select a workspace to explore measure lineage
         </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#94A3B8' }}>
-            <BookOpen size={9} />{usage.pageCount} {usage.pageCount === 1 ? 'page' : 'pages'}
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#94A3B8' }}>
-            <Eye size={9} />{usage.visualCount} {usage.visualCount === 1 ? 'visual' : 'visuals'}
-          </span>
-        </div>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748B' }}>
+          {workspaces.length} workspace{workspaces.length !== 1 ? 's' : ''} · trace DAX usage across reports and visuals
+        </p>
       </div>
-    </div>
-  )
-})
-
-// ── SVG path type ──────────────────────────────────────────────────────────────
-
-interface SvgPath { d: string; pathId: string; arrowX: number; arrowY: number }
-
-// ── Measure row — bipartite with SVG overlay ───────────────────────────────────
-
-function MeasureRow({
-  item,
-  usages,
-  isFiltered,
-  expanded,
-  onToggle,
-  animDelay,
-}: {
-  item: LineageItem
-  usages: GroupedUsage[]
-  isFiltered: boolean
-  expanded: boolean
-  onToggle: () => void
-  animDelay: number
-}) {
-  const rowRef        = useRef<HTMLDivElement>(null)
-  const measureRef    = useRef<HTMLDivElement>(null)
-  const reportRefs    = useRef<(HTMLDivElement | null)[]>([])
-  const [svgPaths, setSvgPaths]   = useState<SvgPath[]>([])
-  const [svgSize, setSvgSize]     = useState({ w: 0, h: 0 })
-  const isUsed = usages.length > 0
-
-  const computePaths = useCallback(() => {
-    const row     = rowRef.current
-    const measure = measureRef.current
-    if (!row || !measure) return
-
-    const rowRect = row.getBoundingClientRect()
-    const mRect   = measure.getBoundingClientRect()
-    const fromX   = mRect.right  - rowRect.left
-    const fromY   = mRect.top + mRect.height / 2 - rowRect.top
-
-    const paths: SvgPath[] = []
-    reportRefs.current.forEach((el, i) => {
-      if (!el || i >= usages.length) return
-      const rRect = el.getBoundingClientRect()
-      const toX   = rRect.left - rowRect.left
-      const toY   = rRect.top + rRect.height / 2 - rowRect.top
-      const dx    = Math.max(Math.abs(toX - fromX) * 0.40, 18)
-      paths.push({
-        d: `M ${fromX},${fromY} C ${fromX + dx},${fromY} ${toX - dx},${toY} ${toX},${toY}`,
-        pathId: usages[i].reportId,
-        arrowX: toX,
-        arrowY: toY,
-      })
-    })
-
-    setSvgPaths(paths)
-    setSvgSize({ w: rowRect.width, h: rowRect.height })
-  }, [usages])
-
-  useLayoutEffect(() => {
-    let raf1: number, raf2: number
-    raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(computePaths) })
-    const ro = new ResizeObserver(computePaths)
-    if (rowRef.current) ro.observe(rowRef.current)
-    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); ro.disconnect() }
-  }, [computePaths, expanded, usages.length])
-
-  const ARROW_SIZE = 5
-
-  return (
-    <div
-      ref={rowRef}
-      style={{
-        display: 'flex', alignItems: 'center', position: 'relative',
-        opacity: isFiltered ? 0.22 : 1,
-        transition: 'opacity 0.22s ease',
-        animation: `lgFadeUp 0.44s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
-        minHeight: 52,
-      }}
-    >
-      {/* Measure card — left column */}
-      <div style={{ width: 240, flexShrink: 0 }}>
-        <MeasureCard
-          ref={measureRef}
-          item={item}
-          isActive={!isFiltered}
-          expanded={expanded}
-          onToggle={onToggle}
-          animDelay={0}
-        />
-      </div>
-
-      {/* Gap for SVG */}
-      <div style={{ width: 64, flexShrink: 0 }} />
-
-      {/* Reports column — right */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {isUsed ? usages.map((u, ri) => (
-          <div key={u.reportId} ref={el => { reportRefs.current[ri] = el }}>
-            <ReportUsageCard usage={u} isActive={!isFiltered} animDelay={ri * 30} />
-          </div>
-        )) : (
-          <div style={{
-            height: 44, display: 'flex', alignItems: 'center', paddingLeft: 4,
-            animation: `lgFadeRight 0.46s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
-          }}>
-            <span style={{ fontSize: 11, color: '#CBD5E1', fontStyle: 'italic' }}>Unused</span>
-          </div>
-        )}
-      </div>
-
-      {/* Per-row SVG overlay */}
-      <svg
-        style={{
-          position: 'absolute', left: 0, top: 0,
-          width: svgSize.w || '100%', height: svgSize.h || '100%',
-          overflow: 'visible', pointerEvents: 'none', zIndex: 1,
-        }}
-        aria-hidden="true"
-      >
-        {svgPaths.map(({ d, pathId, arrowX, arrowY }) => (
-          <g key={pathId}>
-            <path
-              d={d} fill="none"
-              stroke="rgba(0,86,179,0.28)" strokeWidth={1.5} strokeLinecap="round"
-              style={{ transition: 'stroke 0.16s ease' }}
-            />
-            <polygon
-              points={`
-                ${arrowX - ARROW_SIZE * 1.4},${arrowY - ARROW_SIZE * 0.85}
-                ${arrowX + 1},${arrowY}
-                ${arrowX - ARROW_SIZE * 1.4},${arrowY + ARROW_SIZE * 0.85}
-              `}
-              fill="rgba(0,86,179,0.28)"
-            />
-          </g>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
+        {workspaces.map((ws, i) => (
+          <WsPickerCard key={ws.id} ws={ws} onSelect={() => onSelect(ws)} animDelay={i * 40} />
         ))}
-      </svg>
+      </div>
     </div>
   )
 }
 
-// ── Column header label ────────────────────────────────────────────────────────
+// ── Data builder (memoized, O(n) with Map lookups) ────────────────────────────
 
-function ColLabel({ children, count }: { children: string; count?: number }) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 7,
-      marginBottom: 14, paddingBottom: 9,
-      borderBottom: '1px solid rgba(197,213,236,0.45)',
-    }}>
-      <span style={{
-        fontSize: 10, fontWeight: 800, letterSpacing: '0.07em',
-        textTransform: 'uppercase', color: '#94A3B8',
-      }}>{children}</span>
-      {count !== undefined && (
-        <span style={{
-          fontSize: 10, fontWeight: 800, color: '#0056B3',
-          background: 'rgba(0,86,179,0.08)', borderRadius: 10,
-          padding: '1px 7px', border: '1px solid rgba(0,86,179,0.16)',
-        }}>{count}</span>
-      )}
-    </div>
-  )
+function buildModelNodes(workspace: FabricWorkspace): ModelNode[] {
+  // O(reports) — direct dataset_id lookup (no nested scanning)
+  const reportsByDataset = new Map<string, FabricReport[]>()
+  workspace.reports.forEach(r => {
+    if (!reportsByDataset.has(r.dataset_id)) reportsByDataset.set(r.dataset_id, [])
+    reportsByDataset.get(r.dataset_id)!.push(r)
+  })
+  return workspace.datasets.map(ds => ({
+    dataset: ds,
+    reports: reportsByDataset.get(ds.id) ?? [],
+  }))
+}
+
+function getMeasuresUsedInReport(dataset: FabricDataset, report: FabricReport): MeasureUsage[] {
+  // Build usage counts from the report in O(pages × visuals × fields)
+  const visualCount = new Map<string, number>()
+  const pageSet     = new Map<string, Set<string>>()
+
+  for (const page of report.pages) {
+    for (const visual of page.visuals) {
+      for (const field of visual.fields) {
+        if (field.field_type !== 'measure') continue
+        visualCount.set(field.name, (visualCount.get(field.name) ?? 0) + 1)
+        if (!pageSet.has(field.name)) pageSet.set(field.name, new Set())
+        pageSet.get(field.name)!.add(page.name)
+      }
+    }
+  }
+
+  if (visualCount.size === 0) return []
+
+  // Filter dataset measures by usage — O(measures)
+  return dataset.measures
+    .filter(m => visualCount.has(m.name))
+    .map(m => ({
+      measure: m,
+      visualCount: visualCount.get(m.name) ?? 0,
+      pageCount: pageSet.get(m.name)?.size ?? 0,
+    }))
 }
 
 // ── Main export ────────────────────────────────────────────────────────────────
 
 export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
-  const [selectedWs, setSelectedWs]         = useState<FabricWorkspace | null>(
+  const [selectedWs, setSelectedWs]           = useState<FabricWorkspace | null>(
     workspaces.length === 1 ? workspaces[0] : null,
   )
-  const [search, setSearch]                 = useState('')
-  const [typeFilter, setTypeFilter]         = useState<'all' | 'Measure' | 'Calc Column' | 'Calc Table'>('all')
-  const [usageFilter, setUsageFilter]       = useState<'all' | 'used' | 'unused' | 'report-only'>('all')
-  const [expandedKeys, setExpandedKeys]     = useState<Set<string>>(new Set())
+  const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
+  const [search, setSearch]                   = useState('')
+  const [measuresPage, setMeasuresPage]       = useState(40)
 
-  // Reset filters on workspace change
-  useEffect(() => {
-    setSearch('')
-    setTypeFilter('all')
-    setUsageFilter('all')
-    setExpandedKeys(new Set())
-  }, [selectedWs?.id])
-
-  const all = selectedWs ? buildLineageData([selectedWs]) : []
-
-  const totalItems      = all.length
-  const usedItems       = all.filter(x => x.usages.length > 0).length
-  const unusedItems     = all.filter(x => x.usages.length === 0 && x.sourceType === 'model').length
-  const reportOnlyItems = all.filter(x => x.sourceType === 'report-only').length
-
-  const filtered = all.filter(item => {
-    if (typeFilter !== 'all' && item.type !== typeFilter) return false
-    if (usageFilter === 'used'        && item.usages.length === 0) return false
-    if (usageFilter === 'unused'      && (item.usages.length > 0 || item.sourceType === 'report-only')) return false
-    if (usageFilter === 'report-only' && item.sourceType !== 'report-only') return false
-    if (search) {
-      const q = search.toLowerCase()
-      if (!item.name.toLowerCase().includes(q) && !item.modelName.toLowerCase().includes(q) && !item.table.toLowerCase().includes(q)) return false
-    }
-    return true
-  })
-
-  const toggleExpand = (key: string) => {
-    setExpandedKeys(prev => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
-      return next
+  // Reset selections when workspace changes
+  const handleSelectWs = useCallback((ws: FabricWorkspace) => {
+    setSelectedWs(ws)
+    startTransition(() => {
+      setSelectedModelId(null)
+      setSelectedReportId(null)
+      setSearch('')
+      setMeasuresPage(40)
     })
-  }
+  }, [])
 
-  // ── Workspace picker ──────────────────────────────────────────────────────────
+  const handleSelectModel = useCallback((id: string) => {
+    startTransition(() => {
+      setSelectedModelId(prev => prev === id ? null : id)
+      setSelectedReportId(null)
+      setSearch('')
+      setMeasuresPage(40)
+    })
+  }, [])
 
+  const handleSelectReport = useCallback((id: string) => {
+    startTransition(() => {
+      setSelectedReportId(prev => prev === id ? null : id)
+      setSearch('')
+      setMeasuresPage(40)
+    })
+  }, [])
+
+  // Workspace picker when >1 workspaces
   if (!selectedWs) {
-    return (
-      <div style={{ padding: '26px 0', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
-        <style>{STYLES}</style>
-        <div style={{ marginBottom: 20 }}>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1E293B' }}>
-            Select a workspace to explore measure lineage
-          </p>
-          <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748B' }}>
-            {workspaces.length} workspace{workspaces.length !== 1 ? 's' : ''} · trace DAX usage across reports and visuals
-          </p>
-        </div>
-        {workspaces.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
-            {workspaces.map((ws, i) => (
-              <WorkspacePickerCard key={ws.id} workspace={ws} onClick={() => setSelectedWs(ws)} animDelay={i * 40} />
-            ))}
-          </div>
-        ) : (
-          <p style={{ textAlign: 'center', padding: '60px 0', color: '#94A3B8', fontSize: 13 }}>
-            No workspaces found in this assessment.
-          </p>
-        )}
-      </div>
-    )
+    return <WorkspacePicker workspaces={workspaces} onSelect={handleSelectWs} />
   }
 
-  // ── Graph canvas ──────────────────────────────────────────────────────────────
+  // ── Memoized data (recomputed only when workspace changes) ──────────────────
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const modelNodes = useMemo(() => buildModelNodes(selectedWs), [selectedWs])
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const selectedModel = useMemo(
+    () => modelNodes.find(n => n.dataset.id === selectedModelId) ?? null,
+    [modelNodes, selectedModelId],
+  )
+
+  const visibleReports = useMemo(
+    () => selectedModel ? selectedModel.reports : selectedWs.reports,
+    [selectedModel, selectedWs.reports],
+  )
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const selectedReport = useMemo(
+    () => visibleReports.find(r => r.id === selectedReportId) ?? null,
+    [visibleReports, selectedReportId],
+  )
+
+  // Measures used in selected report — expensive but only runs when both model + report selected
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const usedMeasures = useMemo(() => {
+    if (!selectedModel || !selectedReport) return []
+    return getMeasuresUsedInReport(selectedModel.dataset, selectedReport)
+  }, [selectedModel, selectedReport])
+
+  // Unused measures in selected model (not used in selected report)
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const unusedMeasures = useMemo(() => {
+    if (!selectedModel) return []
+    if (!selectedReport) return selectedModel.dataset.measures
+    const usedNames = new Set(usedMeasures.map(u => u.measure.name))
+    return selectedModel.dataset.measures.filter(m => !usedNames.has(m.name))
+  }, [selectedModel, selectedReport, usedMeasures])
+
+  // Search-filtered measures
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const filteredUsed = useMemo(() => {
+    if (!search) return usedMeasures
+    const q = search.toLowerCase()
+    return usedMeasures.filter(u =>
+      u.measure.name.toLowerCase().includes(q) || u.measure.table.toLowerCase().includes(q),
+    )
+  }, [usedMeasures, search])
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const filteredUnused = useMemo(() => {
+    if (!search) return unusedMeasures
+    const q = search.toLowerCase()
+    return unusedMeasures.filter(m =>
+      m.name.toLowerCase().includes(q) || m.table.toLowerCase().includes(q),
+    )
+  }, [unusedMeasures, search])
+
+  const allFiltered = [...filteredUsed.map(u => ({ type: 'used' as const, data: u })),
+                       ...filteredUnused.map(m => ({ type: 'unused' as const, data: m }))]
+
+  const colHeight = 520
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+    <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       <style>{STYLES}</style>
 
-      {/* ── Toolbar ─────────────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '10px 0 14px',
-        borderBottom: '1px solid rgba(197,213,236,0.55)',
-        marginBottom: 18, flexWrap: 'wrap',
-      }}>
-        {/* Back to workspace picker (only when >1 workspace) */}
-        {workspaces.length > 1 && (
+      {/* ── Breadcrumb / back button ───────────────────────────────────────── */}
+      {workspaces.length > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
           <button
-            onClick={() => setSelectedWs(null)}
+            onClick={() => { setSelectedWs(null); setSelectedModelId(null); setSelectedReportId(null) }}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
-              padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+              padding: '4px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
               background: 'rgba(0,86,179,0.06)', color: '#0056B3',
               border: '1px solid rgba(0,86,179,0.18)', cursor: 'pointer',
             }}
           >
             <FolderOpen size={11} /> {selectedWs.name}
           </button>
-        )}
+        </div>
+      )}
 
-        {/* Stats pills */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          {[
-            { label: 'Total',       value: totalItems,      color: '#0056B3', bg: 'rgba(0,86,179,0.08)',    border: 'rgba(0,86,179,0.18)' },
-            { label: 'Used',        value: usedItems,       color: '#047857', bg: 'rgba(5,150,105,0.08)',   border: 'rgba(5,150,105,0.18)' },
-            { label: 'Unused',      value: unusedItems,     color: '#94A3B8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.18)' },
-            { label: 'Report-Only', value: reportOnlyItems, color: '#B45309', bg: 'rgba(217,119,6,0.08)',   border: 'rgba(217,119,6,0.18)' },
-          ].map(s => (
-            <div key={s.label} style={{
+      {/* ── Flow header ───────────────────────────────────────────────────── */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        marginBottom: 18, padding: '8px 14px',
+        background: 'rgba(0,86,179,0.03)', borderRadius: 10,
+        border: '1px solid rgba(0,86,179,0.10)',
+      }}>
+        {[
+          { icon: <FolderOpen size={11} />, label: 'Workspace', active: true },
+          { icon: <Database size={11} />,   label: 'Semantic Model', active: !!selectedModel },
+          { icon: <BarChart2 size={11} />,  label: 'Reports', active: !!selectedReport },
+          { icon: <Hash size={11} />,       label: 'Measures', active: !!selectedReport },
+        ].map((step, i) => (
+          <React.Fragment key={step.label}>
+            {i > 0 && (
+              <ArrowRight size={12} style={{ color: 'rgba(0,86,179,0.3)', flexShrink: 0 }} />
+            )}
+            <div style={{
               display: 'flex', alignItems: 'center', gap: 5,
-              padding: '3px 10px', borderRadius: 20, fontSize: 11,
-              background: s.bg, border: `1px solid ${s.border}`,
+              padding: '3px 9px', borderRadius: 20,
+              background: step.active ? 'rgba(0,86,179,0.09)' : 'transparent',
+              border: step.active ? '1px solid rgba(0,86,179,0.22)' : '1px solid transparent',
+              transition: 'all 0.2s ease',
             }}>
-              <span style={{ fontWeight: 800, color: s.color }}>{s.value}</span>
-              <span style={{ color: s.color, opacity: 0.7 }}>{s.label}</span>
+              <span style={{ color: step.active ? '#0056B3' : '#94A3B8' }}>{step.icon}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, color: step.active ? '#0056B3' : '#94A3B8' }}>
+                {step.label}
+              </span>
             </div>
-          ))}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* ── 4-column flow ─────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, overflowX: 'auto', paddingBottom: 8 }}>
+
+        {/* Column 1: Workspace */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          <div style={{ height: colHeight, display: 'flex', alignItems: 'stretch' }}>
+            <WorkspaceCol workspace={selectedWs} />
+          </div>
         </div>
 
-        {/* Search */}
-        <div style={{ position: 'relative', width: 220, marginLeft: 'auto' }}>
-          <Search size={12} style={{
-            position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-            color: '#94A3B8', pointerEvents: 'none',
-          }} />
-          <input
-            style={{
-              width: '100%', paddingLeft: 30, paddingRight: 10, paddingTop: 6, paddingBottom: 6,
-              fontSize: 12, borderRadius: 8, outline: 'none',
-              border: '1px solid rgba(197,213,236,0.8)', background: 'white', color: '#334155',
-              boxSizing: 'border-box',
-            }}
-            placeholder="Search measures…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+        <ColArrow label="contains" />
+
+        {/* Column 2: Semantic Models */}
+        <ColShell width={220} accentColor="rgba(0,86,179)">
+          <ColHeader
+            icon={<Database size={14} />}
+            title="Semantic Models"
+            count={modelNodes.length}
           />
-        </div>
+          <div style={{ padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 6,
+            height: colHeight - 54, overflowY: 'auto' }}>
+            {modelNodes.length === 0 ? (
+              <p style={{ textAlign: 'center', fontSize: 12, color: '#94A3B8', padding: '40px 0' }}>
+                No semantic models found
+              </p>
+            ) : modelNodes.map((node, i) => (
+              <ModelCard
+                key={node.dataset.id}
+                node={node}
+                isSelected={selectedModelId === node.dataset.id}
+                isActive={!selectedModelId || selectedModelId === node.dataset.id}
+                onClick={() => handleSelectModel(node.dataset.id)}
+                animDelay={i * 35}
+              />
+            ))}
+          </div>
+        </ColShell>
+
+        <ColArrow label="used by" />
+
+        {/* Column 3: Reports */}
+        <ColShell
+          width={230}
+          accentColor="rgba(13,148,136)"
+          isEmpty={visibleReports.length === 0}
+          emptyMsg={selectedModel ? 'No reports use this model' : 'Select a model to filter reports'}
+        >
+          <ColHeader
+            icon={<BarChart2 size={14} />}
+            title="Reports"
+            count={visibleReports.length}
+          />
+          <div style={{ padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 6,
+            height: colHeight - 54, overflowY: 'auto' }}>
+            {!selectedModel && (
+              <div style={{
+                padding: '8px 10px', borderRadius: 8, marginBottom: 4,
+                background: 'rgba(13,148,136,0.05)', border: '1px solid rgba(13,148,136,0.15)',
+              }}>
+                <p style={{ margin: 0, fontSize: 11, color: '#0D9488' }}>
+                  Click a Semantic Model to filter reports
+                </p>
+              </div>
+            )}
+            {visibleReports.map((report, i) => (
+              <ReportCard
+                key={report.id}
+                report={report}
+                isSelected={selectedReportId === report.id}
+                isActive={!selectedReportId || selectedReportId === report.id}
+                onClick={() => handleSelectReport(report.id)}
+                animDelay={i * 30}
+              />
+            ))}
+          </div>
+        </ColShell>
+
+        <ColArrow label="uses" />
+
+        {/* Column 4: Measures */}
+        <ColShell
+          width={260}
+          accentColor="rgba(139,92,246)"
+          isEmpty={!selectedReport && !selectedModel}
+          emptyMsg="Select a Report to see its measures"
+        >
+          <ColHeader
+            icon={<Hash size={14} />}
+            title="Measures"
+            count={selectedReport
+              ? filteredUsed.length + filteredUnused.length
+              : selectedModel
+              ? selectedModel.dataset.measure_count
+              : undefined}
+          />
+          {/* Search bar */}
+          {(selectedReport || selectedModel) && (
+            <div style={{ padding: '8px 10px 0', flexShrink: 0 }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={11} style={{
+                  position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)',
+                  color: '#94A3B8', pointerEvents: 'none',
+                }} />
+                <input
+                  style={{
+                    width: '100%', paddingLeft: 28, paddingRight: 8, paddingTop: 6, paddingBottom: 6,
+                    fontSize: 11, borderRadius: 7, outline: 'none', boxSizing: 'border-box',
+                    border: '1px solid rgba(197,213,236,0.8)', background: 'white', color: '#334155',
+                  }}
+                  placeholder="Search measures…"
+                  value={search}
+                  onChange={e => startTransition(() => setSearch(e.target.value))}
+                />
+              </div>
+            </div>
+          )}
+          <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5,
+            height: colHeight - (selectedReport || selectedModel ? 110 : 54), overflowY: 'auto' }}>
+            {!selectedModel && !selectedReport ? null
+              : !selectedReport && selectedModel ? (
+              // No report selected — show all measures from the selected model
+              <>
+                <p style={{ margin: '0 0 6px', fontSize: 11, color: '#94A3B8', fontStyle: 'italic' }}>
+                  Select a report to see which measures it uses
+                </p>
+                {filteredUnused.slice(0, measuresPage).map((m, i) => (
+                  <UnusedModelMeasureCard key={`${m.table}||${m.name}`} m={m} animDelay={i * 20} />
+                ))}
+                {filteredUnused.length > measuresPage && (
+                  <button
+                    onClick={() => setMeasuresPage(p => p + 40)}
+                    style={{
+                      padding: '7px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                      background: 'rgba(148,163,184,0.08)', color: '#64748B',
+                      border: '1px solid rgba(197,213,236,0.7)', cursor: 'pointer', marginTop: 4,
+                    }}
+                  >
+                    Show {Math.min(40, filteredUnused.length - measuresPage)} more…
+                  </button>
+                )}
+              </>
+            ) : selectedReport ? (
+              // Report selected — show used (highlighted) + unused (faded)
+              <>
+                {filteredUsed.length === 0 && filteredUnused.length === 0 ? (
+                  <p style={{ textAlign: 'center', fontSize: 12, color: '#94A3B8', padding: '30px 0' }}>
+                    {search ? `No measures match "${search}"` : 'No model measures used in this report'}
+                  </p>
+                ) : (
+                  <>
+                    {filteredUsed.length > 0 && (
+                      <>
+                        <p style={{ margin: '0 0 4px', fontSize: 10, fontWeight: 700, color: '#7C3AED',
+                          textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Used in this report ({filteredUsed.length})
+                        </p>
+                        {filteredUsed.slice(0, measuresPage).map((u, i) => (
+                          <MeasureCard key={`${u.measure.table}||${u.measure.name}`} usage={u} animDelay={i * 20} />
+                        ))}
+                      </>
+                    )}
+                    {filteredUnused.length > 0 && filteredUsed.length > 0 && (
+                      <div style={{ height: 1, background: 'rgba(197,213,236,0.5)', margin: '4px 0' }} />
+                    )}
+                    {filteredUnused.length > 0 && (
+                      <>
+                        <p style={{ margin: '4px 0 4px', fontSize: 10, fontWeight: 700, color: '#94A3B8',
+                          textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Unused in this report ({filteredUnused.length})
+                        </p>
+                        {filteredUnused.slice(0, Math.max(0, measuresPage - filteredUsed.length)).map((m, i) => (
+                          <UnusedModelMeasureCard key={`${m.table}||${m.name}`} m={m} animDelay={i * 15} />
+                        ))}
+                      </>
+                    )}
+                    {allFiltered.length > measuresPage && (
+                      <button
+                        onClick={() => setMeasuresPage(p => p + 40)}
+                        style={{
+                          padding: '7px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                          background: 'rgba(139,92,246,0.06)', color: '#7C3AED',
+                          border: '1px solid rgba(139,92,246,0.18)', cursor: 'pointer', marginTop: 4,
+                        }}
+                      >
+                        Show more…
+                      </button>
+                    )}
+                  </>
+                )}
+              </>
+            ) : null}
+          </div>
+        </ColShell>
       </div>
-
-      {/* ── Filters row ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {/* Type filter */}
-        <div style={{ display: 'flex', gap: 4 }}>
-          {(['all', 'Measure', 'Calc Column', 'Calc Table'] as const).map(t => (
-            <button key={t} onClick={() => setTypeFilter(t)} style={{
-              padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-              cursor: 'pointer', border: 'none',
-              background: typeFilter === t ? '#0056B3' : 'rgba(0,86,179,0.06)',
-              color: typeFilter === t ? '#fff' : '#0056B3',
-            }}>
-              {t === 'all' ? 'All Types' : t}
-            </button>
-          ))}
-        </div>
-        <div style={{ width: 1, height: 18, background: 'rgba(197,213,236,0.7)' }} />
-        {/* Usage filter */}
-        <div style={{ display: 'flex', gap: 4 }}>
-          {([['all', 'All'], ['used', 'Used'], ['unused', 'Unused'], ['report-only', 'Report-Only']] as const).map(([val, lbl]) => (
-            <button key={val} onClick={() => setUsageFilter(val)} style={{
-              padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-              cursor: 'pointer', border: 'none',
-              background: usageFilter === val ? '#334155' : 'rgba(148,163,184,0.10)',
-              color: usageFilter === val ? '#fff' : '#64748B',
-            }}>
-              {lbl}
-            </button>
-          ))}
-        </div>
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94A3B8' }}>{filtered.length} items</span>
-      </div>
-
-      {/* ── Column headers ───────────────────────────────────────────────────── */}
-      {filtered.length > 0 && (
-        <div style={{ display: 'flex', marginBottom: 4 }}>
-          <div style={{ width: 240, flexShrink: 0 }}>
-            <ColLabel count={filtered.length}>Calc Items</ColLabel>
-          </div>
-          <div style={{ width: 64, flexShrink: 0 }} />
-          <div style={{ flex: 1 }}>
-            <ColLabel>Reports Using This Item</ColLabel>
-          </div>
-        </div>
-      )}
-
-      {/* ── Bipartite rows ───────────────────────────────────────────────────── */}
-      {filtered.length === 0 ? (
-        <div style={{
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          padding: '60px 0', gap: 12,
-        }}>
-          <div style={{
-            width: 52, height: 52, borderRadius: 14,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(0,86,179,0.06)', border: '1px solid rgba(0,86,179,0.12)',
-          }}>
-            <AlertCircle size={22} style={{ color: '#94A3B8' }} />
-          </div>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: '#64748B' }}>No items match your filters</p>
-          <p style={{ margin: 0, fontSize: 11, color: '#94A3B8', textAlign: 'center', maxWidth: 280 }}>
-            {search ? `No items found for "${search}".` : 'Try adjusting the type or usage filters.'}
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {filtered.map((item, idx) => (
-            <MeasureRow
-              key={item.key}
-              item={item}
-              usages={groupUsagesByReport(item.usages)}
-              isFiltered={false}
-              expanded={expandedKeys.has(item.key)}
-              onToggle={() => toggleExpand(item.key)}
-              animDelay={Math.min(idx * 25, 300)}
-            />
-          ))}
-        </div>
-      )}
     </div>
   )
 }

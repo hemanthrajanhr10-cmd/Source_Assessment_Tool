@@ -517,7 +517,7 @@ function MyConnectionsListControlled() {
   const [connections, setConnections] = useState<HybridConnection[]>([])
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)
-  const [deleting, setDeleting]       = useState<string | null>(null)
+  const [deleting, setDeleting]       = useState<Set<string>>(new Set())
 
   const load = async () => {
     setLoading(true)
@@ -537,14 +537,14 @@ function MyConnectionsListControlled() {
   const handleCreated = () => { load() }
 
   const handleDelete = async (id: string) => {
-    setDeleting(id)
+    setDeleting(prev => new Set([...prev, id]))
     try {
       await api.deleteHybridConnection(id)
       setConnections((prev) => prev.filter((c) => c.connection_id !== id))
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {
-      setDeleting(null)
+      setDeleting(prev => { const next = new Set(prev); next.delete(id); return next })
     }
   }
 
@@ -599,7 +599,7 @@ function MyConnectionsListControlled() {
               <ConnectionItem
                 key={hc.connection_id}
                 hc={hc}
-                deleting={deleting === hc.connection_id}
+                deleting={deleting.has(hc.connection_id)}
                 onDelete={handleDelete}
               />
             ))}

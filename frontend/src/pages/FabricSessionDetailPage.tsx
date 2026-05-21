@@ -1072,6 +1072,7 @@ function FabricSessionDetailPageInner() {
     queryKey: ['fabric-session', sessionId],
     queryFn:  () => api.getFabricSession(sessionId!).then(r => r.data),
     refetchInterval: q => q.state.data?.status === 'running' ? 5000 : false,
+    staleTime: q => q.state.data?.status === 'completed' ? 5 * 60 * 1000 : 0,
     retry: 3,
     retryDelay: attempt => Math.min(1000 * 2 ** attempt, 10000),
     enabled: !!sessionId,
@@ -1195,7 +1196,11 @@ function FabricSessionDetailPageInner() {
       {/* ── Live progress dashboard ──────────────────────────────────────────── */}
       {session.status === 'running' && (
         <div style={{ padding: '24px 0' }}>
-          <AssessmentProgress sessionId={session.fabric_session_id} sessionLabel={session.label} />
+          <AssessmentProgress
+            sessionId={session.fabric_session_id}
+            sessionLabel={session.label}
+            onComplete={() => refetch()}
+          />
         </div>
       )}
 

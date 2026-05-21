@@ -23,6 +23,21 @@ export function useAssessmentProgress(sessionId: string | null) {
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const activeRef = useRef(true)
 
+  // One-shot fetch to hydrate state immediately on mount — prevents 0% flash
+  // on re-navigation before SSE stream delivers its first message.
+  const fetchSnapshot = useCallback(async () => {
+    if (!sessionId) return
+    try {
+      const token = getToken()
+      const res = await fetch(`${BASE_URL}/api/v1/fabric/sessions/${sessionId}/progress`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok || !activeRef.current) return
+      const data: AssessmentProgressState = await res.json()
+      if (activeRef.current) { setProgress(data); setError(null) }
+    } catch { /* ignore — SSE will deliver state shortly */ }
+  }, [sessionId])
+
   const isTerminal = (status?: string) =>
     status === 'completed' || status === 'failed' || status === 'cancelled'
 
@@ -106,6 +121,7 @@ export function useAssessmentProgress(sessionId: string | null) {
     activeRef.current = true
     retryCount.current = 0
 
+    fetchSnapshot() // hydrate immediately; SSE overwrites with live data
     connectSSE()
 
     return () => {
@@ -113,7 +129,7 @@ export function useAssessmentProgress(sessionId: string | null) {
       abortRef.current?.abort()
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
     }
-  }, [sessionId, connectSSE])
+  }, [sessionId, connectSSE, fetchSnapshot])
 
   return { progress, error }
 }

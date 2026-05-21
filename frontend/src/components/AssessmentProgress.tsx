@@ -6,6 +6,7 @@ import LiveActivityFeed from './LiveActivityFeed'
 interface AssessmentProgressProps {
   sessionId: string
   sessionLabel?: string
+  onComplete?: () => void
 }
 
 const FONT = "'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, sans-serif"
@@ -126,9 +127,10 @@ function formatETA(iso?: string | null) {
   return `~${formatSeconds(Math.ceil(ms / 1000))}`
 }
 
-export default function AssessmentProgress({ sessionId, sessionLabel }: AssessmentProgressProps) {
+export default function AssessmentProgress({ sessionId, sessionLabel, onComplete }: AssessmentProgressProps) {
   const { progress, error } = useAssessmentProgress(sessionId)
   const elapsed = useElapsed(progress?.started_at)
+  const completedCallbackFired = useRef(false)
 
   const pct = progress && progress.total_items > 0
     ? Math.round((progress.processed_items / progress.total_items) * 100)
@@ -139,6 +141,13 @@ export default function AssessmentProgress({ sessionId, sessionLabel }: Assessme
   const isCompleted = progress?.status === 'completed'
   const isFailed    = progress?.status === 'failed'
   const isTerminal  = isCompleted || isFailed || progress?.status === 'cancelled'
+
+  useEffect(() => {
+    if (isTerminal && onComplete && !completedCallbackFired.current) {
+      completedCallbackFired.current = true
+      onComplete()
+    }
+  }, [isTerminal, onComplete])
 
   const displayPct = isCompleted ? 100 : pct
 

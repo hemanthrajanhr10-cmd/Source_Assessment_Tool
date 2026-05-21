@@ -26,7 +26,7 @@ _EXECUTOR = ThreadPoolExecutor(max_workers=20, thread_name_prefix="fabric-io")
 FABRIC_BASE = "https://api.fabric.microsoft.com/v1"
 PBI_BASE = "https://api.powerbi.com/v1.0/myorg"
 
-MAX_WAIT_SEC = 180
+MAX_WAIT_SEC = 90
 MAX_RETRIES = 3
 
 
@@ -130,6 +130,14 @@ def _lro_fetch(token: str, trigger_url: str, params: dict | None = None) -> list
             elif poll_resp.status_code == 202:
                 retry_after = int(poll_resp.headers.get("Retry-After", retry_after))
 
+            elif poll_resp.status_code in (401, 403):
+                raise RuntimeError(
+                    f"Permission denied on LRO poll ({poll_resp.status_code}): {poll_resp.text[:200]}"
+                )
+            elif poll_resp.status_code == 404:
+                raise RuntimeError(
+                    f"LRO operation not found (404): resource may have been deleted"
+                )
             elif poll_resp.status_code >= 500:
                 raise RuntimeError(
                     f"Fabric API 5xx on poll ({poll_resp.status_code}): {poll_resp.text[:200]}"

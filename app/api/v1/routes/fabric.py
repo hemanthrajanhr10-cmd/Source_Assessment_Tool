@@ -711,6 +711,27 @@ async def _run_fabric_assessment(
             session_id, total_models, total_reports, tracker.failed_items,
         )
 
+    except asyncio.CancelledError:
+        # Server shutdown / task cancellation — must still mark DB as failed
+        # so the frontend doesn't spin forever. CancelledError is a BaseException
+        # subclass (not Exception) so it needs its own handler.
+        logger.warning("Fabric session %s cancelled (server shutdown?)", session_id)
+        try:
+            azure_store.update_fabric_session(
+                session_id,
+                status="failed",
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                error="Assessment was interrupted (server shutdown or restart). Please retry.",
+            )
+        except Exception:
+            pass
+        if tracker:
+            try:
+                await tracker.set_status("failed", failure_reason="Assessment was interrupted. Please retry.")
+            except Exception:
+                pass
+        raise  # re-raise so asyncio knows the task was cancelled
+
     except Exception as exc:
         logger.error("Fabric session %s failed: %s", session_id, exc, exc_info=True)
         azure_store.update_fabric_session(
@@ -719,7 +740,8 @@ async def _run_fabric_assessment(
             completed_at=datetime.now(timezone.utc).isoformat(),
             error=str(exc)[:1000],
         )
-        await tracker.set_status("failed", failure_reason=str(exc)[:500])
+        if tracker:
+            await tracker.set_status("failed", failure_reason=str(exc)[:500])
 
 
 # ── Progress endpoints ────────────────────────────────────────────────────────
@@ -755,7 +777,7 @@ async def get_session_progress(session_id: str, _: Any = Depends(get_current_use
                 else:
                     created_dt = created_at
                 age_minutes = (datetime.now(timezone.utc) - created_dt.astimezone(timezone.utc)).total_seconds() / 60
-                if age_minutes > 60:
+                if age_minutes > 15:
                     azure_store.update_fabric_session(
                         session_id,
                         status="failed",
@@ -830,7 +852,26 @@ async def stream_session_progress(
                     yield f"event: error\ndata: {json.dumps({'error': 'Session not found'})}\n\n"
                     return
                 db_status = row.get("status", "running")
-                snapshot  = {"assessment_id": session_id, "status": db_status, "phase": "discovery"}
+                is_done_fb = db_status in ("completed", "failed", "cancelled")
+                snapshot = {
+                    "assessment_id": session_id,
+                    "status": db_status,
+                    "phase": "saving" if is_done_fb else "discovery",
+                    "total_items": 0,
+                    "processed_items": 0,
+                    "failed_items": 0,
+                    "current_item_name": "",
+                    "failure_reason": row.get("error"),
+                    "phase_progress": {
+                        "discovery":       {"done": is_done_fb, "count": 0},
+                        "semantic_models": {"done": is_done_fb, "total": 0, "processed": 0},
+                        "reports":         {"done": is_done_fb, "total": 0, "processed": 0},
+                        "crosslinking":    {"done": is_done_fb},
+                        "saving":          {"done": is_done_fb},
+                    },
+                    "errors": [],
+                    "activity_log": [],
+                }
 
             # Emit data event (SSE spec: `data: <payload>\n\n`)
             yield f"data: {json.dumps(snapshot, default=str)}\n\n"

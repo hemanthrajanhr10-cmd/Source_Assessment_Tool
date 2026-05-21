@@ -42,6 +42,7 @@ const KEYFRAMES = `
 `
 
 export default function PhaseStepperBar({ currentPhase, phaseProgress, status }: PhaseStepperBarProps) {
+  const pp = phaseProgress ?? {} as AssessmentProgressState['phase_progress']
   const currentIdx = PHASE_ORDER.indexOf(currentPhase)
 
   return (
@@ -53,7 +54,7 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
         aria-label="Assessment phases"
       >
         {PHASES.map(({ key, label }, idx) => {
-          const phaseDone  = phaseProgress[key]?.done ?? false
+          const phaseDone  = pp[key]?.done ?? false
           const isCurrent  = key === currentPhase && !phaseDone && status === 'running'
           const isCompleted = phaseDone || idx < currentIdx || status === 'completed'
           const isFailed   = status === 'failed' && key === currentPhase && !phaseDone
@@ -174,7 +175,7 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
 
                 {/* Sub-count */}
                 {(key === 'semantic_models' || key === 'reports') &&
-                  (phaseProgress[key]?.total ?? 0) > 0 && (
+                  (pp[key]?.total ?? 0) > 0 && (
                   <span
                     style={{
                       marginTop: 2,
@@ -185,7 +186,7 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
                       transition: 'color 0.3s',
                     }}
                   >
-                    {phaseProgress[key]?.processed ?? 0}/{phaseProgress[key]?.total ?? 0}
+                    {pp[key]?.processed ?? 0}/{pp[key]?.total ?? 0}
                   </span>
                 )}
               </div>

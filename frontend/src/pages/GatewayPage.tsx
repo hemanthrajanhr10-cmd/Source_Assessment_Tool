@@ -13,7 +13,7 @@ import {
   ExternalLink, Search, Wifi, WifiOff, Info,
   Plus, Trash2, RefreshCw, Server, Copy, Check, KeyRound, Download,
 } from 'lucide-react'
-import { api, getApiErrorMessage, http } from '../api/client'
+import { api, getApiErrorMessage } from '../api/client'
 import type { HybridConnection } from '../types/api'
 import Button from '../components/ui/Button'
 import Loader3D from '../components/ui/Loader3D'
@@ -152,60 +152,32 @@ function ConnectionDiagram() {
 // ── HCM Installer download ────────────────────────────────────────────────────
 
 function HcmDownloadCard() {
-  const [downloading, setDownloading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleDownload = async () => {
-    setDownloading(true)
-    setError(null)
-    try {
-      const resp = await http.get('/api/v1/hybrid-connections/hcm/installer', {
-        responseType: 'blob',
-      })
-      const url = window.URL.createObjectURL(resp.data as Blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'HybridConnectionManager.msi'
-      document.body.appendChild(a)
-      a.click()
-      window.URL.revokeObjectURL(url)
-      document.body.removeChild(a)
-    } catch {
-      setError('Download failed. Check your connection and try again.')
-    } finally {
-      setDownloading(false)
-    }
-  }
-
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
         <Download className="h-4 w-4 text-earth-600" />
         <h2 className="text-sm font-semibold text-slate-700">Download HCM Installer</h2>
-        <span className="ml-auto text-xs text-slate-400">Always the latest version from Microsoft</span>
+        <span className="ml-auto text-xs text-slate-400">Official Microsoft download</span>
       </div>
       <div className="p-6 space-y-3">
         <p className="text-sm text-slate-600">
           Install the <strong className="text-slate-800">Hybrid Connection Manager</strong> on the machine
-          that has access to your on-premises SQL Server. No Azure credentials or portal access needed —
-          this button downloads the official installer directly.
+          that has access to your on-premises SQL Server. Download the installer directly from Microsoft —
+          no Azure credentials or portal login required.
         </p>
-        {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 animate-slide-down">
-            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-        <Button
-          onClick={handleDownload}
-          loading={downloading}
-          disabled={downloading}
-          leftIcon={downloading ? undefined : <Download className="h-4 w-4" />}
+        <a
+          href="https://learn.microsoft.com/en-us/azure/app-service/app-service-hybrid-connections#hybrid-connection-manager"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-lg bg-earth-600 hover:bg-earth-700 active:bg-earth-800 text-white text-sm font-semibold px-4 py-2.5 transition-colors"
         >
-          {downloading ? 'Downloading…' : 'Download Hybrid Connection Manager'}
-        </Button>
+          <Download className="h-4 w-4" />
+          Download Hybrid Connection Manager
+          <ExternalLink className="h-3.5 w-3.5 opacity-70" />
+        </a>
         <p className="text-[11px] text-slate-400">
-          The installer is proxied from Microsoft's official download URL. Windows 7+ / Server 2008 R2+ required.
+          Opens the official Microsoft Azure documentation page. The installer download link is under the
+          "Hybrid Connection Manager" section. Windows 7+ / Server 2008 R2+ required.
         </p>
       </div>
     </div>

@@ -461,7 +461,7 @@ async def _run_fabric_assessment(
     """
     # Semaphore limits concurrent Fabric REST API calls.
     # 20 slots × ~3 calls/model = ~60 in-flight requests max, well within limit.
-    _sem = asyncio.Semaphore(20)
+    _sem = asyncio.Semaphore(40)
     _loop = asyncio.get_event_loop()
 
     # ── Throttled DB progress writer (max 1 write per 4 s) ───────────────────
@@ -527,8 +527,10 @@ async def _run_fabric_assessment(
         )
 
         # ── Fetch workspace metadata (for name/type/state) ────────────────────
+        # Use get_workspace_metadata (no per-workspace re-enumeration) since
+        # models/reports were already discovered in Phase 1.
         await fabric_rate_limiter.acquire()
-        all_workspaces_meta = await fabric_client.list_workspaces(token)
+        all_workspaces_meta = await fabric_client.get_workspace_metadata(token)
         ws_meta_map = {w["id"]: w for w in all_workspaces_meta}
 
         # ── Phase 2: Semantic Models (concurrent) ─────────────────────────────

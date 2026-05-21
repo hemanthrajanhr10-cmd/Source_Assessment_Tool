@@ -628,41 +628,33 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
     })
   }, [])
 
-  // Workspace picker when >1 workspaces
-  if (!selectedWs) {
-    return <WorkspacePicker workspaces={workspaces} onSelect={handleSelectWs} />
-  }
+  // ── All hooks must be called unconditionally (before any early return) ───────
 
-  // ── Memoized data (recomputed only when workspace changes) ──────────────────
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const modelNodes = useMemo(() => buildModelNodes(selectedWs), [selectedWs])
+  const modelNodes = useMemo(
+    () => selectedWs ? buildModelNodes(selectedWs) : [],
+    [selectedWs],
+  )
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const selectedModel = useMemo(
     () => modelNodes.find(n => n.dataset.id === selectedModelId) ?? null,
     [modelNodes, selectedModelId],
   )
 
   const visibleReports = useMemo(
-    () => selectedModel ? selectedModel.reports : selectedWs.reports,
-    [selectedModel, selectedWs.reports],
+    () => selectedModel ? selectedModel.reports : (selectedWs?.reports ?? []),
+    [selectedModel, selectedWs],
   )
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const selectedReport = useMemo(
     () => visibleReports.find(r => r.id === selectedReportId) ?? null,
     [visibleReports, selectedReportId],
   )
 
-  // Measures used in selected report — expensive but only runs when both model + report selected
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const usedMeasures = useMemo(() => {
     if (!selectedModel || !selectedReport) return []
     return getMeasuresUsedInReport(selectedModel.dataset, selectedReport)
   }, [selectedModel, selectedReport])
 
-  // Unused measures in selected model (not used in selected report)
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const unusedMeasures = useMemo(() => {
     if (!selectedModel) return []
     if (!selectedReport) return selectedModel.dataset.measures
@@ -670,8 +662,6 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
     return selectedModel.dataset.measures.filter(m => !usedNames.has(m.name))
   }, [selectedModel, selectedReport, usedMeasures])
 
-  // Search-filtered measures
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const filteredUsed = useMemo(() => {
     if (!search) return usedMeasures
     const q = search.toLowerCase()
@@ -680,7 +670,6 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
     )
   }, [usedMeasures, search])
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const filteredUnused = useMemo(() => {
     if (!search) return unusedMeasures
     const q = search.toLowerCase()
@@ -691,6 +680,11 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
 
   const allFiltered = [...filteredUsed.map(u => ({ type: 'used' as const, data: u })),
                        ...filteredUnused.map(m => ({ type: 'unused' as const, data: m }))]
+
+  // ── Workspace picker when >1 workspaces (early return AFTER all hooks) ───────
+  if (!selectedWs) {
+    return <WorkspacePicker workspaces={workspaces} onSelect={handleSelectWs} />
+  }
 
   return (
     <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}>

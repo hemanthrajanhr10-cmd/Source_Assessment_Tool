@@ -11,6 +11,7 @@ Retry logic:
 """
 
 import asyncio
+import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -168,6 +169,111 @@ async def _run(fn, *args):
     return await loop.run_in_executor(_EXECUTOR, fn, *args)
 
 
+async def _lro_fetch_async(token: str, trigger_url: str, params: dict | None = None) -> list[dict]:
+    """
+    Async LRO: the POST trigger and each poll HTTP call run in the thread pool
+    (non-blocking), but the wait *between* polls uses asyncio.sleep so no thread
+    is held during the idle interval.
+
+    Old approach: time.sleep(retry_after) inside _lro_fetch blocked a thread
+    pool worker for the entire polling duration. With 20 threads and Semaphore(20),
+    all workers could be sleeping simultaneously — stalling the pipeline.
+
+    New approach: threads are only occupied for the actual HTTP round-trips
+    (~0.2–0.5 s each). Between polls they are fully free for other API calls.
+    """
+    def _trigger():
+        resp = _http_post(trigger_url, token, params=params)
+        return resp.status_code, dict(resp.headers), resp.text
+
+    status_code, headers, body_text = await _run(_trigger)
+
+    if status_code == 200:
+        result = json.loads(body_text)
+        definition = result.get("definition", result)
+        return definition.get("parts", [])
+
+    elif status_code == 202:
+        operation_url = headers.get("Location") or headers.get("location")
+        retry_after = int(headers.get("Retry-After") or headers.get("retry-after") or 5)
+        if not operation_url:
+            raise RuntimeError("202 returned but no Location header")
+
+        elapsed = 0
+        while elapsed < MAX_WAIT_SEC:
+            await asyncio.sleep(retry_after)
+            elapsed += retry_after
+
+            def _poll():
+                resp = _http_get(operation_url, token)
+                return resp.status_code, dict(resp.headers), resp.text
+
+            poll_status, poll_headers, poll_text = await _run(_poll)
+
+            if poll_status == 200:
+                try:
+                    poll_body = json.loads(poll_text)
+                except Exception:
+                    poll_body = {}
+
+                status = poll_body.get("status", "").lower()
+
+                if status == "succeeded":
+                    result_url = (
+                        poll_body.get("resourceLocation")
+                        or operation_url.rstrip("/") + "/result"
+                    )
+                    def _result():
+                        resp = _http_get(result_url, token)
+                        return resp.status_code, resp.text
+                    res_status, res_text = await _run(_result)
+                    if not (200 <= res_status < 300):
+                        raise RuntimeError(f"Result fetch failed ({res_status}): {res_text[:200]}")
+                    result = json.loads(res_text)
+                    definition = result.get("definition", result)
+                    return definition.get("parts", [])
+
+                elif status in ("", "notstarted"):
+                    definition = poll_body.get("definition", poll_body)
+                    return definition.get("parts", [])
+
+                elif status == "failed":
+                    err = poll_body.get("error", {})
+                    msg = err.get("message", str(poll_body))
+                    raise RuntimeError(f"LRO failed: {msg}")
+
+                elif status in ("running", "inprogress"):
+                    retry_after = int(
+                        poll_headers.get("Retry-After") or poll_headers.get("retry-after") or retry_after
+                    )
+                else:
+                    logger.warning("Unknown LRO status '%s' — treating as running", status)
+                    retry_after = int(
+                        poll_headers.get("Retry-After") or poll_headers.get("retry-after") or retry_after
+                    )
+
+            elif poll_status == 202:
+                retry_after = int(
+                    poll_headers.get("Retry-After") or poll_headers.get("retry-after") or retry_after
+                )
+            elif poll_status in (401, 403):
+                raise RuntimeError(f"Permission denied on LRO poll ({poll_status}): {poll_text[:200]}")
+            elif poll_status == 404:
+                raise RuntimeError("LRO operation not found (404): resource may have been deleted")
+            elif poll_status >= 500:
+                raise RuntimeError(f"Fabric API 5xx on poll ({poll_status}): {poll_text[:200]}")
+            else:
+                logger.warning("Unexpected poll status %d — retrying", poll_status)
+                retry_after = 10
+
+        raise TimeoutError(f"LRO did not complete within {MAX_WAIT_SEC}s")
+
+    elif status_code >= 500:
+        raise RuntimeError(f"Fabric API 5xx ({status_code}): {body_text[:200]}")
+    else:
+        raise RuntimeError(f"Trigger failed ({status_code}): {body_text[:400]}")
+
+
 # ── Extraction ────────────────────────────────────────────────────────────────
 
 async def extract_semantic_model(
@@ -175,11 +281,7 @@ async def extract_semantic_model(
 ) -> list[dict]:
     """Async: fetch TMDL/TMSL definition parts for a semantic model."""
     url = f"{FABRIC_BASE}/workspaces/{workspace_id}/semanticModels/{model_id}/getDefinition"
-
-    def _fetch():
-        return _lro_fetch(token, url, params={"format": fmt})
-
-    return await _run(_fetch)
+    return await _lro_fetch_async(token, url, params={"format": fmt})
 
 
 async def extract_report(
@@ -187,11 +289,7 @@ async def extract_report(
 ) -> list[dict]:
     """Async: fetch report definition parts."""
     url = f"{FABRIC_BASE}/workspaces/{workspace_id}/reports/{report_id}/getDefinition"
-
-    def _fetch():
-        return _lro_fetch(token, url)
-
-    return await _run(_fetch)
+    return await _lro_fetch_async(token, url)
 
 
 # ── Workspace / item listing ──────────────────────────────────────────────────
@@ -252,6 +350,30 @@ async def list_workspaces(token: str) -> list[dict]:
 
     enriched = await asyncio.gather(*[_enrich(ws) for ws in workspaces])
     return list(enriched)
+
+
+async def get_workspace_metadata(token: str) -> list[dict]:
+    """
+    Return workspace list from Fabric API WITHOUT re-enumerating models/reports.
+    Use this when you only need names/types (e.g. after discovery already ran).
+    Avoids the 2 × N_workspaces extra API calls that list_workspaces makes.
+    """
+    def _fetch():
+        return _get_all_pages(f"{FABRIC_BASE}/workspaces", token)
+
+    raw = await _run(_fetch)
+    return [
+        {
+            "id":            ws.get("id", ""),
+            "name":          ws.get("displayName", ws.get("name", "")),
+            "type":          ws.get("type", "Workspace"),
+            "state":         ws.get("state", "Active"),
+            "capacity_id":   ws.get("capacityId", ""),
+            "dataset_count": 0,
+            "report_count":  0,
+        }
+        for ws in raw
+    ]
 
 
 async def list_workspace_semantic_models(token: str, workspace_id: str) -> list[dict]:

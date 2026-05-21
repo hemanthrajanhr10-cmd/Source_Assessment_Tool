@@ -59,5 +59,8 @@ class TokenBucketRateLimiter:
 
 
 # Shared singleton used by the orchestrator.
-# 200 req/min matches the Fabric REST API recommended limit.
-fabric_rate_limiter = TokenBucketRateLimiter(tokens_per_minute=200)
+# tokens_per_minute=200 matches the Fabric REST API sustained limit.
+# burst_capacity=400 allows up to 200 items to start immediately without
+# rate-limiting delay (each item consumes 2 tokens; 400/2 = 200 items).
+# Actual 429s are still handled by retry logic in the HTTP helpers.
+fabric_rate_limiter = TokenBucketRateLimiter(tokens_per_minute=200, burst_capacity=400)

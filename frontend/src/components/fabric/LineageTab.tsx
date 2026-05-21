@@ -92,18 +92,18 @@ function ColArrow({ label }: { label?: string }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      width: 40, flexShrink: 0, gap: 4, paddingTop: 50,
+      width: 40, flexShrink: 0, gap: 4, alignSelf: 'stretch',
     }}>
       <div style={{
-        width: 1, flex: 1, background: 'linear-gradient(to bottom, transparent, rgba(0,86,179,0.2) 30%, rgba(0,86,179,0.2) 70%, transparent)',
-        maxHeight: 80,
+        width: 1, flex: 1,
+        background: 'linear-gradient(to bottom, transparent, rgba(0,86,179,0.2) 30%, rgba(0,86,179,0.2) 70%, transparent)',
       }} />
       <ArrowRight size={16} style={{ color: 'rgba(0,86,179,0.35)', flexShrink: 0 }} />
       {label && <p style={{ margin: 0, fontSize: 9, color: '#94A3B8', textAlign: 'center',
         fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</p>}
       <div style={{
-        width: 1, flex: 1, background: 'linear-gradient(to bottom, rgba(0,86,179,0.2), transparent)',
-        maxHeight: 80,
+        width: 1, flex: 1,
+        background: 'linear-gradient(to bottom, rgba(0,86,179,0.2), transparent)',
       }} />
     </div>
   )
@@ -111,9 +111,9 @@ function ColArrow({ label }: { label?: string }) {
 
 // ── Workspace card (Column 1) ──────────────────────────────────────────────────
 
-function WorkspaceCol({ workspace }: { workspace: FabricWorkspace }) {
+function WorkspaceCol({ workspace, height }: { workspace: FabricWorkspace; height: number }) {
   return (
-    <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column',
+    <div style={{ width: 200, height, flexShrink: 0, display: 'flex', flexDirection: 'column',
       border: '1.5px solid rgba(197,213,236,0.7)', borderRadius: 13, overflow: 'hidden',
       background: 'white', boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
       animation: 'lgFadeUp 0.38s cubic-bezier(0.16,1,0.3,1) both',
@@ -431,6 +431,10 @@ function UnusedModelMeasureCard({ m, animDelay }: { m: FabricMeasure; animDelay:
   )
 }
 
+// ── Column height constant ─────────────────────────────────────────────────────
+
+const COL_HEIGHT = 520
+
 // ── Scrollable column shell ────────────────────────────────────────────────────
 
 function ColShell({
@@ -444,7 +448,7 @@ function ColShell({
 }) {
   return (
     <div style={{
-      width, flexShrink: 0, display: 'flex', flexDirection: 'column',
+      width, height: COL_HEIGHT, flexShrink: 0, display: 'flex', flexDirection: 'column',
       border: `1.5px solid ${accentColor ? `${accentColor}35` : 'rgba(197,213,236,0.7)'}`,
       borderRadius: 13, overflow: 'hidden',
       background: 'white',
@@ -688,8 +692,6 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
   const allFiltered = [...filteredUsed.map(u => ({ type: 'used' as const, data: u })),
                        ...filteredUnused.map(m => ({ type: 'unused' as const, data: m }))]
 
-  const colHeight = 520
-
   return (
     <div style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       <style>{STYLES}</style>
@@ -745,14 +747,10 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
       </div>
 
       {/* ── 4-column flow ─────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 0, overflowX: 'auto', paddingBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'stretch', gap: 0, overflowX: 'auto', paddingBottom: 8 }}>
 
         {/* Column 1: Workspace */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          <div style={{ height: colHeight, display: 'flex', alignItems: 'stretch' }}>
-            <WorkspaceCol workspace={selectedWs} />
-          </div>
-        </div>
+        <WorkspaceCol workspace={selectedWs} height={COL_HEIGHT} />
 
         <ColArrow label="contains" />
 
@@ -764,7 +762,7 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
             count={modelNodes.length}
           />
           <div style={{ padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 6,
-            height: colHeight - 54, overflowY: 'auto' }}>
+            height: COL_HEIGHT - 54, overflowY: 'auto' }}>
             {modelNodes.length === 0 ? (
               <p style={{ textAlign: 'center', fontSize: 12, color: '#94A3B8', padding: '40px 0' }}>
                 No semantic models found
@@ -797,7 +795,7 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
             count={visibleReports.length}
           />
           <div style={{ padding: '10px 10px', display: 'flex', flexDirection: 'column', gap: 6,
-            height: colHeight - 54, overflowY: 'auto' }}>
+            height: COL_HEIGHT - 54, overflowY: 'auto' }}>
             {!selectedModel && (
               <div style={{
                 padding: '8px 10px', borderRadius: 8, marginBottom: 4,
@@ -861,7 +859,7 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
             </div>
           )}
           <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5,
-            height: colHeight - (selectedReport || selectedModel ? 110 : 54), overflowY: 'auto' }}>
+            height: COL_HEIGHT - (selectedReport || selectedModel ? 110 : 54), overflowY: 'auto' }}>
             {!selectedModel && !selectedReport ? null
               : !selectedReport && selectedModel ? (
               // No report selected — show all measures from the selected model

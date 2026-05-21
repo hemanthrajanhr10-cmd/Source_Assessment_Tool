@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { Shield, Copy, Check, ArrowRight } from 'lucide-react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api, getApiErrorMessage } from '../api/client'
+import { useAuth } from '../context/AuthContext'
 
 export default function MFASetupPage() {
   const navigate = useNavigate()
+  const { refreshUser } = useAuth()
   const [code, setCode] = useState('')
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState('')
@@ -20,7 +22,8 @@ export default function MFASetupPage() {
 
   const confirm = useMutation({
     mutationFn: () => api.confirmMFA(code),
-    onSuccess: () => {
+    onSuccess: async () => {
+      await refreshUser()
       setSuccess(true)
       setTimeout(() => navigate('/'), 2000)
     },

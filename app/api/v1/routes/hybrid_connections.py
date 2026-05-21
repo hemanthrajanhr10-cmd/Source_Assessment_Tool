@@ -505,6 +505,42 @@ def _deprovision_hybrid_connection(
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
+@router.get(
+    "/hcm/installer",
+    summary="Download the latest Hybrid Connection Manager installer",
+    response_class=None,
+)
+async def download_hcm_installer(current_user: dict = Depends(get_current_user)):
+    """
+    Proxies the official HCM .msi installer from Microsoft so clients don't need
+    Azure Portal access.  Always fetches live from Microsoft — clients always get
+    the latest version with no maintenance required on our side.
+    """
+    import requests as _requests
+    from fastapi.responses import Response
+
+    HCM_URL = "https://go.microsoft.com/fwlink/?linkid=838446"
+
+    def _fetch() -> tuple[bytes, str]:
+        resp = _requests.get(HCM_URL, timeout=120, allow_redirects=True)
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "application/octet-stream")
+        return resp.content, content_type
+
+    loop = asyncio.get_event_loop()
+    try:
+        content, content_type = await loop.run_in_executor(None, _fetch)
+    except Exception as exc:
+        logger.warning("HCM installer proxy failed: %s", exc)
+        raise HTTPException(status_code=502, detail=f"Failed to fetch HCM installer from Microsoft: {exc}")
+
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={"Content-Disposition": 'attachment; filename="HybridConnectionManager.msi"'},
+    )
+
+
 @router.post(
     "",
     response_model=HybridConnectionResponse,

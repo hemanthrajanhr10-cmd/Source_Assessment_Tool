@@ -344,17 +344,6 @@ export const api = {
     URL.revokeObjectURL(url)
   },
 
-  // ── Client Assessment Report ───────────────────────────────────────────────
-  generateClientAssessmentReport: async (payload: Record<string, unknown>, clientName: string) => {
-    const res = await http.post('/api/v1/client-assessment-report/generate', payload, { responseType: 'blob' })
-    const filename = `Assessment_Report_-_${clientName.replace(/\s+/g, '_')}.docx`
-    const url = URL.createObjectURL(res.data as Blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
-  },
 }
 
 export function getApiErrorMessage(err: unknown): string {

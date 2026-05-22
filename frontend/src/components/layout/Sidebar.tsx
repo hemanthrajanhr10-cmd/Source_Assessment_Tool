@@ -2,7 +2,7 @@
 import {
   Database, Layers, List, Network, Zap,
   PlusCircle, LogOut, Shield, ChevronDown,
-  X, BarChart3, Sparkles, LayoutDashboard, Combine,
+  X, BarChart3, Sparkles, LayoutDashboard, Combine, FileText,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
@@ -77,6 +77,22 @@ const NAV_GROUPS = [
     items: [
       { to: '/sap/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/sap/sessions', label: 'Assessments',    icon: BarChart3  },
+    ],
+  },
+  {
+    label: 'Assessment Reports',
+    element: 'indigo',
+    dotGradient:      'linear-gradient(135deg, #3730A3, #6366F1)',
+    activeBg:         'rgba(55,48,163,0.08)',
+    activeText:       '#312E81',
+    activeBorder:     'rgba(99,102,241,0.35)',
+    activeIconColor:  '#4338CA',
+    activeDotGlow:    'rgba(99,102,241,0.50)',
+    hoverBg:          'rgba(55,48,163,0.06)',
+    hoverText:        '#312E81',
+    hoverIconColor:   '#4338CA',
+    items: [
+      { to: '/client-assessment-report', label: 'Generate Report', icon: FileText, exact: true },
     ],
   },
   {

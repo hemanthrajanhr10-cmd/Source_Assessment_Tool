@@ -1,44 +1,42 @@
 import React, { useState, useMemo, useCallback, startTransition } from 'react'
 import {
-  Hash, BarChart2, Database,
-  FolderOpen, FileText, ChevronRight, Search, AlertCircle,
-  BookOpen, Eye, Code2, Copy, Check, ArrowRight, Layers,
+  Hash, BarChart2, Database, FolderOpen, FileText,
+  ChevronRight, Search, AlertCircle, Eye, Code2, Copy,
+  Check, Layers, X,
 } from 'lucide-react'
-import type { FabricWorkspace, FabricDataset, FabricReport, FabricMeasure, MeasureComplexity } from '../../types/api'
+import type {
+  FabricWorkspace, FabricDataset, FabricReport, FabricMeasure, MeasureComplexity,
+} from '../../types/api'
+import Breadcrumb from '../reports/Breadcrumb'
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 
 const T = {
-  blue:   '#1D4ED8',
-  teal:   '#0F766E',
-  violet: '#6D28D9',
-  slate:  '#3B5BDB',
-  ink:    '#0F172A',
+  wsAccent:    '#3B5BDB',
+  modelAccent: '#D97706',
+  repAccent:   '#0056B3',
+  msrAccent:   '#6D28D9',
   ink2:   '#1E293B',
   mid:    '#475569',
   muted:  '#64748B',
   dim:    '#94A3B8',
-  border: 'rgba(203,213,225,0.7)',
-  surfaceHover: 'rgba(248,250,252,0.9)',
-  shadow:  '0 1px 3px rgba(15,23,42,0.07), 0 1px 2px rgba(15,23,42,0.04)',
-  shadowMd: '0 4px 14px rgba(15,23,42,0.09), 0 1px 4px rgba(15,23,42,0.05)',
-  shadowLg: '0 8px 28px rgba(15,23,42,0.12), 0 2px 8px rgba(15,23,42,0.06)',
+  border: 'rgba(197,213,236,0.65)',
+  shadow:    '0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.8)',
+  shadowMd:  '0 4px 16px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
+  canvas:    'oklch(0.987 0.005 240)',
+  toolbarBg: 'linear-gradient(180deg, #F9FAFD 0%, #F2F6FB 100%)',
 }
 
 // ── Keyframes ──────────────────────────────────────────────────────────────────
 
 const STYLES = `
 @keyframes lgFadeUp {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes lgFadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
-}
-@keyframes lgPulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.5; }
 }
 `
 
@@ -55,7 +53,7 @@ interface MeasureUsage {
   pageCount: number
 }
 
-// ── Complexity pills ───────────────────────────────────────────────────────────
+// ── Complexity pill ────────────────────────────────────────────────────────────
 
 const COMPLEXITY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   None:           { bg: 'rgba(148,163,184,0.10)', text: '#64748B', border: 'rgba(148,163,184,0.25)' },
@@ -75,324 +73,455 @@ function ComplexityPill({ c }: { c: MeasureComplexity }) {
       background: clr.bg, color: clr.text, border: `1px solid ${clr.border}`,
       letterSpacing: '0.02em',
     }}>
-      <BarChart2 size={8} />
-      {c.level}
+      <BarChart2 size={8} />{c.level}
     </span>
   )
 }
 
-// ── Column header ──────────────────────────────────────────────────────────────
+// ── Workspace picker card ──────────────────────────────────────────────────────
 
-function ColHeader({
-  icon, title, count, accent,
-}: { icon: React.ReactNode; title: string; count?: number; accent: string }) {
+function WsPickerCard({ ws, onSelect, animDelay }: {
+  ws: FabricWorkspace
+  onSelect: () => void
+  animDelay: number
+}) {
+  const [hov, setHov] = useState(false)
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      padding: '12px 16px 11px',
-      borderBottom: `1px solid ${T.border}`,
-      background: `linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.95) 100%)`,
-      flexShrink: 0,
-    }}>
-      <div style={{
-        width: 30, height: 30, borderRadius: 8,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: `${accent}12`,
-        border: `1px solid ${accent}28`,
-        flexShrink: 0,
-      }}>
-        <span style={{ color: accent, display: 'flex' }}>{icon}</span>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, color: T.muted,
-          textTransform: 'uppercase', letterSpacing: '0.07em' }}>{title}</p>
-        {count !== undefined && (
-          <p style={{ margin: '1px 0 0', fontSize: 11, fontWeight: 600, color: accent, letterSpacing: '0.01em' }}>
-            {count} {count === 1 ? 'item' : 'items'}
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Column connector ───────────────────────────────────────────────────────────
-
-function ColConnector({ label }: { label?: string }) {
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', width: 52, flexShrink: 0, gap: 0, alignSelf: 'stretch',
-    }}>
-      <div style={{
-        flex: 1, width: 1,
-        background: `linear-gradient(to bottom, transparent 0%, ${T.border} 25%, ${T.border} 75%, transparent 100%)`,
-        backgroundRepeat: 'no-repeat',
-      }} />
-      <div style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0, padding: '6px 0',
-      }}>
-        <ChevronRight size={15} style={{ color: T.dim }} />
-        {label && (
-          <span style={{ fontSize: 8.5, fontWeight: 700, color: T.dim,
-            textTransform: 'uppercase', letterSpacing: '0.08em', writingMode: 'vertical-rl',
-            transform: 'rotate(180deg)', lineHeight: 1 }}>
-            {label}
-          </span>
-        )}
-      </div>
-      <div style={{
-        flex: 1, width: 1,
-        background: `linear-gradient(to bottom, ${T.border} 0%, ${T.border} 75%, transparent 100%)`,
-      }} />
-    </div>
-  )
-}
-
-// ── Workspace anchor card ──────────────────────────────────────────────────────
-
-function WorkspaceCol({ workspace }: { workspace: FabricWorkspace }) {
-  return (
-    <div style={{
-      width: 224, flexShrink: 0, display: 'flex', flexDirection: 'column',
-      border: `1.5px solid ${T.border}`, borderTop: `3px solid ${T.slate}`,
-      borderRadius: '0 0 14px 14px', borderTopLeftRadius: 14, borderTopRightRadius: 14,
-      overflow: 'hidden', background: 'white',
-      boxShadow: T.shadowMd,
-      animation: 'lgFadeUp 0.36s cubic-bezier(0.16,1,0.3,1) both',
-    }}>
-      {/* Header strip */}
-      <div style={{
-        padding: '12px 16px 11px', borderBottom: `1px solid ${T.border}`,
-        background: `linear-gradient(135deg, ${T.slate}0E 0%, ${T.slate}05 100%)`,
-        display: 'flex', alignItems: 'center', gap: 10,
-      }}>
+    <button
+      onClick={onSelect}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 14,
+        padding: '18px 20px', borderRadius: 14,
+        border: `1.5px solid ${hov ? `${T.wsAccent}45` : T.border}`,
+        borderTop: `3px solid ${hov ? T.wsAccent : T.border}`,
+        background: hov ? `${T.wsAccent}04` : 'white',
+        cursor: 'pointer', textAlign: 'left', width: '100%',
+        boxShadow: hov ? T.shadowMd : T.shadow,
+        transform: hov ? 'translateY(-3px)' : 'translateY(0)',
+        transition: 'all 0.22s cubic-bezier(0.16,1,0.3,1)',
+        animation: `lgFadeUp 0.42s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
+        outline: 'none',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
-          width: 30, height: 30, borderRadius: 8,
+          width: 40, height: 40, borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: `${T.slate}14`, border: `1px solid ${T.slate}28`, flexShrink: 0,
+          background: `${T.wsAccent}10`, border: `1px solid ${T.wsAccent}22`,
         }}>
-          <FolderOpen size={14} style={{ color: T.slate }} />
+          <FolderOpen size={17} style={{ color: T.wsAccent }} />
         </div>
-        <p style={{ margin: 0, fontSize: 10.5, fontWeight: 800, color: T.muted,
-          textTransform: 'uppercase', letterSpacing: '0.07em' }}>Workspace</p>
-      </div>
-
-      {/* Body */}
-      <div style={{ padding: '16px 16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: 11, flexShrink: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: `linear-gradient(135deg, ${T.slate}15 0%, ${T.slate}08 100%)`,
-            border: `1.5px solid ${T.slate}22`,
-          }}>
-            <FolderOpen size={18} style={{ color: T.slate }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0, paddingTop: 2 }}>
-            <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.ink2, lineHeight: 1.3,
-              wordBreak: 'break-word' }}>
-              {workspace.name}
-            </p>
-            <p style={{ margin: '3px 0 0', fontSize: 11, color: T.dim, letterSpacing: '0.01em' }}>
-              {workspace.type}
-            </p>
-          </div>
-        </div>
-
-        <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: 8,
-        }}>
-          {[
-            { icon: <Database size={12} />, label: 'Models', value: workspace.dataset_count, accent: T.blue },
-            { icon: <FileText size={12} />, label: 'Reports', value: workspace.report_count, accent: T.teal },
-          ].map(({ icon, label, value, accent }) => (
-            <div key={label} style={{
-              display: 'flex', flexDirection: 'column', gap: 3,
-              padding: '9px 10px', borderRadius: 9,
-              background: `${accent}07`, border: `1px solid ${accent}1A`,
-            }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: accent }}>
-                {icon}
-              </span>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: T.ink2, lineHeight: 1 }}>{value}</p>
-              <p style={{ margin: 0, fontSize: 10, color: T.muted, fontWeight: 500 }}>{label}</p>
-            </div>
-          ))}
+        <div>
+          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.ink2 }}>{ws.name}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: T.dim }}>{ws.type}</p>
         </div>
       </div>
-    </div>
+      <div style={{ display: 'flex', gap: 14 }}>
+        {[
+          { icon: <Database size={11} />, n: ws.dataset_count, label: 'models',  accent: T.modelAccent },
+          { icon: <BarChart2 size={11} />, n: ws.report_count, label: 'reports', accent: T.repAccent   },
+        ].map(({ icon, n, label, accent }) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ color: accent }}>{icon}</span>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: T.ink2 }}>{n}</span>
+            <span style={{ fontSize: 10.5, color: T.muted }}>{label}</span>
+          </div>
+        ))}
+      </div>
+    </button>
   )
 }
 
-// ── Scrollable column shell ────────────────────────────────────────────────────
+// ── Workspace picker view ──────────────────────────────────────────────────────
 
-const COL_HEIGHT = 540
-
-function ColShell({
-  children, width, accent, isEmpty, emptyMsg,
-}: {
-  children: React.ReactNode
-  width: number
-  accent: string
-  isEmpty?: boolean
-  emptyMsg?: string
+function WorkspacePickerView({ workspaces, onSelect }: {
+  workspaces: FabricWorkspace[]
+  onSelect: (ws: FabricWorkspace) => void
 }) {
   return (
-    <div style={{
-      width, height: COL_HEIGHT, flexShrink: 0, display: 'flex', flexDirection: 'column',
-      border: `1.5px solid ${T.border}`, borderTop: `3px solid ${accent}`,
-      borderRadius: '0 0 14px 14px', borderTopLeftRadius: 14, borderTopRightRadius: 14,
-      overflow: 'hidden', background: 'white',
-      boxShadow: T.shadowMd,
-    }}>
-      {isEmpty ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', padding: '36px 20px', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(148,163,184,0.09)', border: `1px solid ${T.border}`,
-          }}>
-            <AlertCircle size={16} style={{ color: T.dim }} />
-          </div>
-          <p style={{ margin: 0, fontSize: 12.5, color: T.muted, textAlign: 'center', lineHeight: 1.5 }}>
-            {emptyMsg}
-          </p>
+    <div style={{ padding: '28px', background: T.canvas }}>
+      <div style={{ marginBottom: 24 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: T.ink2 }}>
+          Select a workspace to explore measure lineage
+        </p>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: T.muted }}>
+          {workspaces.length} workspace{workspaces.length !== 1 ? 's' : ''} — trace DAX measure usage across models and reports
+        </p>
+      </div>
+      {workspaces.length > 0 ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+          {workspaces.map((ws, i) => (
+            <WsPickerCard key={ws.id} ws={ws} onSelect={() => onSelect(ws)} animDelay={i * 45} />
+          ))}
         </div>
       ) : (
-        <div style={{ overflow: 'auto', flex: 1 }}>
-          {children}
+        <div style={{ textAlign: 'center', padding: '60px 0' }}>
+          <Layers size={30} style={{ color: '#CBD5E1', margin: '0 auto 12px', display: 'block' }} />
+          <p style={{ margin: 0, fontSize: 13, color: T.dim }}>No workspaces found in this assessment.</p>
         </div>
       )}
     </div>
   )
 }
 
-// ── Semantic model card ────────────────────────────────────────────────────────
+// ── Drill item row ─────────────────────────────────────────────────────────────
 
-function ModelCard({
-  node, isSelected, isActive, onClick, animDelay,
-}: {
-  node: ModelNode
-  isSelected: boolean
-  isActive: boolean
+function DrillItem({ icon, accent, name, meta, badge, onClick, animDelay }: {
+  icon: React.ReactNode
+  accent: string
+  name: string
+  meta: React.ReactNode
+  badge?: React.ReactNode
   onClick: () => void
   animDelay: number
 }) {
   const [hov, setHov] = useState(false)
-  const ds = node.dataset
-  const active = isSelected || hov
   return (
     <button
       onClick={onClick}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        display: 'flex', flexDirection: 'column', gap: 8,
-        padding: '12px 14px', borderRadius: 11, cursor: 'pointer', textAlign: 'left',
-        border: `1.5px solid ${isSelected ? `${T.blue}55` : hov ? `${T.blue}30` : T.border}`,
-        background: isSelected ? `${T.blue}07` : hov ? `${T.blue}04` : 'white',
-        boxShadow: isSelected ? T.shadowMd : active ? '0 3px 10px rgba(15,23,42,0.08)' : T.shadow,
-        opacity: isActive ? 1 : 0.3,
-        transform: active && !isSelected ? 'translateY(-1px)' : 'translateY(0)',
+        display: 'flex', alignItems: 'center', gap: 12,
+        padding: '12px 16px', borderRadius: 11, cursor: 'pointer',
+        border: `1.5px solid ${hov ? `${accent}70` : T.border}`,
+        background: hov ? `${accent}06` : 'white',
+        boxShadow: hov ? T.shadowMd : T.shadow,
+        transform: hov ? 'translateX(3px)' : 'translateX(0)',
         transition: 'all 0.18s cubic-bezier(0.16,1,0.3,1)',
-        animation: `lgFadeUp 0.4s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
-        outline: 'none',
+        animation: `lgFadeUp 0.42s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
+        textAlign: 'left', width: '100%', outline: 'none',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{
-          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: isSelected ? `${T.blue}14` : `${T.blue}09`,
-          border: `1px solid ${T.blue}22`,
-          transition: 'all 0.18s ease',
-        }}>
-          <Database size={13} style={{ color: T.blue }} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: T.ink2, lineHeight: 1.3,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {ds.name}
-          </p>
-          <p style={{ margin: '2px 0 0', fontSize: 10.5, color: T.dim }}>
-            {ds.measure_count}m · {ds.table_count}t · {node.reports.length}r
-          </p>
-        </div>
-        {isSelected && (
-          <ChevronRight size={13} style={{ color: T.blue, flexShrink: 0 }} />
-        )}
+      <div style={{
+        width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: hov ? `${accent}14` : `${accent}09`,
+        border: `1px solid ${accent}25`,
+        transition: 'all 0.18s ease',
+        boxShadow: hov ? `0 1px 4px ${accent}22` : 'none',
+      }}>
+        <span style={{ color: accent, display: 'flex' }}>{icon}</span>
       </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{
+          margin: 0, fontSize: 13, fontWeight: 700, color: T.ink2, lineHeight: 1.3,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {name}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+          {meta}
+        </div>
+      </div>
+      {badge}
+      <ChevronRight
+        size={14}
+        style={{ color: hov ? accent : '#CBD5E1', flexShrink: 0, transition: 'color 0.15s ease' }}
+      />
     </button>
   )
 }
 
-// ── Report card ────────────────────────────────────────────────────────────────
+// ── Section label ──────────────────────────────────────────────────────────────
 
-function ReportCard({
-  report, isSelected, isActive, onClick, animDelay,
+function SectionLabel({ children, count, accent }: { children: string; count?: number; accent: string }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 7,
+      marginBottom: 12, paddingBottom: 9,
+      borderBottom: '1px solid rgba(197,213,236,0.45)',
+    }}>
+      <span style={{
+        fontSize: 10, fontWeight: 800, letterSpacing: '0.07em',
+        textTransform: 'uppercase', color: T.dim,
+      }}>
+        {children}
+      </span>
+      {count !== undefined && (
+        <span style={{
+          fontSize: 10, fontWeight: 800, color: accent,
+          background: `${accent}0D`, borderRadius: 10,
+          padding: '1px 7px', border: `1px solid ${accent}22`,
+        }}>
+          {count}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ── Empty state ────────────────────────────────────────────────────────────────
+
+function EmptyState({ message, icon }: { message: string; icon?: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '52px 20px', gap: 12 }}>
+      <div style={{
+        width: 44, height: 44, borderRadius: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(148,163,184,0.09)', border: `1px solid ${T.border}`,
+      }}>
+        {icon ?? <AlertCircle size={20} style={{ color: T.dim }} />}
+      </div>
+      <p style={{ margin: 0, fontSize: 13, color: T.muted, textAlign: 'center', lineHeight: 1.5, maxWidth: 280 }}>
+        {message}
+      </p>
+    </div>
+  )
+}
+
+// ── Level toolbar ──────────────────────────────────────────────────────────────
+
+function LevelToolbar({
+  icon, accent, title, subtitle, stats, search, onSearch, onClearSearch,
 }: {
-  report: FabricReport
-  isSelected: boolean
-  isActive: boolean
-  onClick: () => void
-  animDelay: number
+  icon: React.ReactNode
+  accent: string
+  title: string
+  subtitle: string
+  stats: { label: string; value: number | string }[]
+  search?: string
+  onSearch?: (v: string) => void
+  onClearSearch?: () => void
 }) {
-  const [hov, setHov] = useState(false)
-  const active = isSelected || hov
   return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'flex', flexDirection: 'column', gap: 8,
-        padding: '12px 14px', borderRadius: 11, cursor: 'pointer', textAlign: 'left',
-        border: `1.5px solid ${isSelected ? `${T.teal}55` : hov ? `${T.teal}30` : T.border}`,
-        background: isSelected ? `${T.teal}07` : hov ? `${T.teal}03` : 'white',
-        boxShadow: isSelected ? T.shadowMd : active ? '0 3px 10px rgba(15,23,42,0.08)' : T.shadow,
-        opacity: isActive ? 1 : 0.3,
-        transform: active && !isSelected ? 'translateY(-1px)' : 'translateY(0)',
-        transition: 'all 0.18s cubic-bezier(0.16,1,0.3,1)',
-        animation: `lgFadeUp 0.4s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
-        outline: 'none',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 24px',
+      borderBottom: '1px solid rgba(197,213,236,0.55)',
+      background: T.toolbarBg, flexShrink: 0, flexWrap: 'wrap', rowGap: 8,
+    }}>
+      {/* Context label */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <div style={{
-          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+          width: 34, height: 34, borderRadius: 9,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: isSelected ? `${T.teal}14` : `${T.teal}09`,
-          border: `1px solid ${T.teal}22`,
-          transition: 'all 0.18s ease',
+          background: `${accent}0D`, border: `1px solid ${accent}22`,
         }}>
-          <BarChart2 size={13} style={{ color: T.teal }} />
+          <span style={{ color: accent, display: 'flex' }}>{icon}</span>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: T.ink2, lineHeight: 1.3,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {report.name}
+        <div>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.ink2 }}>{title}</p>
+          <p style={{
+            margin: '1px 0 0', fontSize: 10.5, color: T.muted,
+            maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {subtitle}
           </p>
-          <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10.5, color: T.dim }}>
-              <BookOpen size={9} />{report.page_count ?? 0} pages
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10.5, color: T.dim }}>
-              <Eye size={9} />{report.visual_count} visuals
-            </span>
-          </div>
         </div>
-        {isSelected && (
-          <ChevronRight size={13} style={{ color: T.teal, flexShrink: 0 }} />
-        )}
       </div>
-    </button>
+
+      {/* Search box */}
+      {onSearch !== undefined && (
+        <div style={{ position: 'relative', width: 220, flexShrink: 0 }}>
+          <Search size={12} style={{
+            position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)',
+            color: T.dim, pointerEvents: 'none',
+          }} />
+          <input
+            type="text"
+            value={search ?? ''}
+            onChange={e => onSearch(e.target.value)}
+            placeholder={`Search ${title.toLowerCase()}…`}
+            style={{
+              width: '100%', paddingLeft: 28, paddingRight: search ? 26 : 10,
+              paddingTop: 6, paddingBottom: 6, fontSize: 12, borderRadius: 8,
+              border: '1px solid rgba(197,213,236,0.8)', background: 'white',
+              color: T.ink2, outline: 'none', boxSizing: 'border-box',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'border-color 0.15s ease',
+            }}
+            onFocus={e => { e.currentTarget.style.borderColor = accent }}
+            onBlur={e => { e.currentTarget.style.borderColor = 'rgba(197,213,236,0.8)' }}
+          />
+          {search && onClearSearch && (
+            <button
+              onClick={onClearSearch}
+              style={{
+                position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', cursor: 'pointer', color: T.dim,
+                padding: 2, display: 'flex',
+              }}
+            >
+              <X size={11} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Stats */}
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: 18 }}>
+        {stats.map(({ label, value }) => (
+          <span key={label} style={{ fontSize: 11, color: T.dim }}>
+            <b style={{ color: T.mid }}>{value}</b> {label}
+          </span>
+        ))}
+      </div>
+    </div>
   )
 }
 
-// ── Measure card ───────────────────────────────────────────────────────────────
+// ── Models list view ───────────────────────────────────────────────────────────
+
+function ModelsListView({ workspace, modelNodes, onSelect }: {
+  workspace: FabricWorkspace
+  modelNodes: ModelNode[]
+  onSelect: (id: string) => void
+}) {
+  const [search, setSearch] = useState('')
+  const filtered = search.trim()
+    ? modelNodes.filter(n => n.dataset.name.toLowerCase().includes(search.toLowerCase()))
+    : modelNodes
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <LevelToolbar
+        icon={<Database size={15} />}
+        accent={T.modelAccent}
+        title="Semantic Models"
+        subtitle={workspace.name}
+        stats={[
+          { label: 'models',        value: search.trim() ? `${filtered.length} of ${modelNodes.length}` : modelNodes.length },
+          { label: 'total reports', value: workspace.report_count },
+        ]}
+        search={search}
+        onSearch={setSearch}
+        onClearSearch={() => setSearch('')}
+      />
+      <div style={{ padding: '24px 28px', background: T.canvas }}>
+        <div style={{ maxWidth: 700, display: 'flex', flexDirection: 'column', gap: 0 }}>
+          <SectionLabel count={filtered.length} accent={T.modelAccent}>Semantic Models</SectionLabel>
+          {filtered.length === 0 ? (
+            <EmptyState
+              message={search.trim() ? `No models match "${search}"` : 'No semantic models in this workspace'}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {filtered.map((node, i) => {
+                const ds = node.dataset
+                return (
+                  <DrillItem
+                    key={ds.id}
+                    icon={<Database size={14} />}
+                    accent={T.modelAccent}
+                    name={ds.name}
+                    meta={
+                      <>
+                        <span style={{ fontSize: 11, color: T.dim, display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <Database size={9} />{ds.table_count} tables
+                        </span>
+                        <span style={{ fontSize: 11, color: T.dim, display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <Hash size={9} />{ds.measure_count} measures
+                        </span>
+                        <span style={{ fontSize: 11, color: T.dim, display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <BarChart2 size={9} />{node.reports.length} reports
+                        </span>
+                      </>
+                    }
+                    badge={
+                      node.reports.length > 0 ? (
+                        <span style={{
+                          fontSize: 9.5, fontWeight: 700, color: T.modelAccent,
+                          background: `${T.modelAccent}0D`, border: `1px solid ${T.modelAccent}22`,
+                          borderRadius: 5, padding: '2px 7px', flexShrink: 0, letterSpacing: '0.04em',
+                        }}>
+                          {node.reports.length} report{node.reports.length !== 1 ? 's' : ''}
+                        </span>
+                      ) : undefined
+                    }
+                    onClick={() => onSelect(ds.id)}
+                    animDelay={i * 35}
+                  />
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Reports list view ──────────────────────────────────────────────────────────
+
+function ReportsListView({ workspace, model, reports, onSelect }: {
+  workspace: FabricWorkspace
+  model: ModelNode
+  reports: FabricReport[]
+  onSelect: (id: string) => void
+}) {
+  const [search, setSearch] = useState('')
+  const filtered = search.trim()
+    ? reports.filter(r => r.name.toLowerCase().includes(search.toLowerCase()))
+    : reports
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <LevelToolbar
+        icon={<BarChart2 size={15} />}
+        accent={T.repAccent}
+        title="Reports"
+        subtitle={`${model.dataset.name} · ${workspace.name}`}
+        stats={[
+          { label: 'reports',  value: search.trim() ? `${filtered.length} of ${reports.length}` : reports.length },
+          { label: 'measures', value: model.dataset.measure_count },
+        ]}
+        search={search}
+        onSearch={setSearch}
+        onClearSearch={() => setSearch('')}
+      />
+      <div style={{ padding: '24px 28px', background: T.canvas }}>
+        <div style={{ maxWidth: 700, display: 'flex', flexDirection: 'column', gap: 0 }}>
+          <SectionLabel count={filtered.length} accent={T.repAccent}>Reports</SectionLabel>
+          {filtered.length === 0 ? (
+            <EmptyState
+              message={search.trim() ? `No reports match "${search}"` : 'No reports use this semantic model'}
+              icon={<BarChart2 size={20} style={{ color: T.dim }} />}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {filtered.map((report, i) => (
+                <DrillItem
+                  key={report.id}
+                  icon={<BarChart2 size={14} />}
+                  accent={T.repAccent}
+                  name={report.name}
+                  meta={
+                    <>
+                      <span style={{ fontSize: 11, color: T.dim, display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <FileText size={9} />{report.page_count ?? 0} pages
+                      </span>
+                      <span style={{ fontSize: 11, color: T.dim, display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <Eye size={9} />{report.visual_count} visuals
+                      </span>
+                    </>
+                  }
+                  badge={
+                    report.is_paginated ? (
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, color: '#6366F1',
+                        background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.18)',
+                        borderRadius: 4, padding: '2px 6px', flexShrink: 0,
+                      }}>
+                        PAG
+                      </span>
+                    ) : undefined
+                  }
+                  onClick={() => onSelect(report.id)}
+                  animDelay={i * 30}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Measure card (used) ────────────────────────────────────────────────────────
 
 function MeasureCard({ usage, animDelay }: { usage: MeasureUsage; animDelay: number }) {
   const [expanded, setExpanded] = useState(false)
@@ -415,36 +544,39 @@ function MeasureCard({ usage, animDelay }: { usage: MeasureUsage; animDelay: num
       onMouseLeave={() => setHov(false)}
       style={{
         borderRadius: 11, overflow: 'hidden', cursor: 'pointer',
-        border: `1.5px solid ${expanded ? `${T.violet}45` : hov ? `${T.violet}25` : T.border}`,
-        background: expanded ? `${T.violet}05` : hov ? `${T.violet}02` : 'white',
+        border: `1.5px solid ${expanded ? `${T.msrAccent}45` : hov ? `${T.msrAccent}25` : T.border}`,
+        background: expanded ? `${T.msrAccent}05` : hov ? `${T.msrAccent}02` : 'white',
         boxShadow: expanded ? T.shadowMd : hov ? '0 3px 10px rgba(15,23,42,0.08)' : T.shadow,
         transform: hov && !expanded ? 'translateY(-1px)' : 'translateY(0)',
         transition: 'all 0.18s cubic-bezier(0.16,1,0.3,1)',
         animation: `lgFadeUp 0.4s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
         <div style={{
           width: 28, height: 28, borderRadius: 7, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: `${T.violet}0D`, border: `1px solid ${T.violet}22`,
+          background: `${T.msrAccent}0D`, border: `1px solid ${T.msrAccent}22`,
         }}>
-          <Hash size={12} style={{ color: T.violet }} />
+          <Hash size={12} style={{ color: T.msrAccent }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.ink2,
+          <p style={{
+            margin: 0, fontSize: 12, fontWeight: 700, color: T.ink2,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", monospace' }}>
+            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", monospace',
+          }}>
             {m.name}
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-            <span style={{ fontSize: 10.5, color: T.dim,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 10.5, color: T.dim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {m.table}
             </span>
             {usage.visualCount > 0 && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: T.violet,
-                fontWeight: 600, flexShrink: 0 }}>
+              <span style={{
+                display: 'flex', alignItems: 'center', gap: 3, fontSize: 10,
+                color: T.msrAccent, fontWeight: 600, flexShrink: 0,
+              }}>
                 <Eye size={8.5} />{usage.visualCount}
               </span>
             )}
@@ -454,12 +586,15 @@ function MeasureCard({ usage, animDelay }: { usage: MeasureUsage; animDelay: num
       </div>
       {expanded && m.expression && (
         <div style={{
-          padding: '0 13px 12px', borderTop: `1px solid ${T.violet}18`, paddingTop: 10,
+          padding: '10px 14px 12px', borderTop: `1px solid ${T.msrAccent}18`,
           animation: 'lgFadeIn 0.16s ease both',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 9, fontWeight: 800, color: T.dim,
-              textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{
+              fontSize: 9, fontWeight: 800, color: T.dim,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              display: 'flex', alignItems: 'center', gap: 3,
+            }}>
               <Code2 size={9} /> DAX Expression
             </span>
             <button
@@ -468,18 +603,19 @@ function MeasureCard({ usage, animDelay }: { usage: MeasureUsage; animDelay: num
                 display: 'flex', alignItems: 'center', gap: 3,
                 padding: '3px 8px', borderRadius: 5, fontSize: 9.5, fontWeight: 700, cursor: 'pointer',
                 border: 'none', transition: 'all 0.15s ease',
-                background: copied ? `${T.teal}12` : `${T.violet}0E`,
-                color: copied ? T.teal : T.violet,
+                background: copied ? `${T.repAccent}12` : `${T.msrAccent}0E`,
+                color: copied ? T.repAccent : T.msrAccent,
               }}
             >
               {copied ? <><Check size={8} /> Copied</> : <><Copy size={8} /> Copy</>}
             </button>
           </div>
           <pre style={{
-            margin: 0, fontSize: 10.5, fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", monospace',
+            margin: 0, fontSize: 10.5,
+            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", monospace',
             padding: '8px 10px', borderRadius: 7, overflowX: 'auto',
-            whiteSpace: 'pre-wrap', maxHeight: 110, color: T.mid,
-            background: `${T.violet}05`, border: `1px solid ${T.violet}16`,
+            whiteSpace: 'pre-wrap', maxHeight: 120, color: T.mid,
+            background: `${T.msrAccent}05`, border: `1px solid ${T.msrAccent}16`,
             lineHeight: 1.55,
           }}>
             {m.expression}
@@ -490,9 +626,9 @@ function MeasureCard({ usage, animDelay }: { usage: MeasureUsage; animDelay: num
   )
 }
 
-// ── Unused measure card ────────────────────────────────────────────────────────
+// ── Measure card (unused) ──────────────────────────────────────────────────────
 
-function UnusedModelMeasureCard({ m, animDelay }: { m: FabricMeasure; animDelay: number }) {
+function UnusedMeasureCard({ m, animDelay }: { m: FabricMeasure; animDelay: number }) {
   const [expanded, setExpanded] = useState(false)
   const [hov, setHov] = useState(false)
 
@@ -512,7 +648,7 @@ function UnusedModelMeasureCard({ m, animDelay }: { m: FabricMeasure; animDelay:
         animation: `lgFadeUp 0.4s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 13px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px' }}>
         <div style={{
           width: 28, height: 28, borderRadius: 7, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -521,9 +657,11 @@ function UnusedModelMeasureCard({ m, animDelay }: { m: FabricMeasure; animDelay:
           <Hash size={12} style={{ color: T.dim }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: T.muted,
+          <p style={{
+            margin: 0, fontSize: 12, fontWeight: 600, color: T.muted,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", monospace' }}>
+            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", monospace',
+          }}>
             {m.name}
           </p>
           <p style={{ margin: '2px 0 0', fontSize: 10.5, color: T.dim }}>
@@ -534,16 +672,19 @@ function UnusedModelMeasureCard({ m, animDelay }: { m: FabricMeasure; animDelay:
       </div>
       {expanded && m.expression && (
         <div style={{
-          padding: '0 13px 12px', borderTop: '1px solid rgba(197,213,236,0.4)', paddingTop: 10,
+          padding: '10px 14px 12px', borderTop: '1px solid rgba(197,213,236,0.4)',
           animation: 'lgFadeIn 0.16s ease both',
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 9, fontWeight: 800, color: T.dim,
-              textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 3 }}>
+            <span style={{
+              fontSize: 9, fontWeight: 800, color: T.dim,
+              textTransform: 'uppercase', letterSpacing: '0.08em',
+              display: 'flex', alignItems: 'center', gap: 3,
+            }}>
               <Code2 size={9} /> DAX
             </span>
             <button
-              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(m.expression!).then(() => {}) }}
+              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(m.expression!) }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 3,
                 padding: '3px 8px', borderRadius: 5, fontSize: 9.5, fontWeight: 700, cursor: 'pointer',
@@ -554,9 +695,10 @@ function UnusedModelMeasureCard({ m, animDelay }: { m: FabricMeasure; animDelay:
             </button>
           </div>
           <pre style={{
-            margin: 0, fontSize: 10.5, fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", monospace',
+            margin: 0, fontSize: 10.5,
+            fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", monospace',
             padding: '8px 10px', borderRadius: 7, overflowX: 'auto',
-            whiteSpace: 'pre-wrap', maxHeight: 110, color: T.mid,
+            whiteSpace: 'pre-wrap', maxHeight: 120, color: T.mid,
             background: 'rgba(148,163,184,0.05)', border: '1px solid rgba(148,163,184,0.18)',
             lineHeight: 1.55,
           }}>
@@ -568,89 +710,108 @@ function UnusedModelMeasureCard({ m, animDelay }: { m: FabricMeasure; animDelay:
   )
 }
 
-// ── Workspace picker card ──────────────────────────────────────────────────────
+// ── Measures view ──────────────────────────────────────────────────────────────
 
-function WsPickerCard({ ws, onSelect, animDelay }: {
-  ws: FabricWorkspace; onSelect: () => void; animDelay: number
+function MeasuresView({ model, report, usedMeasures, allMeasures }: {
+  model: ModelNode
+  report: FabricReport
+  usedMeasures: MeasureUsage[]
+  allMeasures: FabricMeasure[]
 }) {
-  const [hov, setHov] = useState(false)
-  return (
-    <button
-      onClick={onSelect}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'flex', flexDirection: 'column', gap: 14,
-        padding: '18px 20px', borderRadius: 14,
-        border: `1.5px solid ${hov ? `${T.slate}45` : T.border}`,
-        borderTop: `3px solid ${hov ? T.slate : T.border}`,
-        background: hov ? `${T.slate}04` : 'white',
-        cursor: 'pointer', textAlign: 'left', width: '100%',
-        boxShadow: hov ? T.shadowLg : T.shadowMd,
-        transform: hov ? 'translateY(-3px)' : 'translateY(0)',
-        transition: 'all 0.22s cubic-bezier(0.16,1,0.3,1)',
-        animation: `lgFadeUp 0.42s cubic-bezier(0.16,1,0.3,1) ${animDelay}ms both`,
-        outline: 'none',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: 10,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: `${T.slate}10`, border: `1px solid ${T.slate}22`,
-        }}>
-          <FolderOpen size={17} style={{ color: T.slate }} />
-        </div>
-        <div>
-          <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: T.ink2 }}>{ws.name}</p>
-          <p style={{ margin: '2px 0 0', fontSize: 11, color: T.dim }}>{ws.type}</p>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 14 }}>
-        {[
-          { icon: <Database size={11} />, n: ws.dataset_count, label: 'models', accent: T.blue },
-          { icon: <BarChart2 size={11} />, n: ws.report_count, label: 'reports', accent: T.teal },
-        ].map(({ icon, n, label, accent }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ color: accent }}>{icon}</span>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: T.ink2 }}>{n}</span>
-            <span style={{ fontSize: 10.5, color: T.muted }}>{label}</span>
-          </div>
-        ))}
-      </div>
-    </button>
-  )
-}
+  const [search, setSearch]         = useState('')
+  const [measuresPage, setMeasuresPage] = useState(40)
 
-// ── Workspace picker ───────────────────────────────────────────────────────────
+  const unusedMeasures = useMemo(() => {
+    const usedNames = new Set(usedMeasures.map(u => u.measure.name))
+    return allMeasures.filter(m => !usedNames.has(m.name))
+  }, [usedMeasures, allMeasures])
 
-function WorkspacePicker({
-  workspaces, onSelect,
-}: { workspaces: FabricWorkspace[]; onSelect: (ws: FabricWorkspace) => void }) {
+  const q = search.trim().toLowerCase()
+  const filteredUsed = q
+    ? usedMeasures.filter(u => u.measure.name.toLowerCase().includes(q) || u.measure.table.toLowerCase().includes(q))
+    : usedMeasures
+  const filteredUnused = q
+    ? unusedMeasures.filter(m => m.name.toLowerCase().includes(q) || m.table.toLowerCase().includes(q))
+    : unusedMeasures
+
+  const total = filteredUsed.length + filteredUnused.length
+
   return (
-    <div style={{ padding: '20px 0', fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
-      <style>{STYLES}</style>
-      <div style={{ marginBottom: 22 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 9,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: `${T.slate}0F`, border: `1px solid ${T.slate}25`,
-          }}>
-            <Layers size={15} style={{ color: T.slate }} />
-          </div>
-          <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: T.ink2 }}>
-            Select a workspace
-          </p>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <LevelToolbar
+        icon={<Hash size={15} />}
+        accent={T.msrAccent}
+        title="Measures"
+        subtitle={`${report.name} · ${model.dataset.name}`}
+        stats={[
+          { label: 'used',   value: filteredUsed.length   },
+          { label: 'unused', value: filteredUnused.length },
+        ]}
+        search={search}
+        onSearch={v => { setSearch(v); setMeasuresPage(40) }}
+        onClearSearch={() => { setSearch(''); setMeasuresPage(40) }}
+      />
+      <div style={{ padding: '24px 28px', background: T.canvas }}>
+        <div style={{ maxWidth: 700, display: 'flex', flexDirection: 'column', gap: 0 }}>
+          {total === 0 ? (
+            <EmptyState
+              message={q ? `No measures match "${search}"` : 'No model measures used in this report'}
+              icon={<Hash size={20} style={{ color: T.dim }} />}
+            />
+          ) : (
+            <>
+              {filteredUsed.length > 0 && (
+                <div style={{ marginBottom: 20 }}>
+                  <SectionLabel count={filteredUsed.length} accent={T.msrAccent}>
+                    Used in this report
+                  </SectionLabel>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {filteredUsed.slice(0, measuresPage).map((u, i) => (
+                      <MeasureCard
+                        key={`${u.measure.table}||${u.measure.name}`}
+                        usage={u}
+                        animDelay={i * 18}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {filteredUnused.length > 0 && (
+                <div>
+                  <SectionLabel count={filteredUnused.length} accent={T.dim}>
+                    Unused
+                  </SectionLabel>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {filteredUnused
+                      .slice(0, Math.max(0, measuresPage - filteredUsed.length))
+                      .map((m, i) => (
+                        <UnusedMeasureCard
+                          key={`${m.table}||${m.name}`}
+                          m={m}
+                          animDelay={i * 14}
+                        />
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {total > measuresPage && (
+                <button
+                  onClick={() => setMeasuresPage(p => p + 40)}
+                  style={{
+                    padding: '10px', borderRadius: 9, fontSize: 12, fontWeight: 600,
+                    background: `${T.msrAccent}07`, color: T.msrAccent,
+                    border: `1px solid ${T.msrAccent}20`, cursor: 'pointer',
+                    marginTop: 12, maxWidth: 700, width: '100%',
+                  }}
+                >
+                  Show {Math.min(40, total - measuresPage)} more…
+                </button>
+              )}
+            </>
+          )}
         </div>
-        <p style={{ margin: '0 0 0 42px', fontSize: 12.5, color: T.muted }}>
-          {workspaces.length} workspace{workspaces.length !== 1 ? 's' : ''} — trace DAX measure usage across reports and visuals
-        </p>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
-        {workspaces.map((ws, i) => (
-          <WsPickerCard key={ws.id} ws={ws} onSelect={() => onSelect(ws)} animDelay={i * 45} />
-        ))}
       </div>
     </div>
   )
@@ -704,32 +865,35 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
   )
   const [selectedModelId, setSelectedModelId]   = useState<string | null>(null)
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
-  const [search, setSearch]                     = useState('')
-  const [measuresPage, setMeasuresPage]         = useState(40)
 
   const handleSelectWs = useCallback((ws: FabricWorkspace) => {
     setSelectedWs(ws)
-    startTransition(() => {
-      setSelectedModelId(null); setSelectedReportId(null)
-      setSearch(''); setMeasuresPage(40)
-    })
+    startTransition(() => { setSelectedModelId(null); setSelectedReportId(null) })
   }, [])
 
   const handleSelectModel = useCallback((id: string) => {
-    startTransition(() => {
-      setSelectedModelId(prev => prev === id ? null : id)
-      setSelectedReportId(null); setSearch(''); setMeasuresPage(40)
-    })
+    startTransition(() => { setSelectedModelId(id); setSelectedReportId(null) })
   }, [])
 
   const handleSelectReport = useCallback((id: string) => {
-    startTransition(() => {
-      setSelectedReportId(prev => prev === id ? null : id)
-      setSearch(''); setMeasuresPage(40)
-    })
+    startTransition(() => { setSelectedReportId(id) })
   }, [])
 
-  // All hooks must be unconditional (before any early return)
+  const handleGoToRoot = useCallback(() => {
+    startTransition(() => {
+      if (workspaces.length > 1) setSelectedWs(null)
+      setSelectedModelId(null)
+      setSelectedReportId(null)
+    })
+  }, [workspaces.length])
+
+  const handleGoToWs = useCallback(() => {
+    startTransition(() => { setSelectedModelId(null); setSelectedReportId(null) })
+  }, [])
+
+  const handleGoToModel = useCallback(() => {
+    startTransition(() => { setSelectedReportId(null) })
+  }, [])
 
   const modelNodes = useMemo(
     () => selectedWs ? buildModelNodes(selectedWs) : [],
@@ -739,324 +903,87 @@ export default function LineageTab({ workspaces }: { workspaces: FabricWorkspace
     () => modelNodes.find(n => n.dataset.id === selectedModelId) ?? null,
     [modelNodes, selectedModelId],
   )
-  const visibleReports = useMemo(
-    () => selectedModel ? selectedModel.reports : (selectedWs?.reports ?? []),
-    [selectedModel, selectedWs],
-  )
   const selectedReport = useMemo(
-    () => visibleReports.find(r => r.id === selectedReportId) ?? null,
-    [visibleReports, selectedReportId],
+    () => selectedModel?.reports.find(r => r.id === selectedReportId) ?? null,
+    [selectedModel, selectedReportId],
   )
   const usedMeasures = useMemo(() => {
     if (!selectedModel || !selectedReport) return []
     return getMeasuresUsedInReport(selectedModel.dataset, selectedReport)
   }, [selectedModel, selectedReport])
 
-  const unusedMeasures = useMemo(() => {
-    if (!selectedModel) return []
-    if (!selectedReport) return selectedModel.dataset.measures
-    const usedNames = new Set(usedMeasures.map(u => u.measure.name))
-    return selectedModel.dataset.measures.filter(m => !usedNames.has(m.name))
-  }, [selectedModel, selectedReport, usedMeasures])
+  // ── Breadcrumb ──────────────────────────────────────────────────────────────
 
-  const filteredUsed = useMemo(() => {
-    if (!search) return usedMeasures
-    const q = search.toLowerCase()
-    return usedMeasures.filter(u =>
-      u.measure.name.toLowerCase().includes(q) || u.measure.table.toLowerCase().includes(q),
-    )
-  }, [usedMeasures, search])
+  const multiWs = workspaces.length > 1
+  const canGoToRoot = selectedWs ? (multiWs || !!selectedModelId) : false
 
-  const filteredUnused = useMemo(() => {
-    if (!search) return unusedMeasures
-    const q = search.toLowerCase()
-    return unusedMeasures.filter(m =>
-      m.name.toLowerCase().includes(q) || m.table.toLowerCase().includes(q),
-    )
-  }, [unusedMeasures, search])
+  const breadcrumbItems = (() => {
+    const root = { label: 'Measure Lineage', onClick: canGoToRoot ? handleGoToRoot : undefined }
 
-  const allFiltered = [
-    ...filteredUsed.map(u => ({ type: 'used' as const, data: u })),
-    ...filteredUnused.map(m => ({ type: 'unused' as const, data: m })),
-  ]
+    if (!selectedWs) return [root]
 
-  // Early return after all hooks
-  if (!selectedWs) {
-    return <WorkspacePicker workspaces={workspaces} onSelect={handleSelectWs} />
-  }
+    if (multiWs) {
+      if (!selectedModelId) return [root, { label: selectedWs.name }]
+      const wsItem = { label: selectedWs.name, onClick: handleGoToWs }
+      if (!selectedReportId || !selectedModel) {
+        return [root, wsItem, { label: selectedModel?.dataset.name ?? '…' }]
+      }
+      return [
+        root, wsItem,
+        { label: selectedModel.dataset.name, onClick: handleGoToModel },
+        { label: selectedReport?.name ?? '…' },
+      ]
+    }
 
-  const steps = [
-    { icon: <FolderOpen size={11} />, label: 'Workspace',      active: true            },
-    { icon: <Database size={11} />,   label: 'Semantic Model', active: !!selectedModel },
-    { icon: <BarChart2 size={11} />,  label: 'Report',         active: !!selectedReport },
-    { icon: <Hash size={11} />,       label: 'Measures',       active: !!selectedReport },
-  ]
+    // Single workspace
+    if (!selectedModelId) return [root]
+    if (!selectedReportId || !selectedModel) {
+      return [root, { label: selectedModel?.dataset.name ?? '…' }]
+    }
+    return [
+      root,
+      { label: selectedModel.dataset.name, onClick: handleGoToModel },
+      { label: selectedReport?.name ?? '…' },
+    ]
+  })()
 
-  const accentForStep = [T.slate, T.blue, T.teal, T.violet]
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif" }}>
       <style>{STYLES}</style>
 
-      {/* ── Flow stepper ──────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'center',
-        marginBottom: 20, padding: '10px 16px',
-        background: 'white',
-        border: `1.5px solid ${T.border}`,
-        borderRadius: 12,
-        boxShadow: T.shadow,
-      }}>
-        {workspaces.length > 1 && (
-          <>
-            <button
-              onClick={() => { setSelectedWs(null); setSelectedModelId(null); setSelectedReportId(null) }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '4px 10px 4px 8px', borderRadius: 7, fontSize: 11, fontWeight: 600,
-                background: `${T.slate}0A`, color: T.slate,
-                border: `1px solid ${T.slate}22`, cursor: 'pointer', marginRight: 14, flexShrink: 0,
-              }}
-            >
-              <FolderOpen size={11} /> {selectedWs.name}
-            </button>
-            <ArrowRight size={12} style={{ color: T.dim, flexShrink: 0, marginRight: 14 }} />
-          </>
-        )}
-        {steps.map((step, i) => (
-          <React.Fragment key={step.label}>
-            {i > 0 && (
-              <ArrowRight size={11} style={{
-                color: step.active ? T.dim : 'rgba(148,163,184,0.4)',
-                flexShrink: 0, margin: '0 8px',
-                transition: 'color 0.2s ease',
-              }} />
-            )}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '4px 10px', borderRadius: 20, flexShrink: 0,
-              background: step.active ? `${accentForStep[i]}0D` : 'transparent',
-              border: step.active ? `1px solid ${accentForStep[i]}28` : '1px solid transparent',
-              transition: 'all 0.22s cubic-bezier(0.16,1,0.3,1)',
-            }}>
-              <span style={{
-                color: step.active ? accentForStep[i] : 'rgba(148,163,184,0.5)',
-                display: 'flex', transition: 'color 0.2s ease',
-              }}>{step.icon}</span>
-              <span style={{ fontSize: 11, fontWeight: 600,
-                color: step.active ? accentForStep[i] : 'rgba(148,163,184,0.5)',
-                transition: 'color 0.2s ease',
-              }}>
-                {step.label}
-              </span>
-            </div>
-          </React.Fragment>
-        ))}
-      </div>
+      <Breadcrumb items={breadcrumbItems} />
 
-      {/* ── 4-column flow ─────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex', alignItems: 'stretch', gap: 0,
-        overflowX: 'auto', paddingBottom: 4,
-      }}>
+      {!selectedWs && (
+        <WorkspacePickerView workspaces={workspaces} onSelect={handleSelectWs} />
+      )}
 
-        {/* Column 1: Workspace anchor */}
-        <WorkspaceCol workspace={selectedWs} />
+      {selectedWs && !selectedModelId && (
+        <ModelsListView
+          workspace={selectedWs}
+          modelNodes={modelNodes}
+          onSelect={handleSelectModel}
+        />
+      )}
 
-        <ColConnector label="contains" />
+      {selectedWs && selectedModel && !selectedReportId && (
+        <ReportsListView
+          workspace={selectedWs}
+          model={selectedModel}
+          reports={selectedModel.reports}
+          onSelect={handleSelectReport}
+        />
+      )}
 
-        {/* Column 2: Semantic Models */}
-        <ColShell width={252} accent={T.blue}>
-          <ColHeader
-            icon={<Database size={14} />}
-            title="Semantic Models"
-            count={modelNodes.length}
-            accent={T.blue}
-          />
-          <div style={{
-            padding: '10px 11px', display: 'flex', flexDirection: 'column', gap: 7,
-            height: COL_HEIGHT - 56, overflowY: 'auto',
-          }}>
-            {modelNodes.length === 0 ? (
-              <p style={{ textAlign: 'center', fontSize: 12.5, color: T.muted, padding: '36px 0' }}>
-                No semantic models found
-              </p>
-            ) : modelNodes.map((node, i) => (
-              <ModelCard
-                key={node.dataset.id}
-                node={node}
-                isSelected={selectedModelId === node.dataset.id}
-                isActive={!selectedModelId || selectedModelId === node.dataset.id}
-                onClick={() => handleSelectModel(node.dataset.id)}
-                animDelay={i * 35}
-              />
-            ))}
-          </div>
-        </ColShell>
-
-        <ColConnector label="used by" />
-
-        {/* Column 3: Reports */}
-        <ColShell
-          width={262}
-          accent={T.teal}
-          isEmpty={visibleReports.length === 0 && !!selectedModel}
-          emptyMsg="No reports use this semantic model"
-        >
-          <ColHeader
-            icon={<BarChart2 size={14} />}
-            title="Reports"
-            count={visibleReports.length}
-            accent={T.teal}
-          />
-          <div style={{
-            padding: '10px 11px', display: 'flex', flexDirection: 'column', gap: 7,
-            height: COL_HEIGHT - 56, overflowY: 'auto',
-          }}>
-            {!selectedModel && (
-              <div style={{
-                padding: '10px 12px', borderRadius: 9, marginBottom: 2,
-                background: `${T.teal}07`, border: `1px solid ${T.teal}18`,
-              }}>
-                <p style={{ margin: 0, fontSize: 11.5, color: T.teal, lineHeight: 1.45 }}>
-                  Select a semantic model to filter reports
-                </p>
-              </div>
-            )}
-            {visibleReports.map((report, i) => (
-              <ReportCard
-                key={report.id}
-                report={report}
-                isSelected={selectedReportId === report.id}
-                isActive={!selectedReportId || selectedReportId === report.id}
-                onClick={() => handleSelectReport(report.id)}
-                animDelay={i * 30}
-              />
-            ))}
-          </div>
-        </ColShell>
-
-        <ColConnector label="uses" />
-
-        {/* Column 4: Measures */}
-        <ColShell
-          width={278}
-          accent={T.violet}
-          isEmpty={!selectedReport && !selectedModel}
-          emptyMsg="Select a report to see measures"
-        >
-          <ColHeader
-            icon={<Hash size={14} />}
-            title="Measures"
-            count={selectedReport
-              ? filteredUsed.length + filteredUnused.length
-              : selectedModel
-              ? selectedModel.dataset.measure_count
-              : undefined}
-            accent={T.violet}
-          />
-          {/* Search */}
-          {(selectedReport || selectedModel) && (
-            <div style={{ padding: '9px 11px 0', flexShrink: 0 }}>
-              <div style={{ position: 'relative' }}>
-                <Search size={11} style={{
-                  position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-                  color: T.dim, pointerEvents: 'none',
-                }} />
-                <input
-                  style={{
-                    width: '100%', paddingLeft: 30, paddingRight: 10, paddingTop: 7, paddingBottom: 7,
-                    fontSize: 11.5, borderRadius: 8, outline: 'none', boxSizing: 'border-box',
-                    border: `1px solid ${T.border}`, background: 'rgba(248,250,252,0.8)', color: T.ink2,
-                    transition: 'border-color 0.15s ease',
-                  }}
-                  onFocus={e => (e.target.style.borderColor = `${T.violet}40`)}
-                  onBlur={e => (e.target.style.borderColor = T.border)}
-                  placeholder="Search measures…"
-                  value={search}
-                  onChange={e => startTransition(() => setSearch(e.target.value))}
-                />
-              </div>
-            </div>
-          )}
-          <div style={{
-            padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 6,
-            height: COL_HEIGHT - (selectedReport || selectedModel ? 116 : 56), overflowY: 'auto',
-          }}>
-            {!selectedModel && !selectedReport ? null
-              : !selectedReport && selectedModel ? (
-              <>
-                <p style={{ margin: '0 0 6px', fontSize: 11.5, color: T.muted, fontStyle: 'italic', lineHeight: 1.4 }}>
-                  Select a report to see which measures it uses
-                </p>
-                {filteredUnused.slice(0, measuresPage).map((m, i) => (
-                  <UnusedModelMeasureCard key={`${m.table}||${m.name}`} m={m} animDelay={i * 18} />
-                ))}
-                {filteredUnused.length > measuresPage && (
-                  <button
-                    onClick={() => setMeasuresPage(p => p + 40)}
-                    style={{
-                      padding: '8px', borderRadius: 9, fontSize: 11.5, fontWeight: 600,
-                      background: 'rgba(148,163,184,0.08)', color: T.muted,
-                      border: `1px solid ${T.border}`, cursor: 'pointer', marginTop: 3,
-                    }}
-                  >
-                    Show {Math.min(40, filteredUnused.length - measuresPage)} more…
-                  </button>
-                )}
-              </>
-            ) : selectedReport ? (
-              <>
-                {filteredUsed.length === 0 && filteredUnused.length === 0 ? (
-                  <p style={{ textAlign: 'center', fontSize: 12.5, color: T.muted, padding: '28px 0', lineHeight: 1.5 }}>
-                    {search ? `No measures match "${search}"` : 'No model measures used in this report'}
-                  </p>
-                ) : (
-                  <>
-                    {filteredUsed.length > 0 && (
-                      <>
-                        <p style={{ margin: '0 0 5px', fontSize: 10, fontWeight: 800, color: T.violet,
-                          textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                          Used in this report ({filteredUsed.length})
-                        </p>
-                        {filteredUsed.slice(0, measuresPage).map((u, i) => (
-                          <MeasureCard key={`${u.measure.table}||${u.measure.name}`} usage={u} animDelay={i * 18} />
-                        ))}
-                      </>
-                    )}
-                    {filteredUnused.length > 0 && filteredUsed.length > 0 && (
-                      <div style={{ height: 1, background: T.border, margin: '6px 0' }} />
-                    )}
-                    {filteredUnused.length > 0 && (
-                      <>
-                        <p style={{ margin: '4px 0 5px', fontSize: 10, fontWeight: 800, color: T.dim,
-                          textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                          Unused ({filteredUnused.length})
-                        </p>
-                        {filteredUnused.slice(0, Math.max(0, measuresPage - filteredUsed.length)).map((m, i) => (
-                          <UnusedModelMeasureCard key={`${m.table}||${m.name}`} m={m} animDelay={i * 14} />
-                        ))}
-                      </>
-                    )}
-                    {allFiltered.length > measuresPage && (
-                      <button
-                        onClick={() => setMeasuresPage(p => p + 40)}
-                        style={{
-                          padding: '8px', borderRadius: 9, fontSize: 11.5, fontWeight: 600,
-                          background: `${T.violet}07`, color: T.violet,
-                          border: `1px solid ${T.violet}20`, cursor: 'pointer', marginTop: 3,
-                        }}
-                      >
-                        Show more…
-                      </button>
-                    )}
-                  </>
-                )}
-              </>
-            ) : null}
-          </div>
-        </ColShell>
-      </div>
+      {selectedWs && selectedModel && selectedReport && (
+        <MeasuresView
+          model={selectedModel}
+          report={selectedReport}
+          usedMeasures={usedMeasures}
+          allMeasures={selectedModel.dataset.measures}
+        />
+      )}
     </div>
   )
 }

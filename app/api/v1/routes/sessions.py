@@ -250,8 +250,8 @@ async def download_session_word_report(
     if not jobs_data:
         raise HTTPException(status_code=409, detail="Could not load results for any completed jobs.")
 
-    from app.services.word_report_service import build_session_word_report
-    doc_bytes = build_session_word_report(
+    from app.services.ai_report_service import build_ai_session_word_report
+    doc_bytes = build_ai_session_word_report(
         session_id=session_id,
         session_label=row.get("label"),
         jobs_data=jobs_data,

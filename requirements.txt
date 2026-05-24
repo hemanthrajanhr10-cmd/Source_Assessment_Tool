@@ -74,6 +74,9 @@ semantic-link-labs>=0.9.0
 pandas>=2.2.0
 pyarrow>=16.0.0
 
+# Azure OpenAI (AI report generation)
+openai>=1.30.0
+
 # Misc
 annotated-doc==0.0.4
 annotated-types==0.7.0

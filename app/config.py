@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     # Frontend base URL — used to redirect back after OAuth callback
     frontend_url: str = "http://localhost:5173"
 
+    # ── Azure OpenAI (AI Report Generation) ──────────────────────────────────
+    azure_openai_endpoint: str = ""
+    azure_openai_api_key: SecretStr = SecretStr("")
+    azure_openai_api_version: str = "2024-11-20"
+    azure_openai_deployment: str = "gpt-4o"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

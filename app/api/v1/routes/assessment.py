@@ -394,17 +394,44 @@ WORD_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingm
 
 @router.get(
     "/jobs/{job_id}/word-report",
-    summary="Download the Word (.docx) Fabric Assessment Report",
+    summary="Download the AI-powered Word (.docx) Fabric Assessment Report",
+    description=(
+        "Serves a cached AI-generated report if one exists, avoiding redundant AI calls. "
+        "Pass `?regenerate=true` to force a fresh GPT-4o generation and overwrite the cache. "
+        "Pass `?client_name=Contoso` to override the report title on first generation."
+    ),
 )
-async def download_word_report(job_id: str, current_user: dict = Depends(get_current_user)) -> Response:
+async def download_word_report(
+    job_id: str,
+    client_name: str | None = None,
+    regenerate: bool = False,
+    current_user: dict = Depends(get_current_user),
+) -> Response:
     record = _require_completed(job_id, current_user["user_id"])
 
-    from app.services.word_report_service import build_word_report
-    raw = azure_store.load_full_results(job_id)
-    # Use job label as client name (falls back to database name inside the builder)
-    doc_bytes = build_word_report(job_id, raw, client_name=record.label or None)
+    safe_label = (client_name or record.label or job_id[:8]).replace(" ", "_")
+    filename   = f"fabric_assessment_{safe_label}.docx"
 
-    filename = f"fabric_assessment_{job_id[:8]}.docx"
+    # ── Serve from cache unless regenerate=true ──────────────────────────────
+    if not regenerate:
+        cached = azure_store.load_ai_report_bytes(job_id)
+        if cached:
+            logger.info("Job %s: serving cached AI report (%d bytes)", job_id, len(cached))
+            return Response(
+                content=cached,
+                media_type=WORD_MEDIA_TYPE,
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+    # ── Generate via AI, save to cache, serve ────────────────────────────────
+    from app.services.ai_report_service import build_ai_word_report
+    raw       = azure_store.load_full_results(job_id)
+    label     = client_name or record.label or None
+    doc_bytes = build_ai_word_report(job_id, raw, client_name=label)
+
+    azure_store.save_ai_report_bytes(job_id, doc_bytes)
+    logger.info("Job %s: AI report generated and cached (%d bytes)", job_id, len(doc_bytes))
+
     return Response(
         content=doc_bytes,
         media_type=WORD_MEDIA_TYPE,

@@ -627,6 +627,48 @@ def load_excel_bytes(job_id: str) -> Optional[bytes]:
         conn.close()
 
 
+def save_ai_report_bytes(job_id: str, data: bytes) -> None:
+    """Cache the AI-generated Word report bytes in the jobs table."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.jobs SET ai_report_bytes = ? WHERE job_id = ?",
+            (data, job_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def load_ai_report_bytes(job_id: str) -> Optional[bytes]:
+    """Return cached AI Word report bytes for a job, or None if not yet generated."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT ai_report_bytes FROM dbo.jobs WHERE job_id = ?", (job_id,))
+        row = cur.fetchone()
+        if row is None or row[0] is None:
+            return None
+        return bytes(row[0])
+    finally:
+        conn.close()
+
+
+def clear_ai_report_bytes(job_id: str) -> None:
+    """Clear the cached AI report so the next request triggers a fresh generation."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.jobs SET ai_report_bytes = NULL WHERE job_id = ?",
+            (job_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ── User CRUD ─────────────────────────────────────────────────────────────────
 
 def create_user(user_id: str, email: str, full_name: Optional[str], password_hash: str) -> None:

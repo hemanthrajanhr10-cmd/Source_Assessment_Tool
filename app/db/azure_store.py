@@ -669,6 +669,32 @@ def clear_ai_report_bytes(job_id: str) -> None:
         conn.close()
 
 
+def save_fabric_word_bytes(session_id: str, data: bytes) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.fabric_sessions SET word_bytes = ? WHERE session_id = ?",
+            (data, session_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def load_fabric_word_bytes(session_id: str) -> Optional[bytes]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT word_bytes FROM dbo.fabric_sessions WHERE session_id = ?", (session_id,))
+        row = cur.fetchone()
+        if row and row[0]:
+            return bytes(row[0])
+        return None
+    finally:
+        conn.close()
+
+
 # ── User CRUD ─────────────────────────────────────────────────────────────────
 
 def create_user(user_id: str, email: str, full_name: Optional[str], password_hash: str) -> None:

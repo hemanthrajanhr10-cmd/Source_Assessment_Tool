@@ -866,3 +866,306 @@ def build_ai_session_word_report(
     buf.seek(0)
     logger.info("AI session report: complete for session %s (%d databases)", session_id, len(jobs_data))
     return buf.getvalue()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# FABRIC ASSESSMENT WORD REPORT
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _build_fabric_context(results: dict, client_name: str) -> dict:
+    """Extract key metrics from Fabric session results into a concise context dict."""
+    summary    = results.get("summary") or {}
+    workspaces = results.get("workspaces") or []
+
+    all_datasets = [ds for ws in workspaces for ds in (ws.get("datasets") or [])]
+    all_reports  = [rp for ws in workspaces for rp in (ws.get("reports") or [])]
+    all_measures = [m for ds in all_datasets for m in (ds.get("measures") or [])]
+    all_tables   = [t for ds in all_datasets for t in (ds.get("tables") or [])]
+
+    # Complexity distribution
+    complexity_dist: dict[str, int] = {}
+    for m in all_measures:
+        level = (m.get("complexity") or {}).get("level") or "Unknown"
+        complexity_dist[level] = complexity_dist.get(level, 0) + 1
+
+    top_complex = sorted(
+        [m for m in all_measures if (m.get("complexity") or {}).get("score", 0) > 0],
+        key=lambda x: (x.get("complexity") or {}).get("score", 0),
+        reverse=True,
+    )[:10]
+
+    storage_modes: dict[str, int] = {}
+    for ds in all_datasets:
+        mode = ds.get("storage_mode") or "Unknown"
+        storage_modes[mode] = storage_modes.get(mode, 0) + 1
+
+    return {
+        "client_name":        client_name,
+        "workspace_count":    summary.get("workspace_count", len(workspaces)),
+        "dataset_count":      summary.get("dataset_count", len(all_datasets)),
+        "report_count":       summary.get("report_count", len(all_reports)),
+        "total_measures":     summary.get("total_measures", len(all_measures)),
+        "total_tables":       len(all_tables),
+        "total_visuals":      summary.get("total_visuals", 0),
+        "total_relationships": summary.get("total_relationships", 0),
+        "complexity_dist":    complexity_dist,
+        "storage_modes":      storage_modes,
+        "top_complex":        top_complex,
+        "workspace_names":    [ws.get("name", "") for ws in workspaces],
+        # raw for table rendering
+        "_workspaces": workspaces,
+        "_datasets":   all_datasets,
+        "_reports":    all_reports,
+        "_measures":   all_measures,
+    }
+
+
+def _gen_fabric_executive_summary(client: openai.OpenAI, ctx: dict) -> str:
+    complex_count = ctx["complexity_dist"].get("Very Complex", 0) + ctx["complexity_dist"].get("Complex", 0)
+    import_count  = ctx["storage_modes"].get("Import", 0)
+    prompt = f"""Write a 2-paragraph Executive Summary for a Microsoft Fabric Assessment Report.
+
+Client: {ctx['client_name']}
+Workspaces assessed: {ctx['workspace_count']} ({', '.join(ctx['workspace_names'][:5])})
+Semantic Models (Datasets): {ctx['dataset_count']}
+Reports: {ctx['report_count']}
+Total Measures: {ctx['total_measures']}
+Total Tables: {ctx['total_tables']}
+Total Visuals: {ctx['total_visuals']}
+Total Relationships: {ctx['total_relationships']}
+Complex / Very Complex measures: {complex_count} of {ctx['total_measures']}
+Import-mode datasets (refresh dependency): {import_count} of {ctx['dataset_count']}
+Storage modes in use: {', '.join(f'{v} {k}' for k, v in ctx['storage_modes'].items())}
+
+Paragraph 1: Describe the current Fabric/Power BI landscape — workspace structure, scale, model complexity.
+Paragraph 2: Summarise key findings and modernisation recommendations (Direct Lake, Purview, governance).
+
+Formal consultant tone. Cite specific numbers. No bullet points."""
+    return _call_ai(client, prompt, max_tokens=600)
+
+
+def _gen_fabric_recommendations(client: openai.OpenAI, ctx: dict) -> str:
+    complex_count = ctx["complexity_dist"].get("Very Complex", 0) + ctx["complexity_dist"].get("Complex", 0)
+    import_count  = ctx["storage_modes"].get("Import", 0)
+    prompt = f"""Write a 3-paragraph Fabric Modernisation Recommendations section.
+
+Client: {ctx['client_name']}
+Current state: {ctx['dataset_count']} semantic models, {ctx['report_count']} reports across {ctx['workspace_count']} workspaces.
+{import_count} datasets use Import mode (scheduled refresh); {complex_count} measures are Complex or Very Complex.
+
+Paragraph 1: Migrate Import-mode datasets to Direct Lake for real-time performance.
+Paragraph 2: Rationalise complex DAX measures — refactor Very Complex measures, introduce reusable measure groups.
+Paragraph 3: Governance — Microsoft Purview for lineage, sensitivity labels, workspace access tiers (Dev/UAT/Prod).
+
+Formal consultant tone. Cite the numbers. No bullet points."""
+    return _call_ai(client, prompt, max_tokens=700)
+
+
+def _gen_fabric_conclusion(client: openai.OpenAI, ctx: dict) -> str:
+    prompt = f"""Write a Conclusion paragraph (3–4 sentences) for a Fabric Assessment Report.
+Client: {ctx['client_name']} — {ctx['dataset_count']} semantic models, {ctx['report_count']} reports,
+{ctx['total_measures']} measures across {ctx['workspace_count']} workspaces.
+Summarise the key findings and confirm the recommended next steps. Formal tone. 1 paragraph."""
+    return _call_ai(client, prompt, max_tokens=250)
+
+
+def build_fabric_ai_word_report(
+    session_id: str,
+    results: dict[str, Any],
+    client_name: str | None = None,
+) -> bytes:
+    """
+    Build an AI-powered Word report for a Fabric session.
+    Generates Executive Summary, Recommendations, and Conclusion via GPT-4o.
+    Data tables (workspace/model/report inventory, complexity) populated from results.
+    """
+    label    = client_name or f"Fabric Session {session_id[:8]}"
+    run_date = datetime.utcnow().strftime("%d %b %Y")
+    ctx      = _build_fabric_context(results, label)
+    ai       = _get_client()
+
+    logger.info("Fabric AI report: generating content for session %s", session_id)
+
+    exec_summary      = _gen_fabric_executive_summary(ai, ctx)
+    recommendations   = _gen_fabric_recommendations(ai, ctx)
+    conclusion        = _gen_fabric_conclusion(ai, ctx)
+
+    logger.info("Fabric AI report: assembling Word document for session %s", session_id)
+
+    doc = Document()
+    for section in doc.sections:
+        section.top_margin    = Cm(2.0)
+        section.bottom_margin = Cm(2.0)
+        section.left_margin   = Cm(2.5)
+        section.right_margin  = Cm(2.5)
+
+    _setup_header(doc, label)
+    _setup_footer(doc)
+    _cover_page(doc, label, run_date)
+
+    # ── Executive Summary ─────────────────────────────────────────────────────
+    _h1(doc, "Executive Summary")
+    for para in exec_summary.split("\n\n"):
+        if para.strip():
+            _body(doc, para.strip())
+
+    # ── Workspace Overview ────────────────────────────────────────────────────
+    _h1(doc, "Fabric Workspace Overview")
+    ws_rows = []
+    for ws in ctx["_workspaces"]:
+        ds_list  = ws.get("datasets") or []
+        rpt_list = ws.get("reports") or []
+        measures = sum(len(d.get("measures") or []) for d in ds_list)
+        ws_rows.append([
+            ws.get("name", "—"),
+            str(len(ds_list)),
+            str(len(rpt_list)),
+            str(measures),
+            ws.get("state", "—"),
+        ])
+    _table(doc, ["Workspace", "Semantic Models", "Reports", "Total Measures", "State"],
+           ws_rows or [["—", "—", "—", "—", "—"]], [5, 3, 2.5, 3.5, 2])
+
+    # ── Semantic Model Inventory ──────────────────────────────────────────────
+    _h1(doc, "Semantic Model Inventory")
+    ds_rows = []
+    for ds in ctx["_datasets"][:30]:
+        complexity = ds.get("complexity_score", "—")
+        ds_rows.append([
+            ds.get("name", "—"),
+            str(ds.get("table_count", "—")),
+            str(ds.get("measure_count", "—")),
+            str(ds.get("relationship_count", "—")),
+            ds.get("storage_mode", "—"),
+            f"{complexity}%" if isinstance(complexity, (int, float)) else str(complexity),
+        ])
+    _table(
+        doc,
+        ["Model Name", "Tables", "Measures", "Relationships", "Storage Mode", "Complexity"],
+        ds_rows or [["—"] * 6],
+        [5, 2, 2.5, 3, 3, 2.5],
+    )
+
+    # Storage mode summary
+    _h2(doc, "Storage Mode Distribution")
+    _table(
+        doc,
+        ["Storage Mode", "Count", "Implication"],
+        [
+            [mode, str(count),
+             "Scheduled refresh required — Direct Lake migration recommended" if mode == "Import"
+             else "Live query — consider Direct Lake for lakehouse sources" if mode == "DirectQuery"
+             else "Optimal for Fabric OneLake — no refresh needed" if mode == "DirectLake"
+             else "Mixed modes — review for consistency"]
+            for mode, count in ctx["storage_modes"].items()
+        ] or [["—", "—", "—"]],
+        [3.5, 2, 10.5],
+    )
+
+    # ── Report Inventory ──────────────────────────────────────────────────────
+    _h1(doc, "Report Inventory")
+    rpt_rows = []
+    for rp in ctx["_reports"][:30]:
+        rpt_rows.append([
+            rp.get("name", "—"),
+            rp.get("report_type", "PowerBIReport"),
+            str(rp.get("page_count") or "—"),
+            str(rp.get("visual_count", "—")),
+            str(rp.get("bookmark_count", "—")),
+            "Yes" if rp.get("is_paginated") else "No",
+        ])
+    _table(
+        doc,
+        ["Report Name", "Type", "Pages", "Visuals", "Bookmarks", "Paginated"],
+        rpt_rows or [["—"] * 6],
+        [5.5, 3, 1.5, 2, 2.5, 2],
+    )
+
+    # ── DAX Complexity Analysis ───────────────────────────────────────────────
+    _h1(doc, "DAX Complexity Analysis")
+
+    _h2(doc, "Complexity Distribution")
+    level_order = ["Very Complex", "Complex", "Moderate", "Simple", "None", "Unknown"]
+    dist_rows = [
+        [level, str(ctx["complexity_dist"].get(level, 0))]
+        for level in level_order
+        if ctx["complexity_dist"].get(level, 0) > 0
+    ]
+    _table(doc, ["Complexity Level", "Measure Count"],
+           dist_rows or [["No measures analysed", "—"]], [8, 8])
+
+    _h2(doc, "Top Complex Measures")
+    top_rows = []
+    for m in ctx["top_complex"]:
+        cx = m.get("complexity") or {}
+        top_rows.append([
+            m.get("name", "—"),
+            m.get("table", "—"),
+            cx.get("level", "—"),
+            str(cx.get("score", "—")),
+            str(cx.get("function_count", "—")),
+            str(cx.get("nesting_depth", "—")),
+        ])
+    _table(
+        doc,
+        ["Measure Name", "Table", "Level", "Score", "Functions", "Nesting Depth"],
+        top_rows or [["No complex measures found", "—", "—", "—", "—", "—"]],
+        [4.5, 3, 2.5, 1.5, 2, 2.5],
+    )
+
+    # ── Recommendations ───────────────────────────────────────────────────────
+    _h1(doc, "Modernisation Recommendations")
+    for para in recommendations.split("\n\n"):
+        if para.strip():
+            _body(doc, para.strip())
+
+    doc.add_paragraph()
+    _h2(doc, "Recommended Action Plan")
+    _table(
+        doc,
+        ["Priority", "Action", "Benefit"],
+        [
+            ["High",   f"Migrate {ctx['storage_modes'].get('Import', 0)} Import-mode datasets to Direct Lake",
+             "Eliminates scheduled refresh; near-real-time data for all reports"],
+            ["High",   "Refactor Very Complex DAX measures",
+             "Reduces query timeout risk and improves report load times"],
+            ["Medium", "Implement workspace access tiers (Dev / UAT / Prod)",
+             "Controlled deployment pipeline; reduces risk of breaking production reports"],
+            ["Medium", "Enable Microsoft Purview sensitivity labels",
+             f"Classifies sensitive columns across {ctx['dataset_count']} models"],
+            ["Low",    "Consolidate duplicate semantic models across workspaces",
+             "Reduces maintenance overhead and ensures single source of truth"],
+        ],
+        [2, 8, 6],
+    )
+
+    # ── Conclusion ────────────────────────────────────────────────────────────
+    _h1(doc, "Conclusion")
+    _h2(doc, "Summary of Findings")
+    _table(
+        doc,
+        ["Metric", "Value"],
+        [
+            ["Workspaces Assessed",  str(ctx["workspace_count"])],
+            ["Semantic Models",      str(ctx["dataset_count"])],
+            ["Reports",              str(ctx["report_count"])],
+            ["Total Measures",       str(ctx["total_measures"])],
+            ["Total Tables",         str(ctx["total_tables"])],
+            ["Total Visuals",        str(ctx["total_visuals"])],
+            ["Total Relationships",  str(ctx["total_relationships"])],
+            ["Complex Measures",     str(ctx["complexity_dist"].get("Complex", 0) + ctx["complexity_dist"].get("Very Complex", 0))],
+            ["Import-mode Models",   str(ctx["storage_modes"].get("Import", 0))],
+            ["Direct Lake Models",   str(ctx["storage_modes"].get("DirectLake", 0))],
+        ],
+        [8, 8],
+    )
+    _h2(doc, "Final Remarks")
+    for para in conclusion.split("\n\n"):
+        if para.strip():
+            _body(doc, para.strip())
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    logger.info("Fabric AI report: Word document built for session %s", session_id)
+    return buf.getvalue()

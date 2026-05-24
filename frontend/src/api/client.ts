@@ -269,6 +269,21 @@ export const api = {
     URL.revokeObjectURL(url)
   },
 
+  downloadFabricWord: async (sessionId: string, label?: string, regenerate = false) => {
+    const params = regenerate ? '?regenerate=true' : ''
+    const res = await http.get(
+      `/api/v1/fabric/sessions/${sessionId}/export/word${params}`,
+      { responseType: 'blob' },
+    )
+    const filename = `${(label || 'fabric-assessment').replace(/\s+/g, '_')}_${sessionId.slice(0, 8)}.docx`
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
   // ── SAP Assessments ───────────────────────────────────────────────────────
   sapTestConnection: (data: SapAssessmentRequest) =>
     http.post<{ success: boolean; message: string; system_info?: Record<string, string> }>(

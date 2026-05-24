@@ -413,6 +413,7 @@ export default function UnifiedAssessmentPage() {
       {phase === 'fabric-picking-items' && (
         <FabricItemPicker
           workspaceItems={workspaceItems}
+          workspaces={workspaces}
           loading={itemsLoading}
           selectedDatasetIds={selectedDatasetIds}
           setSelectedDatasetIds={setSelectedDatasetIds}
@@ -1012,11 +1013,11 @@ function FabricWorkspacePicker({
 // ── Fabric Item Picker ────────────────────────────────────────────────────────
 
 function FabricItemPicker({
-  workspaceItems, loading, selectedDatasetIds, setSelectedDatasetIds,
+  workspaceItems, workspaces, loading, selectedDatasetIds, setSelectedDatasetIds,
   selectedReportIds, setSelectedReportIds, expandedWorkspaces, setExpandedWorkspaces,
   filter, setFilter, onBack, onNext,
 }: {
-  workspaceItems: FabricWorkspaceItems[]; loading: boolean
+  workspaceItems: FabricWorkspaceItems[]; workspaces: FabricWorkspaceInfo[]; loading: boolean
   selectedDatasetIds: Set<string>; setSelectedDatasetIds: (s: Set<string>) => void
   selectedReportIds: Set<string>; setSelectedReportIds: (s: Set<string>) => void
   expandedWorkspaces: Set<string>; setExpandedWorkspaces: (s: Set<string>) => void
@@ -1024,6 +1025,7 @@ function FabricItemPicker({
   onBack: () => void; onNext: () => void
 }) {
   const totalSelected = selectedDatasetIds.size + selectedReportIds.size
+  const lf = filter.toLowerCase()
 
   if (loading) return (
     <div className="flex flex-col items-center gap-4 py-16">
@@ -1048,8 +1050,26 @@ function FabricItemPicker({
       <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
         {workspaceItems.map(wi => {
           const expanded = expandedWorkspaces.has(wi.workspace_id)
-          const filteredDs = wi.datasets.filter(d => !filter || d.name.toLowerCase().includes(filter.toLowerCase()))
-          const filteredRp = wi.reports.filter(r => !filter || r.name.toLowerCase().includes(filter.toLowerCase()))
+          const filteredDs = wi.datasets.filter(d => !lf || d.name.toLowerCase().includes(lf))
+          const filteredRp = wi.reports.filter(r => !lf || r.name.toLowerCase().includes(lf))
+          const wsName = workspaces.find(w => w.id === wi.workspace_id)?.name || wi.workspace_id
+
+          const allDsSelected = filteredDs.length > 0 && filteredDs.every(d => selectedDatasetIds.has(d.id))
+          const allRpSelected = filteredRp.length > 0 && filteredRp.every(r => selectedReportIds.has(r.id))
+
+          const toggleAllDs = () => {
+            const next = new Set(selectedDatasetIds)
+            if (allDsSelected) filteredDs.forEach(d => next.delete(d.id))
+            else filteredDs.forEach(d => next.add(d.id))
+            setSelectedDatasetIds(next)
+          }
+          const toggleAllRp = () => {
+            const next = new Set(selectedReportIds)
+            if (allRpSelected) filteredRp.forEach(r => next.delete(r.id))
+            else filteredRp.forEach(r => next.add(r.id))
+            setSelectedReportIds(next)
+          }
+
           return (
             <div key={wi.workspace_id} className="rounded-xl border border-slate-200 overflow-hidden">
               <button
@@ -1061,43 +1081,83 @@ function FabricItemPicker({
                 className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
               >
                 <Building2 className="h-4 w-4 text-earth-600 shrink-0" />
-                <span className="flex-1 text-sm font-semibold text-slate-800">Workspace</span>
+                <span className="flex-1 text-sm font-semibold text-slate-800">{wsName}</span>
+                <span className="text-xs text-slate-400 mr-1">
+                  {wi.datasets.length} model{wi.datasets.length !== 1 ? 's' : ''} · {wi.reports.length} report{wi.reports.length !== 1 ? 's' : ''}
+                </span>
                 {expanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
               </button>
               {expanded && (
-                <div className="px-4 py-3 space-y-1">
-                  {filteredDs.map(d => (
-                    <label key={d.id} className="flex items-center gap-2 py-1 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedDatasetIds.has(d.id)}
-                        onChange={e => {
-                          const next = new Set(selectedDatasetIds)
-                          e.target.checked ? next.add(d.id) : next.delete(d.id)
-                          setSelectedDatasetIds(next)
-                        }}
-                        className="rounded border-slate-300 text-earth-700 focus:ring-earth-600/35"
-                      />
-                      <Database className="h-3.5 w-3.5 text-earth-600 shrink-0" />
-                      <span className="text-sm text-slate-700">{d.name}</span>
-                    </label>
-                  ))}
-                  {filteredRp.map(r => (
-                    <label key={r.id} className="flex items-center gap-2 py-1 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedReportIds.has(r.id)}
-                        onChange={e => {
-                          const next = new Set(selectedReportIds)
-                          e.target.checked ? next.add(r.id) : next.delete(r.id)
-                          setSelectedReportIds(next)
-                        }}
-                        className="rounded border-slate-300 text-earth-700 focus:ring-earth-600/35"
-                      />
-                      <FileText className="h-3.5 w-3.5 text-earth-600 shrink-0" />
-                      <span className="text-sm text-slate-700">{r.name}</span>
-                    </label>
-                  ))}
+                <div className="px-4 py-3 space-y-3">
+                  {/* Semantic Models section */}
+                  {filteredDs.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+                          <Database className="h-3 w-3" /> Semantic Models
+                        </span>
+                        <button
+                          onClick={toggleAllDs}
+                          className="text-xs text-earth-600 hover:text-earth-800 font-medium"
+                        >
+                          {allDsSelected ? 'Deselect all' : 'Select all'}
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        {filteredDs.map(d => (
+                          <label key={d.id} className="flex items-center gap-2 py-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedDatasetIds.has(d.id)}
+                              onChange={e => {
+                                const next = new Set(selectedDatasetIds)
+                                e.target.checked ? next.add(d.id) : next.delete(d.id)
+                                setSelectedDatasetIds(next)
+                              }}
+                              className="rounded border-slate-300 text-earth-700 focus:ring-earth-600/35"
+                            />
+                            <span className="text-sm text-slate-700">{d.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Reports section */}
+                  {filteredRp.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 uppercase tracking-wide">
+                          <FileText className="h-3 w-3" /> Reports
+                        </span>
+                        <button
+                          onClick={toggleAllRp}
+                          className="text-xs text-earth-600 hover:text-earth-800 font-medium"
+                        >
+                          {allRpSelected ? 'Deselect all' : 'Select all'}
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        {filteredRp.map(r => (
+                          <label key={r.id} className="flex items-center gap-2 py-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedReportIds.has(r.id)}
+                              onChange={e => {
+                                const next = new Set(selectedReportIds)
+                                e.target.checked ? next.add(r.id) : next.delete(r.id)
+                                setSelectedReportIds(next)
+                              }}
+                              className="rounded border-slate-300 text-earth-700 focus:ring-earth-600/35"
+                            />
+                            <span className="text-sm text-slate-700">{r.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {filteredDs.length === 0 && filteredRp.length === 0 && (
+                    <p className="text-xs text-slate-400 py-1">No items match filter</p>
+                  )}
                 </div>
               )}
             </div>

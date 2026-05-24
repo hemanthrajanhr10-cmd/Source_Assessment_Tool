@@ -948,6 +948,10 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.sessio
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.fabric_sessions') AND name = 'unified_session_id')
     ALTER TABLE dbo.fabric_sessions ADD unified_session_id VARCHAR(36) NULL;
 
+-- Migration: add word_bytes to fabric_sessions for cached AI Word reports
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.fabric_sessions') AND name = 'word_bytes')
+    ALTER TABLE dbo.fabric_sessions ADD word_bytes VARBINARY(MAX) NULL;
+
 -- ─── user_connections (Cloudflare Tunnel per-user SQL connection configs) ──────
 -- Credentials are AES-256-GCM encrypted before storage; the key lives in
 -- Azure Key Vault and is never written to this table.

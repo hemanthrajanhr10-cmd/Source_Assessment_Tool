@@ -296,6 +296,49 @@ async def cancel_fabric_session(session_id: str, _: Any = Depends(get_current_us
     return {"ok": True}
 
 
+@router.get("/sessions/{session_id}/export/word")
+async def export_fabric_word(
+    session_id: str,
+    client_name: str | None = None,
+    regenerate: bool = False,
+    _: Any = Depends(get_current_user),
+):
+    row = azure_store.get_fabric_session(session_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Fabric session not found")
+    if row.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="Session not yet completed")
+
+    if not regenerate:
+        cached = azure_store.load_fabric_word_bytes(session_id)
+        if cached:
+            filename = f"fabric_assessment_{session_id[:8]}.docx"
+            return Response(
+                content=cached,
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+    results_json = row.get("results_json") or "{}"
+    try:
+        results = json.loads(results_json)
+    except Exception:
+        results = {}
+
+    label = client_name or row.get("label") or None
+
+    from app.services.ai_report_service import build_fabric_ai_word_report
+    doc_bytes = build_fabric_ai_word_report(session_id, results, client_name=label)
+    azure_store.save_fabric_word_bytes(session_id, doc_bytes)
+
+    filename = f"fabric_assessment_{session_id[:8]}.docx"
+    return Response(
+        content=doc_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @router.get("/sessions/{session_id}/export/excel")
 async def export_fabric_excel(session_id: str, _: Any = Depends(get_current_user)):
     row = azure_store.get_fabric_session(session_id)

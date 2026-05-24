@@ -1066,6 +1066,7 @@ function FabricSessionDetailPageInner() {
   const queryClient   = useQueryClient()
   const [activeTab, setActiveTab]   = useState<Tab>('overview')
   const [exporting,  setExporting]  = useState(false)
+  const [exportingWord, setExportingWord] = useState(false)
   const [wsPage, setWsPage]         = useState(5)
 
   const { data: session, isLoading, isError, error: queryError, refetch } = useQuery({
@@ -1095,6 +1096,18 @@ function FabricSessionDetailPageInner() {
       console.error('Excel export failed', e)
     } finally {
       setExporting(false)
+    }
+  }
+
+  const handleWordExport = async () => {
+    if (!sessionId) return
+    setExportingWord(true)
+    try {
+      await api.downloadFabricWord(sessionId, session?.label)
+    } catch (e) {
+      console.error('Word export failed', e)
+    } finally {
+      setExportingWord(false)
     }
   }
 
@@ -1182,14 +1195,24 @@ function FabricSessionDetailPageInner() {
         </div>
 
         {isCompleted && (
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-earth-50 hover:bg-earth-100 text-earth-700 border border-earth-200 disabled:opacity-50 transition-colors">
-            {exporting
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Exporting…</>
-              : <><Download className="h-4 w-4" /> Export Excel</>}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-earth-50 hover:bg-earth-100 text-earth-700 border border-earth-200 disabled:opacity-50 transition-colors">
+              {exporting
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Exporting…</>
+                : <><Download className="h-4 w-4" /> Export Excel</>}
+            </button>
+            <button
+              onClick={handleWordExport}
+              disabled={exportingWord}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 disabled:opacity-50 transition-colors">
+              {exportingWord
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+                : <><Download className="h-4 w-4" /> Export Word</>}
+            </button>
+          </div>
         )}
       </div>
 

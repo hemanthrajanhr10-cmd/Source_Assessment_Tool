@@ -944,7 +944,7 @@ Formal consultant tone. Cite specific numbers. No bullet points."""
     return _call_ai(client, prompt, max_tokens=600)
 
 
-def _gen_fabric_recommendations(client: openai.OpenAI, ctx: dict) -> str:
+def _gen_fabric_ws_recommendations(client: openai.OpenAI, ctx: dict) -> str:
     complex_count = ctx["complexity_dist"].get("Very Complex", 0) + ctx["complexity_dist"].get("Complex", 0)
     import_count  = ctx["storage_modes"].get("Import", 0)
     prompt = f"""Write a 3-paragraph Fabric Modernisation Recommendations section.
@@ -987,7 +987,7 @@ def build_fabric_ai_word_report(
     logger.info("Fabric AI report: generating content for session %s", session_id)
 
     exec_summary      = _gen_fabric_executive_summary(ai, ctx)
-    recommendations   = _gen_fabric_recommendations(ai, ctx)
+    recommendations   = _gen_fabric_ws_recommendations(ai, ctx)
     conclusion        = _gen_fabric_conclusion(ai, ctx)
 
     logger.info("Fabric AI report: assembling Word document for session %s", session_id)

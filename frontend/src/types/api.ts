@@ -1124,3 +1124,182 @@ export interface SageIntacctSessionRecord {
   error?: string
   results?: SageIntacctAssessmentResult
 }
+
+// ── Tableau ───────────────────────────────────────────────────────────────────
+
+export interface TableauCredentials {
+  server_url: string
+  site_name?: string
+  username?: string
+  password?: string
+  token_name?: string
+  token_secret?: string
+}
+
+export interface TableauAssessmentRequest {
+  credentials: TableauCredentials
+  label?: string
+  include_permissions?: boolean
+  include_extract_health?: boolean
+  include_flows?: boolean
+}
+
+export interface TableauServerInfo {
+  server_url: string
+  site_name: string
+  server_version: string
+  site_id: string
+  content_url: string
+}
+
+export interface TableauWorkbook {
+  id: string
+  name: string
+  project_name: string
+  owner_name: string
+  created_at?: string
+  updated_at?: string
+  view_count: number
+  size_mb: number
+  show_tabs: boolean
+  tag_count: number
+}
+
+export interface TableauView {
+  id: string
+  name: string
+  workbook_name: string
+  owner_name: string
+  view_type: string
+  total_views: number
+}
+
+export interface TableauDatasource {
+  id: string
+  name: string
+  project_name: string
+  owner_name: string
+  datasource_type: string
+  content_url: string
+  created_at?: string
+  updated_at?: string
+  is_certified: boolean
+  is_published: boolean
+  size_mb: number
+  connection_type: string
+  has_extracts: boolean
+  tag_count: number
+}
+
+export interface TableauUserProfile {
+  total_users: number
+  active_users: number
+  admin_users: number
+  site_admin_users: number
+  creator_users: number
+  explorer_users: number
+  viewer_users: number
+  unlicensed_users: number
+}
+
+export interface TableauGroup {
+  id: string
+  name: string
+  domain_name?: string
+  member_count: number
+}
+
+export interface TableauProject {
+  id: string
+  name: string
+  description?: string
+  content_permissions: string
+  workbook_count: number
+  datasource_count: number
+}
+
+export interface TableauFlow {
+  id: string
+  name: string
+  project_name: string
+  owner_name: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface TableauExtractHealth {
+  total_schedules: number
+  active_schedules: number
+  suspended_schedules: number
+  total_refresh_jobs: number
+  successful_jobs: number
+  failed_jobs: number
+  cancelled_jobs: number
+  stale_datasources: number
+}
+
+export interface TableauDataQualityFlags {
+  workbooks_with_no_views: number
+  datasources_with_no_workbooks: number
+  users_with_no_activity: number
+  failed_extract_jobs: number
+  stale_extracts_over_7_days: number
+  uncertified_published_datasources: number
+}
+
+export interface TableauWorkbookSummary {
+  total_workbooks: number
+  total_views: number
+  total_sheets: number
+  total_dashboards: number
+  workbooks_with_extracts: number
+  avg_views_per_workbook: number
+}
+
+export interface TableauDatasourceSummary {
+  total_datasources: number
+  published_datasources: number
+  embedded_datasources: number
+  certified_datasources: number
+  extract_datasources: number
+  live_datasources: number
+  connection_types: string[]
+}
+
+export interface TableauAssessmentResult {
+  job_id: string
+  label?: string
+  assessed_at: string
+  status: 'completed' | 'failed'
+  error?: string
+  server_info?: TableauServerInfo
+  workbook_summary?: TableauWorkbookSummary
+  datasource_summary?: TableauDatasourceSummary
+  user_profile?: TableauUserProfile
+  extract_health?: TableauExtractHealth
+  data_quality?: TableauDataQualityFlags
+  projects?: TableauProject[]
+  workbooks?: TableauWorkbook[]
+  datasources?: TableauDatasource[]
+  views?: TableauView[]
+  users_list?: Record<string, string>[]
+  groups?: TableauGroup[]
+  flows?: TableauFlow[]
+}
+
+export interface TableauJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface TableauSessionRecord {
+  job_id: string
+  label?: string
+  status: string
+  server_url?: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: TableauAssessmentResult
+}

@@ -30,6 +30,10 @@ import type {
   SageIntacctAssessmentResult,
   SageIntacctJobResponse,
   SageIntacctSessionRecord,
+  TableauAssessmentRequest,
+  TableauAssessmentResult,
+  TableauJobResponse,
+  TableauSessionRecord,
   SessionRequest,
   SessionStatusResponse,
   SetupMFAResponse,
@@ -351,6 +355,49 @@ export const api = {
   sageDownloadWordReport: async (jobId: string, label?: string) => {
     const res = await http.get(`/api/v1/sage-intacct/jobs/${jobId}/word-report`, { responseType: 'blob' })
     const filename = `${(label || 'sage-intacct-assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.docx`
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  // ── Tableau Assessments ───────────────────────────────────────────────────
+  tableauTestConnection: (data: TableauAssessmentRequest) =>
+    http.post<{ success: boolean; message: string; server_version?: string; site_id?: string }>(
+      '/api/v1/tableau/test-connection',
+      data,
+    ),
+
+  tableauStartAssessment: (data: TableauAssessmentRequest) =>
+    http.post<TableauJobResponse>('/api/v1/tableau/assess', data),
+
+  tableauGetJobStatus: (jobId: string) =>
+    http.get<{ job_id: string; status: string; progress_message?: string; error?: string }>(
+      `/api/v1/tableau/jobs/${jobId}/status`,
+    ),
+
+  tableauGetJobResults: (jobId: string) =>
+    http.get<TableauAssessmentResult>(`/api/v1/tableau/jobs/${jobId}/results`),
+
+  tableauListSessions: () =>
+    http.get<TableauSessionRecord[]>('/api/v1/tableau/sessions'),
+
+  tableauDownloadExcelReport: async (jobId: string, label?: string) => {
+    const res = await http.get(`/api/v1/tableau/jobs/${jobId}/report`, { responseType: 'blob' })
+    const filename = `${(label || 'tableau-assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.xlsx`
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  tableauDownloadWordReport: async (jobId: string, label?: string) => {
+    const res = await http.get(`/api/v1/tableau/jobs/${jobId}/word-report`, { responseType: 'blob' })
+    const filename = `${(label || 'tableau-assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.docx`
     const url = URL.createObjectURL(res.data as Blob)
     const a = document.createElement('a')
     a.href = url

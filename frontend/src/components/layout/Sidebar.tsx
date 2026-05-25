@@ -96,6 +96,23 @@ const NAV_GROUPS = [
       { to: '/sage-intacct/sessions', label: 'Assessments',    icon: BarChart3  },
     ],
   },
+  {
+    label: 'Tableau',
+    element: 'tableau',
+    dotGradient:      'linear-gradient(135deg, #E8751A, #FFB81C)',
+    activeBg:         'rgba(232,117,26,0.09)',
+    activeText:       '#8B4513',
+    activeBorder:     'rgba(255,184,28,0.40)',
+    activeIconColor:  '#E8751A',
+    activeDotGlow:    'rgba(232,117,26,0.45)',
+    hoverBg:          'rgba(232,117,26,0.07)',
+    hoverText:        '#8B4513',
+    hoverIconColor:   '#E8751A',
+    items: [
+      { to: '/tableau/new',      label: 'New Assessment', icon: PlusCircle },
+      { to: '/tableau/sessions', label: 'Assessments',    icon: BarChart3  },
+    ],
+  },
 ]
 
 interface SidebarProps {

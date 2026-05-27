@@ -19,6 +19,112 @@ const DB_TYPE_OPTIONS: { value: DbType; label: string; defaultPort: number }[] =
   { value: 'oracle',   label: 'Oracle',      defaultPort: 1521 },
 ]
 
+// ── PostgreSQL platform detection (mirrors backend connector.py logic) ─────────
+
+type PgPlatform = {
+  key: string
+  label: string
+  note: string
+  badge: string  // tailwind colour tokens for the badge
+}
+
+const PG_PLATFORM_EXAMPLES: { platform: string; example: string }[] = [
+  { platform: 'On-premises / Local',       example: '192.168.1.10  or  pgserver.corp.local' },
+  { platform: 'Azure PostgreSQL',          example: 'myserver.postgres.database.azure.com' },
+  { platform: 'AWS RDS / Aurora',          example: 'mydb.cluster-xxx.us-east-1.rds.amazonaws.com' },
+  { platform: 'GCP Cloud SQL (public IP)', example: '34.x.x.x  (instance public IP)' },
+  { platform: 'GCP Cloud SQL (name)',      example: 'project-id:us-central1:instance-name' },
+  { platform: 'Supabase',                  example: 'db.abcxyz.supabase.co' },
+  { platform: 'Neon',                      example: 'ep-xxx.us-east-2.aws.neon.tech' },
+  { platform: 'CockroachDB Cloud',         example: 'cluster.xxx.cockroachlabs.cloud' },
+  { platform: 'Aiven',                     example: 'pg-xxx.aivencloud.com' },
+  { platform: 'Railway',                   example: 'containers-us-west-xxx.railway.app' },
+  { platform: 'Render',                    example: 'dpg-xxx.oregon-postgres.render.com' },
+]
+
+function detectPgPlatform(server: string): PgPlatform {
+  const s = server.trim().toLowerCase()
+
+  // GCP Cloud SQL instance name — project:region:instance
+  const parts = server.trim().split(':')
+  if (parts.length === 3 && parts.every(p => p.trim())) {
+    return {
+      key: 'gcp_cloudsql_name',
+      label: 'GCP Cloud SQL',
+      note: 'Instance connection name detected. Requires Application Default Credentials (gcloud auth) or a service account key (GOOGLE_APPLICATION_CREDENTIALS).',
+      badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
+    }
+  }
+  if (s.endsWith('.postgres.database.azure.com'))
+    return { key: 'azure', label: 'Azure PostgreSQL', note: 'SSL required — handled automatically.', badge: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200' }
+  if (s.includes('.rds.amazonaws.com'))
+    return { key: 'aws', label: 'AWS RDS / Aurora', note: 'SSL required — handled automatically.', badge: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200' }
+  if (s.endsWith('.alloydb.goog') || s.endsWith('.alloydb-dev.goog'))
+    return { key: 'alloydb', label: 'GCP AlloyDB', note: 'SSL required — handled automatically.', badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' }
+  if (s.endsWith('.supabase.co') || s.endsWith('.supabase.com') || s.includes('.pooler.supabase'))
+    return { key: 'supabase', label: 'Supabase', note: 'SSL required — handled automatically.', badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' }
+  if (s.endsWith('.neon.tech'))
+    return { key: 'neon', label: 'Neon', note: 'SSL required — handled automatically.', badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' }
+  if (s.endsWith('.cockroachlabs.cloud'))
+    return { key: 'cockroach', label: 'CockroachDB Cloud', note: 'SSL required — handled automatically.', badge: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200' }
+  if (s.endsWith('.aivencloud.com'))
+    return { key: 'aiven', label: 'Aiven', note: 'SSL required — handled automatically.', badge: 'bg-red-50 text-red-700 ring-1 ring-red-200' }
+  if (s.endsWith('.railway.app'))
+    return { key: 'railway', label: 'Railway', note: 'SSL required — handled automatically.', badge: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200' }
+  if (s.endsWith('.render.com'))
+    return { key: 'render', label: 'Render', note: 'SSL required — handled automatically.', badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' }
+  if (s.endsWith('.tsdb.io'))
+    return { key: 'timescale', label: 'TimescaleDB Cloud', note: 'SSL required — handled automatically.', badge: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200' }
+  if (s.endsWith('.db.elephantsql.com'))
+    return { key: 'elephant', label: 'ElephantSQL', note: 'SSL required — handled automatically.', badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' }
+  if (/\.compute(-\d+)?\.amazonaws\.com$/.test(s))
+    return { key: 'heroku', label: 'Heroku (RDS)', note: 'SSL required — handled automatically.', badge: 'bg-violet-50 text-violet-700 ring-1 ring-violet-200' }
+  if (s === 'localhost' || s.startsWith('127.') || s.startsWith('::1') || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(s))
+    return { key: 'local', label: 'Local / On-premises', note: 'Direct TCP connection — SSL optional.', badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' }
+
+  return { key: 'onprem', label: 'On-premises / Direct', note: 'Direct TCP connection — SSL negotiated automatically.', badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' }
+}
+
+function PgPlatformHint({ server }: { server: string }) {
+  const [showExamples, setShowExamples] = useState(false)
+
+  if (!server.trim()) {
+    return (
+      <div className="sm:col-span-2">
+        <button
+          type="button"
+          onClick={() => setShowExamples(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          <Info className="h-3.5 w-3.5" />
+          {showExamples ? 'Hide' : 'Show'} accepted server formats
+        </button>
+        {showExamples && (
+          <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 divide-y divide-slate-100 overflow-hidden text-xs">
+            {PG_PLATFORM_EXAMPLES.map(({ platform, example }) => (
+              <div key={platform} className="flex items-baseline gap-2 px-3 py-1.5">
+                <span className="w-44 shrink-0 text-slate-500 font-medium">{platform}</span>
+                <span className="text-slate-400 font-mono">{example}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const platform = detectPgPlatform(server)
+  return (
+    <div className="sm:col-span-2 flex items-center gap-2 flex-wrap">
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${platform.badge}`}>
+        <Zap className="h-3 w-3" />
+        {platform.label}
+      </span>
+      <span className="text-xs text-slate-400">{platform.note}</span>
+    </div>
+  )
+}
+
 interface SelectedDb {
   name: string
   include_null_analysis: boolean
@@ -386,7 +492,12 @@ function ServerCard({
                   <input
                     type="text"
                     className="form-input pl-10"
-                    placeholder="SERVERNAME or host\INSTANCE"
+                    placeholder={
+                      entry.db_type === 'postgres' ? 'hostname, IP, or project:region:instance'
+                      : entry.db_type === 'mysql'  ? 'hostname or IP'
+                      : entry.db_type === 'oracle' ? 'hostname or IP'
+                      : 'SERVERNAME or host\\INSTANCE'
+                    }
                     value={entry.server}
                     onChange={(e) => set({ server: e.target.value, connectivity: null })}
                     autoComplete="off"
@@ -420,6 +531,11 @@ function ServerCard({
                 </button>
               </div>
             </div>
+
+            {/* PostgreSQL platform hint */}
+            {entry.db_type === 'postgres' && (
+              <PgPlatformHint server={entry.server} />
+            )}
 
             {/* Username */}
             <div>

@@ -8,6 +8,10 @@ Compatible with PostgreSQL 11+ on any cloud platform:
 
 All queries produce the same column aliases as the SQL Server equivalents
 so the same section keys and report builder work without changes.
+
+PostgreSQL-specific extended queries (pg_* sections):
+  pg_extensions, pg_triggers, pg_sequences, pg_partitions,
+  pg_matviews, pg_table_bloat, pg_connection_stats
 """
 
 # ── Core metadata ─────────────────────────────────────────────────────────────
@@ -757,12 +761,18 @@ SELECT
     TO_CHAR(last_archived_time, 'YYYY-MM-DD HH24:MI:SS')     AS last_full_backup,
     'N/A (WAL archiving — no differential backups)'           AS last_diff_backup,
     'N/A (continuous WAL streaming)'                          AS last_log_backup,
-    ROUND(EXTRACT(EPOCH FROM (NOW() - last_archived_time)) / 3600.0, 1) AS hours_since_full_backup,
+    COALESCE(
+        ROUND(EXTRACT(EPOCH FROM (NOW() - last_archived_time)) / 3600.0, 1),
+        -1
+    )                                                         AS hours_since_full_backup,
     0::numeric                                                AS hours_since_log_backup,
-    CASE WHEN archiver_enabled THEN 'WAL Archiving' ELSE 'NOARCHIVELOG' END AS recovery_model_desc,
     CASE
-        WHEN NOT archiver_enabled
-            THEN 'CAUTION: WAL archiving disabled — no point-in-time recovery'
+        WHEN archived_count > 0 THEN 'WAL Archiving'
+        ELSE 'NOARCHIVELOG / cloud-managed'
+    END                                                       AS recovery_model_desc,
+    CASE
+        WHEN archived_count = 0 AND failed_count = 0
+            THEN 'INFO: No WAL archives recorded — archiving may be cloud-managed or disabled'
         WHEN last_archived_time IS NULL
             THEN 'WARNING: No WAL files archived yet'
         WHEN NOW() - last_archived_time > INTERVAL '1 day'
@@ -1094,4 +1104,198 @@ FROM pg_stat_statements
 WHERE query NOT LIKE '%pg_stat%'
 ORDER BY mean_exec_time DESC
 LIMIT 25
+"""
+
+
+# ── PostgreSQL-specific extended assessment queries ───────────────────────────
+# These sections only run for postgres db_type; other engines return empty via
+# the default fallback in _get_query_steps ("SELECT NULL WHERE 1=0").
+
+PG_EXTENSIONS = """
+SELECT
+    e.extname                                                 AS extension_name,
+    e.extversion                                              AS version,
+    n.nspname                                                 AS schema_name,
+    COALESCE(d.description, '')                               AS description,
+    CASE WHEN e.extrelocatable THEN 'YES' ELSE 'NO' END       AS relocatable,
+    CASE
+        WHEN e.extname IN (
+            'pg_stat_statements','pg_trgm','pgcrypto','uuid-ossp',
+            'pg_partman','timescaledb','postgis','vector','hstore','citext'
+        ) THEN 'Commonly used'
+        WHEN e.extname IN ('pg_cron','pg_repack','pg_squeeze')
+            THEN 'Maintenance'
+        ELSE 'Other'
+    END                                                       AS category
+FROM pg_extension e
+LEFT JOIN pg_namespace n ON n.oid = e.extnamespace
+LEFT JOIN pg_description d ON d.objoid = e.oid
+                           AND d.classoid = 'pg_extension'::regclass
+ORDER BY e.extname
+"""
+
+PG_TRIGGERS = """
+SELECT
+    t.trigger_schema                                          AS schema_name,
+    t.trigger_name,
+    t.event_object_table                                      AS table_name,
+    t.event_manipulation                                      AS trigger_event,
+    t.action_timing                                           AS trigger_timing,
+    t.action_orientation                                      AS per_row_or_statement,
+    LEFT(COALESCE(t.action_statement, ''), 500)               AS trigger_body,
+    CASE
+        WHEN t.action_timing = 'BEFORE' AND t.event_manipulation = 'DELETE'
+            THEN 'REVIEW — BEFORE DELETE triggers can block cascade deletes'
+        WHEN t.action_orientation = 'ROW' AND t.event_manipulation IN ('INSERT','UPDATE')
+            THEN 'ROW-level trigger — check for performance impact on bulk loads'
+        ELSE 'OK'
+    END                                                       AS finding
+FROM information_schema.triggers t
+WHERE t.trigger_schema NOT IN ('information_schema','pg_catalog')
+ORDER BY t.trigger_schema, t.event_object_table, t.trigger_name
+"""
+
+PG_SEQUENCES = """
+SELECT
+    s.sequence_schema                                         AS schema_name,
+    s.sequence_name,
+    s.data_type,
+    s.start_value,
+    s.minimum_value,
+    s.maximum_value,
+    s.increment,
+    s.cycle_option,
+    CASE
+        WHEN s.data_type = 'smallint'
+            THEN 'CAUTION: smallint max 32767 — upgrade to integer or bigint'
+        WHEN s.data_type = 'integer'
+            THEN 'OK — integer (max 2.1B); monitor high-volume tables'
+        ELSE 'OK — bigint'
+    END                                                       AS recommendation
+FROM information_schema.sequences s
+WHERE s.sequence_schema NOT IN ('information_schema','pg_catalog')
+ORDER BY s.sequence_schema, s.sequence_name
+"""
+
+PG_PARTITIONS = """
+SELECT
+    n_parent.nspname                                          AS schema_name,
+    p.relname                                                 AS parent_table,
+    n_child.nspname                                           AS child_schema,
+    c.relname                                                 AS child_table,
+    CASE c.relkind
+        WHEN 'r' THEN 'TABLE'
+        WHEN 'p' THEN 'PARTITIONED TABLE'
+        ELSE c.relkind::text
+    END                                                       AS child_type,
+    COALESCE(
+        pg_get_expr(c.relpartbound, c.oid),
+        'INHERITED (pre-PG10 style)'
+    )                                                         AS partition_bound,
+    COALESCE(s.n_live_tup, 0)                                 AS approx_row_count,
+    CASE
+        WHEN s.n_live_tup > 1000000 THEN 'LARGE partition — ensure partition pruning works'
+        ELSE 'OK'
+    END                                                       AS finding
+FROM pg_inherits i
+JOIN pg_class p        ON p.oid = i.inhparent
+JOIN pg_class c        ON c.oid = i.inhrelid
+JOIN pg_namespace n_parent ON n_parent.oid = p.relnamespace
+JOIN pg_namespace n_child  ON n_child.oid  = c.relnamespace
+LEFT JOIN pg_stat_user_tables s ON s.schemaname = n_child.nspname
+                                AND s.relname    = c.relname
+WHERE n_parent.nspname NOT IN ('information_schema','pg_catalog','pg_toast')
+ORDER BY n_parent.nspname, p.relname, c.relname
+"""
+
+PG_MATVIEWS = """
+SELECT
+    m.schemaname                                              AS schema_name,
+    m.matviewname                                             AS view_name,
+    'N/A'                                                     AS create_date,
+    'N/A'                                                     AS modify_date,
+    CASE WHEN m.hasindexes THEN 'YES' ELSE 'NO' END           AS has_indexes,
+    CASE WHEN m.ispopulated THEN 'YES' ELSE 'NO' END          AS is_populated,
+    COALESCE(s.n_live_tup, 0)                                 AS approx_row_count,
+    LEFT(COALESCE(m.definition, ''), 500)                     AS definition,
+    CASE
+        WHEN NOT m.ispopulated
+            THEN 'WARNING: not yet populated — run REFRESH MATERIALIZED VIEW'
+        WHEN NOT m.hasindexes
+            THEN 'RECOMMEND: add index to improve query performance'
+        ELSE 'OK'
+    END                                                       AS finding
+FROM pg_matviews m
+LEFT JOIN pg_stat_user_tables s ON s.schemaname = m.schemaname
+                                AND s.relname    = m.matviewname
+WHERE m.schemaname NOT IN ('information_schema','pg_catalog','pg_toast')
+ORDER BY m.schemaname, m.matviewname
+"""
+
+PG_TABLE_BLOAT = """
+SELECT
+    schemaname                                                AS schema_name,
+    relname                                                   AS table_name,
+    COALESCE(n_live_tup, 0)                                   AS live_rows,
+    COALESCE(n_dead_tup, 0)                                   AS dead_rows,
+    CASE
+        WHEN (n_live_tup + n_dead_tup) > 0
+            THEN ROUND(
+                100.0 * n_dead_tup / (n_live_tup + n_dead_tup), 2
+            )
+        ELSE 0
+    END                                                       AS dead_row_pct,
+    TO_CHAR(last_vacuum,      'YYYY-MM-DD HH24:MI:SS')        AS last_vacuum,
+    TO_CHAR(last_autovacuum,  'YYYY-MM-DD HH24:MI:SS')        AS last_autovacuum,
+    TO_CHAR(last_analyze,     'YYYY-MM-DD HH24:MI:SS')        AS last_analyze,
+    COALESCE(vacuum_count, 0)                                 AS vacuum_count,
+    COALESCE(autovacuum_count, 0)                             AS autovacuum_count,
+    CASE
+        WHEN n_dead_tup::float / NULLIF(n_live_tup + n_dead_tup, 0) > 0.30
+            THEN 'CRITICAL: VACUUM required (>30% dead tuples)'
+        WHEN n_dead_tup::float / NULLIF(n_live_tup + n_dead_tup, 0) > 0.10
+            THEN 'WARNING: VACUUM recommended (>10% dead tuples)'
+        WHEN last_autovacuum IS NULL AND last_vacuum IS NULL
+             AND n_live_tup > 10000
+            THEN 'CAUTION: never vacuumed — check autovacuum settings'
+        ELSE 'OK'
+    END                                                       AS recommendation
+FROM pg_stat_user_tables
+WHERE schemaname NOT IN ('information_schema','pg_catalog')
+ORDER BY dead_row_pct DESC NULLS LAST, n_dead_tup DESC
+"""
+
+PG_CONNECTION_STATS = """
+SELECT
+    COALESCE(datname, '(all databases)')                      AS database_name,
+    COUNT(*)                                                  AS total_connections,
+    COUNT(*) FILTER (WHERE state = 'active')                  AS active,
+    COUNT(*) FILTER (WHERE state = 'idle')                    AS idle,
+    COUNT(*) FILTER (WHERE state = 'idle in transaction')     AS idle_in_transaction,
+    COUNT(*) FILTER (
+        WHERE state = 'idle in transaction (aborted)'
+    )                                                         AS idle_in_transaction_aborted,
+    COUNT(*) FILTER (WHERE wait_event_type = 'Lock')          AS blocked_by_lock,
+    COALESCE(
+        MAX(EXTRACT(EPOCH FROM (NOW() - state_change))::int), 0
+    )                                                         AS max_duration_secs,
+    (
+        SELECT setting::int
+        FROM pg_settings
+        WHERE name = 'max_connections'
+    )                                                         AS max_connections,
+    CASE
+        WHEN COUNT(*) * 1.0 / NULLIF(
+            (SELECT setting::int FROM pg_settings WHERE name = 'max_connections'), 0
+        ) > 0.80
+            THEN 'CRITICAL: >80% of max_connections used — consider connection pooling'
+        WHEN COUNT(*) FILTER (WHERE state = 'idle in transaction') > 5
+            THEN 'WARNING: idle-in-transaction connections detected — check for long transactions'
+        WHEN COUNT(*) FILTER (WHERE wait_event_type = 'Lock') > 0
+            THEN 'WARNING: lock-waiting connections detected'
+        ELSE 'OK'
+    END                                                       AS finding
+FROM pg_stat_activity
+GROUP BY datname
+ORDER BY total_connections DESC
 """

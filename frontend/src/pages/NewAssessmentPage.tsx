@@ -191,7 +191,8 @@ function HybridConnectionPicker({
   }
 
   const handlePick = (hc: HybridConnection) => {
-    // Pass connection_id so the caller can set gateway_key for relay routing
+    // Azure App Service HCM transparently tunnels TCP to endpoint_host:endpoint_port.
+    // No gateway_key needed — psycopg2 / mssql-python connects directly and HCM routes it.
     onSelect(hc.endpoint_host, hc.endpoint_port)
     setOpen(false)
   }
@@ -665,16 +666,27 @@ function ServerCard({
           {connStatus && !connStatus.reachable && (() => {
             const isGcpName = entry.db_type === 'postgres' && detectPgPlatform(entry.server).key === 'gcp_cloudsql_name'
             if (isGcpName) return null  // Cloud SQL Connector handles its own tunnel — TCP unreachable is normal
+            const dbLabel = DB_TYPE_OPTIONS.find(o => o.value === entry.db_type)?.label ?? 'database server'
+            const isPostgres = entry.db_type === 'postgres'
             return (
               <div className="flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 animate-slide-down">
                 <Network className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
                 <div className="text-xs text-blue-700 space-y-1">
                   <p className="font-semibold text-blue-800">Server not directly reachable from Azure</p>
                   <p>
-                    If this is an on-premises {DB_TYPE_OPTIONS.find(o => o.value === entry.db_type)?.label ?? 'database server'}, ensure the{' '}
-                    <strong>Azure Hybrid Connection Manager</strong> is running on a machine connected
-                    to the same network as the server.
+                    If this is an on-premises {dbLabel}, install the{' '}
+                    <strong>Azure Hybrid Connection Manager (HCM)</strong> on a machine
+                    connected to the same network as the server.
+                    HCM creates a transparent TCP tunnel — SAT connects to{' '}
+                    <code className="font-mono">{entry.server}:{entry.port}</code> directly,
+                    no gateway agent needed.
                   </p>
+                  {isPostgres && (
+                    <p className="text-blue-600">
+                      For on-premises PostgreSQL: HCM works with all PostgreSQL versions.
+                      SSL is negotiated automatically (<code className="font-mono">sslmode=prefer</code>).
+                    </p>
+                  )}
                   <a
                     href="/hybrid-connection"
                     className="inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:text-blue-900 transition-colors"

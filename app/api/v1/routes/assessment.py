@@ -146,9 +146,13 @@ async def trigger_assessment(
                 "password":                 body.connection.password.get_secret_value(),
                 "trust_server_certificate": body.connection.trust_server_certificate,
                 "encrypt":                  body.connection.encrypt,
+                # Forward GCP SA key so the gateway agent can authenticate
+                # with Cloud SQL Connector on the on-prem/gateway machine.
+                "gcp_sa_key":               body.connection.gcp_sa_key,
             },
             "include_null_analysis":      body.include_null_analysis,
             "null_analysis_sample_limit": body.null_analysis_sample_limit,
+            "access_level":               body.access_level,
         }
         record = JobRecord(job_id=job_id, label=body.label)
 
@@ -353,6 +357,14 @@ async def get_results(job_id: str, current_user: dict = Depends(get_current_user
         ssas_linked_servers=raw.get("ssas_linked_servers", []),
         wait_statistics=raw.get("wait_statistics", []),
         query_store_top_queries=raw.get("query_store_top_queries", []),
+        # PostgreSQL-specific extended sections
+        pg_extensions=raw.get("pg_extensions", []),
+        pg_triggers=raw.get("pg_triggers", []),
+        pg_sequences=raw.get("pg_sequences", []),
+        pg_partitions=raw.get("pg_partitions", []),
+        pg_matviews=raw.get("pg_matviews", []),
+        pg_table_bloat=raw.get("pg_table_bloat", []),
+        pg_connection_stats=raw.get("pg_connection_stats", []),
     )
 
 

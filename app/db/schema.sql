@@ -971,3 +971,139 @@ IF OBJECT_ID('dbo.user_connections', 'U') IS NULL
     );
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_user_connections_user')
     CREATE INDEX IX_user_connections_user ON dbo.user_connections (user_id, created_at DESC);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- PostgreSQL-SPECIFIC EXTENDED ASSESSMENT TABLES
+-- These sections run only for postgres db_type; all other engines return [].
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- ─── pg_extensions — installed extensions inventory ──────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_extensions', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_extensions (
+        id             BIGINT IDENTITY(1,1) NOT NULL,
+        job_id         VARCHAR(36)          NOT NULL,
+        extension_name NVARCHAR(128)        NOT NULL,
+        version        NVARCHAR(50)         NULL,
+        schema_name    NVARCHAR(128)        NULL,
+        description    NVARCHAR(500)        NULL,
+        relocatable    NVARCHAR(3)          NULL,
+        category       NVARCHAR(60)         NULL,
+        CONSTRAINT PK_assessment_pg_extensions PRIMARY KEY (id),
+        CONSTRAINT FK_pg_extensions_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_triggers — trigger inventory ─────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_triggers', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_triggers (
+        id                   BIGINT IDENTITY(1,1) NOT NULL,
+        job_id               VARCHAR(36)          NOT NULL,
+        schema_name          NVARCHAR(128)        NULL,
+        trigger_name         NVARCHAR(128)        NOT NULL,
+        table_name           NVARCHAR(128)        NOT NULL,
+        trigger_event        NVARCHAR(50)         NULL,
+        trigger_timing       NVARCHAR(20)         NULL,
+        per_row_or_statement NVARCHAR(20)         NULL,
+        trigger_body         NVARCHAR(MAX)        NULL,
+        finding              NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_triggers PRIMARY KEY (id),
+        CONSTRAINT FK_pg_triggers_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_sequences — sequence analysis ────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_sequences', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_sequences (
+        id             BIGINT IDENTITY(1,1) NOT NULL,
+        job_id         VARCHAR(36)          NOT NULL,
+        schema_name    NVARCHAR(128)        NULL,
+        sequence_name  NVARCHAR(128)        NOT NULL,
+        data_type      NVARCHAR(50)         NULL,
+        start_value    NVARCHAR(30)         NULL,
+        minimum_value  NVARCHAR(30)         NULL,
+        maximum_value  NVARCHAR(30)         NULL,
+        increment      NVARCHAR(30)         NULL,
+        cycle_option   NVARCHAR(3)          NULL,
+        recommendation NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_sequences PRIMARY KEY (id),
+        CONSTRAINT FK_pg_sequences_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_partitions — partition / table inheritance analysis ──────────────────
+IF OBJECT_ID('dbo.assessment_pg_partitions', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_partitions (
+        id               BIGINT IDENTITY(1,1) NOT NULL,
+        job_id           VARCHAR(36)          NOT NULL,
+        schema_name      NVARCHAR(128)        NULL,
+        parent_table     NVARCHAR(128)        NOT NULL,
+        child_schema     NVARCHAR(128)        NULL,
+        child_table      NVARCHAR(128)        NOT NULL,
+        child_type       NVARCHAR(30)         NULL,
+        partition_bound  NVARCHAR(500)        NULL,
+        approx_row_count BIGINT               NULL,
+        finding          NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_partitions PRIMARY KEY (id),
+        CONSTRAINT FK_pg_partitions_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_matviews — materialized view inventory ───────────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_matviews', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_matviews (
+        id               BIGINT IDENTITY(1,1) NOT NULL,
+        job_id           VARCHAR(36)          NOT NULL,
+        schema_name      NVARCHAR(128)        NULL,
+        view_name        NVARCHAR(128)        NOT NULL,
+        create_date      NVARCHAR(30)         NULL,
+        modify_date      NVARCHAR(30)         NULL,
+        has_indexes      NVARCHAR(3)          NULL,
+        is_populated     NVARCHAR(3)          NULL,
+        approx_row_count BIGINT               NULL,
+        definition       NVARCHAR(MAX)        NULL,
+        finding          NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_matviews PRIMARY KEY (id),
+        CONSTRAINT FK_pg_matviews_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_table_bloat — dead tuple / bloat analysis ────────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_table_bloat', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_table_bloat (
+        id               BIGINT IDENTITY(1,1) NOT NULL,
+        job_id           VARCHAR(36)          NOT NULL,
+        schema_name      NVARCHAR(128)        NULL,
+        table_name       NVARCHAR(128)        NOT NULL,
+        live_rows        BIGINT               NULL,
+        dead_rows        BIGINT               NULL,
+        dead_row_pct     DECIMAL(6,2)         NULL,
+        last_vacuum      NVARCHAR(30)         NULL,
+        last_autovacuum  NVARCHAR(30)         NULL,
+        last_analyze     NVARCHAR(30)         NULL,
+        vacuum_count     INT                  NULL,
+        autovacuum_count INT                  NULL,
+        recommendation   NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_table_bloat PRIMARY KEY (id),
+        CONSTRAINT FK_pg_table_bloat_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_connection_stats — connection pool statistics ────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_connection_stats', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_connection_stats (
+        id                          BIGINT IDENTITY(1,1) NOT NULL,
+        job_id                      VARCHAR(36)          NOT NULL,
+        database_name               NVARCHAR(128)        NOT NULL,
+        total_connections           INT                  NULL,
+        active                      INT                  NULL,
+        idle                        INT                  NULL,
+        idle_in_transaction         INT                  NULL,
+        idle_in_transaction_aborted INT                  NULL,
+        blocked_by_lock             INT                  NULL,
+        max_duration_secs           INT                  NULL,
+        max_connections             INT                  NULL,
+        finding                     NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_connection_stats PRIMARY KEY (id),
+        CONSTRAINT FK_pg_connection_stats_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );

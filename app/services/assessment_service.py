@@ -95,6 +95,16 @@ _STEP_KEYS = [
     # Performance — view_database_state
     ("wait_statistics",         "WAIT_STATISTICS",         "Wait statistics",                  "view_database_state"),
     ("query_store_top_queries", "QUERY_STORE_TOP_QUERIES", "Query Store top queries (7d)",     "view_database_state"),
+    # ── PostgreSQL-specific extended sections — db_datareader / view_database_state
+    # PG_* attributes only exist in queries_postgres; other engines fall back to
+    # the "SELECT NULL WHERE 1=0" default in _get_query_steps and return [].
+    ("pg_extensions",       "PG_EXTENSIONS",       "Extensions inventory",              "db_datareader"),
+    ("pg_triggers",         "PG_TRIGGERS",         "Triggers",                          "db_datareader"),
+    ("pg_sequences",        "PG_SEQUENCES",        "Sequences",                         "db_datareader"),
+    ("pg_partitions",       "PG_PARTITIONS",       "Partitions / table inheritance",    "db_datareader"),
+    ("pg_matviews",         "PG_MATVIEWS",         "Materialized views",                "db_datareader"),
+    ("pg_table_bloat",      "PG_TABLE_BLOAT",      "Table bloat (dead tuples)",         "view_database_state"),
+    ("pg_connection_stats", "PG_CONNECTION_STATS", "Connection pool statistics",        "view_database_state"),
 ]
 
 _QUERY_MODULE = {
@@ -429,6 +439,14 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
             "ssas_linked_servers":        raw.get("ssas_linked_servers", []),
             "wait_statistics":            raw.get("wait_statistics", []),
             "query_store_top_queries":    raw.get("query_store_top_queries", []),
+            # PostgreSQL-specific extended sections
+            "pg_extensions":              raw.get("pg_extensions", []),
+            "pg_triggers":                raw.get("pg_triggers", []),
+            "pg_sequences":               raw.get("pg_sequences", []),
+            "pg_partitions":              raw.get("pg_partitions", []),
+            "pg_matviews":                raw.get("pg_matviews", []),
+            "pg_table_bloat":             raw.get("pg_table_bloat", []),
+            "pg_connection_stats":        raw.get("pg_connection_stats", []),
         }
 
         logger.info("Assessment completed", extra=extra)

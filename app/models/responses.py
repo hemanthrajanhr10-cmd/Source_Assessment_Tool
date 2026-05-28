@@ -194,3 +194,11 @@ class AssessmentResults(BaseModel):
     ssas_linked_servers: list[dict[str, Any]]
     wait_statistics: list[dict[str, Any]]
     query_store_top_queries: list[dict[str, Any]]
+    # ── PostgreSQL-specific extended sections ─────────────────────────────────
+    pg_extensions: list[dict[str, Any]]
+    pg_triggers: list[dict[str, Any]]
+    pg_sequences: list[dict[str, Any]]
+    pg_partitions: list[dict[str, Any]]
+    pg_matviews: list[dict[str, Any]]
+    pg_table_bloat: list[dict[str, Any]]
+    pg_connection_stats: list[dict[str, Any]]

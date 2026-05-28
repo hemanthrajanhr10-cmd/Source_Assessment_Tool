@@ -311,6 +311,43 @@ _SECTION_CONFIG: dict[str, tuple[str, list[str]]] = {
         "assessment_deprecated_features_in_use",
         ["deprecated_feature", "usage_count_since_restart"],
     ),
+    # ── PostgreSQL-specific extended sections ─────────────────────────────────
+    "pg_extensions": (
+        "assessment_pg_extensions",
+        ["extension_name", "version", "schema_name", "description", "relocatable", "category"],
+    ),
+    "pg_triggers": (
+        "assessment_pg_triggers",
+        ["schema_name", "trigger_name", "table_name", "trigger_event",
+         "trigger_timing", "per_row_or_statement", "trigger_body", "finding"],
+    ),
+    "pg_sequences": (
+        "assessment_pg_sequences",
+        ["schema_name", "sequence_name", "data_type", "start_value",
+         "minimum_value", "maximum_value", "increment", "cycle_option", "recommendation"],
+    ),
+    "pg_partitions": (
+        "assessment_pg_partitions",
+        ["schema_name", "parent_table", "child_schema", "child_table",
+         "child_type", "partition_bound", "approx_row_count", "finding"],
+    ),
+    "pg_matviews": (
+        "assessment_pg_matviews",
+        ["schema_name", "view_name", "create_date", "modify_date",
+         "has_indexes", "is_populated", "approx_row_count", "definition", "finding"],
+    ),
+    "pg_table_bloat": (
+        "assessment_pg_table_bloat",
+        ["schema_name", "table_name", "live_rows", "dead_rows", "dead_row_pct",
+         "last_vacuum", "last_autovacuum", "last_analyze",
+         "vacuum_count", "autovacuum_count", "recommendation"],
+    ),
+    "pg_connection_stats": (
+        "assessment_pg_connection_stats",
+        ["database_name", "total_connections", "active", "idle",
+         "idle_in_transaction", "idle_in_transaction_aborted",
+         "blocked_by_lock", "max_duration_secs", "max_connections", "finding"],
+    ),
 }
 
 

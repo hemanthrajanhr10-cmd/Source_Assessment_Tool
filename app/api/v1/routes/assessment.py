@@ -380,7 +380,7 @@ async def download_report(job_id: str, current_user: dict = Depends(get_current_
     # This path is slow and may hit the 230s App Service timeout for large reports.
     from app.services.report_service import build_report
     raw = azure_store.load_full_results(job_id)
-    report_path = build_report(job_id, raw)
+    report_path = build_report(job_id, raw, db_type=raw.get("_db_type", "mssql"))
 
     return FileResponse(
         path=report_path,
@@ -427,7 +427,7 @@ async def download_word_report(
     from app.services.ai_report_service import build_ai_word_report
     raw       = azure_store.load_full_results(job_id)
     label     = client_name or record.label or None
-    doc_bytes = build_ai_word_report(job_id, raw, client_name=label)
+    doc_bytes = build_ai_word_report(job_id, raw, client_name=label, db_type=raw.get("_db_type", "mssql"))
 
     azure_store.save_ai_report_bytes(job_id, doc_bytes)
     logger.info("Job %s: AI report generated and cached (%d bytes)", job_id, len(doc_bytes))

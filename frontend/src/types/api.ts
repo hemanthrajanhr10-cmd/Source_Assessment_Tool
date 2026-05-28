@@ -605,6 +605,7 @@ export interface ServerTarget {
   use_gateway: boolean
   gateway_key?: string
   access_level?: AccessLevel
+  gcp_sa_key?: string
 }
 
 export interface SessionRequest {

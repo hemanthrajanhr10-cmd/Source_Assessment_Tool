@@ -204,8 +204,9 @@ async def download_session_report(session_id: str, current_user: dict = Depends(
     if not jobs_data:
         raise HTTPException(status_code=409, detail="Could not load results for any completed jobs.")
 
+    session_db_type = jobs_data[0]["results"].get("_db_type", "mssql") if jobs_data else "mssql"
     from app.services.report_service import build_session_report
-    report_path = build_session_report(session_id, jobs_data)
+    report_path = build_session_report(session_id, jobs_data, db_type=session_db_type)
 
     return FileResponse(
         path=report_path,
@@ -250,11 +251,13 @@ async def download_session_word_report(
     if not jobs_data:
         raise HTTPException(status_code=409, detail="Could not load results for any completed jobs.")
 
+    word_db_type = jobs_data[0]["results"].get("_db_type", "mssql") if jobs_data else "mssql"
     from app.services.ai_report_service import build_ai_session_word_report
     doc_bytes = build_ai_session_word_report(
         session_id=session_id,
         session_label=row.get("label"),
         jobs_data=jobs_data,
+        db_type=word_db_type,
     )
 
     filename = f"fabric_assessment_{session_id[:8]}.docx"

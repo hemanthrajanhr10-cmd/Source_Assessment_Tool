@@ -191,19 +191,46 @@ def _connect_postgres_cloud_sql(params: ConnectionParams):
     e.g. "my-project:us-central1:my-pg-instance"
 
     Authentication — one of:
-      1. Run `gcloud auth application-default login` on the machine hosting SAT.
-      2. Set GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json
-         (the service account needs the 'Cloud SQL Client' IAM role).
-      3. If running on a GCE/Cloud Run/GKE instance the default service account
-         is used automatically — no extra setup needed.
+      1. Paste a service account key JSON into the `gcp_sa_key` field (UI option).
+      2. Set GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json on
+         the SAT server (the SA needs the 'Cloud SQL Client' IAM role).
+      3. Run `gcloud auth application-default login` on the machine hosting SAT.
+      4. If running on GCE/Cloud Run/GKE the default service account is used
+         automatically — no extra setup needed.
 
     Alternative: enable a public IP on the Cloud SQL instance, whitelist SAT's
-    outbound IP in the instance's Authorised Networks, and enter the public IP
-    in the Server field instead. That goes through the standard psycopg2 path.
+    outbound IP in Authorised Networks, and enter the public IP in the Server field
+    instead. That bypasses the Connector entirely (standard psycopg2 path).
     """
     try:
         from google.cloud.sql.connector import Connector
-        sql_connector = Connector()
+    except ImportError as exc:
+        raise RuntimeError(
+            "cloud-sql-python-connector is not installed.\n"
+            "Run: pip install 'cloud-sql-python-connector[psycopg2]>=1.9.0'"
+        ) from exc
+
+    # If the caller supplied a service account key JSON, parse it into credentials
+    # so the Connector can authenticate without needing ADC on the host machine.
+    credentials = None
+    sa_key = getattr(params, "gcp_sa_key", None)
+    if sa_key and sa_key.strip():
+        try:
+            import json as _json
+            from google.oauth2 import service_account as _sa
+            sa_info = _json.loads(sa_key)
+            credentials = _sa.Credentials.from_service_account_info(
+                sa_info,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+            )
+        except Exception as exc:
+            raise ValueError(
+                f"Invalid GCP service account key JSON: {exc}\n"
+                "Paste the full JSON content from your downloaded service account key file."
+            ) from exc
+
+    try:
+        sql_connector = Connector(credentials=credentials)
     except Exception as exc:
         _raise_adc_error(exc)
 
@@ -215,22 +242,32 @@ def _connect_postgres_cloud_sql(params: ConnectionParams):
             password=params.password.get_secret_value(),
             db=params.database,
         )
-    except Exception:
+    except Exception as exc:
         sql_connector.close()
-        raise
+        _raise_adc_error(exc)
 
 
-def _raise_adc_error(exc: Exception):
-    cname = type(exc).__name__
+def _raise_adc_error(exc: Exception) -> None:
+    cname = type(exc).__name__.lower()
     msg = str(exc).lower()
-    if "credential" in cname.lower() or "credential" in msg or "default" in msg:
+    is_cred_error = (
+        "credential" in cname
+        or "credential" in msg
+        or "defaultcredentials" in cname
+        or "could not automatically determine" in msg
+        or "application default" in msg
+        or "unable to detect" in msg
+        or ("default" in msg and "credentials" in msg)
+    )
+    if is_cred_error:
         raise RuntimeError(
-            "GCP Application Default Credentials not found. To fix, choose one option:\n"
-            "  1. Run `gcloud auth application-default login` on the SAT server.\n"
-            "  2. Set GOOGLE_APPLICATION_CREDENTIALS=<path-to-service-account-key.json> "
-            "     (the SA needs the 'Cloud SQL Client' IAM role).\n"
-            "  3. Use the Cloud SQL instance's public IP address in the Server field "
-            "     instead of the instance connection name — no credential setup needed."
+            "GCP Cloud SQL requires authentication to establish its secure tunnel.\n"
+            "Option A (easiest — no GCP auth needed): use the instance's public IP address "
+            "in the Server field instead of the instance connection name. "
+            "Enable Public IP in GCP Console → Cloud SQL → Connections → Networking, "
+            "add this server's outbound IP to Authorized Networks, then enter the public IP.\n"
+            "Option B: paste your service account key JSON into the 'Service Account Key' field "
+            "(the SA needs the 'Cloud SQL Client' IAM role)."
         ) from exc
     raise exc
 

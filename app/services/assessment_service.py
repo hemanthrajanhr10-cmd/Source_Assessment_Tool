@@ -332,7 +332,7 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
     access_rank = ACCESS_LEVEL_RANK.get(access_level, 1)
 
     try:
-        raw: dict[str, Any] = {}
+        raw: dict[str, Any] = {"_db_type": db_type}
 
         for key, sql, display_name, min_level in query_steps:
             min_rank = ACCESS_LEVEL_RANK.get(min_level, 1)
@@ -361,7 +361,7 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
         azure_store.save_sections(job_id, raw)
 
         job_store.update_job(job_id, progress_message="Building Excel report…")
-        report_path = report_service.build_report(job_id, raw)
+        report_path = report_service.build_report(job_id, raw, db_type=db_type)
 
         results: dict[str, Any] = {
             "job_id": job_id,

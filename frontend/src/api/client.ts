@@ -172,6 +172,7 @@ export const api = {
     db_type?: string; server: string; port: number; database: string
     username: string; password: string
     trust_server_certificate: boolean; encrypt: boolean
+    gcp_sa_key?: string
   }) =>
     http.post<DatabaseInfo[]>('/api/v1/list-databases', { connection }),
 

@@ -39,6 +39,7 @@ class ServerTarget(BaseModel):
         "db_datareader",
         description="SQL Server access level granted to the login — controls which assessments are run"
     )
+    gcp_sa_key: str | None = Field(None, description="GCP service account key JSON for Cloud SQL connector auth")
 
 
 class SessionRequest(BaseModel):
@@ -69,6 +70,7 @@ class ConnectionParams(BaseModel):
     password: SecretStr = Field(..., description="Login password")
     trust_server_certificate: bool = Field(True, description="Skip TLS certificate validation (SQL Server)")
     encrypt: bool = Field(True, description="Require encrypted connection (SQL Server)")
+    gcp_sa_key: str | None = Field(None, description="GCP service account key JSON for Cloud SQL connector auth")
 
     model_config = {"json_schema_extra": {"example": {
         "db_type": "mssql",

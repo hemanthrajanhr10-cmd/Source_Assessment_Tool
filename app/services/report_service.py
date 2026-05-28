@@ -15,6 +15,28 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# ─────────────────────────── Engine metadata ────────────────────────────────
+
+_ENGINE_LABEL: dict[str, str] = {
+    "mssql":    "SQL Server",
+    "postgres": "PostgreSQL",
+    "mysql":    "MySQL",
+    "oracle":   "Oracle",
+}
+
+# Sheets that are SQL Server-only — skip them for other engines
+_MSSQL_ONLY_KEYS = frozenset({
+    "orphaned_users", "clr_assemblies", "sql_agent_jobs", "cross_db_references",
+    "service_broker", "ssis_catalog_packages", "ssis_execution_history",
+    "ssis_msdb_packages", "sql_agent_job_schedules", "sql_agent_job_steps",
+    "ssas_linked_servers",
+})
+
+
+def _engine_label(db_type: str) -> str:
+    return _ENGINE_LABEL.get(db_type, db_type.upper())
+
+
 # ─────────────────────────── Style constants ────────────────────────────────
 
 DARK_BLUE = "1F3864"
@@ -126,14 +148,14 @@ def _write_generic_sheet(
 
 # ──────────────────────────── Per-sheet builders ────────────────────────────
 
-def _build_summary(wb: Workbook, raw: dict[str, Any]):
+def _build_summary(wb: Workbook, raw: dict[str, Any], db_type: str = "mssql"):
     ws = wb.active
     ws.title = "Summary"
     _set_tab_color(ws, DARK_BLUE)
 
     ws.merge_cells("A1:H1")
     c = ws["A1"]
-    c.value = "SQL SERVER SOURCE ASSESSMENT REPORT"
+    c.value = f"{_engine_label(db_type).upper()} SOURCE ASSESSMENT REPORT"
     c.font = _font(bold=True, size=18, color=WHITE)
     c.fill = _fill(DARK_BLUE)
     c.alignment = _align("center")
@@ -1186,7 +1208,7 @@ def _build_query_store_sheet(wb: Workbook, rows: list[dict[str, Any]]):
 
 # ─────────────────────────── Public entry point ─────────────────────────────
 
-def build_report(job_id: str, raw: dict[str, Any]) -> str:
+def build_report(job_id: str, raw: dict[str, Any], db_type: str = "mssql") -> str:
     """
     Build the Excel workbook from raw assessment data and save it to disk.
     Returns the absolute path to the saved file.
@@ -1195,10 +1217,11 @@ def build_report(job_id: str, raw: dict[str, Any]) -> str:
     reports_dir.mkdir(parents=True, exist_ok=True)
     output_path = reports_dir / f"{job_id}.xlsx"
 
+    mssql = db_type == "mssql"
     wb = Workbook()
 
-    # ── Core metadata sheets ─────────────────────────────────────────────────
-    _build_summary(wb, raw)
+    # ── Core metadata sheets (all engines) ───────────────────────────────────
+    _build_summary(wb, raw, db_type)
     _build_tables_sheet(wb, raw.get("tables", []))
     _build_columns_sheet(wb, raw.get("columns", []))
     _build_views_sheet(wb, raw.get("views", []))
@@ -1209,32 +1232,39 @@ def build_report(job_id: str, raw: dict[str, Any]) -> str:
     _build_index_coverage_sheet(wb, raw.get("index_coverage", []))
     _build_null_analysis_sheet(wb, raw.get("null_analysis", []))
     _build_insertion_freq_sheet(wb, raw.get("insertion_frequency", []))
-    # ── Security assessment sheets ───────────────────────────────────────────
+    # ── Security assessment sheets (all engines) ─────────────────────────────
     _build_db_users_roles_sheet(wb, raw.get("db_users_roles", []))
-    _build_orphaned_users_sheet(wb, raw.get("orphaned_users", []))
+    if mssql:
+        _build_orphaned_users_sheet(wb, raw.get("orphaned_users", []))
     _build_db_owner_members_sheet(wb, raw.get("db_owner_members", []))
     _build_dynamic_sql_sheet(wb, raw.get("dynamic_sql_usage", []))
-    _build_clr_sheet(wb, raw.get("clr_assemblies", []))
+    if mssql:
+        _build_clr_sheet(wb, raw.get("clr_assemblies", []))
     _build_encryption_sheet(wb, raw.get("tde_status", []), raw.get("column_encryption", []))
     _build_pii_sheet(wb, raw.get("pii_indicators", []))
     # ── Feature usage & risk sheets ──────────────────────────────────────────
-    _build_agent_jobs_sheet(wb, raw.get("sql_agent_jobs", []))
+    if mssql:
+        _build_agent_jobs_sheet(wb, raw.get("sql_agent_jobs", []))
     _build_linked_servers_sheet(wb, raw.get("linked_servers", []))
-    _build_cross_db_refs_sheet(wb, raw.get("cross_db_references", []))
+    if mssql:
+        _build_cross_db_refs_sheet(wb, raw.get("cross_db_references", []))
     _build_replication_sheet(wb, raw.get("replication_status", []))
-    _build_service_broker_sheet(wb, raw.get("service_broker", []))
+    if mssql:
+        _build_service_broker_sheet(wb, raw.get("service_broker", []))
     _build_version_features_sheet(wb, raw.get("version_features", []))
-    # ── Extended: SQL Server Engine Assessment sheets ────────────────────────
+    # ── Extended engine assessment sheets (all engines) ──────────────────────
     _build_schema_classification_sheet(wb, raw.get("schema_classification", []))
     _build_sp_complexity_sheet(wb, raw.get("sp_complexity", []))
     _build_view_complexity_sheet(wb, raw.get("view_complexity", []))
     _build_database_files_sheet(wb, raw.get("database_files", []))
-    _build_ssis_catalog_sheet(wb, raw.get("ssis_catalog_packages", []))
-    _build_ssis_execution_sheet(wb, raw.get("ssis_execution_history", []))
-    _build_ssis_msdb_sheet(wb, raw.get("ssis_msdb_packages", []))
-    _build_agent_schedules_sheet(wb, raw.get("sql_agent_job_schedules", []))
-    _build_agent_steps_sheet(wb, raw.get("sql_agent_job_steps", []))
-    _build_ssas_linked_servers_sheet(wb, raw.get("ssas_linked_servers", []))
+    # ── SQL Server-only extended sheets ──────────────────────────────────────
+    if mssql:
+        _build_ssis_catalog_sheet(wb, raw.get("ssis_catalog_packages", []))
+        _build_ssis_execution_sheet(wb, raw.get("ssis_execution_history", []))
+        _build_ssis_msdb_sheet(wb, raw.get("ssis_msdb_packages", []))
+        _build_agent_schedules_sheet(wb, raw.get("sql_agent_job_schedules", []))
+        _build_agent_steps_sheet(wb, raw.get("sql_agent_job_steps", []))
+        _build_ssas_linked_servers_sheet(wb, raw.get("ssas_linked_servers", []))
     _build_wait_statistics_sheet(wb, raw.get("wait_statistics", []))
     _build_query_store_sheet(wb, raw.get("query_store_top_queries", []))
 
@@ -1254,7 +1284,7 @@ def build_report(job_id: str, raw: dict[str, Any]) -> str:
     return str(output_path.resolve())
 
 
-def build_session_report(session_id: str, jobs_data: list[dict]) -> str:
+def build_session_report(session_id: str, jobs_data: list[dict], db_type: str = "mssql") -> str:
     """
     Build a combined Excel workbook for a multi-server session.
 
@@ -1282,7 +1312,7 @@ def build_session_report(session_id: str, jobs_data: list[dict]) -> str:
     # Title
     ws.merge_cells("A1:K1")
     title_cell = ws["A1"]
-    title_cell.value = "SQL SERVER SOURCE ASSESSMENT — MULTI-SERVER SESSION REPORT"
+    title_cell.value = f"{_engine_label(db_type).upper()} SOURCE ASSESSMENT — MULTI-SERVER SESSION REPORT"
     title_cell.font = _font(bold=True, size=16, color=WHITE)
     title_cell.fill = _fill(DARK_BLUE)
     title_cell.alignment = _align("center")

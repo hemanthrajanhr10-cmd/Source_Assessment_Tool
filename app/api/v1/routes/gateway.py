@@ -231,7 +231,7 @@ async def submit_job_results(job_id: str, body: GatewaySubmitRequest):
         azure_store.save_sections(job_id, raw)
 
         job_store.update_job(job_id, progress_message="Building Excel report…")
-        report_path = report_service.build_report(job_id, raw)
+        report_path = report_service.build_report(job_id, raw, db_type=raw.get("_db_type", "mssql"))
 
         job_store.update_job(
             job_id,

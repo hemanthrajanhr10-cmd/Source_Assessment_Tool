@@ -24,6 +24,8 @@ from app.services.word_report_service import (
     _ACCENT_BLUE,
     _DARK_BLUE,
     _DARK_GRAY,
+    _DOC_TITLE,
+    _ENGINE_LABEL,
     _LIGHT_GRAY,
     _MID_BLUE,
     _TBL_HEADER,
@@ -722,6 +724,7 @@ def build_ai_word_report(
     job_id: str,
     raw: dict[str, Any],
     client_name: str | None = None,
+    db_type: str = "mssql",
 ) -> bytes:
     """
     Build an AI-powered Word assessment report for a single-database assessment.
@@ -729,6 +732,8 @@ def build_ai_word_report(
     Fabric Recommendations, ROI narrative, and Conclusion.
     Data tables (DB metrics, security, performance) are populated from assessment results.
     """
+    engine      = _ENGINE_LABEL.get(db_type, db_type.upper())
+    doc_title   = f"{engine} {_DOC_TITLE}"
     ov          = _overview(raw)
     db_name     = _s(ov.get("database_name"), "Unknown Database")
     server_name = _s(raw.get("_server") or ov.get("server_name"), "")
@@ -738,7 +743,7 @@ def build_ai_word_report(
     ctx = _build_context(raw, label)
     ai  = _get_client()
 
-    logger.info("AI report: generating content for job %s (client: %s)", job_id, label)
+    logger.info("AI report: generating content for job %s (engine: %s, client: %s)", job_id, engine, label)
 
     executive_summary     = _gen_executive_summary(ai, ctx)
     current_state         = _gen_current_state(ai, ctx)
@@ -756,9 +761,9 @@ def build_ai_word_report(
         section.left_margin   = Cm(2.5)
         section.right_margin  = Cm(2.5)
 
-    _setup_header(doc, label)
+    _setup_header(doc, label, doc_title=doc_title)
     _setup_footer(doc)
-    _cover_page(doc, label, run_date)
+    _cover_page(doc, label, run_date, doc_title=doc_title)
 
     _write_executive_summary(doc, executive_summary)
     _write_current_state(doc, current_state, ctx)
@@ -780,12 +785,15 @@ def build_ai_session_word_report(
     session_id: str,
     session_label: str | None,
     jobs_data: list[dict],
+    db_type: str = "mssql",
 ) -> bytes:
     """
     Build a combined AI-powered Word report for a multi-database session.
     Generates one set of AI narrative per database, then combines into one document.
     jobs_data: list of {job_id, server, database, label, results: raw_dict}
     """
+    engine      = _ENGINE_LABEL.get(db_type, db_type.upper())
+    doc_title   = f"{engine} {_DOC_TITLE}"
     client_name = session_label or f"Session {session_id[:8]}"
     run_date    = datetime.utcnow().strftime("%d %b %Y")
     ai          = _get_client()
@@ -797,9 +805,9 @@ def build_ai_session_word_report(
         section.left_margin   = Cm(2.5)
         section.right_margin  = Cm(2.5)
 
-    _setup_header(doc, client_name)
+    _setup_header(doc, client_name, doc_title=doc_title)
     _setup_footer(doc)
-    _cover_page(doc, client_name, run_date)
+    _cover_page(doc, client_name, run_date, doc_title=doc_title)
 
     # Session summary table
     _h1(doc, "Session Overview")

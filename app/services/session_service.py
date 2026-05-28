@@ -164,6 +164,7 @@ def _run_direct_job(session_id: str, job_id: str, srv: ServerTarget, db: Databas
                 password=srv.password,
                 trust_server_certificate=srv.trust_server_certificate,
                 encrypt=srv.encrypt,
+                gcp_sa_key=getattr(srv, "gcp_sa_key", None),
             ),
             include_null_analysis=db.include_null_analysis,
             null_analysis_sample_limit=db.null_analysis_sample_limit,

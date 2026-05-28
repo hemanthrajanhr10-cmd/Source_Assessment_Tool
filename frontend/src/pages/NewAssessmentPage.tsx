@@ -51,7 +51,7 @@ function detectPgPlatform(server: string): PgPlatform {
     return {
       key: 'gcp_cloudsql_name',
       label: 'GCP Cloud SQL',
-      note: 'Instance connection name detected. Requires Application Default Credentials (gcloud auth) or a service account key (GOOGLE_APPLICATION_CREDENTIALS).',
+      note: 'To connect with username/password only: use the instance\'s public IP instead. Or paste a Service Account Key JSON below.',
       badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
     }
   }
@@ -144,6 +144,7 @@ interface ServerEntry {
   encrypt: boolean
   access_level: AccessLevel
   gateway_key: string | null   // set when a Hybrid Connection is selected
+  gcp_sa_key: string           // GCP service account key JSON for Cloud SQL auth
   connectivity: null | { reachable: boolean; latency_ms: number | null }
   connectivity_loading: boolean
   available_dbs: DatabaseInfo[] | null
@@ -274,6 +275,7 @@ function makeServer(): ServerEntry {
     encrypt: true,
     access_level: 'db_datareader',
     gateway_key: null,
+    gcp_sa_key: '',
     connectivity: null,
     connectivity_loading: false,
     available_dbs: null,
@@ -354,6 +356,7 @@ function ServerCard({
         password: entry.password,
         trust_server_certificate: entry.trust_server_certificate,
         encrypt: entry.encrypt,
+        gcp_sa_key: entry.gcp_sa_key || undefined,
       })
       set({ available_dbs: data, dbs_loading: false })
     } catch (err) {
@@ -517,24 +520,51 @@ function ServerCard({
                     set({ server: host, port, gateway_key: null, connectivity: null })
                   }
                 />
-                <button
-                  type="button"
-                  onClick={handleDetect}
-                  disabled={!entry.server || entry.connectivity_loading}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 transition-colors"
-                  title="Test TCP connectivity"
-                >
-                  {entry.connectivity_loading
-                    ? <Spinner size="sm" className="text-earth-600" />
-                    : <Search className="h-3.5 w-3.5" />}
-                  Detect
-                </button>
+                {/* Hide TCP Detect for Cloud SQL instance names — the Connector manages the tunnel, not direct TCP */}
+                {!(entry.db_type === 'postgres' && detectPgPlatform(entry.server).key === 'gcp_cloudsql_name') && (
+                  <button
+                    type="button"
+                    onClick={handleDetect}
+                    disabled={!entry.server || entry.connectivity_loading}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-40 transition-colors"
+                    title="Test TCP connectivity"
+                  >
+                    {entry.connectivity_loading
+                      ? <Spinner size="sm" className="text-earth-600" />
+                      : <Search className="h-3.5 w-3.5" />}
+                    Detect
+                  </button>
+                )}
               </div>
             </div>
 
             {/* PostgreSQL platform hint */}
             {entry.db_type === 'postgres' && (
               <PgPlatformHint server={entry.server} />
+            )}
+
+            {/* GCP Cloud SQL — Service Account Key */}
+            {entry.db_type === 'postgres' && detectPgPlatform(entry.server).key === 'gcp_cloudsql_name' && (
+              <div className="sm:col-span-2">
+                <label className="form-label flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                  Service Account Key JSON
+                  <span className="text-slate-400 font-normal ml-1">(optional — if ADC not configured on server)</span>
+                </label>
+                <textarea
+                  className="form-input font-mono text-xs resize-none leading-relaxed"
+                  rows={4}
+                  placeholder={'{\n  "type": "service_account",\n  "project_id": "...",\n  ...\n}'}
+                  value={entry.gcp_sa_key}
+                  onChange={(e) => set({ gcp_sa_key: e.target.value, available_dbs: null })}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+                <p className="mt-1 text-xs text-slate-400">
+                  Paste the full JSON content of your downloaded SA key file. The service account needs the{' '}
+                  <strong className="text-slate-500">Cloud SQL Client</strong> IAM role.
+                </p>
+              </div>
             )}
 
             {/* Username */}
@@ -631,27 +661,31 @@ function ServerCard({
             )}
           </div>
 
-          {/* Azure Hybrid Connection callout — shown when server is not directly reachable */}
-          {connStatus && !connStatus.reachable && (
-            <div className="flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 animate-slide-down">
-              <Network className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-              <div className="text-xs text-blue-700 space-y-1">
-                <p className="font-semibold text-blue-800">Server not directly reachable from Azure</p>
-                <p>
-                  If this is an on-premises {DB_TYPE_OPTIONS.find(o => o.value === entry.db_type)?.label ?? 'database server'}, ensure the{' '}
-                  <strong>Azure Hybrid Connection Manager</strong> is running on a machine connected
-                  to the same network as the server.
-                </p>
-                <a
-                  href="/hybrid-connection"
-                  className="inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:text-blue-900 transition-colors"
-                >
-                  <Info className="h-3 w-3" />
-                  Hybrid Connection setup guide
-                </a>
+          {/* Connectivity callout — platform-aware */}
+          {connStatus && !connStatus.reachable && (() => {
+            const isGcpName = entry.db_type === 'postgres' && detectPgPlatform(entry.server).key === 'gcp_cloudsql_name'
+            if (isGcpName) return null  // Cloud SQL Connector handles its own tunnel — TCP unreachable is normal
+            return (
+              <div className="flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 animate-slide-down">
+                <Network className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                <div className="text-xs text-blue-700 space-y-1">
+                  <p className="font-semibold text-blue-800">Server not directly reachable from Azure</p>
+                  <p>
+                    If this is an on-premises {DB_TYPE_OPTIONS.find(o => o.value === entry.db_type)?.label ?? 'database server'}, ensure the{' '}
+                    <strong>Azure Hybrid Connection Manager</strong> is running on a machine connected
+                    to the same network as the server.
+                  </p>
+                  <a
+                    href="/hybrid-connection"
+                    className="inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:text-blue-900 transition-colors"
+                  >
+                    <Info className="h-3 w-3" />
+                    Hybrid Connection setup guide
+                  </a>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Database browser */}
           <div className="space-y-3">
@@ -670,12 +704,52 @@ function ServerCard({
               </button>
             </div>
 
-            {entry.dbs_error && (
-              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                <span>{entry.dbs_error}</span>
-              </div>
-            )}
+            {entry.dbs_error && (() => {
+              const isGcpCredErr = (
+                entry.db_type === 'postgres' &&
+                detectPgPlatform(entry.server).key === 'gcp_cloudsql_name' &&
+                (entry.dbs_error.includes('Application Default Credentials') ||
+                 entry.dbs_error.includes('credentials') ||
+                 entry.dbs_error.includes('credential'))
+              )
+              if (isGcpCredErr) {
+                return (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-2 animate-slide-down">
+                    <p className="text-xs font-semibold text-amber-900 flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      GCP Cloud SQL requires authentication to establish a secure tunnel
+                    </p>
+                    <p className="text-xs text-amber-800">
+                      Choose the option that works for your setup:
+                    </p>
+                    <div className="space-y-2">
+                      <div className="rounded-lg border border-amber-200 bg-white px-3 py-2.5">
+                        <p className="text-xs font-semibold text-slate-800">Option A — Use the public IP (no GCP auth needed)</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          In GCP Console → Cloud SQL → your instance → <strong>Connections → Networking</strong>:{' '}
+                          enable <strong>Public IP</strong>, add this server's outbound IP to <strong>Authorized Networks</strong>,
+                          then paste the public IP into the Server field above.
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-amber-200 bg-white px-3 py-2.5">
+                        <p className="text-xs font-semibold text-slate-800">Option B — Paste a Service Account Key JSON (above)</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          In GCP Console → IAM → Service Accounts: create or select an SA with the{' '}
+                          <strong>Cloud SQL Client</strong> role, download its JSON key, and paste it into
+                          the <strong>Service Account Key JSON</strong> field above.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+              return (
+                <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <span>{entry.dbs_error}</span>
+                </div>
+              )
+            })()}
 
             {entry.available_dbs && entry.available_dbs.length === 0 && (
               <p className="text-xs text-slate-400 italic">No user databases found on this server.</p>
@@ -819,6 +893,7 @@ export default function NewAssessmentPage() {
           use_gateway: !!srv.gateway_key,
           gateway_key: srv.gateway_key ?? undefined,
           access_level: srv.db_type === 'mssql' ? srv.access_level : undefined,
+          gcp_sa_key: srv.gcp_sa_key || undefined,
           databases: srv.selected_dbs.map((db) => ({
             name: db.name,
             include_null_analysis: db.include_null_analysis,

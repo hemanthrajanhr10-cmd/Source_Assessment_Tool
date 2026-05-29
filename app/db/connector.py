@@ -171,15 +171,30 @@ def _connect_postgres(params: ConnectionParams):
 def _connect_postgres_direct(params: ConnectionParams, *, sslmode: str = "prefer"):
     """Standard psycopg2 connection — works for all non-Cloud-SQL platforms."""
     import psycopg2
-    return psycopg2.connect(
-        host=params.server,
-        port=params.port,
-        dbname=params.database,
-        user=params.username,
-        password=params.password.get_secret_value(),
-        connect_timeout=30,
-        sslmode=sslmode,
-    )
+
+    # Normalize port: if the user left the SQL Server default (1433), use PostgreSQL default.
+    port = params.port if params.port != 1433 else 5432
+
+    def _build_conn(ssl: str):
+        conn = psycopg2.connect(
+            host=params.server,
+            port=port,
+            dbname=params.database,
+            user=params.username,
+            password=params.password.get_secret_value(),
+            connect_timeout=30,
+            sslmode=ssl,
+        )
+        conn.autocommit = True
+        return conn
+
+    try:
+        return _build_conn(sslmode)
+    except psycopg2.OperationalError as exc:
+        # Some on-prem servers have SSL disabled entirely; retry without SSL.
+        if sslmode == "prefer" and "ssl" in str(exc).lower():
+            return _build_conn("disable")
+        raise
 
 
 def _connect_postgres_cloud_sql(params: ConnectionParams):
@@ -235,13 +250,15 @@ def _connect_postgres_cloud_sql(params: ConnectionParams):
         _raise_adc_error(exc)
 
     try:
-        return sql_connector.connect(
+        conn = sql_connector.connect(
             params.server,       # "project:region:instance"
             "psycopg2",
             user=params.username,
             password=params.password.get_secret_value(),
             db=params.database,
         )
+        conn.autocommit = True
+        return conn
     except Exception as exc:
         sql_connector.close()
         _raise_adc_error(exc)

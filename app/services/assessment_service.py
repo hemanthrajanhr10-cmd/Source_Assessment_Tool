@@ -156,6 +156,12 @@ def _safe_fetch(cursor, sql: str) -> list[dict[str, Any]]:
         return _cursor_rows_to_dicts(cursor)
     except Exception as exc:
         logger.warning("Query failed: %s", exc)
+        # Roll back any aborted transaction so subsequent queries can still run.
+        # Required when autocommit=False (psycopg2 default); harmless when True.
+        try:
+            cursor.connection.rollback()
+        except Exception:
+            pass
         return []
 
 

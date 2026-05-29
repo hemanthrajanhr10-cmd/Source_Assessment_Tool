@@ -66,7 +66,7 @@ SELECT
     COALESCE(
         ROUND(
             pg_total_relation_size(
-                (quote_ident(t.table_schema) || '.' || quote_ident(t.table_name))::regclass
+                to_regclass(quote_ident(t.table_schema) || '.' || quote_ident(t.table_name))
             ) / (1024.0 * 1024.0), 4
         ), 0
     )                                                  AS size_mb,

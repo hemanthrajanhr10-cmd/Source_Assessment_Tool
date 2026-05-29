@@ -145,6 +145,7 @@ interface ServerEntry {
   access_level: AccessLevel
   gateway_key: string | null   // set when a Hybrid Connection is selected
   gcp_sa_key: string           // GCP service account key JSON for Cloud SQL auth
+  show_gcp_sa_key: boolean
   connectivity: null | { reachable: boolean; latency_ms: number | null }
   connectivity_loading: boolean
   available_dbs: DatabaseInfo[] | null
@@ -277,6 +278,7 @@ function makeServer(): ServerEntry {
     access_level: 'db_datareader',
     gateway_key: null,
     gcp_sa_key: '',
+    show_gcp_sa_key: false,
     connectivity: null,
     connectivity_loading: false,
     available_dbs: null,
@@ -544,27 +546,41 @@ function ServerCard({
               <PgPlatformHint server={entry.server} />
             )}
 
-            {/* GCP Cloud SQL — Service Account Key */}
+            {/* GCP Cloud SQL — Service Account Key (collapsible) */}
             {entry.db_type === 'postgres' && detectPgPlatform(entry.server).key === 'gcp_cloudsql_name' && (
               <div className="sm:col-span-2">
-                <label className="form-label flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                <button
+                  type="button"
+                  onClick={() => set({ show_gcp_sa_key: !entry.show_gcp_sa_key })}
+                  className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
                   Service Account Key JSON
-                  <span className="text-slate-400 font-normal ml-1">(optional — if ADC not configured on server)</span>
-                </label>
-                <textarea
-                  className="form-input font-mono text-xs resize-none leading-relaxed"
-                  rows={4}
-                  placeholder={'{\n  "type": "service_account",\n  "project_id": "...",\n  ...\n}'}
-                  value={entry.gcp_sa_key}
-                  onChange={(e) => set({ gcp_sa_key: e.target.value, available_dbs: null })}
-                  spellCheck={false}
-                  autoComplete="off"
-                />
-                <p className="mt-1 text-xs text-slate-400">
-                  Paste the full JSON content of your downloaded SA key file. The service account needs the{' '}
-                  <strong className="text-slate-500">Cloud SQL Client</strong> IAM role.
-                </p>
+                  <span className="text-slate-400 font-normal ml-0.5">(optional)</span>
+                  <svg
+                    className={`h-3.5 w-3.5 ml-0.5 transition-transform ${entry.show_gcp_sa_key ? 'rotate-180' : ''}`}
+                    viewBox="0 0 20 20" fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {entry.show_gcp_sa_key && (
+                  <div className="mt-2">
+                    <textarea
+                      className="form-input font-mono text-xs resize-none leading-relaxed"
+                      rows={4}
+                      placeholder={'{\n  "type": "service_account",\n  "project_id": "...",\n  ...\n}'}
+                      value={entry.gcp_sa_key}
+                      onChange={(e) => set({ gcp_sa_key: e.target.value, available_dbs: null })}
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                    <p className="mt-1 text-xs text-slate-400">
+                      Paste the full JSON content of your downloaded SA key file. The service account needs the{' '}
+                      <strong className="text-slate-500">Cloud SQL Client</strong> IAM role.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

@@ -178,7 +178,7 @@ export const api = {
     db_type?: string; server: string; port: number; database: string
     username: string; password: string
     trust_server_certificate: boolean; encrypt: boolean
-    gcp_sa_key?: string; gcp_private_ip?: string; azure_managed_identity?: boolean
+    gcp_sa_key?: string; gcp_private_ip?: boolean; azure_managed_identity?: boolean
   }) =>
     http.post<DatabaseInfo[]>('/api/v1/list-databases', { connection }),
 

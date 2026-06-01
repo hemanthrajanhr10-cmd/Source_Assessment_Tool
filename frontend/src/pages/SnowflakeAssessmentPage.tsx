@@ -208,6 +208,7 @@ export default function SnowflakeAssessmentPage() {
 
   async function handleInitAuth() {
     if (!account.trim()) return
+    if (!username.trim()) { setAuthError('Username is required for browser SSO (externalbrowser authenticator).'); return }
     setAuthError(null)
     setAuthState('pending')
 
@@ -215,7 +216,7 @@ export default function SnowflakeAssessmentPage() {
       const req: SnowflakeAuthRequest = {
         credentials: {
           account: account.trim(),
-          username: username.trim() || undefined,
+          username: username.trim() || undefined,  // always sent — externalbrowser requires it
           role: role.trim() || undefined,
           warehouse: warehouse.trim() || undefined,
           database: database.trim() || undefined,
@@ -283,7 +284,7 @@ export default function SnowflakeAssessmentPage() {
     }
   }
 
-  const canStartAuth = account.trim().length > 0 && authState === 'idle'
+  const canStartAuth = account.trim().length > 0 && username.trim().length > 0 && authState === 'idle'
   const canAssess = authState === 'authenticated' && !submitting
 
   return (
@@ -439,10 +440,10 @@ export default function SnowflakeAssessmentPage() {
                 />
               </div>
               <div>
-                <FormLabel>Username (optional)</FormLabel>
+                <FormLabel>Username <span style={{ color: '#EF4444' }}>*</span></FormLabel>
                 <InputField
                   icon={User}
-                  placeholder="Login hint for SSO"
+                  placeholder="your.email@company.com"
                   value={username}
                   onChange={setUsername}
                   disabled={authState === 'pending' || authState === 'authenticated'}
@@ -490,6 +491,16 @@ export default function SnowflakeAssessmentPage() {
                 <div>
                   <p className="font-semibold">Authentication failed</p>
                   <p className="text-xs mt-0.5 opacity-80">{authError}</p>
+                  {(authError.includes('390190') || authError.toLowerCase().includes('saml')) && (
+                    <div className="mt-2 text-xs space-y-1" style={{ color: '#7F1D1D' }}>
+                      <p className="font-semibold">SAML / SSO identifier mismatch — try one of:</p>
+                      <ul className="list-disc ml-4 space-y-0.5">
+                        <li>Use <strong>org-account format</strong>: <code>{'<orgname>-<accountname>'}</code> (e.g. <code>myorg-cz04742</code>)</li>
+                        <li>Run <code>SELECT CURRENT_ORGANIZATION_NAME(), CURRENT_ACCOUNT_NAME();</code> in Snowsight to find exact values</li>
+                        <li>Use your full <strong>email address</strong> in the Username field (e.g. <code>you@company.com</code>)</li>
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -9,7 +9,7 @@ import {
   ArrowRight, Server, Plus, Trash2, Eye, EyeOff,
   Wifi, WifiOff, RefreshCw, Search, ExternalLink, Copy,
   Loader2, Tag, Building2, FileText, ChevronDown, ChevronRight,
-  MonitorSmartphone, Share2, Network, Info,
+  MonitorSmartphone, Share2, Network, Info, ShieldCheck, Zap,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type {
@@ -54,6 +54,10 @@ interface ServerEntry {
   encrypt: boolean
   access_level: AccessLevel
   gateway_key: string | null   // set when a Hybrid Connection is selected
+  gcp_sa_key: string
+  show_gcp_sa_key: boolean
+  gcp_private_ip: boolean
+  azure_managed_identity: boolean
   connectivity: null | { reachable: boolean; latency_ms: number | null }
   connectivity_loading: boolean
   available_dbs: DatabaseInfo[] | null
@@ -78,10 +82,58 @@ function makeServer(): ServerEntry {
     trust_server_certificate: true, encrypt: true,
     access_level: 'db_datareader',
     gateway_key: null,
+    gcp_sa_key: '', show_gcp_sa_key: false,
+    gcp_private_ip: false, azure_managed_identity: false,
     connectivity: null, connectivity_loading: false,
     available_dbs: null, dbs_loading: false, dbs_error: null,
     selected_dbs: [], expanded: true,
   }
+}
+
+// ── PostgreSQL platform detection ─────────────────────────────────────────────
+
+type PgPlatformKey = 'azure' | 'gcp_cloudsql_name' | 'aws' | 'local' | 'other'
+
+function detectPgPlatform(server: string): { key: PgPlatformKey; label: string; badge: string } {
+  const s = server.trim().toLowerCase()
+  const parts = server.trim().split(':')
+  if (parts.length === 3 && parts.every(p => p.trim()))
+    return { key: 'gcp_cloudsql_name', label: 'GCP Cloud SQL', badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' }
+  if (s.endsWith('.postgres.database.azure.com') || s.endsWith('.database.windows.net'))
+    return { key: 'azure', label: 'Azure PostgreSQL', badge: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200' }
+  if (s.includes('.rds.amazonaws.com'))
+    return { key: 'aws', label: 'AWS RDS / Aurora', badge: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200' }
+  if (s === 'localhost' || s.startsWith('127.') || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(s))
+    return { key: 'local', label: 'Local / On-premises', badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' }
+  return { key: 'other', label: 'PostgreSQL', badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' }
+}
+
+// ── Toggle ────────────────────────────────────────────────────────────────────
+
+function Toggle({ checked, onChange, label, description }: {
+  checked: boolean; onChange: (v: boolean) => void
+  label: string; description?: string
+}) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent
+          transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-earth-600/40
+          ${checked ? 'bg-earth-600' : 'bg-slate-300'}`}
+      >
+        <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform
+          ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
+      </button>
+      <div>
+        <span className="text-sm font-medium text-slate-700">{label}</span>
+        {description && <p className="text-xs text-slate-400 mt-0.5">{description}</p>}
+      </div>
+    </label>
+  )
 }
 
 // ── Progress Stepper ──────────────────────────────────────────────────────────
@@ -183,15 +235,21 @@ export default function UnifiedAssessmentPage() {
   const loadDatabases = useCallback(async (srv: ServerEntry) => {
     updateServer(srv.id, { dbs_loading: true, dbs_error: null })
     try {
+      const defaultDb = srv.db_type === 'postgres' ? 'postgres'
+        : srv.db_type === 'mysql' ? 'information_schema'
+        : 'master'
       const { data } = await api.listDatabases({
         db_type: srv.db_type,
         server: srv.server,
         port: srv.port,
-        database: 'master',
+        database: defaultDb,
         username: srv.username,
         password: srv.password,
         trust_server_certificate: srv.trust_server_certificate,
         encrypt: srv.encrypt,
+        gcp_sa_key: srv.gcp_sa_key || undefined,
+        gcp_private_ip: srv.gcp_private_ip || undefined,
+        azure_managed_identity: srv.azure_managed_identity || undefined,
       })
       const auto: SelectedDb[] = data.map(d => ({
         name: d.name,
@@ -236,6 +294,9 @@ export default function UnifiedAssessmentPage() {
           access_level: s.access_level,
           use_gateway: !!s.gateway_key,
           gateway_key: s.gateway_key ?? undefined,
+          gcp_sa_key: s.gcp_sa_key || undefined,
+          gcp_private_ip: s.gcp_private_ip || undefined,
+          azure_managed_identity: s.azure_managed_identity || undefined,
           databases: s.selected_dbs,
         })),
       })
@@ -706,6 +767,85 @@ function ServerCard({
             </div>
           </div>
 
+          {/* PostgreSQL platform badge */}
+          {srv.db_type === 'postgres' && srv.server.trim() && (
+            <div className="flex items-center gap-2">
+              {(() => {
+                const p = detectPgPlatform(srv.server)
+                return (
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${p.badge}`}>
+                    <Zap className="h-3 w-3" />{p.label}
+                  </span>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* Azure MSI toggle */}
+          {srv.db_type === 'postgres' && detectPgPlatform(srv.server).key === 'azure' && (
+            <div className="space-y-2">
+              <Toggle
+                checked={srv.azure_managed_identity}
+                onChange={v => updateServer(srv.id, { azure_managed_identity: v })}
+                label="Use Azure Managed Identity"
+                description="Authenticate via Microsoft Entra ID — no password needed."
+              />
+              {srv.azure_managed_identity && (
+                <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-700 space-y-1">
+                  <p className="font-semibold text-sky-800">Required on the Azure PostgreSQL side:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 text-sky-600">
+                    <li>Enable <strong>Microsoft Entra authentication</strong> on the Flexible Server</li>
+                    <li><code className="font-mono">SELECT pgaadauth_create_principal('user@tenant.com', false, false);</code></li>
+                    <li><code className="font-mono">GRANT pg_read_all_data TO "user@tenant.com";</code></li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* GCP Cloud SQL auth + private IP */}
+          {srv.db_type === 'postgres' && detectPgPlatform(srv.server).key === 'gcp_cloudsql_name' && (
+            <div className="space-y-3">
+              <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs text-blue-700">
+                <p className="font-semibold text-blue-800 mb-1">GCP Authentication</p>
+                <ul className="list-disc list-inside space-y-0.5 text-blue-600">
+                  <li><strong>GCE / Cloud Run / GKE:</strong> ADC is automatic — no key needed</li>
+                  <li><strong>Dev machine:</strong> <code className="font-mono">gcloud auth application-default login</code></li>
+                  <li><strong>Fallback:</strong> paste SA key below</li>
+                </ul>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => updateServer(srv.id, { show_gcp_sa_key: !srv.show_gcp_sa_key })}
+                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Service Account Key JSON (optional fallback)
+                  <svg className={`h-3.5 w-3.5 ml-0.5 transition-transform ${srv.show_gcp_sa_key ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                {srv.show_gcp_sa_key && (
+                  <textarea
+                    className="mt-2 w-full font-mono text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-earth-600/35 focus:outline-none resize-none"
+                    rows={3}
+                    placeholder={'{\n  "type": "service_account",\n  ...\n}'}
+                    value={srv.gcp_sa_key}
+                    onChange={e => updateServer(srv.id, { gcp_sa_key: e.target.value })}
+                    spellCheck={false}
+                  />
+                )}
+              </div>
+              <Toggle
+                checked={srv.gcp_private_ip}
+                onChange={v => updateServer(srv.id, { gcp_private_ip: v })}
+                label="Use Private IP (VPC)"
+                description="Connect via private IP — SAT must be in the same VPC or VPC-peered network."
+              />
+            </div>
+          )}
+
           {/* Credentials */}
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -718,14 +858,19 @@ function ServerCard({
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Password</label>
+              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                Password{srv.db_type === 'postgres' && srv.azure_managed_identity
+                  ? <span className="text-sky-500 font-normal normal-case ml-1 text-[10px]">(not needed)</span>
+                  : null}
+              </label>
               <div className="relative">
                 <input
                   type={srv.show_password ? 'text' : 'password'}
                   value={srv.password}
                   onChange={e => updateServer(srv.id, { password: e.target.value })}
-                  placeholder="password"
-                  className="w-full text-sm border border-slate-200 rounded-lg pl-3 pr-9 py-2 bg-white focus:ring-1 focus:ring-earth-600/35 focus:outline-none"
+                  placeholder={srv.db_type === 'postgres' && srv.azure_managed_identity ? 'Leave blank' : 'password'}
+                  disabled={srv.db_type === 'postgres' && srv.azure_managed_identity}
+                  className={`w-full text-sm border border-slate-200 rounded-lg pl-3 pr-9 py-2 bg-white focus:ring-1 focus:ring-earth-600/35 focus:outline-none ${srv.db_type === 'postgres' && srv.azure_managed_identity ? 'opacity-40' : ''}`}
                 />
                 <button
                   type="button"

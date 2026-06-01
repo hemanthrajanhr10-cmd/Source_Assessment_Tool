@@ -22,7 +22,55 @@ PostgreSQL platform support matrix:
 """
 
 import re
+import threading
+import time
 from app.models.requests import ConnectionParams
+
+
+# ── Azure Entra ID token cache (Managed Identity / DefaultAzureCredential) ─────
+
+class _AzureTokenCache:
+    """
+    Thread-safe token cache for DefaultAzureCredential.
+
+    Reuses the same credential instance across calls (important — the Azure SDK
+    maintains its own internal token cache keyed to the credential object).
+    Proactively refreshes the token 5 minutes before it expires so connections
+    never fail mid-assessment due to a stale token.
+    """
+
+    _SCOPE = "https://ossrdbms-aad.database.windows.net/.default"
+    _REFRESH_BUFFER_SEC = 300  # refresh when ≤5 min remain
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._credential = None   # lazily initialised; reused for SDK-level caching
+        self._token: str | None = None
+        self._expires_on: float = 0.0  # Unix timestamp from AccessToken.expires_on
+
+    def get_token(self) -> str:
+        with self._lock:
+            now = time.time()
+            if self._token and now < self._expires_on - self._REFRESH_BUFFER_SEC:
+                return self._token
+            # Lazy-init: DefaultAzureCredential tries Managed Identity → env vars →
+            # Workload Identity → Azure CLI → VS Code login → browser, in that order.
+            if self._credential is None:
+                try:
+                    from azure.identity import DefaultAzureCredential
+                    self._credential = DefaultAzureCredential()
+                except ImportError as exc:
+                    raise RuntimeError(
+                        "azure-identity is not installed.\n"
+                        "Run: pip install azure-identity"
+                    ) from exc
+            token_obj = self._credential.get_token(self._SCOPE)
+            self._token = token_obj.token
+            self._expires_on = float(token_obj.expires_on)  # seconds since epoch
+            return self._token
+
+
+_azure_token_cache = _AzureTokenCache()
 
 
 # ── Platform detection ─────────────────────────────────────────────────────────
@@ -85,6 +133,12 @@ _LOCAL_PATTERNS = [
     re.compile(r"^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$"),
     re.compile(r"^192\.168\.\d+\.\d+$"),
 ]
+
+
+def _is_azure_postgres(server: str) -> bool:
+    """True for Azure Database for PostgreSQL (Flexible or Single Server)."""
+    s = server.lower()
+    return s.endswith(".postgres.database.azure.com") or s.endswith(".database.windows.net")
 
 
 def _is_cloud_sql_instance_name(server: str) -> bool:
@@ -157,6 +211,8 @@ def _connect_postgres(params: ConnectionParams):
     Route to the correct PostgreSQL connection strategy based on the server value:
 
       project:region:instance  →  GCP Cloud SQL Python Connector (IAM / ADC)
+      *.postgres.database.azure.com  + azure_managed_identity=True
+                               →  psycopg2 with Entra ID token as password
       *.postgres.database.azure.com, *.rds.amazonaws.com, etc.
                                →  psycopg2, sslmode=require
       localhost / 10.x / 192.168.x / on-prem hostname
@@ -165,15 +221,21 @@ def _connect_postgres(params: ConnectionParams):
     platform = _detect_pg_platform(params.server)
     if platform == "gcp_cloud_sql_connector":
         return _connect_postgres_cloud_sql(params)
-    return _connect_postgres_direct(params, sslmode=_ssl_mode(platform))
+
+    password_override = None
+    if getattr(params, "azure_managed_identity", False) and _is_azure_postgres(params.server):
+        password_override = _azure_token_cache.get_token()
+
+    return _connect_postgres_direct(params, sslmode=_ssl_mode(platform), password_override=password_override)
 
 
-def _connect_postgres_direct(params: ConnectionParams, *, sslmode: str = "prefer"):
+def _connect_postgres_direct(params: ConnectionParams, *, sslmode: str = "prefer", password_override: str | None = None):
     """Standard psycopg2 connection — works for all non-Cloud-SQL platforms."""
     import psycopg2
 
     # Normalize port: if the user left the SQL Server default (1433), use PostgreSQL default.
     port = params.port if params.port != 1433 else 5432
+    password = password_override if password_override is not None else params.password.get_secret_value()
 
     def _build_conn(ssl: str):
         conn = psycopg2.connect(
@@ -181,7 +243,7 @@ def _connect_postgres_direct(params: ConnectionParams, *, sslmode: str = "prefer
             port=port,
             dbname=params.database,
             user=params.username,
-            password=params.password.get_secret_value(),
+            password=password,
             connect_timeout=30,
             sslmode=ssl,
         )
@@ -201,32 +263,24 @@ def _connect_postgres_cloud_sql(params: ConnectionParams):
     """
     Connect to GCP Cloud SQL PostgreSQL via the Cloud SQL Python Connector.
 
-    The `params.server` must be the instance connection name:
-        <project-id>:<region>:<instance-name>
-    e.g. "my-project:us-central1:my-pg-instance"
+    params.server   must be the instance connection name:  project:region:instance
+    params.gcp_private_ip  True → connect over private IP (VPC); False → public IP
 
-    Authentication — one of:
-      1. Paste a service account key JSON into the `gcp_sa_key` field (UI option).
-      2. Set GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account-key.json on
-         the SAT server (the SA needs the 'Cloud SQL Client' IAM role).
-      3. Run `gcloud auth application-default login` on the machine hosting SAT.
-      4. If running on GCE/Cloud Run/GKE the default service account is used
-         automatically — no extra setup needed.
-
-    Alternative: enable a public IP on the Cloud SQL instance, whitelist SAT's
-    outbound IP in Authorised Networks, and enter the public IP in the Server field
-    instead. That bypasses the Connector entirely (standard psycopg2 path).
+    Authentication priority (no SA key required):
+      1. ADC on GCE / Cloud Run / GKE  → attached service account, automatic
+      2. GOOGLE_APPLICATION_CREDENTIALS env var pointing at a key file
+      3. `gcloud auth application-default login` on a developer machine
+      4. Paste SA key JSON into the optional gcp_sa_key field (legacy fallback)
     """
     try:
-        from google.cloud.sql.connector import Connector
+        from google.cloud.sql.connector import Connector, IPTypes
     except ImportError as exc:
         raise RuntimeError(
             "cloud-sql-python-connector is not installed.\n"
             "Run: pip install 'cloud-sql-python-connector[psycopg2]>=1.9.0'"
         ) from exc
 
-    # If the caller supplied a service account key JSON, parse it into credentials
-    # so the Connector can authenticate without needing ADC on the host machine.
+    # SA key is optional — only parse it when explicitly supplied.
     credentials = None
     sa_key = getattr(params, "gcp_sa_key", None)
     if sa_key and sa_key.strip():
@@ -244,8 +298,11 @@ def _connect_postgres_cloud_sql(params: ConnectionParams):
                 "Paste the full JSON content from your downloaded service account key file."
             ) from exc
 
+    ip_type = IPTypes.PRIVATE if getattr(params, "gcp_private_ip", False) else IPTypes.PUBLIC
+
     try:
-        sql_connector = Connector(credentials=credentials)
+        # LAZY refresh avoids a background thread — fine for short-lived assessment connections.
+        sql_connector = Connector(credentials=credentials, refresh_strategy="LAZY")
     except Exception as exc:
         _raise_adc_error(exc)
 
@@ -256,8 +313,19 @@ def _connect_postgres_cloud_sql(params: ConnectionParams):
             user=params.username,
             password=params.password.get_secret_value(),
             db=params.database,
+            ip_type=ip_type,
         )
         conn.autocommit = True
+
+        # Ensure the Connector is closed when the caller closes the connection.
+        _orig_close = conn.close
+        def _close_with_connector():
+            try:
+                _orig_close()
+            finally:
+                sql_connector.close()
+        conn.close = _close_with_connector
+
         return conn
     except Exception as exc:
         sql_connector.close()
@@ -278,13 +346,14 @@ def _raise_adc_error(exc: Exception) -> None:
     )
     if is_cred_error:
         raise RuntimeError(
-            "GCP Cloud SQL requires authentication to establish its secure tunnel.\n"
-            "Option A (easiest — no GCP auth needed): use the instance's public IP address "
-            "in the Server field instead of the instance connection name. "
-            "Enable Public IP in GCP Console → Cloud SQL → Connections → Networking, "
-            "add this server's outbound IP to Authorized Networks, then enter the public IP.\n"
-            "Option B: paste your service account key JSON into the 'Service Account Key' field "
-            "(the SA needs the 'Cloud SQL Client' IAM role)."
+            "GCP Cloud SQL authentication failed.\n"
+            "Option A — ADC (no key file needed): on GCE/Cloud Run/GKE the attached service "
+            "account is used automatically. On a dev machine run: gcloud auth application-default login\n"
+            "Option B — SA key: paste the full service account key JSON into the "
+            "'Service Account Key' field (the SA needs the 'Cloud SQL Client' IAM role).\n"
+            "Option C — bypass the Connector: enable a public IP on the Cloud SQL instance, "
+            "whitelist SAT's outbound IP in Authorized Networks, and enter the public IP "
+            "directly in the Server field."
         ) from exc
     raise exc
 

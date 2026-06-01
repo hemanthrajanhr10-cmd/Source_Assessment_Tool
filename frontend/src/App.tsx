@@ -22,10 +22,13 @@ const SapSessionDetailPage       = lazy(() => import('./pages/SapSessionDetailPa
 const SageIntacctAssessmentPage  = lazy(() => import('./pages/SageIntacctAssessmentPage'))
 const SageIntacctSessionsPage    = lazy(() => import('./pages/SageIntacctSessionsPage'))
 const SageIntacctSessionDetailPage = lazy(() => import('./pages/SageIntacctSessionDetailPage'))
-const TableauAssessmentPage      = lazy(() => import('./pages/TableauAssessmentPage'))
-const TableauSessionsPage        = lazy(() => import('./pages/TableauSessionsPage'))
-const TableauSessionDetailPage   = lazy(() => import('./pages/TableauSessionDetailPage'))
-const LoginPage                  = lazy(() => import('./pages/LoginPage'))
+const TableauAssessmentPage        = lazy(() => import('./pages/TableauAssessmentPage'))
+const TableauSessionsPage          = lazy(() => import('./pages/TableauSessionsPage'))
+const TableauSessionDetailPage     = lazy(() => import('./pages/TableauSessionDetailPage'))
+const SnowflakeAssessmentPage      = lazy(() => import('./pages/SnowflakeAssessmentPage'))
+const SnowflakeSessionsPage        = lazy(() => import('./pages/SnowflakeSessionsPage'))
+const SnowflakeSessionDetailPage   = lazy(() => import('./pages/SnowflakeSessionDetailPage'))
+const LoginPage                    = lazy(() => import('./pages/LoginPage'))
 const RegisterPage               = lazy(() => import('./pages/RegisterPage'))
 const MFASetupPage               = lazy(() => import('./pages/MFASetupPage'))
 const OAuthCallbackPage          = lazy(() => import('./pages/OAuthCallbackPage'))
@@ -96,6 +99,9 @@ function AppRoutes() {
                     <Route path="/tableau/new" element={<TableauAssessmentPage />} />
                     <Route path="/tableau/sessions" element={<TableauSessionsPage />} />
                     <Route path="/tableau/sessions/:jobId" element={<TableauSessionDetailPage />} />
+                    <Route path="/snowflake/new" element={<SnowflakeAssessmentPage />} />
+                    <Route path="/snowflake/sessions" element={<SnowflakeSessionsPage />} />
+                    <Route path="/snowflake/sessions/:jobId" element={<SnowflakeSessionDetailPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

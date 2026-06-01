@@ -606,6 +606,8 @@ export interface ServerTarget {
   gateway_key?: string
   access_level?: AccessLevel
   gcp_sa_key?: string
+  gcp_private_ip?: boolean
+  azure_managed_identity?: boolean
 }
 
 export interface SessionRequest {
@@ -1303,4 +1305,240 @@ export interface TableauSessionRecord {
   completed_at?: string
   error?: string
   results?: TableauAssessmentResult
+}
+
+// ── Snowflake ─────────────────────────────────────────────────────────────────
+
+export interface SnowflakeCredentials {
+  account: string
+  username?: string
+  role?: string
+  warehouse?: string
+  database?: string
+}
+
+export interface SnowflakeAuthRequest {
+  credentials: SnowflakeCredentials
+}
+
+export interface SnowflakeAuthResponse {
+  auth_id: string
+  status: string
+  message: string
+}
+
+export interface SnowflakeAuthStatusResponse {
+  auth_id: string
+  status: 'pending' | 'authenticated' | 'failed'
+  account?: string
+  current_user?: string
+  current_role?: string
+  error?: string
+}
+
+export interface SnowflakeAssessmentRequest {
+  auth_id: string
+  label?: string
+  include_query_history?: boolean
+  include_storage_usage?: boolean
+  include_warehouse_metering?: boolean
+  max_databases?: number
+}
+
+export interface SnowflakeAccountInfo {
+  account_name: string
+  organization_name?: string
+  account_locator?: string
+  cloud_provider?: string
+  region?: string
+  edition?: string
+  snowflake_version?: string
+  current_role?: string
+  current_warehouse?: string
+  current_user?: string
+}
+
+export interface SnowflakeWarehouse {
+  name: string
+  state: string
+  wh_type: string
+  size: string
+  auto_suspend: number
+  auto_resume: boolean
+  cluster_count?: number
+  max_cluster_count?: number
+  running: number
+  queued: number
+  is_default: boolean
+  owner?: string
+  comment?: string
+  scaling_policy?: string
+}
+
+export interface SnowflakeWarehouseMetrics {
+  total_warehouses: number
+  active_warehouses: number
+  suspended_warehouses: number
+  warehouses_by_size: Record<string, number>
+  multi_cluster_warehouses: number
+}
+
+export interface SnowflakeDatabase {
+  name: string
+  origin?: string
+  owner?: string
+  comment?: string
+  retention_time: number
+  created_on?: string
+  is_default: boolean
+  is_transient: boolean
+}
+
+export interface SnowflakeSchema {
+  database_name: string
+  name: string
+  owner?: string
+  retention_time: number
+  comment?: string
+  is_managed_access: boolean
+  is_transient: boolean
+}
+
+export interface SnowflakeTable {
+  database_name: string
+  schema_name: string
+  name: string
+  table_type: string
+  row_count?: number
+  bytes?: number
+  clustering_key?: string
+  is_transient: boolean
+  retention_time: number
+  created?: string
+  last_altered?: string
+}
+
+export interface SnowflakeDatabaseSummary {
+  total_databases: number
+  total_schemas: number
+  total_tables: number
+  total_views: number
+  total_external_tables: number
+  total_materialized_views: number
+  total_size_bytes: number
+}
+
+export interface SnowflakeObjectInventory {
+  stages: number
+  pipes: number
+  tasks: number
+  streams: number
+  procedures: number
+  functions: number
+  sequences: number
+  file_formats: number
+  dynamic_tables: number
+  shares_outbound: number
+  shares_inbound: number
+  resource_monitors: number
+  network_policies: number
+  masking_policies: number
+  row_access_policies: number
+}
+
+export interface SnowflakeUserProfile {
+  total_users: number
+  disabled_users: number
+  users_without_mfa: number
+  admin_users: number
+  service_accounts: number
+  total_roles: number
+  custom_roles: number
+  system_roles: number
+}
+
+export interface SnowflakeSecurityPosture {
+  network_policies_count: number
+  users_without_mfa: number
+  users_with_default_role_public: number
+  masking_policies_count: number
+  row_access_policies_count: number
+  shares_total: number
+  resource_monitors_count: number
+}
+
+export interface SnowflakeQueryMetrics {
+  total_queries_last_7d: number
+  failed_queries_last_7d: number
+  avg_execution_ms: number
+  p95_execution_ms: number
+  bytes_scanned_total: number
+  bytes_spilled_local: number
+  bytes_spilled_remote: number
+  most_expensive_queries: Record<string, unknown>[]
+  query_error_types: Record<string, number>
+}
+
+export interface SnowflakeStorageMetrics {
+  storage_bytes: number
+  stage_bytes: number
+  failsafe_bytes: number
+  total_bytes: number
+}
+
+export interface SnowflakeCostMetrics {
+  credits_used_last_30d: number
+  compute_credits: number
+  cloud_services_credits: number
+  top_warehouses_by_credit: { name: string; credits: number }[]
+}
+
+export interface SnowflakeAssessmentResult {
+  job_id: string
+  label?: string
+  assessed_at: string
+  status: 'completed' | 'failed'
+  error?: string
+  account_info?: SnowflakeAccountInfo
+  warehouse_metrics?: SnowflakeWarehouseMetrics
+  database_summary?: SnowflakeDatabaseSummary
+  object_inventory?: SnowflakeObjectInventory
+  user_profile?: SnowflakeUserProfile
+  security_posture?: SnowflakeSecurityPosture
+  query_metrics?: SnowflakeQueryMetrics
+  storage_metrics?: SnowflakeStorageMetrics
+  cost_metrics?: SnowflakeCostMetrics
+  warehouses?: SnowflakeWarehouse[]
+  databases?: SnowflakeDatabase[]
+  schemas?: SnowflakeSchema[]
+  tables?: SnowflakeTable[]
+  users?: Record<string, unknown>[]
+  roles?: Record<string, unknown>[]
+}
+
+export interface SnowflakeJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface SnowflakeJobStatusResponse {
+  job_id: string
+  status: string
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+}
+
+export interface SnowflakeSessionRecord {
+  job_id: string
+  label?: string
+  status: string
+  account?: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: SnowflakeAssessmentResult
 }

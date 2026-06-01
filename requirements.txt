@@ -81,6 +81,9 @@ openai>=1.30.0
 # Tableau REST API client
 tableauserverclient>=0.30
 
+# Snowflake connector (externalbrowser OAuth + queries)
+snowflake-connector-python>=3.10.0
+
 # Misc
 annotated-doc==0.0.4
 annotated-types==0.7.0

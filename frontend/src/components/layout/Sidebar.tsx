@@ -113,6 +113,23 @@ const NAV_GROUPS = [
       { to: '/tableau/sessions', label: 'Assessments',    icon: BarChart3  },
     ],
   },
+  {
+    label: 'Snowflake',
+    element: 'snowflake',
+    dotGradient:      'linear-gradient(135deg, #0099CC, #00D4FF)',
+    activeBg:         'rgba(0,184,230,0.09)',
+    activeText:       '#006B99',
+    activeBorder:     'rgba(0,212,255,0.40)',
+    activeIconColor:  '#00B8E6',
+    activeDotGlow:    'rgba(0,212,255,0.50)',
+    hoverBg:          'rgba(0,184,230,0.07)',
+    hoverText:        '#006B99',
+    hoverIconColor:   '#00B8E6',
+    items: [
+      { to: '/snowflake/new',      label: 'New Assessment', icon: PlusCircle },
+      { to: '/snowflake/sessions', label: 'Assessments',    icon: BarChart3  },
+    ],
+  },
 ]
 
 interface SidebarProps {

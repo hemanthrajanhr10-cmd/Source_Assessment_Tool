@@ -24,6 +24,7 @@ from app.api.v1.routes.unified_sessions import router as unified_sessions_router
 from app.api.v1.routes.sap import router as sap_router
 from app.api.v1.routes.sage_intacct import router as sage_intacct_router
 from app.api.v1.routes.tableau import router as tableau_router
+from app.api.v1.routes.snowflake import router as snowflake_router
 from app.config import settings
 from app.core.logging import get_logger
 from app.db import azure_store
@@ -121,6 +122,7 @@ app.include_router(user_connections_router, prefix="/api/v1/user-connections", t
 app.include_router(sap_router, tags=["SAP"])
 app.include_router(sage_intacct_router, tags=["Sage Intacct"])
 app.include_router(tableau_router, tags=["Tableau"])
+app.include_router(snowflake_router, tags=["Snowflake"])
 
 
 @app.get("/health", tags=["Health"])

@@ -51,12 +51,12 @@ function detectPgPlatform(server: string): PgPlatform {
     return {
       key: 'gcp_cloudsql_name',
       label: 'GCP Cloud SQL',
-      note: 'To connect with username/password only: use the instance\'s public IP instead. Or paste a Service Account Key JSON below.',
+      note: 'Uses the Cloud SQL Connector. No SA key needed on GCE/Cloud Run/GKE — ADC is automatic.',
       badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
     }
   }
-  if (s.endsWith('.postgres.database.azure.com'))
-    return { key: 'azure', label: 'Azure PostgreSQL', note: 'SSL required — handled automatically.', badge: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200' }
+  if (s.endsWith('.postgres.database.azure.com') || s.endsWith('.database.windows.net'))
+    return { key: 'azure', label: 'Azure PostgreSQL', note: 'SSL required — handled automatically. Managed Identity option available below.', badge: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200' }
   if (s.includes('.rds.amazonaws.com'))
     return { key: 'aws', label: 'AWS RDS / Aurora', note: 'SSL required — handled automatically.', badge: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200' }
   if (s.endsWith('.alloydb.goog') || s.endsWith('.alloydb-dev.goog'))
@@ -146,6 +146,8 @@ interface ServerEntry {
   gateway_key: string | null   // set when a Hybrid Connection is selected
   gcp_sa_key: string           // GCP service account key JSON for Cloud SQL auth
   show_gcp_sa_key: boolean
+  gcp_private_ip: boolean
+  azure_managed_identity: boolean
   connectivity: null | { reachable: boolean; latency_ms: number | null }
   connectivity_loading: boolean
   available_dbs: DatabaseInfo[] | null
@@ -279,6 +281,8 @@ function makeServer(): ServerEntry {
     gateway_key: null,
     gcp_sa_key: '',
     show_gcp_sa_key: false,
+    gcp_private_ip: false,
+    azure_managed_identity: false,
     connectivity: null,
     connectivity_loading: false,
     available_dbs: null,
@@ -360,6 +364,8 @@ function ServerCard({
         trust_server_certificate: entry.trust_server_certificate,
         encrypt: entry.encrypt,
         gcp_sa_key: entry.gcp_sa_key || undefined,
+        gcp_private_ip: entry.gcp_private_ip || undefined,
+        azure_managed_identity: entry.azure_managed_identity || undefined,
       })
       set({ available_dbs: data, dbs_loading: false })
     } catch (err) {
@@ -546,41 +552,84 @@ function ServerCard({
               <PgPlatformHint server={entry.server} />
             )}
 
-            {/* GCP Cloud SQL — Service Account Key (collapsible) */}
-            {entry.db_type === 'postgres' && detectPgPlatform(entry.server).key === 'gcp_cloudsql_name' && (
-              <div className="sm:col-span-2">
-                <button
-                  type="button"
-                  onClick={() => set({ show_gcp_sa_key: !entry.show_gcp_sa_key })}
-                  className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Service Account Key JSON
-                  <span className="text-slate-400 font-normal ml-0.5">(optional)</span>
-                  <svg
-                    className={`h-3.5 w-3.5 ml-0.5 transition-transform ${entry.show_gcp_sa_key ? 'rotate-180' : ''}`}
-                    viewBox="0 0 20 20" fill="currentColor"
-                  >
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-                  </svg>
-                </button>
-                {entry.show_gcp_sa_key && (
-                  <div className="mt-2">
-                    <textarea
-                      className="form-input font-mono text-xs resize-none leading-relaxed"
-                      rows={4}
-                      placeholder={'{\n  "type": "service_account",\n  "project_id": "...",\n  ...\n}'}
-                      value={entry.gcp_sa_key}
-                      onChange={(e) => set({ gcp_sa_key: e.target.value, available_dbs: null })}
-                      spellCheck={false}
-                      autoComplete="off"
-                    />
-                    <p className="mt-1 text-xs text-slate-400">
-                      Paste the full JSON content of your downloaded SA key file. The service account needs the{' '}
-                      <strong className="text-slate-500">Cloud SQL Client</strong> IAM role.
-                    </p>
+            {/* Azure PostgreSQL — Managed Identity toggle */}
+            {entry.db_type === 'postgres' && detectPgPlatform(entry.server).key === 'azure' && (
+              <div className="sm:col-span-2 space-y-2">
+                <Toggle
+                  checked={entry.azure_managed_identity}
+                  onChange={(v) => set({ azure_managed_identity: v })}
+                  label="Use Azure Managed Identity"
+                  description="Authenticate via Microsoft Entra ID (no password needed). The SAT host must have a Managed Identity, or run az login on dev machines."
+                />
+                {entry.azure_managed_identity && (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-700 space-y-1">
+                    <p className="font-semibold text-sky-800">Required on the Azure PostgreSQL side:</p>
+                    <ol className="list-decimal list-inside space-y-0.5 text-sky-600">
+                      <li>Enable <strong>Microsoft Entra authentication</strong> on the Flexible Server (Portal → Authentication)</li>
+                      <li>Create the Entra principal in PG: <code className="font-mono">SELECT pgaadauth_create_principal('user@tenant.com', false, false);</code></li>
+                      <li>Grant read access: <code className="font-mono">GRANT pg_read_all_data TO "user@tenant.com";</code></li>
+                    </ol>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* GCP Cloud SQL — Auth options + Private IP */}
+            {entry.db_type === 'postgres' && detectPgPlatform(entry.server).key === 'gcp_cloudsql_name' && (
+              <div className="sm:col-span-2 space-y-3">
+                {/* ADC info banner */}
+                <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs text-blue-700">
+                  <p className="font-semibold text-blue-800 mb-1">Authentication — no key file needed in most cases</p>
+                  <ul className="space-y-0.5 text-blue-600 list-disc list-inside">
+                    <li><strong>GCE / Cloud Run / GKE:</strong> attached service account is used automatically</li>
+                    <li><strong>Dev machine:</strong> run <code className="font-mono">gcloud auth application-default login</code></li>
+                    <li><strong>Fallback:</strong> paste an SA key JSON below</li>
+                  </ul>
+                </div>
+
+                {/* SA Key (collapsible, optional fallback) */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => set({ show_gcp_sa_key: !entry.show_gcp_sa_key })}
+                    className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Service Account Key JSON
+                    <span className="text-slate-400 font-normal ml-0.5">(optional fallback)</span>
+                    <svg
+                      className={`h-3.5 w-3.5 ml-0.5 transition-transform ${entry.show_gcp_sa_key ? 'rotate-180' : ''}`}
+                      viewBox="0 0 20 20" fill="currentColor"
+                    >
+                      <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  {entry.show_gcp_sa_key && (
+                    <div className="mt-2">
+                      <textarea
+                        className="form-input font-mono text-xs resize-none leading-relaxed"
+                        rows={4}
+                        placeholder={'{\n  "type": "service_account",\n  "project_id": "...",\n  ...\n}'}
+                        value={entry.gcp_sa_key}
+                        onChange={(e) => set({ gcp_sa_key: e.target.value, available_dbs: null })}
+                        spellCheck={false}
+                        autoComplete="off"
+                      />
+                      <p className="mt-1 text-xs text-slate-400">
+                        Paste the full JSON of your SA key file. The SA needs the{' '}
+                        <strong className="text-slate-500">Cloud SQL Client</strong> IAM role.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Private IP toggle */}
+                <Toggle
+                  checked={entry.gcp_private_ip}
+                  onChange={(v) => set({ gcp_private_ip: v })}
+                  label="Use Private IP (VPC)"
+                  description="Connect via private IP — SAT must be in the same VPC or a VPC-peered network."
+                />
               </div>
             )}
 
@@ -603,16 +652,23 @@ function ServerCard({
 
             {/* Password */}
             <div>
-              <label className="form-label">Password <span className="text-red-500">*</span></label>
+              <label className="form-label">
+                Password{' '}
+                {entry.db_type === 'postgres' && entry.azure_managed_identity
+                  ? <span className="text-sky-500 font-normal text-xs">(not needed — Managed Identity)</span>
+                  : <span className="text-red-500">*</span>
+                }
+              </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 <input
                   type={entry.show_password ? 'text' : 'password'}
-                  className="form-input pl-10 pr-10"
-                  placeholder="••••••••"
+                  className={`form-input pl-10 pr-10 ${entry.db_type === 'postgres' && entry.azure_managed_identity ? 'opacity-40' : ''}`}
+                  placeholder={entry.db_type === 'postgres' && entry.azure_managed_identity ? 'Leave blank' : '••••••••'}
                   value={entry.password}
                   onChange={(e) => set({ password: e.target.value })}
                   autoComplete="current-password"
+                  disabled={entry.db_type === 'postgres' && entry.azure_managed_identity}
                 />
                 <button
                   type="button"
@@ -745,26 +801,30 @@ function ServerCard({
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-2 animate-slide-down">
                     <p className="text-xs font-semibold text-amber-900 flex items-center gap-1.5">
                       <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                      GCP Cloud SQL requires authentication to establish a secure tunnel
-                    </p>
-                    <p className="text-xs text-amber-800">
-                      Choose the option that works for your setup:
+                      GCP authentication failed — choose one of the options below
                     </p>
                     <div className="space-y-2">
                       <div className="rounded-lg border border-amber-200 bg-white px-3 py-2.5">
-                        <p className="text-xs font-semibold text-slate-800">Option A — Use the public IP (no GCP auth needed)</p>
+                        <p className="text-xs font-semibold text-slate-800">Option A — Application Default Credentials (recommended)</p>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          In GCP Console → Cloud SQL → your instance → <strong>Connections → Networking</strong>:{' '}
-                          enable <strong>Public IP</strong>, add this server's outbound IP to <strong>Authorized Networks</strong>,
-                          then paste the public IP into the Server field above.
+                          On <strong>GCE / Cloud Run / GKE</strong>: the attached service account is used automatically — nothing to do.{' '}
+                          On a <strong>dev machine</strong>: run <code className="font-mono">gcloud auth application-default login</code> once.
+                          The SA / user needs the <strong>Cloud SQL Client</strong> IAM role.
                         </p>
                       </div>
                       <div className="rounded-lg border border-amber-200 bg-white px-3 py-2.5">
                         <p className="text-xs font-semibold text-slate-800">Option B — Paste a Service Account Key JSON (above)</p>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          In GCP Console → IAM → Service Accounts: create or select an SA with the{' '}
-                          <strong>Cloud SQL Client</strong> role, download its JSON key, and paste it into
-                          the <strong>Service Account Key JSON</strong> field above.
+                          GCP Console → IAM → Service Accounts: create an SA with the{' '}
+                          <strong>Cloud SQL Client</strong> role, download its JSON key, and paste it into the{' '}
+                          <strong>Service Account Key JSON</strong> field above.
+                        </p>
+                      </div>
+                      <div className="rounded-lg border border-amber-200 bg-white px-3 py-2.5">
+                        <p className="text-xs font-semibold text-slate-800">Option C — Use the public IP (bypass the Connector)</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          GCP Console → Cloud SQL → your instance → <strong>Connections → Networking</strong>: enable <strong>Public IP</strong>,
+                          add this server's outbound IP to <strong>Authorized Networks</strong>, then paste the public IP into the Server field.
                         </p>
                       </div>
                     </div>
@@ -894,7 +954,8 @@ export default function NewAssessmentPage() {
         return
       }
       if (!srv.username.trim()) { setError(`Server "${srv.server}": username is required.`); return }
-      if (!srv.password) { setError(`Server "${srv.server}": password is required.`); return }
+      const msiActive = srv.db_type === 'postgres' && srv.azure_managed_identity
+      if (!srv.password && !msiActive) { setError(`Server "${srv.server}": password is required.`); return }
       if (srv.selected_dbs.length === 0) {
         setError(`Server "${srv.server}": no databases selected. Click "Browse Databases" and select at least one.`)
         return
@@ -922,6 +983,8 @@ export default function NewAssessmentPage() {
           gateway_key: srv.gateway_key ?? undefined,
           access_level: srv.db_type === 'mssql' ? srv.access_level : undefined,
           gcp_sa_key: srv.gcp_sa_key || undefined,
+          gcp_private_ip: srv.gcp_private_ip || undefined,
+          azure_managed_identity: srv.azure_managed_identity || undefined,
           databases: srv.selected_dbs.map((db) => ({
             name: db.name,
             include_null_analysis: db.include_null_analysis,

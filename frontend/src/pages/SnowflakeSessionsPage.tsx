@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Snowflake, PlusCircle, CheckCircle2, XCircle,
   Loader2, Clock, ChevronRight, Database,
-  BarChart3, AlertTriangle,
+  AlertTriangle,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { SnowflakeSessionRecord } from '../types/api'
@@ -56,9 +56,9 @@ export default function SnowflakeSessionsPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.get<SnowflakeSessionRecord[]>('/api/v1/snowflake/sessions')
+    api.snowflakeListSessions()
       .then((r) => setSessions(r.data))
-      .catch((e) => setError(getApiErrorMessage(e)))
+      .catch((e: unknown) => setError(getApiErrorMessage(e)))
       .finally(() => setLoading(false))
   }, [])
 

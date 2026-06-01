@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Database, Globe, User, Shield, Layers,
   CheckCircle2, AlertCircle, Loader2, ArrowRight,
-  Tag, Settings2, Snowflake, RefreshCw, Key,
+  Tag, Settings2, Snowflake, RefreshCw,
   ChevronDown, ChevronUp, Zap, BarChart3,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
@@ -221,14 +221,14 @@ export default function SnowflakeAssessmentPage() {
           database: database.trim() || undefined,
         },
       }
-      const res = await api.post('/api/v1/snowflake/init-auth', req)
+      const res = await api.snowflakeInitAuth(req)
       const newAuthId: string = res.data.auth_id
       setAuthId(newAuthId)
 
       // Start polling
       pollRef.current = setInterval(async () => {
         try {
-          const status = await api.get<SnowflakeAuthStatusResponse>(`/api/v1/snowflake/auth-status/${newAuthId}`)
+          const status = await api.snowflakeAuthStatus(newAuthId)
           const s = status.data
           if (s.status === 'authenticated') {
             clearInterval(pollRef.current!)
@@ -274,7 +274,7 @@ export default function SnowflakeAssessmentPage() {
         include_warehouse_metering: includeWarehouseMetering,
         max_databases: parseInt(maxDatabases, 10) || 10,
       }
-      const res = await api.post('/api/v1/snowflake/assess', req)
+      const res = await api.snowflakeAssess(req)
       navigate(`/snowflake/sessions/${res.data.job_id}`)
     } catch (err) {
       setSubmitError(getApiErrorMessage(err))

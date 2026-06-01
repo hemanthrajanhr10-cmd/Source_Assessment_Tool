@@ -114,7 +114,6 @@ function AssessmentTerminal({ status, progressMessage, error }: {
           {STEPS.map((step, i) => {
             const isDone = status === 'completed' || i < completed
             const isCurrent = status === 'running' && i === completed
-            const isFuture = !isDone && !isCurrent
             return (
               <div key={step} className="flex items-center gap-2.5 py-0.5">
                 <div
@@ -558,10 +557,10 @@ export default function SnowflakeSessionDetailPage() {
   const fetchStatus = useCallback(async () => {
     if (!jobId) return
     try {
-      const r = await api.get<SnowflakeJobStatusResponse>(`/api/v1/snowflake/jobs/${jobId}/status`)
+      const r = await api.snowflakeJobStatus(jobId)
       setJobStatus(r.data)
       if (r.data.status === 'completed' && !result) {
-        const res = await api.get<SnowflakeAssessmentResult>(`/api/v1/snowflake/jobs/${jobId}/results`)
+        const res = await api.snowflakeJobResults(jobId)
         setResult(res.data)
       }
       if (r.data.status === 'completed' || r.data.status === 'failed') {
@@ -583,18 +582,11 @@ export default function SnowflakeSessionDetailPage() {
     if (!jobId) return
     setDownloading(type)
     try {
-      const url = type === 'excel'
-        ? `/api/v1/snowflake/jobs/${jobId}/report`
-        : `/api/v1/snowflake/jobs/${jobId}/word-report`
-      const r = await api.get(url, { responseType: 'blob' })
-      const href = URL.createObjectURL(r.data)
-      const a = document.createElement('a')
-      a.href = href
-      a.download = type === 'excel'
-        ? `snowflake_assessment_${jobId?.slice(0, 8)}.xlsx`
-        : `snowflake_assessment_${jobId?.slice(0, 8)}.docx`
-      a.click()
-      URL.revokeObjectURL(href)
+      if (type === 'excel') {
+        await api.snowflakeDownloadExcel(jobId)
+      } else {
+        await api.snowflakeDownloadWord(jobId)
+      }
     } catch {
       // non-fatal
     } finally {

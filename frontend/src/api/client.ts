@@ -34,6 +34,12 @@ import type {
   TableauAssessmentResult,
   TableauJobResponse,
   TableauSessionRecord,
+  SnowflakeAuthRequest,
+  SnowflakeAuthStatusResponse,
+  SnowflakeAssessmentRequest,
+  SnowflakeAssessmentResult,
+  SnowflakeJobStatusResponse,
+  SnowflakeSessionRecord,
   SessionRequest,
   SessionStatusResponse,
   SetupMFAResponse,
@@ -172,7 +178,7 @@ export const api = {
     db_type?: string; server: string; port: number; database: string
     username: string; password: string
     trust_server_certificate: boolean; encrypt: boolean
-    gcp_sa_key?: string
+    gcp_sa_key?: string; gcp_private_ip?: string; azure_managed_identity?: boolean
   }) =>
     http.post<DatabaseInfo[]>('/api/v1/list-databases', { connection }),
 
@@ -403,6 +409,45 @@ export const api = {
     const a = document.createElement('a')
     a.href = url
     a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  // ── Snowflake Assessments ─────────────────────────────────────────────────
+  snowflakeInitAuth: (data: SnowflakeAuthRequest) =>
+    http.post<{ auth_id: string }>('/api/v1/snowflake/init-auth', data),
+
+  snowflakeAuthStatus: (authId: string) =>
+    http.get<SnowflakeAuthStatusResponse>(`/api/v1/snowflake/auth-status/${authId}`),
+
+  snowflakeAssess: (data: SnowflakeAssessmentRequest) =>
+    http.post<{ job_id: string; status: string }>('/api/v1/snowflake/assess', data),
+
+  snowflakeJobStatus: (jobId: string) =>
+    http.get<SnowflakeJobStatusResponse>(`/api/v1/snowflake/jobs/${jobId}/status`),
+
+  snowflakeJobResults: (jobId: string) =>
+    http.get<SnowflakeAssessmentResult>(`/api/v1/snowflake/jobs/${jobId}/results`),
+
+  snowflakeListSessions: () =>
+    http.get<SnowflakeSessionRecord[]>('/api/v1/snowflake/sessions'),
+
+  snowflakeDownloadExcel: async (jobId: string) => {
+    const res = await http.get(`/api/v1/snowflake/jobs/${jobId}/report`, { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `snowflake_assessment_${jobId.slice(0, 8)}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  snowflakeDownloadWord: async (jobId: string) => {
+    const res = await http.get(`/api/v1/snowflake/jobs/${jobId}/word-report`, { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `snowflake_assessment_${jobId.slice(0, 8)}.docx`
     a.click()
     URL.revokeObjectURL(url)
   },

@@ -15,20 +15,20 @@ import type {
 } from '../types/api'
 
 const T = {
-  primary:    '#742774',
-  mid:        '#8B3A8B',
-  accent:     '#C084FC',
-  dark:       '#1A0726',
-  surface:    '#FAF5FF',
-  light50:    '#F5F0FF',
-  light100:   '#EDE9FE',
-  light200:   '#DDD6FE',
-  text:       '#3B1F4E',
-  textMid:    '#6B21A8',
-  glow:       'rgba(116,39,116,0.15)',
-  gradHero:   'linear-gradient(135deg, #1A0726 0%, #2D1040 50%, #3B1555 100%)',
-  gradBtn:    'linear-gradient(135deg, #742774 0%, #8B3A8B 100%)',
-  shadowCard: '0 1px 3px rgba(116,39,116,0.06), 0 4px 16px rgba(116,39,116,0.07)',
+  primary:    '#0E7490',
+  mid:        '#0891B2',
+  accent:     '#22D3EE',
+  dark:       '#0C1A2E',
+  surface:    '#F0FDFE',
+  light50:    '#ECFEFF',
+  light100:   '#CFFAFE',
+  light200:   '#A5F3FC',
+  text:       '#0C4A6E',
+  textMid:    '#0369A1',
+  glow:       'rgba(14,116,144,0.15)',
+  gradHero:   'linear-gradient(135deg, #0C1A2E 0%, #0F2C45 50%, #103755 100%)',
+  gradBtn:    'linear-gradient(135deg, #0E7490 0%, #0891B2 100%)',
+  shadowCard: '0 1px 3px rgba(14,116,144,0.06), 0 4px 16px rgba(14,116,144,0.07)',
 }
 
 // ── Risk & Status visual helpers ──────────────────────────────────────────────
@@ -186,7 +186,7 @@ function DomainCard({ summary, checks, defaultOpen }: { summary: DataverseDomain
                   padding: '13px 20px',
                   borderBottom: i < checks.length - 1 ? `1px solid ${T.light50}` : 'none',
                   display: 'flex', alignItems: 'flex-start', gap: '12px',
-                  background: i % 2 === 0 ? '#fff' : '#fdfbff',
+                  background: i % 2 === 0 ? '#fff' : '#f0fdfe',
                 }}
               >
                 {/* Status icon */}
@@ -216,7 +216,7 @@ function DomainCard({ summary, checks, defaultOpen }: { summary: DataverseDomain
                   {c.recommendation && (
                     <div style={{
                       marginTop: '6px', padding: '6px 10px', borderRadius: '7px',
-                      background: 'rgba(116,39,116,0.05)', border: `1px solid ${T.light200}`,
+                      background: 'rgba(14,116,144,0.05)', border: `1px solid ${T.light200}`,
                       display: 'flex', gap: '6px', alignItems: 'flex-start',
                     }}>
                       <AlertTriangle style={{ width: '11px', height: '11px', color: T.primary, flexShrink: 0, marginTop: '2px' }} />
@@ -267,7 +267,7 @@ function ProgressTerminal({ jobStatus }: { jobStatus: DataverseJobStatusResponse
             <div key={c} style={{ width: '11px', height: '11px', borderRadius: '50%', background: c, opacity: 0.85 }} />
           ))}
         </div>
-        <p style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(233,213,255,0.80)', margin: 0 }}>
+        <p style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(207,250,254,0.80)', margin: 0 }}>
           Dataverse Assessment Terminal
         </p>
         <Loader2 style={{ width: '13px', height: '13px', color: T.accent, marginLeft: 'auto', animation: 'spin 1s linear infinite' }} />
@@ -296,12 +296,12 @@ function ProgressTerminal({ jobStatus }: { jobStatus: DataverseJobStatusResponse
       }}>
         {jobStatus.progress_message && (
           <p style={{ color: T.accent, margin: 0 }}>
-            <span style={{ color: 'rgba(192,132,252,0.55)' }}>{'> '}</span>
+            <span style={{ color: 'rgba(34,211,238,0.55)' }}>{'> '}</span>
             {jobStatus.progress_message}
             <span style={{ animation: 'blink 1s step-end infinite', color: T.accent }}>▊</span>
           </p>
         )}
-        <p style={{ color: 'rgba(192,132,252,0.45)', margin: '6px 0 0', fontSize: '11px' }}>
+        <p style={{ color: 'rgba(34,211,238,0.45)', margin: '6px 0 0', fontSize: '11px' }}>
           Step {prog}/{total} · Scanning {jobStatus.label || 'environment'}…
         </p>
       </div>
@@ -392,14 +392,14 @@ export default function DataverseSessionDetailPage() {
     <div style={{ minHeight: '100vh', background: T.surface }}>
       {/* Hero */}
       <div style={{ background: T.gradHero, padding: '24px 32px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(192,132,252,0.07)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(34,211,238,0.07)', pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => navigate('/dataverse/sessions')}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px',
-              fontSize: '12px', fontWeight: 600, color: 'rgba(233,213,255,0.70)',
+              fontSize: '12px', fontWeight: 600, color: 'rgba(207,250,254,0.70)',
               background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: '14px',
             }}
           >
@@ -428,7 +428,7 @@ export default function DataverseSessionDetailPage() {
               ) : (
                 <div style={{
                   width: '48px', height: '48px', borderRadius: '14px', flexShrink: 0,
-                  background: 'rgba(192,132,252,0.20)', border: '1px solid rgba(192,132,252,0.25)',
+                  background: 'rgba(34,211,238,0.20)', border: '1px solid rgba(34,211,238,0.25)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {isRunning
@@ -443,12 +443,12 @@ export default function DataverseSessionDetailPage() {
                   {jobStatus?.label || result?.environment_url || 'Dataverse Assessment'}
                 </h1>
                 {result?.organization_name && (
-                  <p style={{ color: 'rgba(192,132,252,0.80)', fontSize: '12.5px', margin: '3px 0 0' }}>
+                  <p style={{ color: 'rgba(34,211,238,0.80)', fontSize: '12.5px', margin: '3px 0 0' }}>
                     {result.organization_name} · {result.environment_url}
                   </p>
                 )}
                 {result?.organization_version && (
-                  <p style={{ color: 'rgba(192,132,252,0.55)', fontSize: '11.5px', margin: '2px 0 0' }}>
+                  <p style={{ color: 'rgba(34,211,238,0.55)', fontSize: '11.5px', margin: '2px 0 0' }}>
                     Version {result.organization_version}
                     {result.duration_seconds != null && ` · Completed in ${result.duration_seconds}s`}
                   </p>
@@ -465,8 +465,8 @@ export default function DataverseSessionDetailPage() {
                   ? 'rgba(5,150,105,0.20)'
                   : jobStatus.status === 'failed'
                   ? 'rgba(220,38,38,0.20)'
-                  : 'rgba(192,132,252,0.20)',
-                border: `1px solid ${jobStatus.status === 'completed' ? 'rgba(5,150,105,0.30)' : jobStatus.status === 'failed' ? 'rgba(220,38,38,0.30)' : 'rgba(192,132,252,0.30)'}`,
+                  : 'rgba(34,211,238,0.20)',
+                border: `1px solid ${jobStatus.status === 'completed' ? 'rgba(5,150,105,0.30)' : jobStatus.status === 'failed' ? 'rgba(220,38,38,0.30)' : 'rgba(34,211,238,0.30)'}`,
               }}>
                 {jobStatus.status === 'completed'
                   ? <CheckCircle style={{ width: '14px', height: '14px', color: '#6ee7b7' }} />
@@ -536,7 +536,7 @@ export default function DataverseSessionDetailPage() {
                   background: activeTab === tab ? T.gradBtn : 'none',
                   color: activeTab === tab ? '#fff' : '#64748b',
                   transition: 'all 160ms',
-                  boxShadow: activeTab === tab ? '0 2px 8px rgba(116,39,116,0.25)' : 'none',
+                  boxShadow: activeTab === tab ? '0 2px 8px rgba(14,116,144,0.25)' : 'none',
                 }}
               >
                 {tab === 'overview' ? 'Overview' : tab === 'domains' ? `Domains (${result.domain_summaries.length})` : `All Checks (${result.total_checks})`}
@@ -656,7 +656,7 @@ export default function DataverseSessionDetailPage() {
                           padding: '12px 18px',
                           borderBottom: i < filteredChecks.length - 1 ? `1px solid ${T.light50}` : 'none',
                           display: 'flex', alignItems: 'flex-start', gap: '12px',
-                          background: i % 2 === 0 ? '#fff' : '#fdfbff',
+                          background: i % 2 === 0 ? '#fff' : '#f0fdfe',
                         }}
                       >
                         <div style={{

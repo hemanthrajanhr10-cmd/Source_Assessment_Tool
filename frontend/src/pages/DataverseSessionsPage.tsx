@@ -9,27 +9,27 @@ import axios from 'axios'
 import type { DataverseSessionRecord } from '../types/api'
 
 const T = {
-  primary:    '#742774',
-  mid:        '#8B3A8B',
-  accent:     '#C084FC',
-  dark:       '#1A0726',
-  surface:    '#FAF5FF',
-  light50:    '#F5F0FF',
-  light100:   '#EDE9FE',
-  light200:   '#DDD6FE',
-  text:       '#3B1F4E',
-  textMid:    '#6B21A8',
-  glow:       'rgba(116,39,116,0.15)',
-  gradHero:   'linear-gradient(135deg, #1A0726 0%, #2D1040 50%, #3B1555 100%)',
-  gradBtn:    'linear-gradient(135deg, #742774 0%, #8B3A8B 100%)',
-  shadowCard: '0 1px 3px rgba(116,39,116,0.06), 0 4px 16px rgba(116,39,116,0.07)',
+  primary:    '#0E7490',
+  mid:        '#0891B2',
+  accent:     '#22D3EE',
+  dark:       '#0C1A2E',
+  surface:    '#F0FDFE',
+  light50:    '#ECFEFF',
+  light100:   '#CFFAFE',
+  light200:   '#A5F3FC',
+  text:       '#0C4A6E',
+  textMid:    '#0369A1',
+  glow:       'rgba(14,116,144,0.15)',
+  gradHero:   'linear-gradient(135deg, #0C1A2E 0%, #0F2C45 50%, #103755 100%)',
+  gradBtn:    'linear-gradient(135deg, #0E7490 0%, #0891B2 100%)',
+  shadowCard: '0 1px 3px rgba(14,116,144,0.06), 0 4px 16px rgba(14,116,144,0.07)',
 }
 
 function statusBadge(status: string) {
   const map: Record<string, { icon: React.ElementType; bg: string; color: string; label: string }> = {
     completed: { icon: CheckCircle, bg: 'rgba(5,150,105,0.10)', color: '#065f46', label: 'Completed' },
     failed:    { icon: XCircle,     bg: 'rgba(220,38,38,0.10)',  color: '#991b1b', label: 'Failed' },
-    running:   { icon: Loader2,     bg: 'rgba(116,39,116,0.10)', color: T.primary, label: 'Running' },
+    running:   { icon: Loader2,     bg: 'rgba(14,116,144,0.10)', color: T.primary, label: 'Running' },
     pending:   { icon: Clock,       bg: 'rgba(100,116,139,0.10)', color: '#475569', label: 'Pending' },
   }
   const s = map[status] ?? map.pending
@@ -94,19 +94,19 @@ export default function DataverseSessionsPage() {
     <div style={{ minHeight: '100vh', background: T.surface }}>
       {/* Hero */}
       <div style={{ background: T.gradHero, padding: '28px 32px 24px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '180px', height: '180px', borderRadius: '50%', background: 'rgba(192,132,252,0.07)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '180px', height: '180px', borderRadius: '50%', background: 'rgba(34,211,238,0.07)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{
               width: '40px', height: '40px', borderRadius: '12px',
-              background: 'rgba(192,132,252,0.20)', border: '1px solid rgba(192,132,252,0.25)',
+              background: 'rgba(34,211,238,0.20)', border: '1px solid rgba(34,211,238,0.25)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <Database style={{ width: '18px', height: '18px', color: T.accent }} />
             </div>
             <div>
               <h1 style={{ color: '#fff', fontSize: '20px', fontWeight: 700, margin: 0 }}>Dataverse Assessments</h1>
-              <p style={{ color: 'rgba(192,132,252,0.80)', fontSize: '12.5px', margin: 0, marginTop: '2px' }}>
+              <p style={{ color: 'rgba(34,211,238,0.80)', fontSize: '12.5px', margin: 0, marginTop: '2px' }}>
                 {sessions.length} session{sessions.length !== 1 ? 's' : ''} · History and results
               </p>
             </div>
@@ -117,8 +117,8 @@ export default function DataverseSessionsPage() {
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
                 padding: '8px 14px', borderRadius: '10px', fontSize: '12.5px', fontWeight: 600,
-                background: 'rgba(192,132,252,0.15)', border: '1px solid rgba(192,132,252,0.25)',
-                color: 'rgba(233,213,255,0.90)', cursor: 'pointer',
+                background: 'rgba(34,211,238,0.15)', border: '1px solid rgba(34,211,238,0.25)',
+                color: 'rgba(207,250,254,0.90)', cursor: 'pointer',
               }}
             >
               <RefreshCw style={{ width: '13px', height: '13px' }} /> Refresh
@@ -130,7 +130,7 @@ export default function DataverseSessionsPage() {
                 padding: '8px 16px', borderRadius: '10px', fontSize: '12.5px', fontWeight: 700,
                 background: T.gradBtn, border: 'none',
                 color: '#fff', cursor: 'pointer',
-                boxShadow: '0 2px 12px rgba(116,39,116,0.40)',
+                boxShadow: '0 2px 12px rgba(14,116,144,0.40)',
               }}
             >
               <PlusCircle style={{ width: '13px', height: '13px' }} /> New Assessment
@@ -206,7 +206,7 @@ export default function DataverseSessionsPage() {
                 padding: '11px 24px', borderRadius: '10px', fontSize: '13.5px', fontWeight: 700,
                 background: T.gradBtn, border: 'none', color: '#fff', cursor: 'pointer',
                 display: 'inline-flex', alignItems: 'center', gap: '8px',
-                boxShadow: '0 2px 12px rgba(116,39,116,0.35)',
+                boxShadow: '0 2px 12px rgba(14,116,144,0.35)',
               }}
             >
               <PlusCircle style={{ width: '15px', height: '15px' }} /> Start First Assessment
@@ -227,7 +227,7 @@ export default function DataverseSessionsPage() {
                   display: 'flex', alignItems: 'center', gap: '16px',
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 20px rgba(116,39,116,0.14), 0 8px 32px rgba(116,39,116,0.08)'
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 20px rgba(14,116,144,0.14), 0 8px 32px rgba(14,116,144,0.08)'
                   ;(e.currentTarget as HTMLDivElement).style.transform = 'translateY(-1px)'
                   ;(e.currentTarget as HTMLDivElement).style.borderColor = T.light200
                 }}

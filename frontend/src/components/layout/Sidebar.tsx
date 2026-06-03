@@ -130,6 +130,23 @@ const NAV_GROUPS = [
       { to: '/snowflake/sessions', label: 'Assessments',    icon: BarChart3  },
     ],
   },
+  {
+    label: 'Dataverse',
+    element: 'dataverse',
+    dotGradient:      'linear-gradient(135deg, #742774, #C084FC)',
+    activeBg:         'rgba(116,39,116,0.09)',
+    activeText:       '#5B1E5B',
+    activeBorder:     'rgba(192,132,252,0.40)',
+    activeIconColor:  '#742774',
+    activeDotGlow:    'rgba(192,132,252,0.55)',
+    hoverBg:          'rgba(116,39,116,0.07)',
+    hoverText:        '#5B1E5B',
+    hoverIconColor:   '#742774',
+    items: [
+      { to: '/dataverse/new',      label: 'New Assessment', icon: PlusCircle },
+      { to: '/dataverse/sessions', label: 'Assessments',    icon: BarChart3  },
+    ],
+  },
 ]
 
 interface SidebarProps {

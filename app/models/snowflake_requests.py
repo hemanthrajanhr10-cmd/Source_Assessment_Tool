@@ -1,24 +1,113 @@
 """
 Snowflake assessment request and response models.
 
-Auth: Browser-based OAuth (externalbrowser via snowflake-connector-python)
-  - Flow: init-auth → browser opens → poll auth-status → assess
+Auth methods supported:
+  username_password       — Basic username + password
+  browser_sso             — Browser OAuth / SSO (externalbrowser)
+  browser_sso_cached      — Browser SSO with token caching
+  mfa_push                — Password + Duo Push notification
+  mfa_totp                — Password + TOTP 6-digit code
+  key_pair                — RSA key-pair / JWT (headless)
+  oauth_token             — Pre-fetched OAuth access token
+  oauth_auth_code         — OAuth 2.0 Authorization Code + PKCE (browser)
+  oauth_client_credentials— OAuth 2.0 Client Credentials (machine-to-machine)
+  workload_identity       — Azure / AWS / GCP native identity (no secrets)
+  toml_profile            — Named profile from ~/.snowflake/connections.toml
+
 APIs used: Snowflake Python connector + INFORMATION_SCHEMA + ACCOUNT_USAGE
 """
 
+from enum import Enum
 from typing import Optional, Literal
 from pydantic import BaseModel, Field
+
+
+# ── Auth method enum ──────────────────────────────────────────────────────────
+
+class SnowflakeAuthMethod(str, Enum):
+    USERNAME_PASSWORD        = "username_password"
+    BROWSER_SSO              = "browser_sso"
+    BROWSER_SSO_CACHED       = "browser_sso_cached"
+    MFA_PUSH                 = "mfa_push"
+    MFA_TOTP                 = "mfa_totp"
+    KEY_PAIR                 = "key_pair"
+    OAUTH_TOKEN              = "oauth_token"
+    OAUTH_AUTH_CODE          = "oauth_auth_code"
+    OAUTH_CLIENT_CREDENTIALS = "oauth_client_credentials"
+    WORKLOAD_IDENTITY        = "workload_identity"
+    TOML_PROFILE             = "toml_profile"
 
 
 # ── Connection / Auth parameters ──────────────────────────────────────────────
 
 class SnowflakeCredentials(BaseModel):
-    """Credentials to initiate Snowflake browser OAuth."""
-    account: str = Field(..., description="Snowflake account identifier, e.g. myorg-myaccount or myaccount.us-east-1")
-    username: Optional[str] = Field(None, description="Snowflake username (optional login hint for SSO)")
+    auth_method: SnowflakeAuthMethod = Field(
+        SnowflakeAuthMethod.BROWSER_SSO,
+        description="Authentication method to use",
+    )
+
+    # ── Common connection fields (required by most methods) ────────────────
+    account: Optional[str] = Field(
+        None,
+        description="Snowflake account identifier, e.g. myorg-myaccount or myaccount.us-east-1 (not needed for toml_profile)",
+    )
+    username: Optional[str] = Field(
+        None,
+        description="Snowflake username / login hint for IdP (not needed for toml_profile)",
+    )
     role: Optional[str] = Field(None, description="Default role to activate after login")
     warehouse: Optional[str] = Field(None, description="Default warehouse to use")
     database: Optional[str] = Field(None, description="Default database scope")
+
+    # ── Password-based (username_password, mfa_push, mfa_totp) ───────────
+    password: Optional[str] = Field(None, description="Snowflake user password")
+
+    # ── MFA TOTP ──────────────────────────────────────────────────────────
+    passcode: Optional[str] = Field(
+        None,
+        description="6-digit TOTP code from authenticator app (mfa_totp only)",
+    )
+
+    # ── Key-pair (key_pair) ───────────────────────────────────────────────
+    private_key_path: Optional[str] = Field(
+        None,
+        description="Absolute path to RSA private key file (.p8) on the server",
+    )
+    private_key_passphrase: Optional[str] = Field(
+        None,
+        description="Passphrase for encrypted private key (leave blank if unencrypted)",
+    )
+
+    # ── OAuth — bring your own token (oauth_token) ────────────────────────
+    oauth_token: Optional[str] = Field(
+        None,
+        description="Pre-fetched OAuth access token (e.g. obtained via MSAL or mssparkutils)",
+    )
+
+    # ── OAuth flows (oauth_auth_code + oauth_client_credentials) ─────────
+    oauth_client_id: Optional[str] = Field(None, description="OAuth application client ID")
+    oauth_client_secret: Optional[str] = Field(None, description="OAuth application client secret")
+    oauth_auth_url: Optional[str] = Field(
+        None,
+        description="OAuth authorization URL (required for oauth_auth_code flow only)",
+    )
+    oauth_token_url: Optional[str] = Field(None, description="OAuth token endpoint URL")
+    oauth_scope: Optional[str] = Field(
+        None,
+        description="OAuth scope, e.g. session:role:SYSADMIN (optional for OAuth flows)",
+    )
+
+    # ── Workload Identity (workload_identity) ─────────────────────────────
+    workload_identity_provider: Optional[str] = Field(
+        "AZURE",
+        description="Cloud provider for workload identity: AZURE | AWS | GCP | OIDC",
+    )
+
+    # ── TOML profile (toml_profile) ───────────────────────────────────────
+    toml_connection_name: Optional[str] = Field(
+        "myconnection",
+        description="Named connection in ~/.snowflake/connections.toml",
+    )
 
 
 class SnowflakeAuthRequest(BaseModel):
@@ -234,6 +323,7 @@ class SnowflakeAuthResponse(BaseModel):
 class SnowflakeAuthStatusResponse(BaseModel):
     auth_id: str
     status: str  # pending | authenticated | failed
+    auth_method: Optional[str] = None
     account: Optional[str] = None
     current_user: Optional[str] = None
     current_role: Optional[str] = None

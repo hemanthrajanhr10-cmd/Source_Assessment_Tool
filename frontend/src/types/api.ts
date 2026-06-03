@@ -1309,12 +1309,46 @@ export interface TableauSessionRecord {
 
 // ── Snowflake ─────────────────────────────────────────────────────────────────
 
+export type SnowflakeAuthMethod =
+  | 'username_password'
+  | 'browser_sso'
+  | 'browser_sso_cached'
+  | 'mfa_push'
+  | 'mfa_totp'
+  | 'key_pair'
+  | 'oauth_token'
+  | 'oauth_auth_code'
+  | 'oauth_client_credentials'
+  | 'workload_identity'
+  | 'toml_profile'
+
 export interface SnowflakeCredentials {
-  account: string
+  auth_method: SnowflakeAuthMethod
+  // Common connection fields
+  account?: string
   username?: string
   role?: string
   warehouse?: string
   database?: string
+  // Password-based (username_password, mfa_push, mfa_totp)
+  password?: string
+  // MFA TOTP
+  passcode?: string
+  // Key-pair
+  private_key_path?: string
+  private_key_passphrase?: string
+  // OAuth — bring your own token
+  oauth_token?: string
+  // OAuth flows (auth_code + client_credentials)
+  oauth_client_id?: string
+  oauth_client_secret?: string
+  oauth_auth_url?: string
+  oauth_token_url?: string
+  oauth_scope?: string
+  // Workload Identity
+  workload_identity_provider?: string
+  // TOML profile
+  toml_connection_name?: string
 }
 
 export interface SnowflakeAuthRequest {
@@ -1330,6 +1364,7 @@ export interface SnowflakeAuthResponse {
 export interface SnowflakeAuthStatusResponse {
   auth_id: string
   status: 'pending' | 'authenticated' | 'failed'
+  auth_method?: string
   account?: string
   current_user?: string
   current_role?: string
@@ -1541,4 +1576,108 @@ export interface SnowflakeSessionRecord {
   completed_at?: string
   error?: string
   results?: SnowflakeAssessmentResult
+}
+
+// ─── Dataverse Assessment ───────────────────────────────────────────────────
+
+export type DataverseAuthMethod = 'client_credentials' | 'username_password'
+
+export interface DataverseCredentials {
+  auth_method: DataverseAuthMethod
+  environment_url: string
+  tenant_id?: string
+  client_id?: string
+  client_secret?: string
+  username?: string
+  password?: string
+}
+
+export interface DataverseAssessmentRequest {
+  credentials: DataverseCredentials
+  label?: string
+  include_data_volume?: boolean
+  include_data_quality?: boolean
+  include_security?: boolean
+  include_flows?: boolean
+  include_plugins?: boolean
+  include_ui?: boolean
+  include_audit?: boolean
+  include_ai?: boolean
+  max_entities?: number
+}
+
+export interface DataverseCheckResult {
+  check_id: string
+  name: string
+  domain: string
+  risk: 'critical' | 'high' | 'medium' | 'low'
+  status: 'passed' | 'warning' | 'critical' | 'info' | 'error' | 'skipped'
+  count?: number
+  value?: Record<string, unknown>
+  details?: string
+  recommendation?: string
+}
+
+export interface DataverseDomainSummary {
+  domain: string
+  total_checks: number
+  critical: number
+  high: number
+  medium: number
+  low: number
+  passed: number
+  errors: number
+  score: number
+}
+
+export interface DataverseAssessmentResult {
+  job_id: string
+  status: 'completed' | 'failed'
+  environment_url: string
+  organization_name?: string
+  organization_version?: string
+  total_checks: number
+  critical_findings: number
+  high_findings: number
+  medium_findings: number
+  low_findings: number
+  overall_score: number
+  domain_summaries: DataverseDomainSummary[]
+  check_results: DataverseCheckResult[]
+  errors: string[]
+  completed_at?: string
+  duration_seconds?: number
+}
+
+export interface DataverseJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface DataverseJobStatusResponse {
+  job_id: string
+  status: string
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+  checks_completed: number
+  total_checks: number
+}
+
+export interface DataverseSessionRecord {
+  job_id: string
+  status: string
+  label?: string
+  environment_url: string
+  organization_name?: string
+  total_checks: number
+  critical_findings: number
+  high_findings: number
+  overall_score: number
+  created_at: string
+  completed_at?: string
+  duration_seconds?: number
 }

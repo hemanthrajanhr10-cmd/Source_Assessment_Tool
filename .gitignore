@@ -13,3 +13,5 @@ DESIGN.json
 DESIGN.md
 PRODUCT.md
 SAT_Presentation_Content.txt
+frontend/node_modules/
+.claude/skills/

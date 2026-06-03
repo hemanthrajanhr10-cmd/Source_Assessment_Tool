@@ -41,27 +41,33 @@ AuthDep = Depends(get_current_user)
 @router.post(
     "/init-auth",
     response_model=SnowflakeAuthResponse,
-    summary="Initiate Snowflake browser OAuth (opens system browser)",
+    summary="Initiate Snowflake authentication (method-aware)",
 )
 async def init_auth(request: SnowflakeAuthRequest, _user=AuthDep) -> SnowflakeAuthResponse:
     """
-    Registers a new auth session and opens the default system browser for
-    Snowflake SSO / OAuth.  Poll /auth-status/{auth_id} until status='authenticated'.
+    Registers a new auth session and starts the chosen authentication method
+    in a background thread.  Poll /auth-status/{auth_id} until status='authenticated'.
+
+    Browser-based methods (browser_sso, browser_sso_cached, oauth_auth_code) open the
+    system browser.  All other methods complete without user interaction.
     """
     auth_id = str(uuid.uuid4())
     creds = request.credentials
     sf_client.init_auth_session(
         auth_id=auth_id,
-        account=creds.account,
-        username=creds.username,
-        role=creds.role,
-        warehouse=creds.warehouse,
-        database=creds.database,
+        credentials=creds.model_dump(),
     )
+
+    browser_methods = {"browser_sso", "browser_sso_cached", "oauth_auth_code"}
+    if creds.auth_method.value in browser_methods:
+        message = "Browser opened for Snowflake authentication. Complete login in your browser, then poll /auth-status."
+    else:
+        message = f"Snowflake authentication ({creds.auth_method.value}) in progress. Poll /auth-status for completion."
+
     return SnowflakeAuthResponse(
         auth_id=auth_id,
         status="pending",
-        message="Browser opened for Snowflake authentication. Complete login in your browser, then poll /auth-status.",
+        message=message,
     )
 
 
@@ -77,6 +83,7 @@ async def get_auth_status(auth_id: str, _user=AuthDep) -> SnowflakeAuthStatusRes
     return SnowflakeAuthStatusResponse(
         auth_id=auth_id,
         status=session["status"],
+        auth_method=session.get("auth_method"),
         account=session.get("current_account"),
         current_user=session.get("current_user"),
         current_role=session.get("current_role"),

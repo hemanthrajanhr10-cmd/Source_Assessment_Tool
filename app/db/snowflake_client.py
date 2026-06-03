@@ -1,14 +1,21 @@
 """
-Snowflake client.
+Snowflake client — multi-method authentication + assessment queries.
 
-Auth: snowflake-connector-python with authenticator='externalbrowser'
-  Opens the system browser for SSO/OAuth token generation on the local machine.
-  Auth runs in a background thread; callers poll get_auth_status().
+Supported auth methods (auth_method field in credentials dict):
+  username_password        — snowflake.connector default (user + password)
+  browser_sso              — authenticator='externalbrowser'
+  browser_sso_cached       — externalbrowser + client_store_temporary_credential=True
+  mfa_push                 — authenticator='username_password_mfa' (Duo push)
+  mfa_totp                 — username_password_mfa + passcode=<6-digit>
+  key_pair                 — authenticator='SNOWFLAKE_JWT', RSA private key file
+  oauth_token              — authenticator='oauth', pre-fetched token
+  oauth_auth_code          — authenticator='OAUTH_AUTHORIZATION_CODE' (browser PKCE)
+  oauth_client_credentials — authenticator='OAUTH_CLIENT_CREDENTIALS' (headless)
+  workload_identity        — authenticator='WORKLOAD_IDENTITY' (Azure/AWS/GCP)
+  toml_profile             — connection_name= from ~/.snowflake/connections.toml
 
-Assessment queries use:
-  - SHOW commands (warehouses, databases, schemas, etc.)
-  - INFORMATION_SCHEMA (tables, columns, views per database)
-  - SNOWFLAKE.ACCOUNT_USAGE (query history, storage, metering — requires privilege)
+All methods run in a background thread; callers poll get_auth_status().
+Assessment queries use SHOW commands, INFORMATION_SCHEMA, and ACCOUNT_USAGE.
 """
 
 import logging
@@ -16,6 +23,9 @@ import threading
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# Methods that open a system browser (useful for UI messaging)
+BROWSER_METHODS = {"browser_sso", "browser_sso_cached", "oauth_auth_code"}
 
 
 def _run_query(conn, sql: str) -> list[dict]:
@@ -43,38 +53,113 @@ def _scalar(conn, sql: str):
     return None
 
 
-# ── In-memory browser auth session store ─────────────────────────────────────
+# ── Connection kwargs builder ─────────────────────────────────────────────────
+
+def _build_connection_kwargs(creds: dict) -> dict:
+    """
+    Translate a credentials dict into snowflake.connector.connect() kwargs.
+    For toml_profile the dict only contains connection_name.
+    """
+    method = creds.get("auth_method", "browser_sso")
+
+    # TOML profile — all credentials live in the .toml file
+    if method == "toml_profile":
+        return {"connection_name": creds.get("toml_connection_name") or "myconnection"}
+
+    # Build common kwargs present in most methods
+    kwargs: dict = {}
+    if creds.get("account"):
+        kwargs["account"] = creds["account"]
+    if creds.get("username"):
+        kwargs["user"] = creds["username"]
+    if creds.get("role"):
+        kwargs["role"] = creds["role"]
+    if creds.get("warehouse"):
+        kwargs["warehouse"] = creds["warehouse"]
+    if creds.get("database"):
+        kwargs["database"] = creds["database"]
+
+    # Method-specific kwargs
+    if method == "username_password":
+        kwargs["password"] = creds.get("password", "")
+
+    elif method == "browser_sso":
+        kwargs["authenticator"] = "externalbrowser"
+
+    elif method == "browser_sso_cached":
+        kwargs["authenticator"] = "externalbrowser"
+        kwargs["client_store_temporary_credential"] = True
+
+    elif method == "mfa_push":
+        kwargs["password"] = creds.get("password", "")
+        kwargs["authenticator"] = "username_password_mfa"
+
+    elif method == "mfa_totp":
+        kwargs["password"] = creds.get("password", "")
+        kwargs["authenticator"] = "username_password_mfa"
+        if creds.get("passcode"):
+            kwargs["passcode"] = creds["passcode"]
+
+    elif method == "key_pair":
+        kwargs["authenticator"] = "SNOWFLAKE_JWT"
+        kwargs["private_key_file"] = creds.get("private_key_path", "")
+        pp = creds.get("private_key_passphrase")
+        if pp:
+            kwargs["private_key_file_pwd"] = pp
+
+    elif method == "oauth_token":
+        kwargs["authenticator"] = "oauth"
+        kwargs["token"] = creds.get("oauth_token", "")
+
+    elif method == "oauth_auth_code":
+        kwargs["authenticator"] = "OAUTH_AUTHORIZATION_CODE"
+        kwargs["oauth_client_id"] = creds.get("oauth_client_id", "")
+        kwargs["oauth_client_secret"] = creds.get("oauth_client_secret", "")
+        kwargs["oauth_authorization_url"] = creds.get("oauth_auth_url", "")
+        kwargs["oauth_token_request_url"] = creds.get("oauth_token_url", "")
+        if creds.get("oauth_scope"):
+            kwargs["oauth_scope"] = creds["oauth_scope"]
+
+    elif method == "oauth_client_credentials":
+        kwargs["authenticator"] = "OAUTH_CLIENT_CREDENTIALS"
+        kwargs["oauth_client_id"] = creds.get("oauth_client_id", "")
+        kwargs["oauth_client_secret"] = creds.get("oauth_client_secret", "")
+        kwargs["oauth_token_request_url"] = creds.get("oauth_token_url", "")
+        if creds.get("oauth_scope"):
+            kwargs["oauth_scope"] = creds["oauth_scope"]
+
+    elif method == "workload_identity":
+        kwargs["authenticator"] = "WORKLOAD_IDENTITY"
+        provider = creds.get("workload_identity_provider") or "AZURE"
+        kwargs["workload_identity_provider"] = provider.upper()
+
+    return kwargs
+
+
+# ── In-memory auth session store ─────────────────────────────────────────────
 
 _auth_sessions: dict[str, dict] = {}
 _auth_lock = threading.Lock()
 
 
-def _run_browser_auth(
-    auth_id: str,
-    account: str,
-    username: Optional[str],
-    role: Optional[str],
-    warehouse: Optional[str],
-    database: Optional[str],
-) -> None:
-    """Background thread: opens system browser for Snowflake SSO, updates session on completion."""
+def _run_auth(auth_id: str, credentials: dict) -> None:
+    """
+    Background thread: connect to Snowflake using the specified auth method,
+    verify identity, and update the session record on success or failure.
+    """
+    method = credentials.get("auth_method", "browser_sso")
     try:
         import snowflake.connector  # type: ignore
 
-        logger.info("[sf-auth:%s] Starting externalbrowser auth for account=%s", auth_id[:8], account)
-        kwargs: dict = {"account": account, "authenticator": "externalbrowser"}
-        if username:
-            kwargs["user"] = username
-        if role:
-            kwargs["role"] = role
-        if warehouse:
-            kwargs["warehouse"] = warehouse
-        if database:
-            kwargs["database"] = database
+        logger.info(
+            "[sf-auth:%s] Starting auth method=%s account=%s",
+            auth_id[:8], method, credentials.get("account", ""),
+        )
 
+        kwargs = _build_connection_kwargs(credentials)
         conn = snowflake.connector.connect(**kwargs)
 
-        # Verify & capture identity
+        # Verify identity after connection
         cur = conn.cursor()
         cur.execute(
             "SELECT CURRENT_USER(), CURRENT_ACCOUNT(), CURRENT_ROLE(), CURRENT_VERSION()"
@@ -83,17 +168,17 @@ def _run_browser_auth(
         cur.close()
 
         with _auth_lock:
-            _auth_sessions[auth_id].update(
-                {
-                    "status": "authenticated",
-                    "conn": conn,
-                    "current_user": row[0] if row else username,
-                    "current_account": row[1] if row else account,
-                    "current_role": row[2] if row else role,
-                    "snowflake_version": row[3] if row else None,
-                }
-            )
-        logger.info("[sf-auth:%s] Authenticated as %s", auth_id[:8], row[0] if row else "unknown")
+            _auth_sessions[auth_id].update({
+                "status": "authenticated",
+                "conn": conn,
+                "current_user": row[0] if row else credentials.get("username"),
+                "current_account": row[1] if row else credentials.get("account"),
+                "current_role": row[2] if row else credentials.get("role"),
+                "snowflake_version": row[3] if row else None,
+            })
+        logger.info(
+            "[sf-auth:%s] Authenticated as %s", auth_id[:8], row[0] if row else "unknown"
+        )
 
     except Exception as exc:
         logger.exception("[sf-auth:%s] Auth failed: %s", auth_id[:8], exc)
@@ -104,20 +189,18 @@ def _run_browser_auth(
                 )
 
 
-def init_auth_session(
-    auth_id: str,
-    account: str,
-    username: Optional[str],
-    role: Optional[str],
-    warehouse: Optional[str],
-    database: Optional[str],
-) -> None:
-    """Register pending auth session and launch browser OAuth in a background thread."""
+def init_auth_session(auth_id: str, credentials: dict) -> None:
+    """
+    Register a pending auth session and start the connection attempt in a
+    background thread.  Callers poll get_auth_status() until authenticated/failed.
+    """
+    method = credentials.get("auth_method", "browser_sso")
     with _auth_lock:
         _auth_sessions[auth_id] = {
             "auth_id": auth_id,
-            "account": account,
-            "username": username,
+            "auth_method": method,
+            "account": credentials.get("account", ""),
+            "username": credentials.get("username", ""),
             "status": "pending",
             "conn": None,
             "error": None,
@@ -127,8 +210,8 @@ def init_auth_session(
             "snowflake_version": None,
         }
     threading.Thread(
-        target=_run_browser_auth,
-        args=(auth_id, account, username, role, warehouse, database),
+        target=_run_auth,
+        args=(auth_id, credentials),
         daemon=True,
         name=f"sf-auth-{auth_id[:8]}",
     ).start()

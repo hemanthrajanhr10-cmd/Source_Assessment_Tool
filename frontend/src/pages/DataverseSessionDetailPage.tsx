@@ -4,7 +4,7 @@ import {
   Database, ChevronLeft, Loader2, AlertTriangle, CheckCircle,
   XCircle, Clock, AlertCircle, Info, ChevronDown, ChevronUp,
   BarChart3, Shield, Zap, CloudCog, Eye, Layers,
-  GitBranch, FlaskConical, Globe, RefreshCw,
+  GitBranch, FlaskConical, Globe,
 } from 'lucide-react'
 import axios from 'axios'
 import type {
@@ -321,7 +321,7 @@ export default function DataverseSessionDetailPage() {
   const [filterDomain,  setFilterDomain]  = useState('All')
   const [filterStatus,  setFilterStatus]  = useState('All')
   const [filterRisk,    setFilterRisk]    = useState('All')
-  const pollRef = useRef<NodeJS.Timeout | null>(null)
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const token = () => localStorage.getItem('sat_token') || ''
 

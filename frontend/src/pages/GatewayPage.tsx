@@ -322,7 +322,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
               <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" />
               <span>
                 <strong>{result.name}</strong> was created and provisioned in the Azure Relay Namespace.
-                Copy the strings below — HCM gets the Listener string, your gateway config gets the Sender string.
+                Copy the Listener string below and paste it into Hybrid Connection Manager on your on-premises machine.
               </span>
             </div>
             {result.listenerConnectionString && (
@@ -330,13 +330,6 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
                 value={result.listenerConnectionString}
                 label="HCM Listener String"
                 hint={<>Paste into <strong>Hybrid Connection Manager</strong> on your on-premises machine.</>}
-              />
-            )}
-            {result.senderConnectionString && (
-              <ConnectionStringBox
-                value={result.senderConnectionString}
-                label="Gateway Sender String"
-                hint={<>Paste into your gateway's <strong>Relay Config</strong> so the SAT server can dispatch jobs through this connection.</>}
               />
             )}
           </div>
@@ -395,7 +388,7 @@ function ConnectionItem({
   const [showString, setShowString] = useState(false)
   const [rebinding, setRebinding] = useState(false)
   const [rebindMsg, setRebindMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const hasStrings = !!(hc.listener_connection_string || hc.sender_connection_string)
+  const hasStrings = !!hc.listener_connection_string
 
   const handleRebind = async () => {
     setRebinding(true)
@@ -498,13 +491,6 @@ function ConnectionItem({
               hint={<>Paste into <strong>Hybrid Connection Manager</strong> on your on-premises machine.</>}
             />
           )}
-          {hc.sender_connection_string && (
-            <ConnectionStringBox
-              value={hc.sender_connection_string}
-              label="Gateway Sender String"
-              hint={<>Paste into your gateway's <strong>Relay Config</strong> so the SAT server can dispatch jobs through this connection.</>}
-            />
-          )}
         </div>
       )}
     </div>
@@ -571,10 +557,10 @@ function MyConnectionsListControlled() {
         </div>
 
         {/* Hint bar — shown only when there are connections with strings */}
-        {connections.some((c) => c.listener_connection_string || c.sender_connection_string) && (
+        {connections.some((c) => c.listener_connection_string) && (
           <div className="flex items-center gap-1.5 px-5 py-2 bg-slate-50/50 border-b border-slate-100 text-[11px] text-slate-400">
             <KeyRound className="h-3 w-3" />
-            <span>Tap the key icon on any row to reveal its HCM Listener and Gateway Sender strings.</span>
+            <span>Tap the key icon on any row to reveal its HCM Listener string.</span>
           </div>
         )}
 
@@ -648,18 +634,8 @@ const STEPS: Step[] = [
           so there is no tier limit on how many you can create.
         </p>
         <p>
-          On success you will receive two connection strings:
+          On success you will receive the <strong className="text-slate-700">HCM Listener String</strong> — paste it into Hybrid Connection Manager on the on-premises machine. That is all you need to do.
         </p>
-        <ul className="space-y-1.5 text-slate-500 list-none pl-0">
-          <li className="flex items-start gap-2">
-            <KeyRound className="h-3.5 w-3.5 text-earth-500 mt-0.5 shrink-0" />
-            <span><strong className="text-slate-700">HCM Listener String</strong> — paste into Hybrid Connection Manager on the on-premises machine.</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <KeyRound className="h-3.5 w-3.5 text-earth-500 mt-0.5 shrink-0" />
-            <span><strong className="text-slate-700">Gateway Sender String</strong> — paste into your gateway's Relay Config so the SAT server can dispatch jobs.</span>
-          </li>
-        </ul>
         <p className="text-xs text-slate-400">
           If auto-provisioning is unavailable, create the Hybrid Connection manually under{' '}
           <strong className="text-slate-600">Azure Portal → Relay Namespace → Hybrid Connections → Add</strong>.
@@ -688,24 +664,21 @@ const STEPS: Step[] = [
   },
   {
     n: 4,
-    title: 'Configure your gateway with the Sender String',
+    title: 'Verify and run an assessment',
     body: (
       <div className="space-y-3 text-sm text-slate-600">
         <p>
-          The <strong className="text-slate-800">Gateway Sender String</strong> gives SAT permission to route
-          traffic through your Hybrid Connection to the SQL Server.
+          Use the <strong className="text-slate-800">Test Connectivity</strong> panel below to confirm the relay
+          is working — enter the same hostname and port you used when creating the Hybrid Connection.
         </p>
-        <ol className="space-y-2 list-decimal list-inside">
-          <li>Go to <strong className="text-slate-800">Gateways</strong> and open your registered gateway.</li>
-          <li>Click <strong className="text-slate-800">Configure Relay</strong>.</li>
-          <li>Paste the <strong className="text-slate-800">Gateway Sender String</strong> (copy it from the connection card using the key icon).</li>
-          <li>Save, then use the connectivity test below to confirm the relay is working.</li>
-        </ol>
+        <p>
+          Once reachable, go to <strong className="text-slate-800">New Assessment</strong>, enter the on-premises
+          SQL Server hostname exactly as configured in the Hybrid Connection endpoint, and run normally.
+        </p>
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
           <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-xs text-amber-700">
-            Keep both connection strings confidential — the Listener string grants HCM relay access;
-            the Sender string lets the server dispatch jobs through it.
+            Keep the HCM Listener string confidential — it grants relay access to your on-premises machine.
           </p>
         </div>
       </div>

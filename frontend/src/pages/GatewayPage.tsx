@@ -625,10 +625,8 @@ const STEPS: Step[] = [
     body: (
       <ul className="space-y-2 text-sm text-slate-600">
         {[
-          'Azure subscription with this App Service deployed',
-          'On-premises SQL Server reachable from your laptop',
-          'VPN client installed, configured, and working',
-          'Windows 7+ or Windows Server 2008 R2+ on the HCM machine',
+          'Hybrid Connection Manager (HCM) installed on the machine that has access to your on-premises SQL Server',
+          'That machine must be on the same network (or VPN) as the SQL Server',
         ].map((item) => (
           <li key={item} className="flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-earth-500 mt-0.5 shrink-0" />
@@ -671,48 +669,17 @@ const STEPS: Step[] = [
   },
   {
     n: 3,
-    title: 'Install Hybrid Connection Manager on the on-premises machine',
-    body: (
-      <div className="space-y-3 text-sm text-slate-600">
-        <p>
-          The HCM runs on the machine that can reach your SQL Server (on-premises or VPN-connected laptop).
-          It makes a single outbound connection to Azure Relay on port 443 — no inbound firewall rules needed.
-        </p>
-        <ol className="space-y-2 list-decimal list-inside">
-          <li>
-            Download the HCM installer from Microsoft (link below) or from{' '}
-            <strong className="text-slate-800">Azure Portal → Relay Namespace → Hybrid Connections → Download connection manager</strong>.
-          </li>
-          <li>Run the installer on the target machine (Windows 7+ / Server 2008 R2+).</li>
-          <li>Open <strong className="text-slate-800">Hybrid Connection Manager UI</strong> from the Start menu.</li>
-          <li>Click <strong className="text-slate-800">Enter connection string manually</strong> and paste the <strong className="text-slate-800">HCM Listener String</strong> from step 2.</li>
-          <li>The status indicator should turn green — <span className="text-earth-700 font-medium">Connected</span>.</li>
-        </ol>
-        <a
-          href="https://learn.microsoft.com/en-us/azure/azure-relay/relay-hybrid-connections-dotnet-get-started"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-earth-700 hover:text-earth-800 font-medium transition-colors"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          Azure Relay Hybrid Connections documentation
-        </a>
-      </div>
-    ),
-  },
-  {
-    n: 4,
-    title: 'Connect your laptop to the VPN',
+    title: 'Connect your machine to the VPN',
     body: (
       <div className="space-y-2 text-sm text-slate-600">
         <p>
-          Connect your VPN client to the network that hosts the on-premises SQL Server.
-          Verify access by pinging or connecting to the SQL Server from your laptop before proceeding.
+          Ensure the machine running HCM is connected to the network that hosts the on-premises SQL Server.
+          Verify access by pinging or connecting to the SQL Server from that machine before proceeding.
         </p>
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
           <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-xs text-amber-700">
-            The Azure app can only reach the SQL Server while your laptop remains on the VPN and HCM is running.
+            The Azure app can only reach the SQL Server while the HCM machine remains on the network and HCM is running.
             Disconnect either, and assessments will fail with a connection error.
           </p>
         </div>
@@ -720,27 +687,25 @@ const STEPS: Step[] = [
     ),
   },
   {
-    n: 5,
+    n: 4,
     title: 'Configure your gateway with the Sender String',
     body: (
       <div className="space-y-3 text-sm text-slate-600">
         <p>
-          The <strong className="text-slate-800">Gateway Sender String</strong> authorises the SAT server to dispatch
-          assessment jobs to your on-premises agent through the relay. Copy it from the connection card (or from the
-          banner shown immediately after creation) and paste it into your gateway's{' '}
-          <strong className="text-slate-800">Relay Config</strong> in the Gateways page.
+          The <strong className="text-slate-800">Gateway Sender String</strong> gives SAT permission to route
+          traffic through your Hybrid Connection to the SQL Server.
         </p>
         <ol className="space-y-2 list-decimal list-inside">
-          <li>Go to <strong className="text-slate-800">Gateways</strong> and find your registered gateway.</li>
+          <li>Go to <strong className="text-slate-800">Gateways</strong> and open your registered gateway.</li>
           <li>Click <strong className="text-slate-800">Configure Relay</strong>.</li>
-          <li>Paste the Gateway Sender String and save.</li>
-          <li>Use the connectivity test below to confirm the SAT server can reach the SQL Server through the relay.</li>
+          <li>Paste the <strong className="text-slate-800">Gateway Sender String</strong> (copy it from the connection card using the key icon).</li>
+          <li>Save, then use the connectivity test below to confirm the relay is working.</li>
         </ol>
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
           <Info className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
           <p className="text-xs text-amber-700">
-            Both connection strings are unique to your account and this Hybrid Connection.
-            Keep them confidential — the Listener string grants relay access to HCM; the Sender string grants the server permission to send jobs.
+            Keep both connection strings confidential — the Listener string grants HCM relay access;
+            the Sender string lets the server dispatch jobs through it.
           </p>
         </div>
       </div>

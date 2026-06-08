@@ -1,4 +1,5 @@
 ﻿import { useState, Component, type ReactNode, type ErrorInfo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -1230,17 +1231,19 @@ function FabricSessionDetailPageInner() {
       {/* ── Results dashboard ────────────────────────────────────────────────── */}
       {results && workspaces.length > 0 && (
         <>
-          {/* Tab bar */}
+          {/* Tab bar — animated underline pill */}
           <div className="flex items-center gap-0.5 overflow-x-auto pb-0"
-            style={{ borderBottom: '1px solid rgba(197,213,236,0.7)' }}>
+            style={{ borderBottom: '1px solid rgba(197,213,236,0.7)', position: 'relative' }}>
             {TABS.map(tab => (
               <button key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap"
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap"
                 style={{
-                  borderBottomColor: activeTab === tab.id ? '#0056B3' : 'transparent',
+                  position: 'relative',
                   color: activeTab === tab.id ? '#003D82' : '#64748B',
                   background: activeTab === tab.id ? 'rgba(0,86,179,0.05)' : 'transparent',
+                  border: 'none', cursor: 'pointer', outline: 'none',
+                  transition: 'color 150ms cubic-bezier(0.4,0,0.2,1), background 150ms cubic-bezier(0.4,0,0.2,1)',
                 }}
                 onMouseEnter={e => {
                   if (activeTab !== tab.id) {
@@ -1257,62 +1260,123 @@ function FabricSessionDetailPageInner() {
               >
                 {tab.icon}
                 {tab.label}
+                {/* Animated bottom indicator */}
+                {activeTab === tab.id && (
+                  <motion.span
+                    layoutId="tab-underline"
+                    style={{
+                      position: 'absolute', bottom: -1, left: 0, right: 0, height: 2,
+                      background: 'linear-gradient(90deg, #0056B3, #0084D4)',
+                      borderRadius: '2px 2px 0 0',
+                    }}
+                    transition={{ type: 'spring', duration: 0.38, bounce: 0.2 }}
+                  />
+                )}
               </button>
             ))}
           </div>
 
-          {/* Tab panels */}
-          <div>
-            {activeTab === 'overview' && summary && (
-              <OverviewTab workspaces={workspaces} summary={summary} />
-            )}
+          {/* Tab panels — AnimatePresence fade+slide */}
+          <div style={{ position: 'relative' }}>
+            <AnimatePresence mode="wait">
+              {activeTab === 'overview' && summary && (
+                <motion.div
+                  key="overview"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <OverviewTab workspaces={workspaces} summary={summary} />
+                </motion.div>
+              )}
 
-            {activeTab === 'models' && (
-              <div className="space-y-4">
-                {workspaces.slice(0, wsPage).map(ws => (
-                  <div key={ws.id} className="card overflow-hidden border-2 border-slate-200">
-                    <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
-                      <Zap className="h-4 w-4 text-earth-600" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900">{ws.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''} ·{' '}
-                          {ws.report_count} report{ws.report_count !== 1 ? 's' : ''}
-                        </p>
+              {activeTab === 'models' && (
+                <motion.div
+                  key="models"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                  className="space-y-4"
+                >
+                  {workspaces.slice(0, wsPage).map((ws, wi) => (
+                    <motion.div
+                      key={ws.id}
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ type: 'spring', duration: 0.4, bounce: 0, delay: wi * 0.05 }}
+                      className="card overflow-hidden border-2 border-slate-200"
+                    >
+                      <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
+                        <Zap className="h-4 w-4 text-earth-600" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-900">{ws.name}</p>
+                          <p className="text-xs text-slate-500">
+                            {ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''} ·{' '}
+                            {ws.report_count} report{ws.report_count !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <span className="text-xs text-slate-400">{ws.type}</span>
                       </div>
-                      <span className="text-xs text-slate-400">{ws.type}</span>
-                    </div>
-                    {ws.datasets.length > 0 ? (
-                      <div className="p-4 space-y-3">
-                        {ws.datasets.map(ds => <DatasetSection key={ds.id} ds={ds} />)}
-                      </div>
-                    ) : (
-                      <p className="p-4 text-xs text-slate-400 italic">No semantic models in this workspace.</p>
-                    )}
-                  </div>
-                ))}
-                {wsPage < workspaces.length && (
-                  <button
-                    onClick={() => setWsPage(p => p + 5)}
-                    className="w-full py-2.5 rounded-xl text-sm font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 transition-colors"
-                  >
-                    Show more workspaces ({workspaces.length - wsPage} remaining)
-                  </button>
-                )}
-              </div>
-            )}
+                      {ws.datasets.length > 0 ? (
+                        <div className="p-4 space-y-3">
+                          {ws.datasets.map(ds => <DatasetSection key={ds.id} ds={ds} />)}
+                        </div>
+                      ) : (
+                        <p className="p-4 text-xs text-slate-400 italic">No semantic models in this workspace.</p>
+                      )}
+                    </motion.div>
+                  ))}
+                  {wsPage < workspaces.length && (
+                    <motion.button
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={() => setWsPage(p => p + 5)}
+                      className="w-full py-2.5 rounded-xl text-sm font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 transition-colors"
+                    >
+                      Show more workspaces ({workspaces.length - wsPage} remaining)
+                    </motion.button>
+                  )}
+                </motion.div>
+              )}
 
-            {activeTab === 'reports' && (
-              <ReportsSegment workspaces={workspaces} />
-            )}
+              {activeTab === 'reports' && (
+                <motion.div
+                  key="reports"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <ReportsSegment workspaces={workspaces} />
+                </motion.div>
+              )}
 
-            {activeTab === 'complexity' && (
-              <ComplexityTab workspaces={workspaces} />
-            )}
+              {activeTab === 'complexity' && (
+                <motion.div
+                  key="complexity"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <ComplexityTab workspaces={workspaces} />
+                </motion.div>
+              )}
 
-            {activeTab === 'lineage' && (
-              <LineageTab workspaces={workspaces} />
-            )}
+              {activeTab === 'lineage' && (
+                <motion.div
+                  key="lineage"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <LineageTab workspaces={workspaces} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </>
       )}

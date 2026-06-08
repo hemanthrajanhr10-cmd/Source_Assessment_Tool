@@ -1,20 +1,27 @@
 """
-Snowflake Assessment Service.
+Snowflake Assessment Service — expert-level platform analysis.
 
-Orchestrates a full head-to-toe Snowflake platform analysis:
+Steps:
   1.  Verify connection + account metadata
   2.  Enumerate warehouses (compute layer)
   3.  Enumerate databases
   4.  Enumerate schemas (across all accessible databases)
   5.  Enumerate tables & views (INFORMATION_SCHEMA per database)
-  6.  Inventory platform objects (stages, pipes, tasks, streams, procedures, functions, ...)
+  6.  Inventory platform objects (stages, pipes, tasks, streams, procedures, functions, …)
   7.  Enumerate users + roles (RBAC posture)
   8.  Security posture (network policies, masking/row-access policies, MFA coverage)
-  9.  Query performance metrics (ACCOUNT_USAGE.QUERY_HISTORY — 7 days)
-  10. Storage usage (ACCOUNT_USAGE.STORAGE_USAGE)
-  11. Cost/credit metering (ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY — 30 days)
-  12. Generate Excel report
-  13. Generate Word report
+  9.  Login history (30 days — client types, failure reasons)
+  10. Access history (30 days — object access patterns)
+  11. Integrations (storage, notification, security, API, catalog)
+  12. Governance (policy types, tags, data classification)
+  13. Alerts & automation
+  14. Replication & failover
+  15. Query performance metrics (ACCOUNT_USAGE.QUERY_HISTORY — 7 days)
+  16. Storage usage + 30-day trend
+  17. Cost/credit metering — by warehouse, by service type, daily trend
+  18. Operational metrics (auto-clustering, Snowpipe, tasks, search optimisation, MV, data transfer)
+  19. Generate Excel report
+  20. Generate Word report
 """
 
 import io
@@ -37,9 +44,16 @@ from app.models.snowflake_requests import (
     SnowflakeObjectInventory,
     SnowflakeUserProfile,
     SnowflakeSecurityPosture,
+    SnowflakeLoginHistory,
+    SnowflakeAccessHistory,
+    SnowflakeIntegrations,
+    SnowflakeGovernance,
+    SnowflakeAlertsSummary,
+    SnowflakeReplication,
     SnowflakeQueryMetrics,
     SnowflakeStorageMetrics,
     SnowflakeCostMetrics,
+    SnowflakeOperationalMetrics,
 )
 
 logger = get_logger(__name__)
@@ -80,7 +94,7 @@ def _update(job_id: str, **kwargs) -> None:
         _jobs[job_id].update(kwargs)
 
 
-# ── Assessment steps (used for frontend progress terminal) ────────────────────
+# ── Assessment step labels ────────────────────────────────────────────────────
 
 STEPS = [
     "Verifying account connection",
@@ -93,9 +107,16 @@ STEPS = [
     "Enumerating users",
     "Enumerating roles",
     "Assessing security posture",
+    "Fetching login history",
+    "Fetching access history",
+    "Enumerating integrations",
+    "Analysing governance posture",
+    "Inventorying alerts",
+    "Checking replication & failover",
     "Fetching query performance metrics",
-    "Fetching storage usage",
+    "Fetching storage usage & trend",
     "Fetching warehouse credit metering",
+    "Fetching operational metrics",
     "Generating Excel report",
     "Generating Word report",
 ]
@@ -111,7 +132,7 @@ def run_assessment(job_id: str, request: SnowflakeAssessmentRequest) -> None:
         _update(job_id, status="running", progress_message=msg)
 
     try:
-        # ── Step 1: Get connection from auth session ───────────────────────────
+        # ── Step 1: Verify connection ─────────────────────────────────────────
         _step(STEPS[0])
         conn = client.get_auth_connection(request.auth_id)
         if conn is None:
@@ -128,10 +149,12 @@ def run_assessment(job_id: str, request: SnowflakeAssessmentRequest) -> None:
             organization_name=raw_info.get("organization_name"),
             account_locator=raw_info.get("account_locator"),
             region=raw_info.get("region"),
+            edition=raw_info.get("edition"),
             snowflake_version=raw_info.get("snowflake_version"),
             current_role=raw_info.get("current_role"),
             current_warehouse=raw_info.get("current_warehouse"),
             current_user=raw_info.get("current_user"),
+            default_data_retention_days=raw_info.get("default_data_retention_days", 1),
         )
 
         # ── Step 3: Warehouses ────────────────────────────────────────────────
@@ -212,7 +235,6 @@ def run_assessment(job_id: str, request: SnowflakeAssessmentRequest) -> None:
                 logger.warning("count %s: %s", key, exc)
                 obj_counts[key] = 0
 
-        # Dynamic tables (Snowflake 2023+)
         dynamic_tables = 0
         try:
             dynamic_tables = client.count_objects(conn, "SHOW DYNAMIC TABLES IN ACCOUNT")
@@ -299,10 +321,101 @@ def run_assessment(job_id: str, request: SnowflakeAssessmentRequest) -> None:
             resource_monitors_count=obj_counts.get("resource_monitors", 0),
         )
 
-        # ── Step 11: Query metrics ────────────────────────────────────────────
+        # ── Step 11: Login history ────────────────────────────────────────────
+        login_history = SnowflakeLoginHistory()
+        if request.include_login_history:
+            _step(STEPS[10])
+            try:
+                raw_lh = client.get_login_history(conn)
+                login_history = SnowflakeLoginHistory(
+                    total_logins_30d=raw_lh.get("total_logins_30d", 0),
+                    failed_logins_30d=raw_lh.get("failed_logins_30d", 0),
+                    unique_users_30d=raw_lh.get("unique_users_30d", 0),
+                    client_types=raw_lh.get("client_types", {}),
+                    failed_reasons=raw_lh.get("failed_reasons", {}),
+                )
+            except Exception as exc:
+                logger.warning("login_history failed (non-fatal): %s", exc)
+
+        # ── Step 12: Access history ───────────────────────────────────────────
+        access_history = SnowflakeAccessHistory()
+        if request.include_access_history:
+            _step(STEPS[11])
+            try:
+                raw_ah = client.get_access_history_summary(conn)
+                access_history = SnowflakeAccessHistory(
+                    total_access_events_30d=raw_ah.get("total_access_events_30d", 0),
+                    distinct_objects_accessed=raw_ah.get("distinct_objects_accessed", 0),
+                    top_users_by_access=raw_ah.get("top_users_by_access", []),
+                )
+            except Exception as exc:
+                logger.warning("access_history failed (non-fatal): %s", exc)
+
+        # ── Step 13: Integrations ─────────────────────────────────────────────
+        integrations = SnowflakeIntegrations()
+        if request.include_integrations:
+            _step(STEPS[12])
+            try:
+                raw_int = client.get_integrations(conn)
+                integrations = SnowflakeIntegrations(
+                    storage_integrations=raw_int.get("storage_integrations", []),
+                    notification_integrations=raw_int.get("notification_integrations", []),
+                    security_integrations=raw_int.get("security_integrations", []),
+                    api_integrations=raw_int.get("api_integrations", []),
+                    catalog_integrations=raw_int.get("catalog_integrations", []),
+                )
+            except Exception as exc:
+                logger.warning("integrations failed (non-fatal): %s", exc)
+
+        # ── Step 14: Governance posture ───────────────────────────────────────
+        governance = SnowflakeGovernance()
+        if request.include_governance:
+            _step(STEPS[13])
+            try:
+                raw_gov = client.get_governance_summary(conn)
+                raw_tags = client.get_tag_summary(conn)
+                governance = SnowflakeGovernance(
+                    projection_policies=raw_gov.get("projection_policies", 0),
+                    aggregation_policies=raw_gov.get("aggregation_policies", 0),
+                    authentication_policies=raw_gov.get("authentication_policies", 0),
+                    password_policies=raw_gov.get("password_policies", 0),
+                    session_policies=raw_gov.get("session_policies", 0),
+                    total_tags=raw_tags.get("total_tags", 0),
+                    tags=raw_tags.get("tags", []),
+                )
+            except Exception as exc:
+                logger.warning("governance failed (non-fatal): %s", exc)
+
+        # ── Step 15: Alerts ───────────────────────────────────────────────────
+        _step(STEPS[14])
+        alerts = SnowflakeAlertsSummary()
+        try:
+            raw_alerts = client.get_alerts_summary(conn)
+            alerts = SnowflakeAlertsSummary(
+                total_alerts=raw_alerts.get("total_alerts", 0),
+                enabled_alerts=raw_alerts.get("enabled_alerts", 0),
+                alerts=raw_alerts.get("alerts", [])[:50],
+            )
+        except Exception as exc:
+            logger.warning("alerts failed (non-fatal): %s", exc)
+
+        # ── Step 16: Replication ──────────────────────────────────────────────
+        _step(STEPS[15])
+        replication = SnowflakeReplication()
+        try:
+            raw_rep = client.get_replication_summary(conn)
+            replication = SnowflakeReplication(
+                replication_groups=raw_rep.get("replication_groups", 0),
+                failover_groups=raw_rep.get("failover_groups", 0),
+                replicated_databases=raw_rep.get("replicated_databases", []),
+            )
+        except Exception as exc:
+            logger.warning("replication failed (non-fatal): %s", exc)
+
+        # ── Step 17: Query metrics ────────────────────────────────────────────
         query_metrics = SnowflakeQueryMetrics()
         if request.include_query_history:
-            _step(STEPS[10])
+            _step(STEPS[16])
             try:
                 raw_qm = client.get_query_history(conn)
                 query_metrics = SnowflakeQueryMetrics(
@@ -313,41 +426,90 @@ def run_assessment(job_id: str, request: SnowflakeAssessmentRequest) -> None:
                     bytes_scanned_total=raw_qm.get("bytes_scanned", 0),
                     bytes_spilled_local=raw_qm.get("bytes_spilled_local", 0),
                     bytes_spilled_remote=raw_qm.get("bytes_spilled_remote", 0),
+                    partitions_scanned_pct=raw_qm.get("partitions_scanned_pct", 0.0),
                     most_expensive_queries=raw_qm.get("top_expensive", []),
                     query_error_types=raw_qm.get("error_types", {}),
+                    query_types=raw_qm.get("query_types", {}),
                 )
             except Exception as exc:
                 logger.warning("query_history failed (non-fatal): %s", exc)
 
-        # ── Step 12: Storage ──────────────────────────────────────────────────
+        # ── Step 18: Storage ──────────────────────────────────────────────────
         storage_metrics = SnowflakeStorageMetrics()
         if request.include_storage_usage:
-            _step(STEPS[11])
+            _step(STEPS[17])
             try:
                 raw_st = client.get_storage_usage(conn)
+                trend = client.get_storage_usage_trend(conn)
                 storage_metrics = SnowflakeStorageMetrics(
                     storage_bytes=raw_st.get("storage_bytes", 0),
                     stage_bytes=raw_st.get("stage_bytes", 0),
                     failsafe_bytes=raw_st.get("failsafe_bytes", 0),
                     total_bytes=sum(raw_st.get(k, 0) for k in ("storage_bytes", "stage_bytes", "failsafe_bytes")),
+                    trend=trend,
                 )
             except Exception as exc:
                 logger.warning("storage_usage failed (non-fatal): %s", exc)
 
-        # ── Step 13: Credits ──────────────────────────────────────────────────
+        # ── Step 19: Credits ──────────────────────────────────────────────────
         cost_metrics = SnowflakeCostMetrics()
         if request.include_warehouse_metering:
-            _step(STEPS[12])
+            _step(STEPS[18])
             try:
                 raw_cr = client.get_warehouse_credits(conn)
+                by_service = client.get_credit_usage_by_service(conn)
+                daily_trend = client.get_credit_usage_daily(conn)
                 cost_metrics = SnowflakeCostMetrics(
                     credits_used_last_30d=raw_cr.get("total_credits", 0.0),
                     compute_credits=raw_cr.get("compute_credits", 0.0),
                     cloud_services_credits=raw_cr.get("cloud_services_credits", 0.0),
                     top_warehouses_by_credit=raw_cr.get("top_wh", []),
+                    by_service_type=by_service,
+                    daily_trend=daily_trend,
                 )
             except Exception as exc:
                 logger.warning("warehouse_credits failed (non-fatal): %s", exc)
+
+        # ── Step 20: Operational metrics ──────────────────────────────────────
+        _step(STEPS[19])
+        op_metrics = SnowflakeOperationalMetrics()
+        try:
+            ac = client.get_auto_clustering_history(conn)
+            op_metrics.auto_clustering_credits = ac.get("total_credits", 0.0)
+            op_metrics.auto_clustering_bytes_reclustered = ac.get("total_bytes_reclustered", 0)
+            op_metrics.auto_clustering_tables = ac.get("tables_reclustered", 0)
+        except Exception:
+            pass
+        try:
+            pipe = client.get_pipe_usage(conn)
+            op_metrics.pipe_credits = pipe.get("total_credits", 0.0)
+            op_metrics.pipe_files_inserted = pipe.get("total_files_inserted", 0)
+            op_metrics.pipe_bytes_inserted = pipe.get("total_bytes_inserted", 0)
+        except Exception:
+            pass
+        try:
+            tasks = client.get_task_history(conn)
+            op_metrics.task_runs_7d = tasks.get("total_runs", 0)
+            op_metrics.task_succeeded_7d = tasks.get("succeeded", 0)
+            op_metrics.task_failed_7d = tasks.get("failed", 0)
+        except Exception:
+            pass
+        try:
+            so = client.get_search_optimization_history(conn)
+            op_metrics.search_opt_credits = so.get("total_credits", 0.0)
+        except Exception:
+            pass
+        try:
+            mv = client.get_materialized_view_history(conn)
+            op_metrics.mv_refresh_credits = mv.get("total_credits", 0.0)
+        except Exception:
+            pass
+        try:
+            dt = client.get_data_transfer_history(conn)
+            op_metrics.data_transfer_bytes = dt.get("total_bytes_transferred", 0)
+            op_metrics.data_transfer_by_cloud = dt.get("by_target_cloud", {})
+        except Exception:
+            pass
 
         # ── Assemble result ───────────────────────────────────────────────────
         result = SnowflakeAssessmentResult(
@@ -361,9 +523,16 @@ def run_assessment(job_id: str, request: SnowflakeAssessmentRequest) -> None:
             object_inventory=obj_inventory,
             user_profile=user_profile,
             security_posture=security_posture,
+            login_history=login_history,
+            access_history=access_history,
+            integrations=integrations,
+            governance=governance,
+            alerts=alerts,
+            replication=replication,
             query_metrics=query_metrics,
             storage_metrics=storage_metrics,
             cost_metrics=cost_metrics,
+            operational_metrics=op_metrics,
             warehouses=warehouses[:100],
             databases=databases[:200],
             schemas=schemas[:500],
@@ -372,11 +541,11 @@ def run_assessment(job_id: str, request: SnowflakeAssessmentRequest) -> None:
             roles=raw_roles[:200],
         )
 
-        # ── Step 14 & 15: Reports ──────────────────────────────────────────────
-        _step(STEPS[13])
+        # ── Step 21 & 22: Reports ─────────────────────────────────────────────
+        _step(STEPS[20])
         excel_bytes = _build_excel(result)
 
-        _step(STEPS[14])
+        _step(STEPS[21])
         word_bytes = _build_word(result)
 
         _update(
@@ -481,9 +650,11 @@ def _build_excel(result: SnowflakeAssessmentResult) -> bytes:
             ("Account Locator", ai.account_locator or ""),
             ("Organization", ai.organization_name or ""),
             ("Region", ai.region or ""),
+            ("Edition", ai.edition or ""),
             ("Snowflake Version", ai.snowflake_version or ""),
             ("Current Role", ai.current_role or ""),
             ("Current User", ai.current_user or ""),
+            ("Default Retention (days)", ai.default_data_retention_days),
         ]
     if result.warehouse_metrics:
         wm = result.warehouse_metrics
@@ -647,7 +818,6 @@ def _build_excel(result: SnowflakeAssessmentResult) -> bytes:
                 c.fill = _fill(SNOW_PALE if shade else LIGHT_GRAY)
                 c.alignment = _align()
                 c.border = _border()
-                # Highlight users without MFA
                 if ci == 7 and v == "No":
                     c.font = OFont(name=FONT_NAME, bold=True, color="EF4444")
         ws7.auto_filter.ref = f"A1:I{len(result.users)+1}"
@@ -686,6 +856,7 @@ def _build_excel(result: SnowflakeAssessmentResult) -> bytes:
             ("Total Bytes Scanned", qm.bytes_scanned_total),
             ("Bytes Spilled to Local Storage", qm.bytes_spilled_local),
             ("Bytes Spilled to Remote Storage", qm.bytes_spilled_remote),
+            ("Avg Partition Scan %", round(qm.partitions_scanned_pct, 1)),
         ]
         for i, (k, v) in enumerate(qm_data, start=2):
             _cell(ws9, i, 1, k, i % 2 == 0)
@@ -715,6 +886,28 @@ def _build_excel(result: SnowflakeAssessmentResult) -> bytes:
                 _cell(ws10, j, 1, wh.get("name", ""), j % 2 == 0)
                 _cell(ws10, j, 2, round(wh.get("credits", 0), 3), j % 2 == 0)
         _auto_width(ws10)
+
+    # ── Governance ────────────────────────────────────────────────────────────
+    if result.governance:
+        gov = result.governance
+        wsg = wb.create_sheet("Governance & Security")
+        wsg.sheet_view.showGridLines = False
+        _hdr(wsg, 1, 1, "Policy Type")
+        _hdr(wsg, 1, 2, "Count")
+        gov_data = [
+            ("Total Tags", gov.total_tags),
+            ("Password Policies", gov.password_policies),
+            ("Session Policies", gov.session_policies),
+            ("Authentication Policies", gov.authentication_policies),
+            ("Row Access Policies", result.object_inventory.row_access_policies if result.object_inventory else 0),
+            ("Masking Policies", result.object_inventory.masking_policies if result.object_inventory else 0),
+            ("Projection Policies", gov.projection_policies),
+            ("Aggregation Policies", gov.aggregation_policies),
+        ]
+        for i, (k, v) in enumerate(gov_data, start=2):
+            _cell(wsg, i, 1, k, i % 2 == 0)
+            _cell(wsg, i, 2, v, i % 2 == 0)
+        _auto_width(wsg)
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -786,7 +979,7 @@ def _build_word(result: SnowflakeAssessmentResult) -> bytes:
 
     sp = doc.add_paragraph()
     sp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    sr = sp.add_run("Source Assessment Report")
+    sr = sp.add_run("Platform Assessment Report")
     sr.font.size = Pt(18)
     sr.font.color.rgb = NAVY
 
@@ -812,8 +1005,8 @@ def _build_word(result: SnowflakeAssessmentResult) -> bytes:
     up = result.user_profile
     if ai and ds and wm and up:
         doc.add_paragraph(
-            f"Snowflake account '{ai.account_name}' (region: {ai.region or 'N/A'}) "
-            f"is running version {ai.snowflake_version or 'unknown'}. "
+            f"Snowflake account '{ai.account_name}' ({ai.edition or 'Standard'} edition, "
+            f"region: {ai.region or 'N/A'}) is running version {ai.snowflake_version or 'unknown'}. "
             f"The account has {wm.total_warehouses} compute warehouse(s), "
             f"{ds.total_databases} databases, {ds.total_schemas} schemas, "
             f"{ds.total_tables} base tables, and {ds.total_views} views. "
@@ -829,7 +1022,9 @@ def _build_word(result: SnowflakeAssessmentResult) -> bytes:
             ("Account Locator", ai.account_locator or ""),
             ("Organization", ai.organization_name or ""),
             ("Region", ai.region or ""),
+            ("Edition", ai.edition or "N/A"),
             ("Snowflake Version", ai.snowflake_version or ""),
+            ("Default Data Retention (days)", ai.default_data_retention_days),
             ("Current Role", ai.current_role or ""),
             ("Authenticated User", ai.current_user or ""),
         ])
@@ -897,6 +1092,27 @@ def _build_word(result: SnowflakeAssessmentResult) -> bytes:
             ("Resource Monitors", sp2.resource_monitors_count),
         ])
 
+    if result.login_history and result.login_history.total_logins_30d > 0:
+        lh = result.login_history
+        _h("Login History (Last 30 Days)", 2)
+        _kv_table([
+            ("Total Login Events", lh.total_logins_30d),
+            ("Failed Login Attempts", lh.failed_logins_30d),
+            ("Unique Users (30d)", lh.unique_users_30d),
+        ])
+
+    if result.governance:
+        gov = result.governance
+        _h("Governance & Data Classification", 2)
+        _kv_table([
+            ("Total Tags", gov.total_tags),
+            ("Password Policies", gov.password_policies),
+            ("Session Policies", gov.session_policies),
+            ("Authentication Policies", gov.authentication_policies),
+            ("Projection Policies", gov.projection_policies),
+            ("Aggregation Policies", gov.aggregation_policies),
+        ])
+
     if result.query_metrics and result.query_metrics.total_queries_last_7d > 0:
         qm = result.query_metrics
         _h("Query Performance (Last 7 Days)", 2)
@@ -906,6 +1122,7 @@ def _build_word(result: SnowflakeAssessmentResult) -> bytes:
             ("Avg Execution Time (ms)", round(qm.avg_execution_ms, 1)),
             ("P95 Execution Time (ms)", round(qm.p95_execution_ms, 1)),
             ("Total Bytes Scanned", qm.bytes_scanned_total),
+            ("Avg Partition Scan %", round(qm.partitions_scanned_pct, 1)),
             ("Bytes Spilled to Local", qm.bytes_spilled_local),
             ("Bytes Spilled to Remote", qm.bytes_spilled_remote),
         ])

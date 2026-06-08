@@ -1089,6 +1089,110 @@ def build_fabric_ai_word_report(
         [5.5, 3, 1.5, 2, 2.5, 2],
     )
 
+    # ── Database Usage Summary (Backend Dependency) ───────────────────────────
+    _h1(doc, "Database Usage Summary — Backend Dependency")
+    _body(doc,
+        "The following table maps each Semantic Model (dataset) to its underlying data dependency type, "
+        "the approximate number of reports consuming it, and the associated risk level. "
+        "High-risk models rely on live DirectQuery connections and are subject to source-system "
+        "availability and query performance constraints.")
+
+    def _dep_type_word(mode: str) -> str:
+        return {
+            "DirectLake":  "OneLake / Lakehouse",
+            "DirectQuery": "Live RDBMS / Warehouse",
+            "Import":      "Snapshot Cache",
+            "Composite":   "Mixed (Import + DirectQuery)",
+            "Push":        "Streaming Push",
+        }.get(mode, mode or "Unknown")
+
+    def _risk_word(mode: str) -> str:
+        return {"DirectQuery": "High", "Composite": "Medium",
+                "Import": "Low", "DirectLake": "Low", "Push": "Medium"}.get(mode, "Unknown")
+
+    # Build ds_id → workspace name + dataset mapping
+    _ds_id_map: dict[str, dict] = {}
+    _ds_id_ws:  dict[str, str]  = {}
+    for _ws_w in ctx["_workspaces"]:
+        for _ds_w in (_ws_w.get("datasets") or []):
+            _ds_id_map[_ds_w.get("id", "")] = _ds_w
+            _ds_id_ws[_ds_w.get("id", "")]  = _ws_w.get("name", "")
+
+    # Count reports per dataset
+    _ds_report_count: dict[str, int] = {}
+    for _rp_w in ctx["_reports"]:
+        _did = _rp_w.get("dataset_id", "")
+        _ds_report_count[_did] = _ds_report_count.get(_did, 0) + 1
+
+    db_usage_rows = []
+    for _ds_w in ctx["_datasets"]:
+        _did  = _ds_w.get("id", "")
+        _mode = _ds_w.get("storage_mode", "—")
+        db_usage_rows.append([
+            _ds_id_ws.get(_did, "—"),
+            _ds_w.get("name", "—"),
+            _mode,
+            _dep_type_word(_mode),
+            str(_ds_report_count.get(_did, 0)),
+            _risk_word(_mode),
+        ])
+    db_usage_rows.sort(key=lambda r: -int(r[4]))  # sort by report count desc
+    _table(
+        doc,
+        ["Workspace", "Database / Model", "Storage Mode", "Dependency Type", "Report Count", "Risk Level"],
+        db_usage_rows[:30] or [["—"] * 6],
+        [3.5, 4, 2.5, 4, 2, 2],
+    )
+
+    # ── Detailed Report Complexity Table ──────────────────────────────────────
+    _h1(doc, "Detailed Report Complexity")
+    _body(doc,
+        "Each report is scored based on its visual count, the measure count and relationship depth of "
+        "its linked Semantic Model. The complexity level provides a quick guide to migration effort "
+        "and query optimisation priority.")
+
+    def _report_cx_word(rp: dict, ds_map: dict) -> str:
+        vc = rp.get("visual_count", 0) or 0
+        ds = ds_map.get(rp.get("dataset_id", ""), {})
+        mc = ds.get("measure_count", 0) or 0
+        rc = ds.get("relationship_count", 0) or 0
+        score = vc + mc * 2 + rc
+        if score >= 80: return "Very Complex"
+        if score >= 40: return "Complex"
+        if score >= 20: return "Moderate"
+        if score >= 5:  return "Simple"
+        return "Minimal"
+
+    detail_rpt_rows = []
+    for _rp_w in ctx["_reports"][:30]:
+        _ds_w = _ds_id_map.get(_rp_w.get("dataset_id", ""), {})
+        _pages = _rp_w.get("pages") or []
+        _field_tables: set[str] = set()
+        for _p in _pages:
+            for _v in (_p.get("visuals") or []):
+                for _f in (_v.get("fields") or []):
+                    if _f.get("table"):
+                        _field_tables.add(_f["table"])
+        detail_rpt_rows.append([
+            _rp_w.get("name", "—"),
+            _ds_w.get("name", "—") if _ds_w else "—",
+            str(_ds_w.get("table_count", "—") if _ds_w else "—"),
+            str(_ds_w.get("measure_count", "—") if _ds_w else "—"),
+            str(_ds_w.get("relationship_count", "—") if _ds_w else "—"),
+            str(len(_field_tables)) if _field_tables else "—",
+            str(_rp_w.get("visual_count", "—")),
+            _report_cx_word(_rp_w, _ds_id_map),
+        ])
+    detail_rpt_rows.sort(key=lambda r: ["Minimal", "Simple", "Moderate", "Complex", "Very Complex"].index(r[7])
+                          if r[7] in ["Minimal", "Simple", "Moderate", "Complex", "Very Complex"] else -1,
+                         reverse=True)
+    _table(
+        doc,
+        ["Report Name", "Semantic Model", "Tables", "Measures", "Relationships", "Data Sources", "Visuals", "Complexity"],
+        detail_rpt_rows or [["—"] * 8],
+        [4, 3.5, 1.5, 2, 2.5, 2.5, 1.5, 2.5],
+    )
+
     # ── DAX Complexity Analysis ───────────────────────────────────────────────
     _h1(doc, "DAX Complexity Analysis")
 

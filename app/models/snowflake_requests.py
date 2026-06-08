@@ -45,69 +45,35 @@ class SnowflakeCredentials(BaseModel):
         SnowflakeAuthMethod.BROWSER_SSO,
         description="Authentication method to use",
     )
-
-    # ── Common connection fields (required by most methods) ────────────────
-    account: Optional[str] = Field(
-        None,
-        description="Snowflake account identifier, e.g. myorg-myaccount or myaccount.us-east-1 (not needed for toml_profile)",
-    )
-    username: Optional[str] = Field(
-        None,
-        description="Snowflake username / login hint for IdP (not needed for toml_profile)",
-    )
+    account: Optional[str] = Field(None, description="Snowflake account identifier")
+    username: Optional[str] = Field(None, description="Snowflake username / login hint")
     role: Optional[str] = Field(None, description="Default role to activate after login")
     warehouse: Optional[str] = Field(None, description="Default warehouse to use")
     database: Optional[str] = Field(None, description="Default database scope")
 
-    # ── Password-based (username_password, mfa_push, mfa_totp) ───────────
-    password: Optional[str] = Field(None, description="Snowflake user password")
+    # Password-based
+    password: Optional[str] = Field(None)
+    passcode: Optional[str] = Field(None, description="6-digit TOTP code (mfa_totp only)")
 
-    # ── MFA TOTP ──────────────────────────────────────────────────────────
-    passcode: Optional[str] = Field(
-        None,
-        description="6-digit TOTP code from authenticator app (mfa_totp only)",
-    )
+    # Key-pair
+    private_key_path: Optional[str] = Field(None)
+    private_key_passphrase: Optional[str] = Field(None)
 
-    # ── Key-pair (key_pair) ───────────────────────────────────────────────
-    private_key_path: Optional[str] = Field(
-        None,
-        description="Absolute path to RSA private key file (.p8) on the server",
-    )
-    private_key_passphrase: Optional[str] = Field(
-        None,
-        description="Passphrase for encrypted private key (leave blank if unencrypted)",
-    )
+    # OAuth token
+    oauth_token: Optional[str] = Field(None)
 
-    # ── OAuth — bring your own token (oauth_token) ────────────────────────
-    oauth_token: Optional[str] = Field(
-        None,
-        description="Pre-fetched OAuth access token (e.g. obtained via MSAL or mssparkutils)",
-    )
+    # OAuth flows
+    oauth_client_id: Optional[str] = Field(None)
+    oauth_client_secret: Optional[str] = Field(None)
+    oauth_auth_url: Optional[str] = Field(None)
+    oauth_token_url: Optional[str] = Field(None)
+    oauth_scope: Optional[str] = Field(None)
 
-    # ── OAuth flows (oauth_auth_code + oauth_client_credentials) ─────────
-    oauth_client_id: Optional[str] = Field(None, description="OAuth application client ID")
-    oauth_client_secret: Optional[str] = Field(None, description="OAuth application client secret")
-    oauth_auth_url: Optional[str] = Field(
-        None,
-        description="OAuth authorization URL (required for oauth_auth_code flow only)",
-    )
-    oauth_token_url: Optional[str] = Field(None, description="OAuth token endpoint URL")
-    oauth_scope: Optional[str] = Field(
-        None,
-        description="OAuth scope, e.g. session:role:SYSADMIN (optional for OAuth flows)",
-    )
+    # Workload Identity
+    workload_identity_provider: Optional[str] = Field("AZURE")
 
-    # ── Workload Identity (workload_identity) ─────────────────────────────
-    workload_identity_provider: Optional[str] = Field(
-        "AZURE",
-        description="Cloud provider for workload identity: AZURE | AWS | GCP | OIDC",
-    )
-
-    # ── TOML profile (toml_profile) ───────────────────────────────────────
-    toml_connection_name: Optional[str] = Field(
-        "myconnection",
-        description="Named connection in ~/.snowflake/connections.toml",
-    )
+    # TOML profile
+    toml_connection_name: Optional[str] = Field("myconnection")
 
 
 class SnowflakeAuthRequest(BaseModel):
@@ -115,13 +81,16 @@ class SnowflakeAuthRequest(BaseModel):
 
 
 class SnowflakeAssessmentRequest(BaseModel):
-    """Start a Snowflake assessment using a completed auth session."""
     auth_id: str = Field(..., description="Auth session ID returned by /init-auth")
-    label: Optional[str] = Field(None, description="Human-readable label for this assessment")
-    include_query_history: bool = Field(True, description="Fetch query stats from ACCOUNT_USAGE (requires ACCOUNTADMIN)")
-    include_storage_usage: bool = Field(True, description="Fetch storage metrics from ACCOUNT_USAGE")
-    include_warehouse_metering: bool = Field(True, description="Fetch warehouse credit usage from ACCOUNT_USAGE")
-    max_databases: int = Field(10, ge=1, le=50, description="Max databases to enumerate schemas/tables in")
+    label: Optional[str] = Field(None)
+    include_query_history: bool = Field(True)
+    include_storage_usage: bool = Field(True)
+    include_warehouse_metering: bool = Field(True)
+    include_login_history: bool = Field(True)
+    include_access_history: bool = Field(True)
+    include_governance: bool = Field(True)
+    include_integrations: bool = Field(True)
+    max_databases: int = Field(10, ge=1, le=50)
 
 
 # ── Account Info ──────────────────────────────────────────────────────────────
@@ -137,6 +106,7 @@ class SnowflakeAccountInfo(BaseModel):
     current_role: Optional[str] = None
     current_warehouse: Optional[str] = None
     current_user: Optional[str] = None
+    default_data_retention_days: int = 1
 
 
 # ── Compute ───────────────────────────────────────────────────────────────────
@@ -193,7 +163,7 @@ class SnowflakeTable(BaseModel):
     database_name: str
     schema_name: str
     name: str
-    table_type: str  # BASE TABLE, VIEW, EXTERNAL TABLE, MATERIALIZED VIEW, etc.
+    table_type: str
     row_count: Optional[int] = None
     bytes: Optional[int] = None
     clustering_key: Optional[str] = None
@@ -256,6 +226,60 @@ class SnowflakeSecurityPosture(BaseModel):
     resource_monitors_count: int = 0
 
 
+# ── Login & Access History ────────────────────────────────────────────────────
+
+class SnowflakeLoginHistory(BaseModel):
+    total_logins_30d: int = 0
+    failed_logins_30d: int = 0
+    unique_users_30d: int = 0
+    client_types: dict[str, int] = {}
+    failed_reasons: dict[str, int] = {}
+
+
+class SnowflakeAccessHistory(BaseModel):
+    total_access_events_30d: int = 0
+    distinct_objects_accessed: int = 0
+    top_users_by_access: list[dict] = []
+
+
+# ── Integrations ──────────────────────────────────────────────────────────────
+
+class SnowflakeIntegrations(BaseModel):
+    storage_integrations: list[dict] = []
+    notification_integrations: list[dict] = []
+    security_integrations: list[dict] = []
+    api_integrations: list[dict] = []
+    catalog_integrations: list[dict] = []
+
+
+# ── Governance ────────────────────────────────────────────────────────────────
+
+class SnowflakeGovernance(BaseModel):
+    projection_policies: int = 0
+    aggregation_policies: int = 0
+    authentication_policies: int = 0
+    password_policies: int = 0
+    session_policies: int = 0
+    total_tags: int = 0
+    tags: list[dict] = []
+
+
+# ── Alerts ────────────────────────────────────────────────────────────────────
+
+class SnowflakeAlertsSummary(BaseModel):
+    total_alerts: int = 0
+    enabled_alerts: int = 0
+    alerts: list[dict] = []
+
+
+# ── Replication ───────────────────────────────────────────────────────────────
+
+class SnowflakeReplication(BaseModel):
+    replication_groups: int = 0
+    failover_groups: int = 0
+    replicated_databases: list[dict] = []
+
+
 # ── Performance / Cost ────────────────────────────────────────────────────────
 
 class SnowflakeQueryMetrics(BaseModel):
@@ -266,8 +290,10 @@ class SnowflakeQueryMetrics(BaseModel):
     bytes_scanned_total: int = 0
     bytes_spilled_local: int = 0
     bytes_spilled_remote: int = 0
+    partitions_scanned_pct: float = 0.0
     most_expensive_queries: list[dict] = []
     query_error_types: dict[str, int] = {}
+    query_types: dict[str, int] = {}
 
 
 class SnowflakeStorageMetrics(BaseModel):
@@ -275,6 +301,7 @@ class SnowflakeStorageMetrics(BaseModel):
     stage_bytes: int = 0
     failsafe_bytes: int = 0
     total_bytes: int = 0
+    trend: list[dict] = []
 
 
 class SnowflakeCostMetrics(BaseModel):
@@ -282,6 +309,24 @@ class SnowflakeCostMetrics(BaseModel):
     compute_credits: float = 0.0
     cloud_services_credits: float = 0.0
     top_warehouses_by_credit: list[dict] = []
+    by_service_type: list[dict] = []
+    daily_trend: list[dict] = []
+
+
+class SnowflakeOperationalMetrics(BaseModel):
+    auto_clustering_credits: float = 0.0
+    auto_clustering_bytes_reclustered: int = 0
+    auto_clustering_tables: int = 0
+    pipe_credits: float = 0.0
+    pipe_files_inserted: int = 0
+    pipe_bytes_inserted: int = 0
+    task_runs_7d: int = 0
+    task_succeeded_7d: int = 0
+    task_failed_7d: int = 0
+    search_opt_credits: float = 0.0
+    mv_refresh_credits: float = 0.0
+    data_transfer_bytes: int = 0
+    data_transfer_by_cloud: dict[str, int] = {}
 
 
 # ── Top-level assessment result ───────────────────────────────────────────────
@@ -299,9 +344,16 @@ class SnowflakeAssessmentResult(BaseModel):
     object_inventory: Optional[SnowflakeObjectInventory] = None
     user_profile: Optional[SnowflakeUserProfile] = None
     security_posture: Optional[SnowflakeSecurityPosture] = None
+    login_history: Optional[SnowflakeLoginHistory] = None
+    access_history: Optional[SnowflakeAccessHistory] = None
+    integrations: Optional[SnowflakeIntegrations] = None
+    governance: Optional[SnowflakeGovernance] = None
+    alerts: Optional[SnowflakeAlertsSummary] = None
+    replication: Optional[SnowflakeReplication] = None
     query_metrics: Optional[SnowflakeQueryMetrics] = None
     storage_metrics: Optional[SnowflakeStorageMetrics] = None
     cost_metrics: Optional[SnowflakeCostMetrics] = None
+    operational_metrics: Optional[SnowflakeOperationalMetrics] = None
 
     # Detail lists (capped)
     warehouses: Optional[list[SnowflakeWarehouse]] = None
@@ -322,7 +374,7 @@ class SnowflakeAuthResponse(BaseModel):
 
 class SnowflakeAuthStatusResponse(BaseModel):
     auth_id: str
-    status: str  # pending | authenticated | failed
+    status: str
     auth_method: Optional[str] = None
     account: Optional[str] = None
     current_user: Optional[str] = None

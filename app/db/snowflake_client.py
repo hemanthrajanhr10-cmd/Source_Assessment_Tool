@@ -1,5 +1,5 @@
 """
-Snowflake client — multi-method authentication + assessment queries.
+Snowflake client — multi-method authentication + expert-level assessment queries.
 
 Supported auth methods (auth_method field in credentials dict):
   username_password        — snowflake.connector default (user + password)
@@ -14,8 +14,7 @@ Supported auth methods (auth_method field in credentials dict):
   workload_identity        — authenticator='WORKLOAD_IDENTITY' (Azure/AWS/GCP)
   toml_profile             — connection_name= from ~/.snowflake/connections.toml
 
-All methods run in a background thread; callers poll get_auth_status().
-Assessment queries use SHOW commands, INFORMATION_SCHEMA, and ACCOUNT_USAGE.
+Assessment queries use: SHOW commands, INFORMATION_SCHEMA, ACCOUNT_USAGE views.
 """
 
 import logging
@@ -24,7 +23,6 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# Methods that open a system browser (useful for UI messaging)
 BROWSER_METHODS = {"browser_sso", "browser_sso_cached", "oauth_auth_code"}
 
 
@@ -56,17 +54,11 @@ def _scalar(conn, sql: str):
 # ── Connection kwargs builder ─────────────────────────────────────────────────
 
 def _build_connection_kwargs(creds: dict) -> dict:
-    """
-    Translate a credentials dict into snowflake.connector.connect() kwargs.
-    For toml_profile the dict only contains connection_name.
-    """
     method = creds.get("auth_method", "browser_sso")
 
-    # TOML profile — all credentials live in the .toml file
     if method == "toml_profile":
         return {"connection_name": creds.get("toml_connection_name") or "myconnection"}
 
-    # Build common kwargs present in most methods
     kwargs: dict = {}
     if creds.get("account"):
         kwargs["account"] = creds["account"]
@@ -79,7 +71,6 @@ def _build_connection_kwargs(creds: dict) -> dict:
     if creds.get("database"):
         kwargs["database"] = creds["database"]
 
-    # Method-specific kwargs
     if method == "username_password":
         kwargs["password"] = creds.get("password", "")
 
@@ -143,10 +134,6 @@ _auth_lock = threading.Lock()
 
 
 def _run_auth(auth_id: str, credentials: dict) -> None:
-    """
-    Background thread: connect to Snowflake using the specified auth method,
-    verify identity, and update the session record on success or failure.
-    """
     method = credentials.get("auth_method", "browser_sso")
     try:
         import snowflake.connector  # type: ignore
@@ -159,7 +146,6 @@ def _run_auth(auth_id: str, credentials: dict) -> None:
         kwargs = _build_connection_kwargs(credentials)
         conn = snowflake.connector.connect(**kwargs)
 
-        # Verify identity after connection
         cur = conn.cursor()
         cur.execute(
             "SELECT CURRENT_USER(), CURRENT_ACCOUNT(), CURRENT_ROLE(), CURRENT_VERSION()"
@@ -176,9 +162,7 @@ def _run_auth(auth_id: str, credentials: dict) -> None:
                 "current_role": row[2] if row else credentials.get("role"),
                 "snowflake_version": row[3] if row else None,
             })
-        logger.info(
-            "[sf-auth:%s] Authenticated as %s", auth_id[:8], row[0] if row else "unknown"
-        )
+        logger.info("[sf-auth:%s] Authenticated as %s", auth_id[:8], row[0] if row else "unknown")
 
     except Exception as exc:
         logger.exception("[sf-auth:%s] Auth failed: %s", auth_id[:8], exc)
@@ -190,10 +174,6 @@ def _run_auth(auth_id: str, credentials: dict) -> None:
 
 
 def init_auth_session(auth_id: str, credentials: dict) -> None:
-    """
-    Register a pending auth session and start the connection attempt in a
-    background thread.  Callers poll get_auth_status() until authenticated/failed.
-    """
     method = credentials.get("auth_method", "browser_sso")
     with _auth_lock:
         _auth_sessions[auth_id] = {
@@ -223,7 +203,6 @@ def get_auth_status(auth_id: str) -> Optional[dict]:
 
 
 def get_auth_connection(auth_id: str):
-    """Return live connection for an authenticated session, or None."""
     with _auth_lock:
         session = _auth_sessions.get(auth_id)
     if session and session.get("status") == "authenticated":
@@ -232,7 +211,6 @@ def get_auth_connection(auth_id: str):
 
 
 def revoke_auth_session(auth_id: str) -> bool:
-    """Close connection and remove the session. Returns True if found."""
     with _auth_lock:
         session = _auth_sessions.pop(auth_id, None)
     if session:
@@ -247,12 +225,11 @@ def revoke_auth_session(auth_id: str) -> bool:
 
 
 def list_auth_sessions() -> list[dict]:
-    """Return all sessions (without connection objects) for UI display."""
     with _auth_lock:
         return [{k: v for k, v in s.items() if k != "conn"} for s in _auth_sessions.values()]
 
 
-# ── Assessment queries ────────────────────────────────────────────────────────
+# ── Core account queries ──────────────────────────────────────────────────────
 
 def get_account_info(conn) -> dict:
     info: dict = {}
@@ -276,8 +253,23 @@ def get_account_info(conn) -> dict:
             for k, v in zip(keys, list(rows2[0].values())):
                 info[k] = v
 
+    # Snowflake edition (ENTERPRISE / BUSINESS CRITICAL / etc.)
+    edition_rows = _run_query(conn, """
+        SELECT VALUE FROM SNOWFLAKE.ACCOUNT_USAGE.ACCOUNT_PARAMETERS_HISTORY
+        WHERE PARAMETER_NAME = 'ACCOUNT_EDITION' LIMIT 1
+    """)
+    if edition_rows:
+        info["edition"] = str(list(edition_rows[0].values())[0] or "")
+
+    # Data retention policy default
+    retention_rows = _run_query(conn, "SHOW PARAMETERS LIKE 'DATA_RETENTION_TIME_IN_DAYS' IN ACCOUNT")
+    if retention_rows:
+        info["default_data_retention_days"] = int(retention_rows[0].get("value") or 1)
+
     return info
 
+
+# ── Compute ───────────────────────────────────────────────────────────────────
 
 def list_warehouses(conn) -> list[dict]:
     rows = _run_query(conn, "SHOW WAREHOUSES")
@@ -301,6 +293,8 @@ def list_warehouses(conn) -> list[dict]:
         })
     return result
 
+
+# ── Data objects ──────────────────────────────────────────────────────────────
 
 def list_databases(conn) -> list[dict]:
     rows = _run_query(conn, "SHOW DATABASES")
@@ -371,6 +365,8 @@ def list_tables_in_db(conn, db_name: str) -> list[dict]:
     return result
 
 
+# ── Object counting ───────────────────────────────────────────────────────────
+
 def count_objects(conn, show_sql: str) -> int:
     rows = _run_query(conn, show_sql)
     return len(rows)
@@ -386,6 +382,8 @@ def get_shares(conn) -> dict:
             inbound += 1
     return {"outbound": outbound, "inbound": inbound}
 
+
+# ── Users / Roles / Security ──────────────────────────────────────────────────
 
 def list_users(conn) -> list[dict]:
     result = []
@@ -421,12 +419,245 @@ def list_roles(conn) -> list[dict]:
     return result
 
 
+def count_masking_policies(conn) -> int:
+    return count_objects(conn, "SHOW MASKING POLICIES IN ACCOUNT")
+
+
+def count_row_access_policies(conn) -> int:
+    return count_objects(conn, "SHOW ROW ACCESS POLICIES IN ACCOUNT")
+
+
+# ── Login & Access History (ACCOUNT_USAGE) ────────────────────────────────────
+
+def get_login_history(conn) -> dict:
+    """Login event summary from ACCOUNT_USAGE.LOGIN_HISTORY (last 30 days)."""
+    base = {
+        "total_logins_30d": 0,
+        "failed_logins_30d": 0,
+        "unique_users_30d": 0,
+        "client_types": {},
+        "failed_reasons": {},
+    }
+    rows = _run_query(conn, """
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN IS_SUCCESS = 'NO' THEN 1 ELSE 0 END) AS failed,
+            COUNT(DISTINCT USER_NAME) AS unique_users
+        FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+        WHERE EVENT_TIMESTAMP >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+    """)
+    if rows:
+        v = list(rows[0].values())
+        base.update({
+            "total_logins_30d": int(v[0] or 0),
+            "failed_logins_30d": int(v[1] or 0),
+            "unique_users_30d": int(v[2] or 0),
+        })
+
+    for r in _run_query(conn, """
+        SELECT REPORTED_CLIENT_TYPE, COUNT(*) AS cnt
+        FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+        WHERE EVENT_TIMESTAMP >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+        GROUP BY REPORTED_CLIENT_TYPE ORDER BY cnt DESC LIMIT 10
+    """):
+        key = str(r.get("reported_client_type") or "unknown")[:60]
+        base["client_types"][key] = int(r.get("cnt") or 0)
+
+    for r in _run_query(conn, """
+        SELECT ERROR_MESSAGE, COUNT(*) AS cnt
+        FROM SNOWFLAKE.ACCOUNT_USAGE.LOGIN_HISTORY
+        WHERE EVENT_TIMESTAMP >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+          AND IS_SUCCESS = 'NO' AND ERROR_MESSAGE IS NOT NULL
+        GROUP BY ERROR_MESSAGE ORDER BY cnt DESC LIMIT 10
+    """):
+        key = str(r.get("error_message") or "unknown")[:100]
+        base["failed_reasons"][key] = int(r.get("cnt") or 0)
+
+    return base
+
+
+def get_access_history_summary(conn) -> dict:
+    """Summarise object-level access from ACCOUNT_USAGE.ACCESS_HISTORY (last 30 days)."""
+    base = {
+        "total_access_events_30d": 0,
+        "distinct_objects_accessed": 0,
+        "top_accessed_tables": [],
+        "top_users_by_access": [],
+    }
+    agg = _run_query(conn, """
+        SELECT
+            COUNT(*) AS total_events,
+            COUNT(DISTINCT QUERY_ID) AS distinct_queries
+        FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
+        WHERE QUERY_START_TIME >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+    """)
+    if agg:
+        v = list(agg[0].values())
+        base["total_access_events_30d"] = int(v[0] or 0)
+        base["distinct_objects_accessed"] = int(v[1] or 0)
+
+    for r in _run_query(conn, """
+        SELECT USER_NAME, COUNT(*) AS cnt
+        FROM SNOWFLAKE.ACCOUNT_USAGE.ACCESS_HISTORY
+        WHERE QUERY_START_TIME >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+        GROUP BY USER_NAME ORDER BY cnt DESC LIMIT 10
+    """):
+        base["top_users_by_access"].append({
+            "user": str(r.get("user_name") or ""),
+            "access_count": int(r.get("cnt") or 0),
+        })
+
+    return base
+
+
+# ── Integrations & External Connectivity ─────────────────────────────────────
+
+def get_integrations(conn) -> dict:
+    """Enumerate all account-level integrations."""
+    base = {
+        "storage_integrations": [],
+        "notification_integrations": [],
+        "security_integrations": [],
+        "api_integrations": [],
+        "catalog_integrations": [],
+    }
+
+    type_map = {
+        "storage": "storage_integrations",
+        "notification": "notification_integrations",
+        "security": "security_integrations",
+        "api": "api_integrations",
+        "catalog": "catalog_integrations",
+    }
+
+    for r in _run_query(conn, "SHOW INTEGRATIONS"):
+        name = str(r.get("name") or "")
+        itype = str(r.get("type") or "").lower()
+        enabled = str(r.get("enabled") or "").upper() in ("TRUE", "Y", "YES")
+        category = str(r.get("category") or "").lower()
+
+        record = {
+            "name": name,
+            "type": str(r.get("type") or ""),
+            "enabled": enabled,
+            "category": category,
+        }
+
+        # Route to correct list
+        matched = False
+        for key, field in type_map.items():
+            if key in itype or key in category:
+                base[field].append(record)
+                matched = True
+                break
+        if not matched:
+            base["api_integrations"].append(record)
+
+    return base
+
+
+# ── Alerts ────────────────────────────────────────────────────────────────────
+
+def get_alerts_summary(conn) -> dict:
+    """Enumerate Snowflake Alerts across the account."""
+    base = {"total_alerts": 0, "enabled_alerts": 0, "alerts": []}
+    rows = _run_query(conn, "SHOW ALERTS IN ACCOUNT")
+    base["total_alerts"] = len(rows)
+    for r in rows:
+        enabled = str(r.get("state") or "").upper() in ("STARTED", "ENABLED")
+        if enabled:
+            base["enabled_alerts"] += 1
+        base["alerts"].append({
+            "name": str(r.get("name") or ""),
+            "database": str(r.get("database_name") or ""),
+            "schema": str(r.get("schema_name") or ""),
+            "state": str(r.get("state") or ""),
+            "schedule": str(r.get("schedule") or ""),
+            "owner": str(r.get("owner") or ""),
+        })
+    return base
+
+
+# ── Replication ───────────────────────────────────────────────────────────────
+
+def get_replication_summary(conn) -> dict:
+    """Summarise database and failover replication groups."""
+    base = {
+        "replication_groups": 0,
+        "failover_groups": 0,
+        "replicated_databases": [],
+    }
+    for r in _run_query(conn, "SHOW REPLICATION GROUPS"):
+        base["replication_groups"] += 1
+
+    for r in _run_query(conn, "SHOW FAILOVER GROUPS"):
+        base["failover_groups"] += 1
+
+    for r in _run_query(conn, "SHOW REPLICATION DATABASES"):
+        base["replicated_databases"].append({
+            "name": str(r.get("name") or ""),
+            "is_primary": str(r.get("is_primary") or "").upper() in ("TRUE", "YES"),
+            "primary": str(r.get("primary") or ""),
+        })
+
+    return base
+
+
+# ── Data classification & Tags ────────────────────────────────────────────────
+
+def get_tag_summary(conn) -> dict:
+    """Count tags and tag-based policies across the account."""
+    base = {"total_tags": 0, "tags": []}
+    rows = _run_query(conn, "SHOW TAGS IN ACCOUNT")
+    base["total_tags"] = len(rows)
+    for r in rows[:50]:
+        base["tags"].append({
+            "name": str(r.get("name") or ""),
+            "database": str(r.get("database_name") or ""),
+            "schema": str(r.get("schema_name") or ""),
+            "owner": str(r.get("owner") or ""),
+            "data_types": str(r.get("allowed_values") or ""),
+        })
+    return base
+
+
+# ── Governance ────────────────────────────────────────────────────────────────
+
+def get_governance_summary(conn) -> dict:
+    """Aggregate governance posture: policies, projections, data classification."""
+    base = {
+        "projection_policies": 0,
+        "aggregation_policies": 0,
+        "authentication_policies": 0,
+        "password_policies": 0,
+        "session_policies": 0,
+    }
+
+    policy_map = {
+        "projection_policies":    "SHOW PROJECTION POLICIES IN ACCOUNT",
+        "aggregation_policies":   "SHOW AGGREGATION POLICIES IN ACCOUNT",
+        "authentication_policies":"SHOW AUTHENTICATION POLICIES IN ACCOUNT",
+        "password_policies":      "SHOW PASSWORD POLICIES IN ACCOUNT",
+        "session_policies":       "SHOW SESSION POLICIES IN ACCOUNT",
+    }
+    for field, sql in policy_map.items():
+        try:
+            base[field] = count_objects(conn, sql)
+        except Exception:
+            pass
+
+    return base
+
+
+# ── Query history ─────────────────────────────────────────────────────────────
+
 def get_query_history(conn) -> dict:
     """Stats from SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY (last 7 days)."""
     base = {
         "total_queries": 0, "failed_queries": 0, "avg_execution_ms": 0.0,
         "p95_execution_ms": 0.0, "bytes_scanned": 0, "bytes_spilled_local": 0,
         "bytes_spilled_remote": 0, "error_types": {}, "top_expensive": [],
+        "query_types": {}, "partitions_scanned_pct": 0.0,
     }
     rows = _run_query(conn, """
         SELECT
@@ -436,7 +667,10 @@ def get_query_history(conn) -> dict:
             PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY total_elapsed_time) AS p95_ms,
             SUM(bytes_scanned) AS scanned,
             SUM(bytes_spilled_to_local_storage) AS spill_local,
-            SUM(bytes_spilled_to_remote_storage) AS spill_remote
+            SUM(bytes_spilled_to_remote_storage) AS spill_remote,
+            AVG(CASE WHEN partitions_total > 0
+                THEN (partitions_scanned::FLOAT / partitions_total) * 100
+                ELSE 0 END) AS avg_partition_scan_pct
         FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
         WHERE start_time >= DATEADD(day, -7, CURRENT_TIMESTAMP())
     """)
@@ -450,6 +684,7 @@ def get_query_history(conn) -> dict:
             "bytes_scanned": int(v[4] or 0),
             "bytes_spilled_local": int(v[5] or 0),
             "bytes_spilled_remote": int(v[6] or 0),
+            "partitions_scanned_pct": float(v[7] or 0),
         })
 
     for r in _run_query(conn, """
@@ -462,7 +697,16 @@ def get_query_history(conn) -> dict:
         base["error_types"][str(r.get("error_message") or "unknown")[:100]] = int(r.get("cnt") or 0)
 
     for r in _run_query(conn, """
-        SELECT query_text, total_elapsed_time, bytes_scanned, warehouse_name, user_name
+        SELECT QUERY_TYPE, COUNT(*) AS cnt
+        FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+        WHERE start_time >= DATEADD(day, -7, CURRENT_TIMESTAMP())
+        GROUP BY QUERY_TYPE ORDER BY cnt DESC LIMIT 15
+    """):
+        base["query_types"][str(r.get("query_type") or "OTHER")] = int(r.get("cnt") or 0)
+
+    for r in _run_query(conn, """
+        SELECT query_text, total_elapsed_time, bytes_scanned, warehouse_name, user_name,
+               partitions_scanned, partitions_total
         FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
         WHERE start_time >= DATEADD(day, -7, CURRENT_TIMESTAMP())
           AND execution_status = 'SUCCESS'
@@ -474,10 +718,14 @@ def get_query_history(conn) -> dict:
             "bytes_scanned": int(r.get("bytes_scanned") or 0),
             "warehouse": str(r.get("warehouse_name") or ""),
             "user": str(r.get("user_name") or ""),
+            "partitions_scanned": int(r.get("partitions_scanned") or 0),
+            "partitions_total": int(r.get("partitions_total") or 0),
         })
 
     return base
 
+
+# ── Storage ───────────────────────────────────────────────────────────────────
 
 def get_storage_usage(conn) -> dict:
     base = {"storage_bytes": 0, "stage_bytes": 0, "failsafe_bytes": 0}
@@ -495,6 +743,25 @@ def get_storage_usage(conn) -> dict:
         }
     return base
 
+
+def get_storage_usage_trend(conn) -> list[dict]:
+    """Daily storage bytes for the last 30 days."""
+    result = []
+    rows = _run_query(conn, """
+        SELECT USAGE_DATE, SUM(STORAGE_BYTES) AS total_bytes
+        FROM SNOWFLAKE.ACCOUNT_USAGE.STORAGE_USAGE
+        WHERE USAGE_DATE >= DATEADD(day, -30, CURRENT_DATE())
+        GROUP BY USAGE_DATE ORDER BY USAGE_DATE ASC
+    """)
+    for r in rows:
+        result.append({
+            "date": str(r.get("usage_date") or ""),
+            "bytes": int(r.get("total_bytes") or 0),
+        })
+    return result
+
+
+# ── Cost & Credits ────────────────────────────────────────────────────────────
 
 def get_warehouse_credits(conn) -> dict:
     base = {"total_credits": 0.0, "compute_credits": 0.0, "cloud_services_credits": 0.0, "top_wh": []}
@@ -515,7 +782,7 @@ def get_warehouse_credits(conn) -> dict:
         SELECT WAREHOUSE_NAME, SUM(CREDITS_USED) AS credits
         FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
         WHERE START_TIME >= DATEADD(day, -30, CURRENT_TIMESTAMP())
-        GROUP BY WAREHOUSE_NAME ORDER BY credits DESC LIMIT 5
+        GROUP BY WAREHOUSE_NAME ORDER BY credits DESC LIMIT 10
     """):
         base["top_wh"].append({
             "name": str(r.get("warehouse_name") or ""),
@@ -525,9 +792,169 @@ def get_warehouse_credits(conn) -> dict:
     return base
 
 
-def count_masking_policies(conn) -> int:
-    return count_objects(conn, "SHOW MASKING POLICIES IN ACCOUNT")
+def get_credit_usage_by_service(conn) -> list[dict]:
+    """Credits consumed per service type (last 30 days) from METERING_HISTORY."""
+    result = []
+    rows = _run_query(conn, """
+        SELECT SERVICE_TYPE, SUM(CREDITS_USED) AS credits
+        FROM SNOWFLAKE.ACCOUNT_USAGE.METERING_HISTORY
+        WHERE START_TIME >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+        GROUP BY SERVICE_TYPE ORDER BY credits DESC
+    """)
+    for r in rows:
+        result.append({
+            "service": str(r.get("service_type") or ""),
+            "credits": float(r.get("credits") or 0),
+        })
+    return result
 
 
-def count_row_access_policies(conn) -> int:
-    return count_objects(conn, "SHOW ROW ACCESS POLICIES IN ACCOUNT")
+def get_credit_usage_daily(conn) -> list[dict]:
+    """Daily credit usage for the last 30 days (warehouse compute)."""
+    result = []
+    rows = _run_query(conn, """
+        SELECT DATE_TRUNC('DAY', START_TIME) AS day,
+               SUM(CREDITS_USED) AS credits
+        FROM SNOWFLAKE.ACCOUNT_USAGE.WAREHOUSE_METERING_HISTORY
+        WHERE START_TIME >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+        GROUP BY 1 ORDER BY 1 ASC
+    """)
+    for r in rows:
+        result.append({
+            "date": str(r.get("day") or "")[:10],
+            "credits": float(r.get("credits") or 0),
+        })
+    return result
+
+
+# ── Auto-clustering ───────────────────────────────────────────────────────────
+
+def get_auto_clustering_history(conn) -> dict:
+    """Credits and bytes reclustered over the last 30 days."""
+    base = {"total_credits": 0.0, "total_bytes_reclustered": 0, "tables_reclustered": 0}
+    rows = _run_query(conn, """
+        SELECT
+            SUM(CREDITS_USED) AS credits,
+            SUM(NUM_BYTES_RECLUSTERED) AS bytes_reclustered,
+            COUNT(DISTINCT TABLE_NAME) AS tables_touched
+        FROM SNOWFLAKE.ACCOUNT_USAGE.AUTOMATIC_CLUSTERING_HISTORY
+        WHERE START_TIME >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+    """)
+    if rows:
+        v = list(rows[0].values())
+        base.update({
+            "total_credits": float(v[0] or 0),
+            "total_bytes_reclustered": int(v[1] or 0),
+            "tables_reclustered": int(v[2] or 0),
+        })
+    return base
+
+
+# ── Snowpipe ingestion ────────────────────────────────────────────────────────
+
+def get_pipe_usage(conn) -> dict:
+    """Snowpipe credit usage and file counts over the last 30 days."""
+    base = {"total_credits": 0.0, "total_files_inserted": 0, "total_bytes_inserted": 0}
+    rows = _run_query(conn, """
+        SELECT
+            SUM(CREDITS_USED) AS credits,
+            SUM(FILES_INSERTED) AS files,
+            SUM(BYTES_INSERTED) AS bytes
+        FROM SNOWFLAKE.ACCOUNT_USAGE.PIPE_USAGE_HISTORY
+        WHERE START_TIME >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+    """)
+    if rows:
+        v = list(rows[0].values())
+        base.update({
+            "total_credits": float(v[0] or 0),
+            "total_files_inserted": int(v[1] or 0),
+            "total_bytes_inserted": int(v[2] or 0),
+        })
+    return base
+
+
+# ── Task execution ────────────────────────────────────────────────────────────
+
+def get_task_history(conn) -> dict:
+    """Task execution summary over the last 7 days."""
+    base = {
+        "total_runs": 0,
+        "succeeded": 0,
+        "failed": 0,
+        "skipped": 0,
+    }
+    rows = _run_query(conn, """
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN STATE = 'SUCCEEDED' THEN 1 ELSE 0 END) AS succeeded,
+            SUM(CASE WHEN STATE = 'FAILED' THEN 1 ELSE 0 END) AS failed,
+            SUM(CASE WHEN STATE = 'SKIPPED' THEN 1 ELSE 0 END) AS skipped
+        FROM SNOWFLAKE.ACCOUNT_USAGE.TASK_HISTORY
+        WHERE SCHEDULED_TIME >= DATEADD(day, -7, CURRENT_TIMESTAMP())
+    """)
+    if rows:
+        v = list(rows[0].values())
+        base.update({
+            "total_runs": int(v[0] or 0),
+            "succeeded": int(v[1] or 0),
+            "failed": int(v[2] or 0),
+            "skipped": int(v[3] or 0),
+        })
+    return base
+
+
+# ── Data Transfer ─────────────────────────────────────────────────────────────
+
+def get_data_transfer_history(conn) -> dict:
+    """Bytes transferred out of Snowflake over the last 30 days."""
+    base = {"total_bytes_transferred": 0, "by_target_cloud": {}}
+    rows = _run_query(conn, """
+        SELECT TARGET_CLOUD, SUM(BYTES_TRANSFERRED) AS bytes
+        FROM SNOWFLAKE.ACCOUNT_USAGE.DATA_TRANSFER_HISTORY
+        WHERE START_TIME >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+        GROUP BY TARGET_CLOUD ORDER BY bytes DESC
+    """)
+    for r in rows:
+        cloud = str(r.get("target_cloud") or "unknown")
+        b = int(r.get("bytes") or 0)
+        base["total_bytes_transferred"] += b
+        base["by_target_cloud"][cloud] = b
+    return base
+
+
+# ── Search Optimisation ───────────────────────────────────────────────────────
+
+def get_search_optimization_history(conn) -> dict:
+    """Credits used by search optimisation in the last 30 days."""
+    base = {"total_credits": 0.0, "total_bytes_maintained": 0}
+    rows = _run_query(conn, """
+        SELECT SUM(CREDITS_USED) AS credits, SUM(NUM_BYTES_MAINTAINED) AS bytes
+        FROM SNOWFLAKE.ACCOUNT_USAGE.SEARCH_OPTIMIZATION_HISTORY
+        WHERE START_TIME >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+    """)
+    if rows:
+        v = list(rows[0].values())
+        base.update({
+            "total_credits": float(v[0] or 0),
+            "total_bytes_maintained": int(v[1] or 0),
+        })
+    return base
+
+
+# ── Materialised Views ────────────────────────────────────────────────────────
+
+def get_materialized_view_history(conn) -> dict:
+    """Credits used maintaining materialised views in the last 30 days."""
+    base = {"total_credits": 0.0, "total_bytes_maintained": 0}
+    rows = _run_query(conn, """
+        SELECT SUM(CREDITS_USED) AS credits, SUM(NUM_BYTES_MAINTAINED) AS bytes
+        FROM SNOWFLAKE.ACCOUNT_USAGE.MATERIALIZED_VIEW_REFRESH_HISTORY
+        WHERE START_TIME >= DATEADD(day, -30, CURRENT_TIMESTAMP())
+    """)
+    if rows:
+        v = list(rows[0].values())
+        base.update({
+            "total_credits": float(v[0] or 0),
+            "total_bytes_maintained": int(v[1] or 0),
+        })
+    return base

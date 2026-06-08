@@ -1377,6 +1377,10 @@ export interface SnowflakeAssessmentRequest {
   include_query_history?: boolean
   include_storage_usage?: boolean
   include_warehouse_metering?: boolean
+  include_login_history?: boolean
+  include_access_history?: boolean
+  include_governance?: boolean
+  include_integrations?: boolean
   max_databases?: number
 }
 
@@ -1391,6 +1395,7 @@ export interface SnowflakeAccountInfo {
   current_role?: string
   current_warehouse?: string
   current_user?: string
+  default_data_retention_days?: number
 }
 
 export interface SnowflakeWarehouse {
@@ -1510,8 +1515,10 @@ export interface SnowflakeQueryMetrics {
   bytes_scanned_total: number
   bytes_spilled_local: number
   bytes_spilled_remote: number
+  partitions_scanned_pct: number
   most_expensive_queries: Record<string, unknown>[]
   query_error_types: Record<string, number>
+  query_types: Record<string, number>
 }
 
 export interface SnowflakeStorageMetrics {
@@ -1519,13 +1526,76 @@ export interface SnowflakeStorageMetrics {
   stage_bytes: number
   failsafe_bytes: number
   total_bytes: number
+  trend: Record<string, unknown>[]
 }
 
 export interface SnowflakeCostMetrics {
   credits_used_last_30d: number
   compute_credits: number
   cloud_services_credits: number
-  top_warehouses_by_credit: { name: string; credits: number }[]
+  top_warehouses_by_credit: Record<string, unknown>[]
+  by_service_type: Record<string, unknown>[]
+  daily_trend: Record<string, unknown>[]
+}
+
+export interface SnowflakeLoginHistory {
+  total_logins_30d: number
+  failed_logins_30d: number
+  unique_users_30d: number
+  client_types: Record<string, number>
+  failed_reasons: Record<string, number>
+}
+
+export interface SnowflakeAccessHistory {
+  total_access_events_30d: number
+  distinct_objects_accessed: number
+  top_users_by_access: Record<string, unknown>[]
+}
+
+export interface SnowflakeIntegrations {
+  storage_integrations: Record<string, unknown>[]
+  notification_integrations: Record<string, unknown>[]
+  security_integrations: Record<string, unknown>[]
+  api_integrations: Record<string, unknown>[]
+  catalog_integrations: Record<string, unknown>[]
+}
+
+export interface SnowflakeGovernance {
+  projection_policies: number
+  aggregation_policies: number
+  authentication_policies: number
+  password_policies: number
+  session_policies: number
+  total_tags: number
+  tags: Record<string, unknown>[]
+}
+
+export interface SnowflakeAlertsSummary {
+  total_alerts: number
+  enabled_alerts: number
+  alerts: Record<string, unknown>[]
+}
+
+export interface SnowflakeReplication {
+  replication_groups: number
+  failover_groups: number
+  replicated_databases: Record<string, unknown>[]
+}
+
+export interface SnowflakeOperationalMetrics {
+  auto_clustering_credits: number
+  auto_clustering_bytes_reclustered: number
+  auto_clustering_tables: number
+  pipe_credits: number
+  pipe_files_inserted: number
+  pipe_bytes_inserted: number
+  task_runs_7d: number
+  task_succeeded_7d: number
+  task_failed_7d: number
+  search_opt_credits: number
+  mv_refresh_credits: number
+  data_transfer_bytes: number
+  data_transfer_by_cloud: Record<string, number>
 }
 
 export interface SnowflakeAssessmentResult {
@@ -1540,9 +1610,16 @@ export interface SnowflakeAssessmentResult {
   object_inventory?: SnowflakeObjectInventory
   user_profile?: SnowflakeUserProfile
   security_posture?: SnowflakeSecurityPosture
+  login_history?: SnowflakeLoginHistory
+  access_history?: SnowflakeAccessHistory
+  integrations?: SnowflakeIntegrations
+  governance?: SnowflakeGovernance
+  alerts?: SnowflakeAlertsSummary
+  replication?: SnowflakeReplication
   query_metrics?: SnowflakeQueryMetrics
   storage_metrics?: SnowflakeStorageMetrics
   cost_metrics?: SnowflakeCostMetrics
+  operational_metrics?: SnowflakeOperationalMetrics
   warehouses?: SnowflakeWarehouse[]
   databases?: SnowflakeDatabase[]
   schemas?: SnowflakeSchema[]

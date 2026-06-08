@@ -1,11 +1,14 @@
 import { useState } from 'react'
-import type { FabricWorkspace, ReportPage, ReportVisual } from '../../types/api'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Eye, Table2 } from 'lucide-react'
+import type { FabricWorkspace, ReportPage, ReportVisual, FabricReport } from '../../types/api'
 import type { MockReport, MockPage, MockVisual, AssessmentStatus } from '../../data/mockReports'
 import { mockReports } from '../../data/mockReports'
 import Breadcrumb from './Breadcrumb'
 import LineageExplorer from './LineageExplorer'
 import ReportCanvasView from './ReportCanvasView'
 import VisualDetailModal from './VisualDetailModal'
+import ReportMetadataView from './ReportMetadataView'
 import type { VisualChecklist } from './VisualDetailModal'
 
 interface ReportsSegmentProps {
@@ -13,6 +16,7 @@ interface ReportsSegmentProps {
 }
 
 type NavLevel = 'list' | 'report'
+type ReportViewMode = 'canvas' | 'metadata'
 
 // ── Conversion helpers ────────────────────────────────────────────────────────
 
@@ -78,6 +82,7 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
   const [selectedVisual, setSelectedVisual] = useState<MockVisual | null>(null)
   const [visualAssessments, setVisualAssessments] = useState<Record<string, AssessmentStatus>>({})
+  const [reportViewMode, setReportViewMode] = useState<ReportViewMode>('canvas')
 
   // Selected workspace managed here so breadcrumbs stay in sync
   const [lineageWorkspace, setLineageWorkspace] = useState<import('../../types/api').FabricWorkspace | null>(null)
@@ -93,6 +98,7 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
   const handleSelectReport = (reportId: string, workspaceName: string) => {
     setSelectedReportId(reportId)
     setNavLevel('report')
+    setReportViewMode('canvas')
     // Preserve lineageWorkspace for breadcrumb — find it from workspaces if needed
     if (!lineageWorkspace) {
       const ws = workspaces.find(w => w.name === workspaceName) ?? null
@@ -184,14 +190,141 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
           />
         )}
 
-        {navLevel === 'report' && selectedReport && (
-          <div className="p-4 h-full">
-            <ReportCanvasView
-              report={selectedReport}
-              onVisualClick={setSelectedVisual}
-            />
-          </div>
-        )}
+        {navLevel === 'report' && selectedReport && (() => {
+          // Resolve the API report and its workspace for metadata view
+          const apiReport: FabricReport | undefined = workspaces
+            .flatMap(ws => ws.reports)
+            .find(r => r.id === selectedReport.id)
+          const apiWorkspace = workspaces.find(ws =>
+            ws.reports.some(r => r.id === selectedReport.id),
+          )
+
+          const VIEWS = [
+            { mode: 'canvas'   as const, label: 'Report View',  icon: <Eye size={12} />    },
+            { mode: 'metadata' as const, label: 'Metadata',     icon: <Table2 size={12} /> },
+          ] as const
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              {/* ── Animated toggle bar ──────────────────────────────────── */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 16px',
+                borderBottom: '1px solid rgba(197,213,236,0.65)',
+                background: 'linear-gradient(180deg, #F9FAFD 0%, #F2F6FB 100%)',
+                flexShrink: 0,
+              }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, color: '#94A3B8',
+                  textTransform: 'uppercase', letterSpacing: '0.07em',
+                }}>View</span>
+
+                {/* Pill switcher */}
+                <div style={{
+                  display: 'flex', alignItems: 'center',
+                  padding: 3, gap: 2,
+                  background: 'rgba(0,86,179,0.06)',
+                  border: '1px solid rgba(0,86,179,0.14)',
+                  borderRadius: 10,
+                  position: 'relative',
+                }}>
+                  {VIEWS.map(({ mode, label, icon }) => (
+                    <button
+                      key={mode}
+                      onClick={() => setReportViewMode(mode)}
+                      style={{
+                        position: 'relative', zIndex: 1,
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        padding: '5px 13px', borderRadius: 7, cursor: 'pointer',
+                        fontSize: 11.5, fontWeight: 600, border: 'none',
+                        background: 'transparent',
+                        color: reportViewMode === mode ? '#fff' : '#475569',
+                        transition: 'color 150ms cubic-bezier(0.4,0,0.2,1)',
+                      }}
+                    >
+                      {/* Sliding background pill */}
+                      {reportViewMode === mode && (
+                        <motion.span
+                          layoutId="view-pill"
+                          style={{
+                            position: 'absolute', inset: 0, zIndex: -1,
+                            borderRadius: 7,
+                            background: 'linear-gradient(135deg, #0056B3, #0084D4)',
+                            boxShadow: '0 2px 8px rgba(0,86,179,0.30)',
+                          }}
+                          transition={{ type: 'spring', duration: 0.32, bounce: 0.15 }}
+                        />
+                      )}
+                      {icon}
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Report name chip */}
+                <motion.span
+                  key={selectedReport.id}
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+                  style={{
+                    marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#475569',
+                    background: 'rgba(100,116,139,0.08)',
+                    border: '1px solid rgba(100,116,139,0.15)',
+                    padding: '3px 10px', borderRadius: 7,
+                    maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}
+                >
+                  {selectedReport.name}
+                </motion.span>
+              </div>
+
+              {/* ── Panel with AnimatePresence slide ─────────────────────── */}
+              <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+                <AnimatePresence mode="wait">
+                  {reportViewMode === 'canvas' && (
+                    <motion.div
+                      key="canvas"
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -12 }}
+                      transition={{ type: 'spring', duration: 0.35, bounce: 0 }}
+                      className="p-4 h-full"
+                    >
+                      <ReportCanvasView
+                        report={selectedReport}
+                        onVisualClick={setSelectedVisual}
+                      />
+                    </motion.div>
+                  )}
+                  {reportViewMode === 'metadata' && apiReport && apiWorkspace && (
+                    <motion.div
+                      key="metadata"
+                      initial={{ opacity: 0, x: 12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 12 }}
+                      transition={{ type: 'spring', duration: 0.35, bounce: 0 }}
+                      style={{ padding: '0 16px 16px' }}
+                    >
+                      <ReportMetadataView report={apiReport} workspace={apiWorkspace} />
+                    </motion.div>
+                  )}
+                  {reportViewMode === 'metadata' && (!apiReport || !apiWorkspace) && (
+                    <motion.div
+                      key="no-meta"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      style={{ padding: 24, color: '#94A3B8', fontSize: 13, fontStyle: 'italic' }}
+                    >
+                      Metadata not available for this report.
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Visual detail modal */}

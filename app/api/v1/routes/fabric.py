@@ -1096,7 +1096,7 @@ def _generate_excel(results: dict, label: str) -> bytes:
     """Generate a multi-sheet Excel file from FabricResults."""
     try:
         import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, GradientFill
         from openpyxl.utils import get_column_letter
     except ImportError:
         raise HTTPException(status_code=503, detail="openpyxl not installed")
@@ -1104,132 +1104,397 @@ def _generate_excel(results: dict, label: str) -> bytes:
     wb = openpyxl.Workbook()
     wb.remove(wb.active)  # remove default sheet
 
-    HEADER_FONT = Font(bold=True, color="FFFFFF")
-    HEADER_FILL = PatternFill("solid", fgColor="4F46E5")
+    # ── Palette ───────────────────────────────────────────────────────────────
+    CLR_PRIMARY    = "4F46E5"   # indigo header
+    CLR_SECTION_A  = "1E3A5F"   # dark-navy header for lineage sheets
+    CLR_SECTION_B  = "0F766E"   # teal header for complexity sheets
+    CLR_SECTION_C  = "92400E"   # amber-brown header for DB-usage sheet
+    CLR_ALT_ROW    = "F8FAFF"   # very light blue alternate row
+    CLR_BORDER     = "C5D5EC"
 
-    def _add_sheet(name: str, headers: list[str], rows: list[list]) -> None:
+    thin_side = Side(style="thin", color=CLR_BORDER)
+    thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+
+    def _make_header_font(color: str = "FFFFFF") -> Font:
+        return Font(bold=True, color=color, size=10)
+
+    def _make_header_fill(fg: str) -> PatternFill:
+        return PatternFill("solid", fgColor=fg)
+
+    def _add_sheet(
+        name: str,
+        headers: list[str],
+        rows: list[list],
+        col_widths: list[int] | None = None,
+        header_color: str = CLR_PRIMARY,
+        alt_row: bool = True,
+    ) -> None:
         ws = wb.create_sheet(title=name[:31])
+        hfont  = _make_header_font()
+        hfill  = _make_header_fill(header_color)
+        halign = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
         ws.append(headers)
-        for cell in ws[1]:
-            cell.font = HEADER_FONT
-            cell.fill = HEADER_FILL
-            cell.alignment = Alignment(horizontal="center")
-        for row in rows:
+        ws.row_dimensions[1].height = 28
+        for ci, cell in enumerate(ws[1]):
+            cell.font      = hfont
+            cell.fill      = hfill
+            cell.alignment = halign
+            cell.border    = thin_border
+
+        alt_fill = PatternFill("solid", fgColor=CLR_ALT_ROW)
+        for ri, row in enumerate(rows, start=2):
             ws.append([str(v) if v is not None else "" for v in row])
-        for col_idx in range(1, len(headers) + 1):
-            ws.column_dimensions[get_column_letter(col_idx)].width = 22
+            if alt_row and ri % 2 == 0:
+                for cell in ws[ri]:
+                    cell.fill = alt_fill
+            for cell in ws[ri]:
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical="center", wrap_text=False)
+
+        widths = col_widths or [22] * len(headers)
+        for ci, w in enumerate(widths, start=1):
+            ws.column_dimensions[get_column_letter(ci)].width = w
+
+        ws.freeze_panes = "A2"
 
     workspaces = results.get("workspaces", [])
     summary = results.get("summary", {})
 
-    # ── Summary sheet ─────────────────────────────────────────────────────────
-    _add_sheet("Summary", ["Metric", "Value"], [
-        ["Workspaces", summary.get("workspace_count", 0)],
-        ["Semantic Models", summary.get("dataset_count", 0)],
-        ["Reports", summary.get("report_count", 0)],
-        ["Paginated Reports", summary.get("paginated_report_count", 0)],
-        ["Total Measures", summary.get("total_measures", 0)],
-        ["Calculated Tables", summary.get("total_calculated_tables", 0)],
-        ["Calculated Columns", summary.get("total_calculated_columns", 0)],
-        ["Relationships", summary.get("total_relationships", 0)],
-        ["Total Visuals", summary.get("total_visuals", 0)],
-        ["Assessed At", results.get("assessed_at", "")],
-    ])
+    # ── helpers ───────────────────────────────────────────────────────────────
 
-    # ── Models sheet ──────────────────────────────────────────────────────────
+    def _risk(storage_mode: str) -> str:
+        return {"DirectLake": "Low", "Import": "Low", "DirectQuery": "High",
+                "Composite": "Medium", "Push": "Medium"}.get(storage_mode, "Unknown")
+
+    def _dep_type(storage_mode: str) -> str:
+        return {"DirectLake": "OneLake / Lakehouse",
+                "DirectQuery": "Live RDBMS / Warehouse",
+                "Import": "Snapshot Cache",
+                "Composite": "Mixed (Import + DQ)",
+                "Push": "Streaming Push"}.get(storage_mode, storage_mode or "Unknown")
+
+    def _report_complexity(rpt: dict, ds_map: dict) -> str:
+        """Estimate report complexity from visual & measure counts."""
+        vc = rpt.get("visual_count", 0)
+        ds_id = rpt.get("dataset_id", "")
+        ds = ds_map.get(ds_id, {})
+        mc = ds.get("measure_count", 0)
+        rc = ds.get("relationship_count", 0)
+        score = vc + mc * 2 + rc
+        if score >= 80:  return "Very Complex"
+        if score >= 40:  return "Complex"
+        if score >= 20:  return "Moderate"
+        if score >= 5:   return "Simple"
+        return "Minimal"
+
+    # Build dataset-id → dataset map for cross-linking
+    ds_by_id: dict[str, dict] = {}
+    ds_by_name: dict[str, dict] = {}
+    for _ws in workspaces:
+        for _ds in _ws.get("datasets", []):
+            ds_by_id[_ds.get("id", "")] = _ds
+            ds_by_name[_ds.get("name", "")] = _ds
+
+    # ── 1. Summary sheet ─────────────────────────────────────────────────────
+    total_visuals = summary.get("total_visuals", 0)
+    total_complex = sum(
+        1 for _ws in workspaces for _ds in _ws.get("datasets", [])
+        for m in _ds.get("measures", [])
+        if (m.get("complexity") or {}).get("level") in ("Complex", "Very Complex")
+    )
+    _add_sheet("Summary", ["Metric", "Value"], [
+        ["Workspaces Assessed",      summary.get("workspace_count", 0)],
+        ["Semantic Models",          summary.get("dataset_count", 0)],
+        ["Reports",                  summary.get("report_count", 0)],
+        ["Paginated Reports",        summary.get("paginated_report_count", 0)],
+        ["Total Measures",           summary.get("total_measures", 0)],
+        ["Complex / Very Complex Measures", total_complex],
+        ["Calculated Tables",        summary.get("total_calculated_tables", 0)],
+        ["Calculated Columns",       summary.get("total_calculated_columns", 0)],
+        ["Relationships",            summary.get("total_relationships", 0)],
+        ["Total Visuals",            total_visuals],
+        ["Assessment Label",         label],
+        ["Assessed At",              results.get("assessed_at", "")],
+    ], col_widths=[36, 20])
+
+    # ── 2. Semantic Models sheet ──────────────────────────────────────────────
     model_rows = []
-    for ws in workspaces:
-        for ds in ws.get("datasets", []):
+    for _ws in workspaces:
+        for ds in _ws.get("datasets", []):
+            cx_dist: dict[str, int] = {}
+            for m in ds.get("measures", []):
+                lvl = (m.get("complexity") or {}).get("level", "None")
+                cx_dist[lvl] = cx_dist.get(lvl, 0) + 1
             model_rows.append([
-                ws.get("name", ""), ds.get("name", ""), ds.get("storage_mode", ""),
+                _ws.get("name", ""), ds.get("name", ""), ds.get("storage_mode", ""),
+                _dep_type(ds.get("storage_mode", "")),
                 ds.get("configured_by", ""), ds.get("table_count", 0),
                 ds.get("measure_count", 0), ds.get("calculated_column_count", 0),
                 ds.get("calculated_table_count", 0), ds.get("relationship_count", 0),
                 ds.get("complexity_score", 0),
+                cx_dist.get("Very Complex", 0),
+                cx_dist.get("Complex", 0),
+                "Yes" if ds.get("is_refreshable") else "No",
             ])
     _add_sheet("Semantic Models",
-               ["Workspace", "Model", "Storage Mode", "Owner", "Tables",
-                "Measures", "Calc Cols", "Calc Tables", "Relationships", "Complexity"],
-               model_rows)
+               ["Workspace", "Model", "Storage Mode", "Dependency Type", "Owner",
+                "Tables", "Measures", "Calc Cols", "Calc Tables", "Relationships",
+                "Complexity Score", "Very Complex Measures", "Complex Measures", "Refreshable"],
+               model_rows,
+               col_widths=[22, 26, 16, 24, 20, 9, 10, 10, 11, 14, 14, 16, 14, 12])
 
-    # ── Measures sheet ────────────────────────────────────────────────────────
+    # ── 3. Measures sheet ─────────────────────────────────────────────────────
     measure_rows = []
-    for ws in workspaces:
-        for ds in ws.get("datasets", []):
+    for _ws in workspaces:
+        for ds in _ws.get("datasets", []):
             for m in ds.get("measures", []):
                 cx = m.get("complexity") or {}
+                deps = m.get("dependencies") or []
+                dep_tables = ", ".join(sorted({d.get("table", "") for d in deps}))
                 measure_rows.append([
-                    ws.get("name", ""), ds.get("name", ""), m.get("table", ""),
+                    _ws.get("name", ""), ds.get("name", ""), m.get("table", ""),
                     m.get("name", ""), m.get("display_folder", ""),
                     cx.get("score", 0), cx.get("level", "None"),
                     cx.get("nesting_depth", 0), cx.get("function_count", 0),
-                    m.get("expression", "")[:200],
+                    cx.get("dependency_count", 0),
+                    ", ".join(cx.get("complex_functions", [])),
+                    dep_tables,
+                    m.get("expression", "")[:300],
                 ])
     _add_sheet("Measures",
                ["Workspace", "Model", "Table", "Measure", "Folder",
-                "Score", "Level", "Depth", "Functions", "Expression"],
-               measure_rows)
+                "Score", "Level", "Nesting Depth", "Function Count", "Column Refs",
+                "Complex Functions", "Referenced Tables", "DAX Expression (truncated)"],
+               measure_rows,
+               col_widths=[20, 22, 18, 26, 16, 8, 14, 12, 13, 10, 22, 22, 40])
 
-    # ── Relationships sheet ───────────────────────────────────────────────────
+    # ── 4. Relationships sheet ────────────────────────────────────────────────
     rel_rows = []
-    for ws in workspaces:
-        for ds in ws.get("datasets", []):
+    for _ws in workspaces:
+        for ds in _ws.get("datasets", []):
             for r in ds.get("relationships", []):
                 rel_rows.append([
-                    ws.get("name", ""), ds.get("name", ""),
+                    _ws.get("name", ""), ds.get("name", ""),
                     r.get("from_table", ""), r.get("from_column", ""),
                     r.get("to_table", ""), r.get("to_column", ""),
                     r.get("cardinality", ""), r.get("cross_filter", ""),
-                    "Yes" if r.get("is_active", True) else "No",
+                    "Active" if r.get("is_active", True) else "Inactive",
                 ])
     _add_sheet("Relationships",
                ["Workspace", "Model", "From Table", "From Column",
-                "To Table", "To Column", "Cardinality", "Cross Filter", "Active"],
-               rel_rows)
+                "To Table", "To Column", "Cardinality", "Cross Filter", "Status"],
+               rel_rows,
+               col_widths=[22, 22, 20, 20, 20, 20, 14, 16, 10])
 
-    # ── Reports sheet ─────────────────────────────────────────────────────────
+    # ── 5. Reports sheet ──────────────────────────────────────────────────────
     report_rows = []
-    for ws in workspaces:
-        for rpt in ws.get("reports", []):
+    for _ws in workspaces:
+        for rpt in _ws.get("reports", []):
+            ds_id  = rpt.get("dataset_id", "")
+            ds     = ds_by_id.get(ds_id, {})
+            model_name = ds.get("name", ds_id or "—")
+            pages  = rpt.get("pages") or []
+            unique_visual_types = sorted({v.get("type", "") for p in pages for v in p.get("visuals", []) if v.get("type")})
             report_rows.append([
-                ws.get("name", ""), rpt.get("name", ""),
+                _ws.get("name", ""), rpt.get("name", ""),
                 rpt.get("report_type", ""), "Yes" if rpt.get("is_paginated") else "No",
+                model_name,
                 rpt.get("page_count", 0) or 0, rpt.get("visual_count", 0),
                 rpt.get("bookmark_count", 0),
+                _report_complexity(rpt, ds_by_id),
                 "Yes" if rpt.get("layout_parsed") else "No",
+                ", ".join(unique_visual_types[:8]),
             ])
     _add_sheet("Reports",
-               ["Workspace", "Report", "Type", "Paginated",
-                "Pages", "Visuals", "Bookmarks", "Full Analysis"],
-               report_rows)
+               ["Workspace", "Report", "Type", "Paginated", "Linked Model",
+                "Pages", "Visuals", "Bookmarks", "Complexity Level",
+                "Full Layout Parsed", "Visual Types Used"],
+               report_rows,
+               col_widths=[20, 26, 14, 10, 24, 8, 9, 10, 16, 14, 34])
 
-    # ── Complexity Top-50 sheet ───────────────────────────────────────────────
+    # ── 6. Complexity Top 50 sheet ────────────────────────────────────────────
     complexity_items: list[tuple[int, list]] = []
-    for ws in workspaces:
-        for ds in ws.get("datasets", []):
+    for _ws in workspaces:
+        for ds in _ws.get("datasets", []):
             for m in ds.get("measures", []):
                 cx = m.get("complexity") or {}
                 if cx.get("score", 0) > 0:
                     complexity_items.append((cx["score"], [
-                        ws.get("name", ""), ds.get("name", ""), "Measure",
+                        _ws.get("name", ""), ds.get("name", ""), "Measure",
                         m.get("name", ""), m.get("table", ""),
                         cx["score"], cx.get("level", ""), cx.get("nesting_depth", 0),
+                        cx.get("function_count", 0),
                         ", ".join(cx.get("complex_functions", [])),
                     ]))
             for c in ds.get("calculated_columns", []):
                 cx = c.get("complexity") or {}
                 if cx.get("score", 0) > 0:
                     complexity_items.append((cx["score"], [
-                        ws.get("name", ""), ds.get("name", ""), "Calc Column",
+                        _ws.get("name", ""), ds.get("name", ""), "Calc Column",
                         c.get("name", ""), c.get("table", ""),
                         cx["score"], cx.get("level", ""), cx.get("nesting_depth", 0),
+                        cx.get("function_count", 0),
                         ", ".join(cx.get("complex_functions", [])),
                     ]))
     complexity_items.sort(key=lambda x: x[0], reverse=True)
     _add_sheet("Complexity Top 50",
                ["Workspace", "Model", "Type", "Name", "Table",
-                "Score", "Level", "Depth", "Complex Functions"],
-               [row for _, row in complexity_items[:50]])
+                "Score", "Level", "Nesting Depth", "Function Count", "Complex Functions"],
+               [row for _, row in complexity_items[:50]],
+               col_widths=[20, 22, 14, 30, 18, 8, 14, 12, 14, 28],
+               header_color=CLR_SECTION_B)
+
+    # ── 7. Database Usage Summary (Backend Dependency) ────────────────────────
+    db_map: dict[str, dict] = {}   # db_key → {name, storage_mode, reports: set, dep_type, risk}
+    for _ws in workspaces:
+        for ds in _ws.get("datasets", []):
+            key = ds.get("name", "")
+            if not key:
+                continue
+            if key not in db_map:
+                db_map[key] = {
+                    "name": key,
+                    "storage_mode": ds.get("storage_mode", ""),
+                    "dep_type": _dep_type(ds.get("storage_mode", "")),
+                    "risk": _risk(ds.get("storage_mode", "")),
+                    "reports": set(),
+                    "workspace": _ws.get("name", ""),
+                    "table_count": ds.get("table_count", 0),
+                    "relationship_count": ds.get("relationship_count", 0),
+                    "measure_count": ds.get("measure_count", 0),
+                }
+            # count reports linked to this dataset
+            for rpt in _ws.get("reports", []):
+                if rpt.get("dataset_id") == ds.get("id"):
+                    db_map[key]["reports"].add(rpt.get("name", ""))
+
+    db_rows = []
+    for entry in sorted(db_map.values(), key=lambda x: -len(x["reports"])):
+        db_rows.append([
+            entry["workspace"], entry["name"], entry["storage_mode"],
+            entry["dep_type"], len(entry["reports"]),
+            entry["table_count"], entry["relationship_count"], entry["measure_count"],
+            entry["risk"],
+        ])
+    _add_sheet("Database Usage Summary",
+               ["Workspace", "Database / Model", "Storage Mode", "Dependency Type",
+                "Approx Report Count", "Tables", "Relationships", "Measures", "Risk Level"],
+               db_rows,
+               col_widths=[20, 26, 16, 26, 18, 9, 14, 10, 12],
+               header_color=CLR_SECTION_C)
+
+    # ── 8. Detailed Report Complexity Table ───────────────────────────────────
+    detail_rows = []
+    for _ws in workspaces:
+        for rpt in _ws.get("reports", []):
+            ds_id = rpt.get("dataset_id", "")
+            ds    = ds_by_id.get(ds_id, {})
+            # Unique data-source tables from visual fields
+            pages = rpt.get("pages") or []
+            field_tables: set[str] = set()
+            for p in pages:
+                for v in p.get("visuals", []):
+                    for f in v.get("fields", []):
+                        if f.get("table"):
+                            field_tables.add(f["table"])
+            detail_rows.append([
+                _ws.get("name", ""),
+                rpt.get("name", ""),
+                ds.get("name", ds_id or "—"),
+                ds.get("storage_mode", ""),
+                rpt.get("page_count", 0) or 0,
+                ds.get("table_count", 0),
+                ds.get("measure_count", 0),
+                ds.get("relationship_count", 0),
+                len(field_tables),
+                ", ".join(sorted(field_tables)[:6]) or "—",
+                rpt.get("visual_count", 0),
+                _report_complexity(rpt, ds_by_id),
+            ])
+    detail_rows.sort(key=lambda r: r[11])   # sort by complexity level alpha
+    _add_sheet("Detailed Report Complexity",
+               ["Workspace", "Report Name", "Semantic Model", "Storage Mode",
+                "Page Count", "Table Count", "Measures", "Relationships",
+                "Unique Data Sources", "Data Source Tables (sample)",
+                "Visual Count", "Complexity Level"],
+               detail_rows,
+               col_widths=[20, 28, 26, 16, 10, 10, 10, 14, 16, 36, 12, 16],
+               header_color=CLR_SECTION_B)
+
+    # ── 9. Visual Field Inventory ─────────────────────────────────────────────
+    field_rows = []
+    for _ws in workspaces:
+        for rpt in _ws.get("reports", []):
+            ds_id = rpt.get("dataset_id", "")
+            ds    = ds_by_id.get(ds_id, {})
+            pages = rpt.get("pages") or []
+            for page in pages:
+                for visual in page.get("visuals", []):
+                    for field in visual.get("fields", []):
+                        cx = field.get("complexity") or {}
+                        field_rows.append([
+                            _ws.get("name", ""), rpt.get("name", ""),
+                            ds.get("name", ""), page.get("name", ""),
+                            visual.get("title") or visual.get("type", ""),
+                            visual.get("type", ""),
+                            field.get("field_type", ""),
+                            field.get("table", ""), field.get("name", ""),
+                            field.get("agg_function", ""),
+                            cx.get("level", "") if cx else "",
+                            cx.get("score", "") if cx else "",
+                        ])
+    _add_sheet("Visual Field Inventory",
+               ["Workspace", "Report", "Semantic Model", "Page",
+                "Visual Title", "Visual Type", "Field Type",
+                "Table", "Field / Measure Name", "Aggregation",
+                "Measure Complexity", "Complexity Score"],
+               field_rows,
+               col_widths=[18, 24, 22, 16, 22, 16, 12, 18, 24, 14, 16, 14],
+               header_color=CLR_SECTION_A)
+
+    # ── 10. Table-to-Report Lineage ───────────────────────────────────────────
+    lineage_rows = []
+    for _ws in workspaces:
+        for rpt in _ws.get("reports", []):
+            ds_id = rpt.get("dataset_id", "")
+            ds    = ds_by_id.get(ds_id, {})
+            pages = rpt.get("pages") or []
+            used_tables: set[str] = set()
+            for p in pages:
+                for v in p.get("visuals", []):
+                    for f in v.get("fields", []):
+                        if f.get("table"):
+                            used_tables.add(f["table"])
+            # Also include tables from measures referenced in this report
+            used_measures_tables: set[str] = set()
+            for p in pages:
+                for v in p.get("visuals", []):
+                    for f in v.get("fields", []):
+                        if f.get("field_type") == "measure":
+                            for dep in (f.get("dependencies") or []):
+                                if dep.get("table"):
+                                    used_measures_tables.add(dep["table"])
+            all_tables = used_tables | used_measures_tables
+            for tbl in sorted(all_tables):
+                # check if table exists in the dataset
+                ds_tables = {t.get("name", "") for t in (ds.get("tables") or [])}
+                lineage_rows.append([
+                    _ws.get("name", ""),
+                    rpt.get("name", ""),
+                    ds.get("name", "—"),
+                    ds.get("storage_mode", ""),
+                    tbl,
+                    "Yes" if tbl in ds_tables else "No",
+                    "Direct Field" if tbl in used_tables else "Via Measure Dependency",
+                    _risk(ds.get("storage_mode", "")),
+                ])
+    _add_sheet("Table-to-Report Lineage",
+               ["Workspace", "Report", "Semantic Model", "Storage Mode",
+                "Table Name", "Verified in Model", "Lineage Path", "Risk Level"],
+               lineage_rows,
+               col_widths=[20, 26, 24, 16, 22, 16, 24, 12],
+               header_color=CLR_SECTION_A)
 
     buf = io.BytesIO()
     wb.save(buf)

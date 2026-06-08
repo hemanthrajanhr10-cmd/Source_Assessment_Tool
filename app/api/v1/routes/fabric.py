@@ -1164,15 +1164,24 @@ def _generate_excel(results: dict, label: str) -> bytes:
     # ── helpers ───────────────────────────────────────────────────────────────
 
     def _risk(storage_mode: str) -> str:
-        return {"DirectLake": "Low", "Import": "Low", "DirectQuery": "High",
-                "Composite": "Medium", "Push": "Medium"}.get(storage_mode, "Unknown")
+        return {
+            "DirectLake":  "Low",
+            "Import":      "Low",
+            "DirectQuery": "High",
+            "Composite":   "Medium",
+            "Dual":        "Medium",
+            "Push":        "Medium",
+        }.get(storage_mode, "Unknown")
 
     def _dep_type(storage_mode: str) -> str:
-        return {"DirectLake": "OneLake / Lakehouse",
-                "DirectQuery": "Live RDBMS / Warehouse",
-                "Import": "Snapshot Cache",
-                "Composite": "Mixed (Import + DQ)",
-                "Push": "Streaming Push"}.get(storage_mode, storage_mode or "Unknown")
+        return {
+            "DirectLake":  "OneLake / Lakehouse",
+            "DirectQuery": "Live RDBMS / Warehouse",
+            "Import":      "Snapshot Cache",
+            "Composite":   "Mixed (Import + DQ/DL)",
+            "Dual":        "Hybrid Cache + Live Fallback",
+            "Push":        "Streaming Push",
+        }.get(storage_mode, storage_mode or "Unknown")
 
     def _report_complexity(rpt: dict, ds_map: dict) -> str:
         """Estimate report complexity from visual & measure counts."""

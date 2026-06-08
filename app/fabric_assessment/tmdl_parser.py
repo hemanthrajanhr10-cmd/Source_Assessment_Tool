@@ -463,6 +463,112 @@ def _extract_model_storage(content: str) -> str:
 
 # ── Assembler: raw parse → FabricDataset-shaped dict ─────────────────────────
 
+_SOURCE_FEED_DESCRIPTIONS: dict[str, dict[str, str]] = {
+    "Import": {
+        "source_type": "Snapshot Cache",
+        "feed_description": "Data is imported and cached in-memory. Requires scheduled refresh to stay current.",
+        "latency": "Batch / scheduled",
+        "recommended": "DirectLake",
+        "recommendation_reason": "If your data resides in OneLake (Lakehouse/Warehouse), switch to DirectLake to eliminate refresh cycles and reduce latency.",
+    },
+    "DirectQuery": {
+        "source_type": "Live RDBMS / Warehouse",
+        "feed_description": "Every query passes through to the live source in real time. No data is cached.",
+        "latency": "Real-time (query-bound)",
+        "recommended": "DirectLake",
+        "recommendation_reason": "If the source is a Fabric Lakehouse or Warehouse, DirectLake is strongly preferred — it delivers near-real-time performance without per-query source round-trips.",
+    },
+    "DirectLake": {
+        "source_type": "OneLake (Delta Parquet)",
+        "feed_description": "Reads Delta Parquet files from OneLake directly. No import or refresh needed.",
+        "latency": "Near real-time",
+        "recommended": "DirectLake",
+        "recommendation_reason": "Already optimal for Fabric-native data. No change recommended.",
+    },
+    "Dual": {
+        "source_type": "Hybrid (Import cache + DirectQuery fallback)",
+        "feed_description": "Acts as Import when queried alongside other Import tables; falls back to DirectQuery when queried with DirectQuery tables.",
+        "latency": "Mixed (depends on query context)",
+        "recommended": "DirectLake",
+        "recommendation_reason": "Dual mode adds unpredictable query behaviour. If the source is OneLake, migrate to DirectLake for consistent performance.",
+    },
+    "Composite": {
+        "source_type": "Mixed sources (Import + DirectQuery/DirectLake)",
+        "feed_description": "Tables in this model use different storage modes. Import tables are cached; DirectQuery/DirectLake tables hit their source live.",
+        "latency": "Mixed — depends on per-table mode",
+        "recommended": "DirectLake",
+        "recommendation_reason": "Evaluate each table individually. Migrate Import/DirectQuery tables to DirectLake where the source is in OneLake to achieve a uniform, refresh-free model.",
+    },
+}
+
+
+def _describe_table_source(
+    table_name: str,
+    storage_mode: str,
+    is_calculated: bool,
+    dax_expression: str | None,
+) -> dict[str, str]:
+    """Return a source-feed descriptor dict for a single table."""
+    if is_calculated:
+        return {
+            "source_type": "DAX Calculated Table",
+            "feed_description": "Derived entirely from DAX. No external source — data comes from other tables in this model.",
+            "latency": "In-memory (computed at refresh/query)",
+            "recommended": "N/A — DAX table",
+            "recommendation_reason": "Calculated tables cannot have their storage mode changed. Consider whether the calculation could be pushed upstream to the lakehouse.",
+        }
+    desc = _SOURCE_FEED_DESCRIPTIONS.get(storage_mode, {})
+    if not desc:
+        return {
+            "source_type": storage_mode or "Unknown",
+            "feed_description": "Storage mode not recognized.",
+            "latency": "Unknown",
+            "recommended": "Review manually",
+            "recommendation_reason": "Unrecognized storage mode — review the TMDL definition for this table.",
+        }
+    return dict(desc)
+
+
+def _infer_model_storage_mode(tables: list[dict], declared_mode: str) -> str:
+    """
+    Infer the effective model-level storage mode from per-table modes.
+
+    Rules (matching Power BI/Fabric semantics):
+      - All tables Import            → Import
+      - All tables DirectLake        → DirectLake
+      - All tables DirectQuery       → DirectQuery
+      - Mix of DirectLake + Import   → Composite
+      - Mix of DirectQuery + Import  → Composite
+      - Mix of DL + DQ               → Composite
+      - Any Dual table present       → Composite (Dual tables exist only in Composite models)
+      - No tables (empty model)      → use declared_mode as-is
+      - Declared mode is already set (non-empty, non-Import default)
+        AND all actual tables agree  → trust declared_mode
+    """
+    # Calculated tables are purely DAX-generated; exclude from storage inference
+    physical_modes = {
+        t.get("storage_mode", "Import")
+        for t in tables
+        if not t.get("is_calculated", False)
+    }
+    # Remove empty/None entries
+    physical_modes.discard("")
+    physical_modes.discard(None)
+
+    if not physical_modes:
+        return declared_mode or "Import"
+
+    if "Dual" in physical_modes:
+        return "Composite"
+
+    unique = physical_modes - {"Dual"}
+    if len(unique) == 1:
+        return unique.pop()
+
+    # More than one distinct mode → Composite
+    return "Composite"
+
+
 def assemble_dataset(
     dataset_id: str,
     dataset_name: str,
@@ -476,7 +582,8 @@ def assemble_dataset(
     """
     tables_raw: list[dict] = tmdl_data.get("tables", [])
     relationships: list[dict] = tmdl_data.get("relationships", [])
-    storage_mode: str = tmdl_data.get("storage_mode", "Import")
+    declared_storage: str = tmdl_data.get("storage_mode", "Import")
+    storage_mode: str = _infer_model_storage_mode(tables_raw, declared_storage)
 
     # ── Build flat lists ──────────────────────────────────────────────────────
     tables_out: list[dict] = []
@@ -527,12 +634,17 @@ def assemble_dataset(
                 "dependencies": m.get("dependencies", []),
             })
 
+        effective_table_mode = t.get("storage_mode", storage_mode)
         tables_out.append({
             "name": tname,
-            "storage_mode": t.get("storage_mode", storage_mode),
+            "storage_mode": effective_table_mode,
             "is_hidden": t.get("is_hidden", False),
             "is_calculated": t.get("is_calculated", False),
             "columns": tbl_cols,
+            "source_feeds": _describe_table_source(
+                tname, effective_table_mode, t.get("is_calculated", False),
+                t.get("dax_expression"),
+            ),
         })
 
     # ── Compute model-level complexity score (0–100) ──────────────────────────
@@ -540,12 +652,16 @@ def assemble_dataset(
         tables_raw, measures_out, calc_cols_out, calc_tables_out, relationships
     )
 
+    # ── Model-level storage recommendation ────────────────────────────────────
+    storage_recommendation = _build_model_storage_recommendation(tables_out, storage_mode)
+
     return {
         "id": dataset_id,
         "name": dataset_name,
         "configured_by": configured_by,
         "is_refreshable": is_refreshable,
         "storage_mode": storage_mode,
+        "storage_recommendation": storage_recommendation,
         "web_url": web_url,
         "table_count": len(tables_out),
         "measure_count": len(measures_out),
@@ -559,6 +675,79 @@ def assemble_dataset(
         "calculated_columns": calc_cols_out,
         "calculated_tables": calc_tables_out,
         "relationships": relationships,
+    }
+
+
+def _build_model_storage_recommendation(tables: list[dict], model_storage: str) -> dict:
+    """
+    Build a model-level storage recommendation object.
+
+    Analyses per-table storage modes and returns:
+      - overall_recommended: the single best storage mode for the whole model
+      - tables_to_migrate: list of table names that should change their mode
+      - summary: human-readable summary of the recommendation
+      - risk_level: Low | Medium | High based on current mode mix
+    """
+    mode_counts: dict[str, int] = {}
+    tables_to_migrate: list[dict] = []
+
+    for t in tables:
+        mode = t.get("storage_mode", "Import")
+        mode_counts[mode] = mode_counts.get(mode, 0) + 1
+        feeds = t.get("source_feeds", {})
+        recommended = feeds.get("recommended", "")
+        if recommended not in ("N/A — DAX table", model_storage, "") and mode != recommended:
+            tables_to_migrate.append({
+                "table": t.get("name", ""),
+                "current_mode": mode,
+                "recommended_mode": recommended,
+                "reason": feeds.get("recommendation_reason", ""),
+            })
+
+    # Determine risk
+    if model_storage == "DirectLake":
+        risk = "Low"
+        overall_recommended = "DirectLake"
+        summary = "Model is already using DirectLake — the optimal Fabric-native storage mode."
+    elif model_storage == "Import":
+        risk = "Medium"
+        overall_recommended = "DirectLake"
+        summary = "All tables use Import mode. If data resides in OneLake, migrating to DirectLake will eliminate refresh windows and reduce data latency."
+    elif model_storage == "DirectQuery":
+        risk = "High"
+        overall_recommended = "DirectLake"
+        summary = "All tables use DirectQuery. Every report interaction round-trips to the source. If the source is a Fabric Lakehouse or Warehouse, DirectLake offers the same freshness at dramatically better performance."
+    elif model_storage == "Composite":
+        non_dl_count = sum(v for k, v in mode_counts.items() if k not in ("DirectLake", "Dual"))
+        physical_count = sum(v for k, v in mode_counts.items() if k != "N/A")
+        if non_dl_count == 0:
+            risk = "Low"
+            overall_recommended = "DirectLake"
+            summary = "Composite model with only DirectLake/Dual tables — already well-optimised."
+        elif non_dl_count < physical_count / 2:
+            risk = "Medium"
+            overall_recommended = "DirectLake"
+            summary = f"Composite model: {non_dl_count} table(s) still use Import/DirectQuery. Migrate them to DirectLake to reduce refresh dependency and query latency."
+        else:
+            risk = "High"
+            overall_recommended = "DirectLake"
+            summary = f"Composite model with {non_dl_count} Import/DirectQuery table(s). Significant migration opportunity to convert to a pure DirectLake model."
+    elif model_storage == "Dual":
+        risk = "Medium"
+        overall_recommended = "DirectLake"
+        summary = "Model has Dual-mode tables. Dual behaviour is unpredictable across query contexts. Migrate to DirectLake for consistent real-time performance."
+    else:
+        risk = "Medium"
+        overall_recommended = "DirectLake"
+        summary = f"Current storage mode '{model_storage}' is non-standard. Review manually and consider DirectLake if data is in OneLake."
+
+    return {
+        "current_mode": model_storage,
+        "overall_recommended": overall_recommended,
+        "risk_level": risk,
+        "summary": summary,
+        "mode_breakdown": mode_counts,
+        "tables_to_migrate": tables_to_migrate,
     }
 
 

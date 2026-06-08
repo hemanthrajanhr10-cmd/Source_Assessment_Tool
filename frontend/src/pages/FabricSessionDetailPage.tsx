@@ -8,6 +8,7 @@ import {
   Table2, Hash, Calculator, Link2, Eye,
   ArrowLeft, ArrowRight, Code2, StopCircle, Download, TrendingUp,
   Activity, GitMerge, BookOpen, Filter, Copy, Check, Network,
+  Layers, ArrowUpRight, Info, ShieldCheck, ShieldAlert, ShieldX,
 } from 'lucide-react'
 import LineageTab from '../components/fabric/LineageTab'
 import { api } from '../api/client'
@@ -16,6 +17,7 @@ import type {
   FabricMeasure, MeasureComplexity,
   FabricCalculatedColumn, FabricCalculatedTable, FabricRelationship,
   FabricTable, FabricTableColumn,
+  ModelStorageRecommendation, TableSourceFeed,
 } from '../types/api'
 import { formatDateTime } from '../utils/dateTime'
 import Loader3D from '../components/ui/Loader3D'
@@ -43,15 +45,37 @@ function ComplexityBadge({ c, small }: { c: MeasureComplexity; small?: boolean }
   )
 }
 
+const STORAGE_BADGE_STYLES: Record<string, string> = {
+  DirectLake:  'bg-teal-50 text-teal-800 border-teal-200',
+  DirectQuery: 'bg-blue-50 text-blue-700 border-blue-200',
+  Import:      'bg-slate-100 text-slate-600 border-slate-300',
+  Composite:   'bg-orange-50 text-orange-700 border-orange-200',
+  Dual:        'bg-purple-50 text-purple-700 border-purple-200',
+}
+
 function StorageBadge({ mode }: { mode: string }) {
-  const cls =
-    mode === 'DirectLake'  ? 'bg-earth-50 text-earth-800 border-earth-200' :
-    mode === 'DirectQuery' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-    mode === 'Composite'   ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                             'bg-slate-100/50   text-slate-500   border-slate-200'
+  const cls = STORAGE_BADGE_STYLES[mode] ?? 'bg-slate-100/50 text-slate-500 border-slate-200'
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
-      {mode}
+      {mode || 'Unknown'}
+    </span>
+  )
+}
+
+function StorageRiskBadge({ risk }: { risk: string }) {
+  if (risk === 'Low') return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border bg-teal-50 text-teal-700 border-teal-200">
+      <ShieldCheck className="h-3 w-3" /> Low Risk
+    </span>
+  )
+  if (risk === 'Medium') return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border bg-amber-50 text-amber-700 border-amber-200">
+      <ShieldAlert className="h-3 w-3" /> Medium Risk
+    </span>
+  )
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border bg-red-50 text-red-700 border-red-200">
+      <ShieldX className="h-3 w-3" /> High Risk
     </span>
   )
 }
@@ -456,6 +480,285 @@ function TableRow({ table }: { table: FabricTable }) {
   )
 }
 
+// ── Source feed colors per storage mode ──────────────────────────────────────
+
+const SOURCE_MODE_STYLES: Record<string, { bg: string; border: string; text: string; dot: string }> = {
+  DirectLake:  { bg: 'bg-teal-50',    border: 'border-teal-200',   text: 'text-teal-800',   dot: 'bg-teal-500'  },
+  DirectQuery: { bg: 'bg-blue-50',    border: 'border-blue-200',   text: 'text-blue-800',   dot: 'bg-blue-500'  },
+  Import:      { bg: 'bg-slate-50',   border: 'border-slate-200',  text: 'text-slate-700',  dot: 'bg-slate-400' },
+  Composite:   { bg: 'bg-orange-50',  border: 'border-orange-200', text: 'text-orange-800', dot: 'bg-orange-500'},
+  Dual:        { bg: 'bg-purple-50',  border: 'border-purple-200', text: 'text-purple-800', dot: 'bg-purple-500'},
+}
+
+function SourceFeedCard({ table }: { table: FabricTable }) {
+  const feed: TableSourceFeed | undefined = table.source_feeds
+  const style = SOURCE_MODE_STYLES[table.storage_mode] ?? SOURCE_MODE_STYLES['Import']
+
+  if (!feed) return null
+
+  const isOptimal = feed.recommended === 'DirectLake' && table.storage_mode === 'DirectLake'
+  const isNA = feed.recommended === 'N/A — DAX table'
+
+  return (
+    <div
+      className={`rounded-xl border p-3.5 ${style.bg} ${style.border}`}
+      style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`h-2 w-2 rounded-full shrink-0 mt-0.5 ${style.dot}`} />
+          <span className={`text-xs font-semibold truncate ${style.text}`}>{table.name}</span>
+          {table.is_hidden && (
+            <span className="text-[10px] text-slate-400 bg-slate-100 rounded px-1 py-0.5 border border-slate-200 shrink-0">Hidden</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <StorageBadge mode={table.storage_mode} />
+        </div>
+      </div>
+
+      <div className="space-y-1.5 text-xs">
+        <div className="flex items-start gap-1.5">
+          <span className="text-slate-400 shrink-0 font-medium w-20">Source Type</span>
+          <span className="text-slate-700 font-medium">{feed.source_type}</span>
+        </div>
+        <div className="flex items-start gap-1.5">
+          <span className="text-slate-400 shrink-0 font-medium w-20">Description</span>
+          <span className="text-slate-600">{feed.feed_description}</span>
+        </div>
+        <div className="flex items-start gap-1.5">
+          <span className="text-slate-400 shrink-0 font-medium w-20">Latency</span>
+          <span className="text-slate-600">{feed.latency}</span>
+        </div>
+      </div>
+
+      {!isNA && (
+        <div className={`mt-2.5 pt-2.5 border-t ${style.border}`}>
+          <div className="flex items-start gap-1.5">
+            {isOptimal ? (
+              <ShieldCheck className="h-3.5 w-3.5 text-teal-600 shrink-0 mt-0.5" />
+            ) : (
+              <ArrowUpRight className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+            )}
+            <div className="min-w-0">
+              <span className={`text-[11px] font-semibold ${isOptimal ? 'text-teal-700' : 'text-amber-700'}`}>
+                {isOptimal ? 'Optimal' : `Recommended: ${feed.recommended}`}
+              </span>
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{feed.recommendation_reason}</p>
+            </div>
+          </div>
+        </div>
+      )}
+      {isNA && (
+        <div className={`mt-2.5 pt-2.5 border-t ${style.border}`}>
+          <div className="flex items-center gap-1.5">
+            <Info className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            <p className="text-[11px] text-slate-400 italic">{feed.recommendation_reason}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Model-level storage recommendation panel ──────────────────────────────────
+
+function StorageRecommendationPanel({ rec, dsName }: { rec: ModelStorageRecommendation; dsName: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const riskColor =
+    rec.risk_level === 'Low'    ? { bg: 'bg-teal-50',   border: 'border-teal-200',   header: 'bg-teal-600' } :
+    rec.risk_level === 'Medium' ? { bg: 'bg-amber-50',  border: 'border-amber-200',  header: 'bg-amber-500' } :
+                                  { bg: 'bg-red-50',    border: 'border-red-200',    header: 'bg-red-600' }
+
+  const modeOrder = ['DirectLake', 'DirectQuery', 'Composite', 'Import', 'Dual']
+  const sortedModes = Object.entries(rec.mode_breakdown)
+    .sort(([a], [b]) => (modeOrder.indexOf(a) - modeOrder.indexOf(b)))
+
+  return (
+    <div className={`rounded-xl border overflow-hidden ${riskColor.border}`}
+      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+
+      {/* Header */}
+      <div className={`${riskColor.bg} px-4 py-3 flex items-center justify-between gap-3`}
+        style={{ borderBottom: `1px solid` }}>
+        <div className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-slate-600 shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-slate-800">Storage Mode Recommendation</p>
+            <p className="text-[11px] text-slate-500">{dsName}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <StorageRiskBadge risk={rec.risk_level} />
+          <span className="text-xs text-slate-400">Current:</span>
+          <StorageBadge mode={rec.current_mode} />
+          {rec.current_mode !== rec.overall_recommended && (
+            <>
+              <ArrowRight className="h-3 w-3 text-slate-400" />
+              <StorageBadge mode={rec.overall_recommended} />
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className={`px-4 py-3 ${riskColor.bg}`}>
+        <p className="text-xs text-slate-700 leading-relaxed">{rec.summary}</p>
+      </div>
+
+      {/* Mode breakdown */}
+      {sortedModes.length > 0 && (
+        <div className="px-4 pb-3 bg-white border-t border-slate-100">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-3 mb-2">Table Storage Breakdown</p>
+          <div className="flex flex-wrap gap-2">
+            {sortedModes.map(([mode, count]) => (
+              <div key={mode} className="flex items-center gap-1.5">
+                <StorageBadge mode={mode} />
+                <span className="text-xs font-bold text-slate-600">{count} table{count !== 1 ? 's' : ''}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Migration list */}
+      {rec.tables_to_migrate.length > 0 && (
+        <div className="border-t border-slate-100 bg-white">
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-xs hover:bg-slate-50 transition-colors"
+          >
+            <span className="font-semibold text-amber-700 flex items-center gap-1.5">
+              <ArrowUpRight className="h-3.5 w-3.5" />
+              {rec.tables_to_migrate.length} table{rec.tables_to_migrate.length !== 1 ? 's' : ''} recommended for migration
+            </span>
+            {expanded
+              ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" />
+              : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+          </button>
+          {expanded && (
+            <div className="px-4 pb-4 space-y-2">
+              {rec.tables_to_migrate.map(t => (
+                <div key={t.table} className="rounded-lg border border-amber-100 bg-amber-50/60 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Table2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                    <span className="text-xs font-mono font-semibold text-slate-800">{t.table}</span>
+                    <StorageBadge mode={t.current_mode} />
+                    <ArrowRight className="h-3 w-3 text-slate-400" />
+                    <StorageBadge mode={t.recommended_mode} />
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed ml-5">{t.reason}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Source feeds panel (table-wise breakdown) ─────────────────────────────────
+
+function SourceFeedsPanel({ tables, ds }: { tables: FabricTable[]; ds: FabricDataset }) {
+  const [filter, setFilter] = useState('')
+  const [modeFilter, setModeFilter] = useState('All')
+
+  const allModes = Array.from(new Set(tables.map(t => t.storage_mode).filter(Boolean)))
+  const calcTables = tables.filter(t => t.is_calculated)
+
+  const filtered = tables.filter(t => {
+    const nameMatch = !filter || t.name.toLowerCase().includes(filter.toLowerCase())
+    const modeMatch = modeFilter === 'All' || t.storage_mode === modeFilter
+    return nameMatch && modeMatch
+  })
+
+  return (
+    <div className="space-y-4">
+
+      {/* Model-level recommendation */}
+      {ds.storage_recommendation && (
+        <StorageRecommendationPanel rec={ds.storage_recommendation} dsName={ds.name} />
+      )}
+
+      {/* Quick stats bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {allModes.map(mode => {
+          const count = tables.filter(t => t.storage_mode === mode).length
+          const style = SOURCE_MODE_STYLES[mode] ?? SOURCE_MODE_STYLES['Import']
+          return (
+            <div key={mode}
+              className={`rounded-lg border px-3 py-2 flex items-center gap-2 cursor-pointer transition-all ${
+                modeFilter === mode ? 'ring-2 ring-offset-1 ring-slate-400' : ''
+              } ${style.bg} ${style.border}`}
+              onClick={() => setModeFilter(modeFilter === mode ? 'All' : mode)}
+            >
+              <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${style.dot}`} />
+              <div className="min-w-0">
+                <p className={`text-xs font-bold ${style.text}`}>{count}</p>
+                <p className="text-[10px] text-slate-500 truncate">{mode}</p>
+              </div>
+            </div>
+          )
+        })}
+        {calcTables.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-amber-500" />
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-amber-800">{calcTables.length}</p>
+              <p className="text-[10px] text-slate-500 truncate">DAX Calculated</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+          <input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Filter tables by name…"
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+          />
+        </div>
+        {modeFilter !== 'All' && (
+          <button
+            onClick={() => setModeFilter('All')}
+            className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            Clear filter
+          </button>
+        )}
+      </div>
+
+      {/* Cards grid */}
+      {filtered.length === 0 ? (
+        <p className="text-xs text-slate-400 italic text-center py-4">No tables match your filter.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[36rem] overflow-y-auto pr-1">
+          {filtered.map(t => <SourceFeedCard key={t.name} table={t} />)}
+        </div>
+      )}
+
+      {/* Chained model notice */}
+      <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 flex gap-2.5">
+        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+        <div className="text-xs text-slate-600 space-y-1">
+          <p className="font-semibold text-blue-800">Chained Semantic Model Flows</p>
+          <p>
+            This tool assesses each semantic model independently. When models are chained (e.g. an Import model feeds a DirectLake model, or a DirectLake model feeds into another model), the table-level storage mode shown here reflects <em>this model's</em> configuration only.
+          </p>
+          <p>
+            For chained flows, assess both models and cross-reference their <strong>dataset_id</strong> linkage in the Reports tab to understand the full data path.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TablesPanel({ tables }: { tables: FabricTable[] }) {
   const [filter, setFilter] = useState('')
   const filtered = tables.filter(t =>
@@ -503,20 +806,25 @@ function TablesPanel({ tables }: { tables: FabricTable[] }) {
 
 // ── Dataset section (for Models tab) ─────────────────────────────────────────
 
-type ModelSubTab = 'tables' | 'measures' | 'calc_cols' | 'calc_tables' | 'relationships'
+type ModelSubTab = 'source_feeds' | 'tables' | 'measures' | 'calc_cols' | 'calc_tables' | 'relationships'
 
 function DatasetSection({ ds }: { ds: FabricDataset }) {
   const [open, setOpen] = useState(false)
-  const [subTab, setSubTab] = useState<ModelSubTab>('tables')
+  const [subTab, setSubTab] = useState<ModelSubTab>('source_feeds')
   const complexityPct = Math.min(100, ds.complexity_score)
   const dist = getComplexityDistribution(ds)
 
-  const SUB_TABS: { id: ModelSubTab; label: string; count: number }[] = [
-    { id: 'tables',        label: 'Tables',        count: ds.table_count },
-    { id: 'measures',      label: 'Measures',      count: ds.measure_count },
-    { id: 'calc_cols',     label: 'Calc. Columns', count: ds.calculated_column_count },
-    { id: 'calc_tables',   label: 'Calc. Tables',  count: ds.calculated_table_count },
-    { id: 'relationships', label: 'Relationships', count: ds.relationship_count },
+  // Risk indicator for the header badge
+  const rec = ds.storage_recommendation
+  const riskLevel = rec?.risk_level ?? 'Low'
+
+  const SUB_TABS: { id: ModelSubTab; label: string; count: number | string; icon?: React.ReactNode }[] = [
+    { id: 'source_feeds',   label: 'Source Feeds',   count: ds.table_count, icon: <Layers className="h-3 w-3" /> },
+    { id: 'tables',         label: 'Tables',         count: ds.table_count },
+    { id: 'measures',       label: 'Measures',       count: ds.measure_count },
+    { id: 'calc_cols',      label: 'Calc. Columns',  count: ds.calculated_column_count },
+    { id: 'calc_tables',    label: 'Calc. Tables',   count: ds.calculated_table_count },
+    { id: 'relationships',  label: 'Relationships',  count: ds.relationship_count },
   ]
 
   return (
@@ -530,6 +838,7 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <StorageBadge mode={ds.storage_mode} />
+          <StorageRiskBadge risk={riskLevel} />
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
             complexityPct >= 60 ? 'bg-red-50 text-red-700 border-red-200'
             : complexityPct >= 25 ? 'bg-amber-50 text-amber-700 border-amber-200'
@@ -589,20 +898,29 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
           </div>
 
           {/* Sub-tab nav */}
-          <div className="flex px-4" style={{ borderBottom: '1px solid rgba(197,213,236,0.6)', background: 'rgba(248,250,253,0.6)' }}>
+          <div className="flex px-4 overflow-x-auto" style={{ borderBottom: '1px solid rgba(197,213,236,0.6)', background: 'rgba(248,250,253,0.6)' }}>
             {SUB_TABS.map(t => (
               <button key={t.id}
                 onClick={() => setSubTab(t.id)}
-                className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap"
                 style={{
-                  borderBottomColor: subTab === t.id ? '#0056B3' : 'transparent',
-                  color: subTab === t.id ? '#003D82' : '#64748B',
+                  borderBottomColor: subTab === t.id
+                    ? (t.id === 'source_feeds' ? '#0F766E' : '#0056B3')
+                    : 'transparent',
+                  color: subTab === t.id
+                    ? (t.id === 'source_feeds' ? '#0F766E' : '#003D82')
+                    : '#64748B',
                 }}>
+                {t.icon && <span>{t.icon}</span>}
                 {t.label}
                 <span className="rounded-full px-1.5 py-0.5 text-xs font-semibold"
                   style={{
-                    background: subTab === t.id ? 'rgba(0,86,179,0.10)' : 'rgba(148,163,184,0.12)',
-                    color: subTab === t.id ? '#003D82' : '#64748B',
+                    background: subTab === t.id
+                      ? (t.id === 'source_feeds' ? 'rgba(13,148,136,0.12)' : 'rgba(0,86,179,0.10)')
+                      : 'rgba(148,163,184,0.12)',
+                    color: subTab === t.id
+                      ? (t.id === 'source_feeds' ? '#0F766E' : '#003D82')
+                      : '#64748B',
                   }}>{t.count}</span>
               </button>
             ))}
@@ -610,6 +928,12 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
 
           {/* Sub-tab content */}
           <div className="p-4">
+            {subTab === 'source_feeds' && (
+              ds.tables.length > 0
+                ? <SourceFeedsPanel tables={ds.tables} ds={ds} />
+                : <p className="text-xs text-slate-400 italic">No table data available for source feeds analysis.</p>
+            )}
+
             {subTab === 'tables' && (
               ds.tables.length > 0
                 ? <TablesPanel tables={ds.tables} />
@@ -686,9 +1010,16 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
       label, value, color: COMPLEXITY_COLORS[label]?.hex ?? '#71717a'
     }))
 
+  const STORAGE_CHART_COLORS: Record<string, string> = {
+    DirectLake:  '#0D9488',
+    DirectQuery: '#3b82f6',
+    Import:      '#71717a',
+    Composite:   '#f97316',
+    Dual:        '#8B5CF6',
+  }
   const storageChartData = Object.entries(storageDist).map(([label, value]) => ({
     label, value,
-    color: label === 'DirectLake' ? '#0891B2' : label === 'DirectQuery' ? '#3b82f6' : label === 'Composite' ? '#f97316' : '#52525b',
+    color: STORAGE_CHART_COLORS[label] ?? '#94a3b8',
   }))
 
   const KPI_ITEMS = [

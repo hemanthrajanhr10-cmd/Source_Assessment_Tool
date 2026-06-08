@@ -711,12 +711,37 @@ export interface FabricTableColumn {
   complexity?: MeasureComplexity
 }
 
+export interface TableSourceFeed {
+  source_type: string
+  feed_description: string
+  latency: string
+  recommended: string
+  recommendation_reason: string
+}
+
+export interface TableStorageMigration {
+  table: string
+  current_mode: string
+  recommended_mode: string
+  reason: string
+}
+
+export interface ModelStorageRecommendation {
+  current_mode: string
+  overall_recommended: string
+  risk_level: 'Low' | 'Medium' | 'High'
+  summary: string
+  mode_breakdown: Record<string, number>
+  tables_to_migrate: TableStorageMigration[]
+}
+
 export interface FabricTable {
   name: string
   storage_mode: string
   is_hidden: boolean
   is_calculated: boolean
   columns?: FabricTableColumn[]
+  source_feeds?: TableSourceFeed
 }
 
 export interface FabricCalculatedColumn {
@@ -793,6 +818,7 @@ export interface FabricDataset {
   configured_by: string
   is_refreshable: boolean
   storage_mode: string
+  storage_recommendation?: ModelStorageRecommendation
   web_url: string
   table_count: number
   measure_count: number

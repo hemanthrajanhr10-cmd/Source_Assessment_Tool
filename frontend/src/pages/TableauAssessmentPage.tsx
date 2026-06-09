@@ -323,20 +323,22 @@ function OptionToggle({
 // ── Assessment steps ──────────────────────────────────────────────────────────
 
 const ASSESSMENT_STEPS = [
-  { label: 'Server connection & site info',    icon: Globe },
-  { label: 'Projects enumeration',             icon: Layers },
-  { label: 'Workbooks (name, owner, size)',     icon: BarChart3 },
-  { label: 'Views, sheets & dashboards',       icon: BarChart3 },
-  { label: 'Published data sources',           icon: Database },
-  { label: 'Users (role distribution)',        icon: Users },
-  { label: 'Groups & memberships',             icon: Users },
-  { label: 'Tableau Prep flows',               icon: Zap },
-  { label: 'Extract refresh schedules',        icon: RefreshCw },
-  { label: 'Recent background jobs',           icon: RefreshCw },
-  { label: 'Workbook permission audit (top 20)', icon: Shield },
-  { label: 'Data quality flags',               icon: Shield },
-  { label: 'Excel report generation',          icon: FileText },
-  { label: 'Word document report',             icon: FileText },
+  { label: 'Server connection & site info',       icon: Globe },
+  { label: 'Projects enumeration',                icon: Layers },
+  { label: 'Workbooks (name, owner, size)',        icon: BarChart3 },
+  { label: 'Views, sheets & dashboards',          icon: BarChart3 },
+  { label: 'Published data sources',              icon: Database },
+  { label: 'Users (role distribution)',           icon: Users },
+  { label: 'Groups & memberships',                icon: Users },
+  { label: 'Tableau Prep flows',                  icon: Zap },
+  { label: 'Extract refresh schedules',           icon: RefreshCw },
+  { label: 'Recent background jobs',              icon: RefreshCw },
+  { label: 'Workbook permission audit (top 20)',  icon: Shield },
+  { label: 'Data quality flags',                  icon: Shield },
+  { label: 'Migration complexity scoring',        icon: FileText },
+  { label: 'Power BI migration feasibility',      icon: FileText },
+  { label: 'Excel report (12 sheets)',            icon: FileText },
+  { label: 'AI-powered Word report',              icon: FileText },
 ]
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -443,9 +445,9 @@ export default function TableauAssessmentPage() {
           <BarChart3 className="h-6 w-6 text-white" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Tableau Assessment</h1>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Tableau Assessment</h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Full inventory — workbooks, data sources, users, permissions, Prep flows & extract health
+            16-step inventory + AI-powered Power BI migration feasibility analysis
           </p>
         </div>
         <div className="ml-auto shrink-0">

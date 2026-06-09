@@ -1281,3 +1281,436 @@ def build_fabric_ai_word_report(
     buf.seek(0)
     logger.info("Fabric AI report: Word document built for session %s", session_id)
     return buf.getvalue()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TABLEAU ASSESSMENT AI WORD REPORT — Power BI Migration Analysis
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _build_tableau_context(results: dict, client_name: str) -> dict:
+    """Extract key metrics from Tableau assessment results for AI prompt context."""
+    si   = results.get("server_info") or {}
+    ws   = results.get("workbook_summary") or {}
+    ds   = results.get("datasource_summary") or {}
+    up   = results.get("user_profile") or {}
+    eh   = results.get("extract_health") or {}
+    dq   = results.get("data_quality") or {}
+    mf   = results.get("migration_feasibility") or {}
+
+    workbooks    = results.get("workbooks") or []
+    datasources  = results.get("datasources") or []
+    flows        = results.get("flows") or []
+
+    conn_types = list({d.get("connection_type", "") for d in datasources if d.get("connection_type") and d.get("connection_type") != "unknown"})
+
+    # Per-workbook scores from migration feasibility
+    scores      = mf.get("workbook_scores") or []
+    very_complex = [s for s in scores if s.get("complexity_level") == "Very Complex"]
+    complex_wb   = [s for s in scores if s.get("complexity_level") == "Complex"]
+    top_blockers = []
+    for s in very_complex[:5]:
+        top_blockers.extend(s.get("migration_blockers") or [])
+
+    return {
+        "client_name":           client_name,
+        "server_url":            si.get("server_url", ""),
+        "server_version":        si.get("server_version", ""),
+        "site_name":             si.get("site_name", ""),
+        "total_workbooks":       ws.get("total_workbooks", len(workbooks)),
+        "total_views":           ws.get("total_views", 0),
+        "total_sheets":          ws.get("total_sheets", 0),
+        "total_dashboards":      ws.get("total_dashboards", 0),
+        "workbooks_with_extracts": ws.get("workbooks_with_extracts", 0),
+        "avg_views_per_workbook": ws.get("avg_views_per_workbook", 0),
+        "total_datasources":     ds.get("total_datasources", len(datasources)),
+        "published_datasources": ds.get("published_datasources", 0),
+        "certified_datasources": ds.get("certified_datasources", 0),
+        "extract_datasources":   ds.get("extract_datasources", 0),
+        "live_datasources":      ds.get("live_datasources", 0),
+        "connection_types":      conn_types[:10],
+        "total_users":           up.get("total_users", 0),
+        "creator_users":         up.get("creator_users", 0),
+        "explorer_users":        up.get("explorer_users", 0),
+        "viewer_users":          up.get("viewer_users", 0),
+        "admin_users":           up.get("admin_users", 0),
+        "total_flows":           len(flows),
+        "total_schedules":       eh.get("total_schedules", 0),
+        "failed_jobs":           eh.get("failed_jobs", 0),
+        "failed_extracts":       dq.get("failed_extract_jobs", 0),
+        "stale_extracts":        dq.get("stale_extracts_over_7_days", 0),
+        # Migration
+        "overall_feasibility":   mf.get("overall_feasibility", "Moderate"),
+        "migration_weeks":       mf.get("estimated_migration_weeks", 0),
+        "simple_workbooks":      mf.get("simple_workbooks", 0),
+        "moderate_workbooks":    mf.get("moderate_workbooks", 0),
+        "complex_workbooks":     mf.get("complex_workbooks", 0),
+        "very_complex_workbooks": mf.get("very_complex_workbooks", 0),
+        "migratable_connections": mf.get("migratable_connections") or [],
+        "complex_connections":   mf.get("complex_connections") or [],
+        "migration_blockers":    mf.get("migration_blockers") or [],
+        "has_prep_flows":        mf.get("has_prep_flows", False),
+        "has_rls":               mf.get("has_rls", False),
+        "top_blockers":          list(dict.fromkeys(top_blockers))[:5],
+        "feature_mapping":       mf.get("feature_mapping") or [],
+        "workbook_scores":       scores[:20],
+        # Raw for tables
+        "_workbooks":   workbooks[:50],
+        "_datasources": datasources[:30],
+        "_flows":       flows[:20],
+    }
+
+
+def _gen_tableau_executive_summary(client: openai.OpenAI, ctx: dict) -> str:
+    feasibility_detail = ""
+    if ctx["very_complex_workbooks"] > 0:
+        feasibility_detail = f"{ctx['very_complex_workbooks']} workbooks are rated Very Complex and will require significant DAX re-engineering and architectural redesign."
+    prompt = f"""Write a 2-paragraph Executive Summary for a Tableau Source Assessment and Power BI Migration Report.
+
+Client: {ctx['client_name']}
+Tableau Server: {ctx['server_url']} (version {ctx['server_version']}, site: {ctx['site_name']})
+Total Workbooks: {ctx['total_workbooks']} across the environment
+Total Views: {ctx['total_views']} ({ctx['total_sheets']} sheets, {ctx['total_dashboards']} dashboards)
+Data Sources: {ctx['total_datasources']} ({ctx['certified_datasources']} certified, {ctx['extract_datasources']} with extracts)
+Users: {ctx['total_users']} ({ctx['creator_users']} Creators, {ctx['explorer_users']} Explorers, {ctx['viewer_users']} Viewers)
+Connection Types: {', '.join(ctx['connection_types']) or 'not specified'}
+
+Power BI Migration Feasibility: {ctx['overall_feasibility']}
+Estimated migration effort: {ctx['migration_weeks']} weeks
+Workbook complexity: {ctx['simple_workbooks']} Simple, {ctx['moderate_workbooks']} Moderate, {ctx['complex_workbooks']} Complex, {ctx['very_complex_workbooks']} Very Complex
+{feasibility_detail}
+
+Paragraph 1: Describe the current Tableau environment — scale, usage patterns, data source landscape, user base.
+Paragraph 2: Summarise key migration findings — Power BI feasibility, complexity distribution, estimated effort, and primary risk factors.
+
+Formal consultant tone. Cite specific numbers. No bullet points. No em dashes."""
+    return _call_ai(client, prompt, max_tokens=600)
+
+
+def _gen_tableau_migration_analysis(client: openai.OpenAI, ctx: dict) -> str:
+    blockers_text = "\n".join(f"- {b}" for b in ctx["migration_blockers"][:5]) if ctx["migration_blockers"] else "No critical blockers identified."
+    prompt = f"""Write a 3-paragraph Power BI Migration Analysis section for a Tableau assessment report.
+
+Client: {ctx['client_name']}
+Overall feasibility: {ctx['overall_feasibility']} — {ctx['migration_weeks']} estimated weeks
+Complexity breakdown: {ctx['simple_workbooks']} Simple / {ctx['moderate_workbooks']} Moderate / {ctx['complex_workbooks']} Complex / {ctx['very_complex_workbooks']} Very Complex workbooks
+Migratable connections (direct Power BI equivalents): {', '.join(ctx['migratable_connections']) or 'none identified'}
+Complex connections (require mapping work): {', '.join(ctx['complex_connections']) or 'none identified'}
+Prep Flows present (need Dataflow Gen2 mapping): {'Yes — ' + str(ctx['total_flows']) + ' flows' if ctx['has_prep_flows'] else 'No'}
+Row-Level Security present (needs Power BI RLS): {'Yes' if ctx['has_rls'] else 'No'}
+
+Migration blockers:
+{blockers_text}
+
+Paragraph 1: Explain the migration feasibility rating — why the environment is rated {ctx['overall_feasibility']}, referencing the complexity distribution and connection types.
+Paragraph 2: Address the primary technical challenges — LOD expressions to DAX CALCULATE patterns, table calculations to time-intelligence, parameters to What-If / field parameters. Cite which workbooks are Complex/Very Complex and why.
+Paragraph 3: Outline the recommended phased migration approach — start with Simple workbooks, migrate Moderate with guidance, plan dedicated sprints for Complex. Reference Prep Flows to Dataflow Gen2 migration.
+
+Formal consultant tone. Cite numbers. No bullet points. No em dashes."""
+    return _call_ai(client, prompt, max_tokens=700)
+
+
+def _gen_tableau_pain_points(client: openai.OpenAI, ctx: dict) -> str:
+    prompt = f"""Generate a JSON array of 8-10 pain points for a Tableau → Power BI migration assessment report.
+
+Client: {ctx['client_name']}
+Environment: {ctx['total_workbooks']} workbooks, {ctx['total_datasources']} data sources, {ctx['total_users']} users
+Failed extract jobs: {ctx['failed_extracts']}, Stale extracts: {ctx['stale_extracts']}
+Complex connections: {', '.join(ctx['complex_connections']) or 'none'}
+Migration complexity: {ctx['very_complex_workbooks']} Very Complex, {ctx['complex_workbooks']} Complex workbooks
+
+Each item: {{"category": "...", "issue": "...", "business_impact": "...", "power_bi_resolution": "..."}}
+Categories: Data Currency, Migration Complexity, Licensing, Governance, Performance, User Adoption, LOD Translation, Extract Reliability
+
+Output valid JSON array only. No markdown, no explanation."""
+    raw = _call_ai(client, prompt, max_tokens=800, json_mode=True)
+    try:
+        return json.loads(raw)
+    except Exception:
+        import re
+        m = re.search(r'\[.*\]', raw, re.DOTALL)
+        if m:
+            try:
+                return json.loads(m.group())
+            except Exception:
+                pass
+    return []
+
+
+def _gen_tableau_recommendations(client: openai.OpenAI, ctx: dict) -> str:
+    prompt = f"""Write a 3-paragraph Recommendations section for a Tableau to Power BI / Microsoft Fabric migration report.
+
+Client: {ctx['client_name']}
+Migration feasibility: {ctx['overall_feasibility']} — {ctx['migration_weeks']} weeks estimated
+{ctx['simple_workbooks']} Simple workbooks ready for immediate migration.
+{ctx['moderate_workbooks']} Moderate workbooks requiring calculated field rewrites.
+{ctx['complex_workbooks'] + ctx['very_complex_workbooks']} Complex/Very Complex workbooks requiring dedicated DAX engineering.
+Prep Flows: {'Present — requires Dataflow Gen2 pipeline design' if ctx['has_prep_flows'] else 'Not present'}
+
+Paragraph 1: Immediate actions — migrate Simple workbooks to Power BI, set up shared semantic models for certified Tableau data sources, establish Power BI workspace governance aligned to Tableau project hierarchy.
+Paragraph 2: Medium-term — translate LOD expressions to DAX CALCULATE patterns; replace table calculations with DAX time-intelligence; use Power BI What-If parameters for Tableau parameters; migrate Prep flows to Dataflow Gen2.
+Paragraph 3: Long-term — move extract-based sources to Microsoft Fabric OneLake with Direct Lake mode; implement Microsoft Purview for unified data governance across Tableau and Power BI transition period; define deprecation timeline for Tableau Server.
+
+Formal consultant tone. Reference Microsoft Fabric, OneLake, Dataflow Gen2, DAX. No bullet points. No em dashes."""
+    return _call_ai(client, prompt, max_tokens=700)
+
+
+def _gen_tableau_conclusion(client: openai.OpenAI, ctx: dict) -> str:
+    prompt = f"""Write a Conclusion (3 sentences) for a Tableau Assessment and Power BI Migration Report.
+Client: {ctx['client_name']} — {ctx['total_workbooks']} workbooks, {ctx['total_users']} users, feasibility {ctx['overall_feasibility']}, ~{ctx['migration_weeks']} weeks effort.
+Summarise findings, confirm the migration path, and endorse Microsoft Fabric as the target platform.
+Formal tone. No bullet points. No em dashes."""
+    return _call_ai(client, prompt, max_tokens=200)
+
+
+def build_tableau_ai_word_report(
+    job_id: str,
+    results: dict[str, Any],
+    client_name: str | None = None,
+) -> bytes:
+    """
+    Build an AI-powered Word report for a Tableau assessment.
+    Covers all 25 assessment domains plus Power BI migration feasibility analysis.
+    """
+    label    = client_name or f"Tableau Assessment {job_id[:8]}"
+    run_date = datetime.utcnow().strftime("%d %b %Y")
+    ctx      = _build_tableau_context(results, label)
+    ai       = _get_client()
+
+    logger.info("Tableau AI report: generating content for job %s", job_id[:8])
+
+    exec_summary      = _gen_tableau_executive_summary(ai, ctx)
+    migration_analysis = _gen_tableau_migration_analysis(ai, ctx)
+    pain_points       = _gen_tableau_pain_points(ai, ctx)
+    recommendations   = _gen_tableau_recommendations(ai, ctx)
+    conclusion        = _gen_tableau_conclusion(ai, ctx)
+
+    logger.info("Tableau AI report: assembling Word document for job %s", job_id[:8])
+
+    doc = Document()
+    for section in doc.sections:
+        section.top_margin    = Cm(2.0)
+        section.bottom_margin = Cm(2.0)
+        section.left_margin   = Cm(2.5)
+        section.right_margin  = Cm(2.5)
+
+    doc_title = "Tableau Assessment & Power BI Migration Report"
+    _setup_header(doc, label, doc_title=doc_title)
+    _setup_footer(doc)
+    _cover_page(doc, label, run_date, doc_title=doc_title)
+
+    # ── Executive Summary ─────────────────────────────────────────────────────
+    _h1(doc, "Executive Summary")
+    for para in exec_summary.split("\n\n"):
+        if para.strip():
+            _body(doc, para.strip())
+
+    # ── Tableau Environment Overview ──────────────────────────────────────────
+    _h1(doc, "Tableau Environment Overview")
+    _table(
+        doc,
+        ["Metric", "Value"],
+        [
+            ["Tableau Server URL",        ctx["server_url"]],
+            ["Server Version",            ctx["server_version"]],
+            ["Site Name",                 ctx["site_name"]],
+            ["Total Workbooks",           str(ctx["total_workbooks"])],
+            ["Total Views",               str(ctx["total_views"])],
+            ["Total Sheets",              str(ctx["total_sheets"])],
+            ["Total Dashboards",          str(ctx["total_dashboards"])],
+            ["Workbooks with Extracts",   str(ctx["workbooks_with_extracts"])],
+            ["Avg Views per Workbook",    f"{ctx['avg_views_per_workbook']:.1f}"],
+            ["Total Data Sources",        str(ctx["total_datasources"])],
+            ["Certified Data Sources",    str(ctx["certified_datasources"])],
+            ["Extract Data Sources",      str(ctx["extract_datasources"])],
+            ["Live Connection Sources",   str(ctx["live_datasources"])],
+            ["Connection Types",          ", ".join(ctx["connection_types"]) or "—"],
+            ["Total Users",               str(ctx["total_users"])],
+            ["Creator Users",             str(ctx["creator_users"])],
+            ["Explorer Users",            str(ctx["explorer_users"])],
+            ["Viewer Users",              str(ctx["viewer_users"])],
+            ["Tableau Prep Flows",        str(ctx["total_flows"])],
+        ],
+        [8, 8],
+    )
+
+    # ── Data Source Inventory ─────────────────────────────────────────────────
+    _h1(doc, "Data Source Inventory")
+    ds_rows = []
+    for d in ctx["_datasources"]:
+        ds_rows.append([
+            d.get("name", "—"),
+            d.get("project_name", "—"),
+            d.get("datasource_type", "—"),
+            d.get("connection_type", "—"),
+            "Yes" if d.get("has_extracts") else "No",
+            "Yes" if d.get("is_certified") else "No",
+            d.get("owner_name", "—"),
+        ])
+    _table(
+        doc,
+        ["Name", "Project", "Type", "Connection", "Extract", "Certified", "Owner"],
+        ds_rows or [["—"] * 7],
+        [4, 2.5, 2.5, 3, 1.5, 2, 2.5],
+    )
+
+    # ── Migration Feasibility ─────────────────────────────────────────────────
+    _h1(doc, "Power BI Migration Feasibility Assessment")
+    _table(
+        doc,
+        ["Metric", "Value"],
+        [
+            ["Overall Feasibility",          ctx["overall_feasibility"]],
+            ["Estimated Migration Effort",    f"{ctx['migration_weeks']} weeks"],
+            ["Simple Workbooks",             str(ctx["simple_workbooks"])],
+            ["Moderate Workbooks",           str(ctx["moderate_workbooks"])],
+            ["Complex Workbooks",            str(ctx["complex_workbooks"])],
+            ["Very Complex Workbooks",       str(ctx["very_complex_workbooks"])],
+            ["Prep Flows (→ Dataflow Gen2)", "Yes" if ctx["has_prep_flows"] else "No"],
+            ["RLS Present (→ Power BI RLS)", "Yes" if ctx["has_rls"] else "No"],
+            ["Migratable Connection Types",  ", ".join(ctx["migratable_connections"]) or "—"],
+            ["Complex Connection Types",     ", ".join(ctx["complex_connections"]) or "None"],
+        ],
+        [8, 8],
+    )
+
+    # Migration analysis paragraphs
+    for para in migration_analysis.split("\n\n"):
+        if para.strip():
+            _body(doc, para.strip())
+
+    # ── Tableau → Power BI Feature Mapping ───────────────────────────────────
+    _h1(doc, "Tableau to Power BI Feature Mapping")
+    _body(doc,
+        "The following table documents the migration path for each Tableau capability encountered in this environment. "
+        "Feasibility ratings indicate the effort required: Direct (straightforward replacement), "
+        "Moderate (requires redesign), Complex (requires significant DAX engineering or architectural change).")
+
+    mapping = ctx["feature_mapping"]
+    if mapping:
+        _table(
+            doc,
+            ["Tableau Concept", "Power BI Equivalent", "Feasibility", "Migration Notes"],
+            [[fm.get("tableau", ""), fm.get("power_bi", ""), fm.get("feasibility", ""), fm.get("notes", "")] for fm in mapping[:30]],
+            [4, 3.5, 2, 6.5],
+        )
+
+    # ── Workbook Migration Scores ─────────────────────────────────────────────
+    if ctx["workbook_scores"]:
+        _h1(doc, "Workbook Migration Complexity Scores")
+        _body(doc,
+            "Each workbook is scored across eight complexity dimensions: data source type, calculated fields, "
+            "table calculations, dashboard actions, row-level security, extensions, visual types, and parameters. "
+            "The total score (0-80) determines the complexity tier and recommended migration sprint assignment.")
+
+        score_rows = []
+        for s in ctx["workbook_scores"][:25]:
+            score_rows.append([
+                s.get("workbook_name", "—"),
+                s.get("project_name", "—"),
+                s.get("complexity_level", "—"),
+                str(s.get("total_score", 0)),
+                str(s.get("view_count", 0)),
+                "; ".join(s.get("migration_blockers") or []) or "None",
+            ])
+        _table(
+            doc,
+            ["Workbook", "Project", "Complexity", "Score", "Views", "Blockers"],
+            score_rows or [["—"] * 6],
+            [4.5, 3, 2.5, 1.5, 1.5, 5],
+        )
+
+    # ── Pain Points ───────────────────────────────────────────────────────────
+    _h1(doc, "Key Pain Points & Migration Challenges")
+    if isinstance(pain_points, list) and pain_points:
+        pain_rows = []
+        for pp in pain_points:
+            pain_rows.append([
+                pp.get("category", "—"),
+                pp.get("issue", "—"),
+                pp.get("business_impact", "—"),
+                pp.get("power_bi_resolution", "—"),
+            ])
+        _table(
+            doc,
+            ["Category", "Issue", "Business Impact", "Power BI Resolution"],
+            pain_rows or [["—"] * 4],
+            [3, 4, 4, 5],
+        )
+    else:
+        _body(doc, str(pain_points) if pain_points else "No critical pain points identified.")
+
+    # ── Extract Health ────────────────────────────────────────────────────────
+    if ctx["total_schedules"] > 0 or ctx["failed_extracts"] > 0:
+        _h1(doc, "Extract Refresh Health")
+        _table(
+            doc,
+            ["Metric", "Value"],
+            [
+                ["Total Extract Schedules",    str(ctx["total_schedules"])],
+                ["Failed Extract Jobs",         str(ctx["failed_extracts"])],
+                ["Stale Extracts (>7 days)",    str(ctx["stale_extracts"])],
+            ],
+            [8, 8],
+        )
+        _body(doc,
+            "Failed or stale extracts in Power BI will be addressed by migrating Import-mode datasets "
+            "to Direct Lake mode on Microsoft Fabric OneLake, eliminating scheduled refresh dependencies entirely.")
+
+    # ── Recommendations ───────────────────────────────────────────────────────
+    _h1(doc, "Migration Recommendations")
+    for para in recommendations.split("\n\n"):
+        if para.strip():
+            _body(doc, para.strip())
+
+    doc.add_paragraph()
+    _h2(doc, "Recommended Migration Action Plan")
+    _table(
+        doc,
+        ["Priority", "Action", "Complexity", "Benefit"],
+        [
+            ["High",   f"Migrate {ctx['simple_workbooks']} Simple workbooks to Power BI",
+             "Low", "Quick wins; establish migration patterns and governance"],
+            ["High",   "Map certified Tableau data sources to shared Power BI semantic models",
+             "Low", "Single source of truth; reduces duplication"],
+            ["High",   "Set up Power BI workspace hierarchy mirroring Tableau projects",
+             "Low", "Governance continuity; familiar navigation for users"],
+            ["Medium", f"Translate {ctx['moderate_workbooks']} Moderate workbooks — rewrite calculated fields as DAX",
+             "Medium", "Replicates analytical logic in Power BI with full DAX capability"],
+            ["Medium", "Migrate Prep Flows to Dataflow Gen2 on Microsoft Fabric" if ctx["has_prep_flows"] else "Implement Dataflow Gen2 for ETL pipelines",
+             "Medium", "Cloud-native ETL with auto-scale and pipeline monitoring"],
+            ["Medium", "Implement Power BI RLS mirroring Tableau user filters",
+             "Medium", "Data security maintained; USERPRINCIPALNAME() role mapping"],
+            ["Low",    f"Phase Complex/Very Complex workbooks ({ctx['complex_workbooks'] + ctx['very_complex_workbooks']} total) — dedicated DAX engineering sprint",
+             "High", "Full fidelity migration of LOD expressions, table calcs, extensions"],
+            ["Low",    "Migrate extract data to Fabric OneLake; switch to Direct Lake mode",
+             "High", "Eliminates refresh windows; near-real-time analytics at scale"],
+        ],
+        [1.5, 6, 2, 6.5],
+    )
+
+    # ── Conclusion ────────────────────────────────────────────────────────────
+    _h1(doc, "Conclusion")
+    for para in conclusion.split("\n\n"):
+        if para.strip():
+            _body(doc, para.strip())
+    doc.add_paragraph()
+    _table(
+        doc,
+        ["Metric", "Value"],
+        [
+            ["Total Workbooks",          str(ctx["total_workbooks"])],
+            ["Total Data Sources",       str(ctx["total_datasources"])],
+            ["Total Users",              str(ctx["total_users"])],
+            ["Overall Feasibility",      ctx["overall_feasibility"]],
+            ["Estimated Migration Weeks", str(ctx["migration_weeks"])],
+            ["Simple / Moderate Workbooks", f"{ctx['simple_workbooks']} / {ctx['moderate_workbooks']}"],
+            ["Complex / Very Complex",   f"{ctx['complex_workbooks']} / {ctx['very_complex_workbooks']}"],
+        ],
+        [8, 8],
+    )
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    logger.info("Tableau AI report: Word document built for job %s", job_id[:8])
+    return buf.getvalue()

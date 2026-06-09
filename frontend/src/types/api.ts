@@ -1295,6 +1295,60 @@ export interface TableauDatasourceSummary {
   connection_types: string[]
 }
 
+export interface WorkbookMigrationScore {
+  workbook_name: string
+  project_name: string
+  owner_name: string
+  data_source_complexity: number
+  calc_field_complexity: number
+  table_calc_complexity: number
+  dashboard_action_complexity: number
+  rls_complexity: number
+  extension_complexity: number
+  viz_type_complexity: number
+  parameter_complexity: number
+  total_score: number
+  complexity_level: 'Simple' | 'Moderate' | 'Complex' | 'Very Complex'
+  migration_blockers: string[]
+  migration_warnings: string[]
+  pbi_equivalent_notes: string[]
+  view_count: number
+  size_mb: number
+}
+
+export interface FeatureMapping {
+  tableau: string
+  power_bi: string
+  feasibility: 'Direct' | 'Moderate' | 'Complex'
+  notes: string
+}
+
+export interface MigrationFeasibilityReport {
+  total_workbooks_assessed: number
+  simple_workbooks: number
+  moderate_workbooks: number
+  complex_workbooks: number
+  very_complex_workbooks: number
+  overall_feasibility: 'High' | 'Moderate' | 'Low'
+  estimated_migration_weeks: number
+  has_lod_expressions: boolean
+  has_table_calculations: boolean
+  has_tableau_extensions: boolean
+  has_viz_in_tooltip: boolean
+  has_custom_geocoding: boolean
+  has_rls: boolean
+  has_custom_sql: boolean
+  has_prep_flows: boolean
+  has_embedded_analytics: boolean
+  has_parameter_actions: boolean
+  migratable_connections: string[]
+  complex_connections: string[]
+  feature_mapping: FeatureMapping[]
+  workbook_scores: WorkbookMigrationScore[]
+  migration_blockers: string[]
+  recommended_migration_order: string[]
+}
+
 export interface TableauAssessmentResult {
   job_id: string
   label?: string
@@ -1307,6 +1361,7 @@ export interface TableauAssessmentResult {
   user_profile?: TableauUserProfile
   extract_health?: TableauExtractHealth
   data_quality?: TableauDataQualityFlags
+  migration_feasibility?: MigrationFeasibilityReport
   projects?: TableauProject[]
   workbooks?: TableauWorkbook[]
   datasources?: TableauDatasource[]
@@ -1314,6 +1369,15 @@ export interface TableauAssessmentResult {
   users_list?: Record<string, string>[]
   groups?: TableauGroup[]
   flows?: TableauFlow[]
+  permissions?: TableauPermissionEntry[]
+}
+
+export interface TableauPermissionEntry {
+  workbook_or_datasource_name: string
+  grantee_name: string
+  grantee_type: string
+  capability_name: string
+  capability_mode: string
 }
 
 export interface TableauJobResponse {

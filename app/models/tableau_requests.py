@@ -17,10 +17,8 @@ class TableauCredentials(BaseModel):
     """Credentials for Tableau REST API."""
     server_url: str = Field(..., description="Tableau Server URL, e.g. https://tableau.acme.com")
     site_name: Optional[str] = Field(None, description="Site name (leave blank for Default site)")
-    # Username/Password auth
     username: Optional[str] = Field(None, description="Tableau username (for password auth)")
     password: Optional[SecretStr] = Field(None, description="Tableau password (for password auth)")
-    # Personal Access Token auth
     token_name: Optional[str] = Field(None, description="PAT name (for token auth)")
     token_secret: Optional[SecretStr] = Field(None, description="PAT secret (for token auth)")
 
@@ -34,7 +32,7 @@ class TableauAssessmentRequest(BaseModel):
     include_flows: bool = Field(True, description="Enumerate Tableau Prep flows")
 
 
-# ── Assessment result models ──────────────────────────────────────────────────
+# ── Core Tableau models ────────────────────────────────────────────────────────
 
 class TableauServerInfo(BaseModel):
     server_url: str
@@ -177,6 +175,81 @@ class TableauDatasourceSummary(BaseModel):
     connection_types: list[str]
 
 
+# ── Migration complexity scoring ──────────────────────────────────────────────
+
+class WorkbookMigrationScore(BaseModel):
+    """Per-workbook Power BI migration complexity score."""
+    workbook_name: str
+    project_name: str
+    owner_name: str
+
+    # Dimension scores (0–10 each)
+    data_source_complexity: int = 0      # number/type of sources, custom SQL, stored procs
+    calc_field_complexity: int = 0       # count of calculated fields, LOD expressions
+    table_calc_complexity: int = 0       # table calculations and partition logic
+    dashboard_action_complexity: int = 0 # actions, cascades, URL actions
+    rls_complexity: int = 0              # row-level security, USERNAME(), filters
+    extension_complexity: int = 0        # Tableau extensions (high — no direct equiv)
+    viz_type_complexity: int = 0         # custom mark types, viz-in-tooltip, polygons
+    parameter_complexity: int = 0        # parameters and parameter actions
+
+    # Aggregate
+    total_score: int = 0
+    complexity_level: Literal["Simple", "Moderate", "Complex", "Very Complex"] = "Simple"
+
+    # Migration notes
+    migration_blockers: list[str] = Field(default_factory=list)
+    migration_warnings: list[str] = Field(default_factory=list)
+    pbi_equivalent_notes: list[str] = Field(default_factory=list)
+
+    # Counts used in scoring
+    view_count: int = 0
+    size_mb: float = 0.0
+
+
+class MigrationFeasibilityReport(BaseModel):
+    """Overall Tableau → Power BI migration feasibility."""
+
+    # Summary counts
+    total_workbooks_assessed: int = 0
+    simple_workbooks: int = 0
+    moderate_workbooks: int = 0
+    complex_workbooks: int = 0
+    very_complex_workbooks: int = 0
+
+    # Overall feasibility
+    overall_feasibility: Literal["High", "Moderate", "Low"] = "Moderate"
+    estimated_migration_weeks: int = 0
+
+    # Feature flags detected across env
+    has_lod_expressions: bool = False
+    has_table_calculations: bool = False
+    has_tableau_extensions: bool = False
+    has_viz_in_tooltip: bool = False
+    has_custom_geocoding: bool = False
+    has_rls: bool = False
+    has_custom_sql: bool = False
+    has_prep_flows: bool = False
+    has_embedded_analytics: bool = False
+    has_parameter_actions: bool = False
+
+    # Connection type migration mapping
+    migratable_connections: list[str] = Field(default_factory=list)
+    complex_connections: list[str] = Field(default_factory=list)
+
+    # Feature migration table: list of {tableau_feature, pbi_equivalent, notes, feasibility}
+    feature_mapping: list[dict] = Field(default_factory=list)
+
+    # Per-workbook scores (top 50 by complexity)
+    workbook_scores: list[WorkbookMigrationScore] = Field(default_factory=list)
+
+    # Blockers preventing full migration
+    migration_blockers: list[str] = Field(default_factory=list)
+
+    # Recommended migration order (workbook names)
+    recommended_migration_order: list[str] = Field(default_factory=list)
+
+
 # ── Top-level assessment result ───────────────────────────────────────────────
 
 class TableauAssessmentResult(BaseModel):
@@ -192,6 +265,9 @@ class TableauAssessmentResult(BaseModel):
     user_profile: Optional[TableauUserProfile] = None
     extract_health: Optional[TableauExtractHealth] = None
     data_quality: Optional[TableauDataQualityFlags] = None
+
+    # Migration analysis
+    migration_feasibility: Optional[MigrationFeasibilityReport] = None
 
     # Lists (capped for payload size)
     projects: Optional[list[TableauProject]] = None

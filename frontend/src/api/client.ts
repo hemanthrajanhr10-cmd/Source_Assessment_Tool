@@ -413,6 +413,17 @@ export const api = {
     URL.revokeObjectURL(url)
   },
 
+  tableauRegenerateWordReport: async (jobId: string, label?: string) => {
+    const res = await http.post(`/api/v1/tableau/jobs/${jobId}/regenerate-word-report`, {}, { responseType: 'blob' })
+    const filename = `${(label || 'tableau-assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}_ai.docx`
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
   // ── Snowflake Assessments ─────────────────────────────────────────────────
   snowflakeInitAuth: (data: SnowflakeAuthRequest) =>
     http.post<{ auth_id: string }>('/api/v1/snowflake/init-auth', data),

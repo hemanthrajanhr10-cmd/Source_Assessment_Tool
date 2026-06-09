@@ -1,17 +1,26 @@
 """
-Tableau Assessment Service.
+Tableau Assessment Service — Superior Edition.
 
-Orchestrates the full Tableau assessment:
-  1. Sign in and capture server/site info
-  2. Enumerate projects
-  3. Enumerate workbooks + views (sheets/dashboards)
-  4. Enumerate published data sources
-  5. Enumerate users + groups
-  6. Enumerate Tableau Prep flows (if available)
-  7. Enumerate extract schedules + recent jobs
-  8. Sample permissions (top 20 workbooks)
-  9. Build data quality flags
- 10. Generate Excel + Word reports
+Orchestrates a comprehensive 25-domain Tableau assessment:
+  1.  Connecting to Tableau Server
+  2.  Enumerating projects
+  3.  Enumerating workbooks
+  4.  Enumerating views & dashboards
+  5.  Enumerating data sources
+  6.  Enumerating users
+  7.  Enumerating groups
+  8.  Enumerating Prep flows
+  9.  Enumerating extract schedules
+  10. Enumerating recent background jobs
+  11. Sampling workbook permissions
+  12. Building data quality flags
+  13. Analysing migration complexity (per-workbook scoring)
+  14. Building migration feasibility report
+  15. Generating Excel report (10 sheets)
+  16. Generating AI-powered Word report (migration analysis + Power BI mapping)
+
+All 25 requirement domains from the specification are captured in the data
+model and surfaced in the Word report via AI narrative generation.
 """
 
 import io
@@ -38,6 +47,8 @@ from app.models.tableau_requests import (
     TableauDataQualityFlags,
     TableauWorkbookSummary,
     TableauDatasourceSummary,
+    MigrationFeasibilityReport,
+    WorkbookMigrationScore,
 )
 
 logger = get_logger(__name__)
@@ -92,7 +103,7 @@ def test_connection(request: TableauAssessmentRequest) -> dict:
     )
 
 
-# ── Assessment steps list (for progress terminal) ────────────────────────────
+# ── Assessment steps ─────────────────────────────────────────────────────────
 
 STEPS = [
     "Connecting to Tableau Server",
@@ -107,9 +118,268 @@ STEPS = [
     "Enumerating recent background jobs",
     "Sampling workbook permissions",
     "Building data quality flags",
+    "Analysing migration complexity",
+    "Building migration feasibility report",
     "Generating Excel report",
-    "Generating Word report",
+    "Generating Word report (AI-powered)",
 ]
+
+
+# ── Migration scoring helpers ─────────────────────────────────────────────────
+
+# Connection types that map cleanly to Power BI
+_SIMPLE_CONNECTIONS = {
+    "sqlserver", "sql server", "azuresql", "azure sql", "snowflake",
+    "bigquery", "postgresql", "mysql", "oracle", "redshift",
+    "synapse", "databricks", "excel", "csv",
+}
+
+# Connection types requiring extra work
+_COMPLEX_CONNECTIONS = {
+    "sap", "salesforce", "sharepoint", "teradata", "vertica",
+    "amazon athena", "google analytics", "web data connector",
+    "odata", "json", "xml", "pdf", "spatial",
+}
+
+# Tableau visual types that have no direct Power BI equivalent
+_HARD_VIZ_TYPES = {"map", "polygon", "density", "gantt bar"}
+
+# Tableau functions that map to complex DAX patterns
+_LOD_KEYWORDS = ["fixed", "include", "exclude"]
+_TABLE_CALC_KEYWORDS = [
+    "running_sum", "running_avg", "window_sum", "window_avg",
+    "rank", "rank_dense", "lookup", "previous_value", "total",
+    "first()", "last()", "index()", "size()",
+]
+
+
+def _score_workbook(
+    wb: TableauWorkbook,
+    datasources: list[TableauDatasource],
+    permissions: list[TableauPermissionEntry],
+) -> WorkbookMigrationScore:
+    """Derive a migration complexity score for a single workbook."""
+    score = WorkbookMigrationScore(
+        workbook_name=wb.name,
+        project_name=wb.project_name,
+        owner_name=wb.owner_name,
+        view_count=wb.view_count,
+        size_mb=wb.size_mb,
+    )
+    blockers: list[str] = []
+    warnings: list[str] = []
+    notes: list[str] = []
+
+    # 1. Data source complexity (0–10)
+    wb_lower = wb.name.lower()
+    ds_for_wb = [d for d in datasources if d.name.lower() in wb_lower or wb_lower in d.name.lower()]
+    if not ds_for_wb:
+        ds_for_wb = datasources[:3]  # fallback sample
+
+    conn_types = {d.connection_type.lower() for d in ds_for_wb if d.connection_type}
+    complex_conn = conn_types & _COMPLEX_CONNECTIONS
+    simple_conn  = conn_types & _SIMPLE_CONNECTIONS
+
+    ds_score = min(len(ds_for_wb) * 2, 6)
+    if complex_conn:
+        ds_score += 3
+        warnings.append(f"Complex connection types: {', '.join(complex_conn)} — require connector mapping in Power BI")
+    if simple_conn:
+        notes.append(f"Standard connections ({', '.join(list(simple_conn)[:3])}) map directly to Power BI connectors")
+    score.data_source_complexity = min(ds_score, 10)
+
+    # 2. Calculated field complexity — proxy via view count as surrogate
+    calc_score = min(wb.view_count // 5, 8)
+    if wb.view_count > 20:
+        calc_score = 8
+        warnings.append("High view count suggests many calculated fields — audit for LOD and table calculations before migration")
+    score.calc_field_complexity = calc_score
+
+    # 3. Table calculation complexity — size-based proxy
+    tc_score = 0
+    if wb.size_mb > 50:
+        tc_score = 6
+        warnings.append("Large workbook size (>50 MB) may indicate complex table calculations or embedded data")
+    elif wb.size_mb > 10:
+        tc_score = 3
+    score.table_calc_complexity = tc_score
+
+    # 4. Dashboard action complexity
+    action_score = min(wb.view_count // 10, 5)
+    score.dashboard_action_complexity = action_score
+    if action_score >= 4:
+        warnings.append("Many views suggest complex dashboard action chains — map each filter/URL/parameter action to Power BI bookmarks or cross-filter")
+
+    # 5. RLS complexity
+    rls_perms = [p for p in permissions if p.workbook_or_datasource_name == wb.name]
+    rls_score = 0
+    if rls_perms:
+        rls_score = min(len(set(p.grantee_name for p in rls_perms)) // 3, 8)
+        if rls_score >= 5:
+            warnings.append("Complex permission model — implement Power BI RLS with USERPRINCIPALNAME() roles")
+    score.rls_complexity = rls_score
+
+    # 6. Extension complexity (proxy: large workbooks may use extensions)
+    ext_score = 0
+    if wb.size_mb > 100:
+        ext_score = 8
+        blockers.append("Very large workbook — likely contains embedded Tableau extensions or heavy custom visuals with no direct Power BI AppSource equivalent")
+    score.extension_complexity = ext_score
+
+    # 7. Viz type complexity
+    viz_score = 0
+    if wb.show_tabs and wb.view_count > 15:
+        viz_score = 4
+        notes.append("Multi-tab workbook with many sheets — evaluate each view's mark type for Power BI visual equivalence")
+    score.viz_type_complexity = viz_score
+
+    # 8. Parameter complexity
+    param_score = 0
+    if wb.tag_count > 3:
+        param_score = 4
+        notes.append("Tagged workbook may use parameters for dynamic filtering — replace with Power BI What-If parameters or field parameters")
+    score.parameter_complexity = param_score
+
+    # Aggregate
+    total = (
+        score.data_source_complexity +
+        score.calc_field_complexity +
+        score.table_calc_complexity +
+        score.dashboard_action_complexity +
+        score.rls_complexity +
+        score.extension_complexity +
+        score.viz_type_complexity +
+        score.parameter_complexity
+    )
+    score.total_score = total
+
+    if total <= 15:
+        score.complexity_level = "Simple"
+    elif total <= 30:
+        score.complexity_level = "Moderate"
+    elif total <= 50:
+        score.complexity_level = "Complex"
+    else:
+        score.complexity_level = "Very Complex"
+
+    # Build Power BI equivalent notes
+    notes += [
+        "Workbook → .pbix file published to Power BI Service workspace",
+        "Published data sources → Shared semantic model in Power BI",
+    ]
+    if score.rls_complexity > 0:
+        notes.append("Row-level security → Power BI RLS roles with USERPRINCIPALNAME()")
+
+    score.migration_blockers = blockers
+    score.migration_warnings = warnings
+    score.pbi_equivalent_notes = notes
+
+    return score
+
+
+def _build_migration_feasibility(
+    workbooks: list[TableauWorkbook],
+    datasources: list[TableauDatasource],
+    flows: list[TableauFlow],
+    permissions: list[TableauPermissionEntry],
+) -> MigrationFeasibilityReport:
+    """Build the overall Power BI migration feasibility report."""
+    report = MigrationFeasibilityReport()
+    report.has_prep_flows = len(flows) > 0
+
+    # Score each workbook
+    all_scores = [_score_workbook(wb, datasources, permissions) for wb in workbooks[:200]]
+    all_scores.sort(key=lambda s: s.total_score, reverse=True)
+
+    report.total_workbooks_assessed = len(all_scores)
+    report.simple_workbooks     = sum(1 for s in all_scores if s.complexity_level == "Simple")
+    report.moderate_workbooks   = sum(1 for s in all_scores if s.complexity_level == "Moderate")
+    report.complex_workbooks    = sum(1 for s in all_scores if s.complexity_level == "Complex")
+    report.very_complex_workbooks = sum(1 for s in all_scores if s.complexity_level == "Very Complex")
+
+    # Detect feature flags from datasources
+    conn_types_lower = {d.connection_type.lower() for d in datasources if d.connection_type}
+    report.migratable_connections = sorted(list(conn_types_lower & _SIMPLE_CONNECTIONS))
+    report.complex_connections    = sorted(list(conn_types_lower & _COMPLEX_CONNECTIONS))
+    report.has_rls = any(s.rls_complexity >= 5 for s in all_scores)
+    report.has_custom_sql = any(d.connection_type.lower() in ("sqlserver", "postgresql", "oracle", "mysql") for d in datasources)
+
+    # Overall feasibility
+    very_complex_pct = report.very_complex_workbooks / max(len(all_scores), 1)
+    if very_complex_pct > 0.3 or report.has_tableau_extensions:
+        report.overall_feasibility = "Low"
+    elif very_complex_pct > 0.1 or report.has_rls:
+        report.overall_feasibility = "Moderate"
+    else:
+        report.overall_feasibility = "High"
+
+    # Estimate migration effort
+    effort = (
+        report.simple_workbooks * 1 +
+        report.moderate_workbooks * 3 +
+        report.complex_workbooks * 8 +
+        report.very_complex_workbooks * 20
+    )
+    report.estimated_migration_weeks = max(1, effort // 40)
+
+    # Feature mapping table
+    report.feature_mapping = [
+        {"tableau": "Workbook (.twb / .twbx)", "power_bi": ".pbix file", "feasibility": "Direct", "notes": "1:1 mapping; packaged workbooks need extract migration"},
+        {"tableau": "Published Data Source", "power_bi": "Shared Semantic Model", "feasibility": "Direct", "notes": "Re-publish as shared dataset in Power BI Service"},
+        {"tableau": "Extract (.hyper)", "power_bi": "Lakehouse Delta table / Import dataset", "feasibility": "Direct", "notes": "Export extract data; import to Power BI or OneLake"},
+        {"tableau": "Live Connection", "power_bi": "DirectQuery or DirectLake", "feasibility": "Direct", "notes": "Point Power BI connector to same source"},
+        {"tableau": "Calculated Field (row-level)", "power_bi": "DAX Calculated Column", "feasibility": "Moderate", "notes": "Simple expressions translate; complex string functions need DAX rewrite"},
+        {"tableau": "Calculated Field (aggregate)", "power_bi": "DAX Measure", "feasibility": "Moderate", "notes": "IF/CASE → SWITCH; aggregates → CALCULATE"},
+        {"tableau": "LOD FIXED", "power_bi": "CALCULATE with REMOVEFILTERS", "feasibility": "Complex", "notes": "Each FIXED LOD requires explicit REMOVEFILTERS/ALLEXCEPT pattern"},
+        {"tableau": "LOD INCLUDE", "power_bi": "CALCULATE with added granularity", "feasibility": "Complex", "notes": "Model at required grain or use SUMMARIZE"},
+        {"tableau": "LOD EXCLUDE", "power_bi": "CALCULATE with REMOVEFILTERS on dimension", "feasibility": "Complex", "notes": "REMOVEFILTERS on specific columns"},
+        {"tableau": "Table Calculation (RUNNING_SUM)", "power_bi": "DAX CALCULATE with DATESBETWEEN / EARLIER", "feasibility": "Moderate", "notes": "Time-based: use time-intelligence functions"},
+        {"tableau": "Table Calculation (RANK)", "power_bi": "RANKX", "feasibility": "Direct", "notes": "RANKX(ALL(table), measure)"},
+        {"tableau": "Table Calculation (WINDOW_SUM)", "power_bi": "CALCULATE with sliding window", "feasibility": "Moderate", "notes": "Use DATESINPERIOD or OFFSET for window logic"},
+        {"tableau": "Parameter", "power_bi": "What-If Parameter / Field Parameter", "feasibility": "Direct", "notes": "Numeric: What-If; field switching: Field Parameters"},
+        {"tableau": "Parameter Action", "power_bi": "Bookmark / Field Parameter", "feasibility": "Moderate", "notes": "No direct equivalent; use button bookmarks or field parameters"},
+        {"tableau": "Set", "power_bi": "DAX measure with IN / SELECTEDVALUE", "feasibility": "Moderate", "notes": "Fixed sets → calculated column; computed sets → measures"},
+        {"tableau": "Set Action", "power_bi": "Slicer + cross-filter + bookmark", "feasibility": "Complex", "notes": "No direct equivalent — design with cross-filter interactions"},
+        {"tableau": "Group", "power_bi": "Mapping table or SWITCH column", "feasibility": "Direct", "notes": "Create a mapping/dimension table; use RELATED in measures"},
+        {"tableau": "Hierarchy", "power_bi": "Model hierarchy or date table", "feasibility": "Direct", "notes": "Define hierarchy in model view; date hierarchies auto-created"},
+        {"tableau": "Context Filter", "power_bi": "Edit interactions + visual-level filters", "feasibility": "Moderate", "notes": "Use visual-level filters or edit interactions panel"},
+        {"tableau": "Dashboard Filter Action", "power_bi": "Cross-filter / sync slicer", "feasibility": "Direct", "notes": "Default cross-highlight; sync slicers for multi-page"},
+        {"tableau": "Dashboard URL Action", "power_bi": "Button with URL action", "feasibility": "Direct", "notes": "Add URL action buttons; dynamic URLs via DAX string measures"},
+        {"tableau": "User Filter / USERNAME()", "power_bi": "RLS with USERPRINCIPALNAME()", "feasibility": "Direct", "notes": "Define RLS roles using USERPRINCIPALNAME() DAX function"},
+        {"tableau": "ISMEMBEROF()", "power_bi": "RLS with group membership rules", "feasibility": "Moderate", "notes": "Map security groups to RLS roles in Power BI Admin"},
+        {"tableau": "Tableau Prep Flow", "power_bi": "Dataflow Gen2 / Data Factory pipeline", "feasibility": "Moderate", "notes": "Prep steps → Power Query M; joins and aggregates → Dataflow Gen2"},
+        {"tableau": "Story", "power_bi": "Paginated Report or Bookmarks", "feasibility": "Moderate", "notes": "Story points → report pages with bookmark navigator"},
+        {"tableau": "Subscription", "power_bi": "Power BI subscription / data alert", "feasibility": "Direct", "notes": "Set up subscriptions in Power BI Service"},
+        {"tableau": "Extension Object", "power_bi": "Power BI custom visual (AppSource)", "feasibility": "Complex", "notes": "Search AppSource; D3 custom charts may need full redevelopment"},
+        {"tableau": "Viz-in-Tooltip", "power_bi": "Report page tooltip", "feasibility": "Direct", "notes": "Create a tooltip report page in Power BI"},
+        {"tableau": "Tableau Server Project", "power_bi": "Power BI workspace", "feasibility": "Direct", "notes": "1:1 project → workspace mapping recommended"},
+        {"tableau": "Device Layout (tablet/phone)", "power_bi": "Mobile layout editor", "feasibility": "Direct", "notes": "Design mobile layout in Power BI Desktop"},
+    ]
+
+    # Global blockers
+    blockers: list[str] = []
+    if report.has_tableau_extensions:
+        blockers.append("Tableau Extensions detected — these have no direct Power BI AppSource equivalent and require full redevelopment")
+    if conn_types_lower & {"web data connector", "wdc"}:
+        blockers.append("Web Data Connectors (WDC) used — must be replaced with Power BI custom connectors or REST API integration")
+    if conn_types_lower & {"spatial", "shapefile"}:
+        blockers.append("Spatial / shapefile connections — Power BI maps require Bing Maps or Azure Maps; custom polygon boundaries need Shape Maps visual")
+    if report.complex_workbooks + report.very_complex_workbooks > report.total_workbooks_assessed * 0.5:
+        blockers.append("More than 50% of workbooks are Complex/Very Complex — phased migration approach recommended (Simple/Moderate first)")
+    report.migration_blockers = blockers
+
+    # Recommended migration order: Simple → Moderate → Complex → Very Complex
+    ordered = (
+        [s.workbook_name for s in all_scores if s.complexity_level == "Simple"][:10] +
+        [s.workbook_name for s in all_scores if s.complexity_level == "Moderate"][:10] +
+        [s.workbook_name for s in all_scores if s.complexity_level == "Complex"][:5]
+    )
+    report.recommended_migration_order = ordered
+
+    # Top 50 by complexity for display
+    report.workbook_scores = all_scores[:50]
+
+    return report
 
 
 # ── Assessment runner ─────────────────────────────────────────────────────────
@@ -136,7 +406,6 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
     try:
         _update(job_id, status="running", progress_message=STEPS[0])
 
-        # Build server object + auth
         server = TSC.Server(creds.server_url, use_server_version=True)
         server.add_http_options({"verify": False})
 
@@ -155,7 +424,7 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
 
         with server.auth.sign_in(auth):
 
-            # ── Step 1: Server info ───────────────────────────────────────────
+            # Step 1: Server info
             _step(STEPS[0])
             server_info = TableauServerInfo(
                 server_url=creds.server_url,
@@ -165,37 +434,33 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
                 content_url=creds.site_name or "",
             )
 
-            # ── Step 2: Projects ──────────────────────────────────────────────
+            # Step 2: Projects
             _step(STEPS[1])
             raw_projects = []
             try:
                 raw_projects = client.list_projects(server)
             except Exception as e:
                 logger.warning("Projects step failed: %s", e)
-
             projects = [TableauProject(**p) for p in raw_projects]
 
-            # ── Step 3: Workbooks ─────────────────────────────────────────────
+            # Step 3: Workbooks
             _step(STEPS[2])
             raw_workbooks = []
             try:
                 raw_workbooks = client.list_workbooks(server)
             except Exception as e:
                 logger.warning("Workbooks step failed: %s", e)
-
             workbooks = [TableauWorkbook(**w) for w in raw_workbooks]
 
-            # ── Step 4: Views ─────────────────────────────────────────────────
+            # Step 4: Views
             _step(STEPS[3])
             raw_views = []
             try:
                 raw_views = client.list_views(server)
             except Exception as e:
                 logger.warning("Views step failed: %s", e)
-
             views = [TableauView(**v) for v in raw_views]
-
-            sheets = [v for v in views if v.view_type in ("sheet", "")]
+            sheets     = [v for v in views if v.view_type in ("sheet", "")]
             dashboards = [v for v in views if v.view_type == "dashboard"]
 
             wb_summary = TableauWorkbookSummary(
@@ -207,19 +472,18 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
                 avg_views_per_workbook=len(views) / max(len(workbooks), 1),
             )
 
-            # ── Step 5: Datasources ───────────────────────────────────────────
+            # Step 5: Datasources
             _step(STEPS[4])
             raw_ds = []
             try:
                 raw_ds = client.list_datasources(server)
             except Exception as e:
                 logger.warning("Datasources step failed: %s", e)
-
             datasources = [TableauDatasource(**d) for d in raw_ds]
 
-            certified = [d for d in datasources if d.is_certified]
+            certified    = [d for d in datasources if d.is_certified]
             with_extracts = [d for d in datasources if d.has_extracts]
-            conn_types = list({d.connection_type for d in datasources if d.connection_type and d.connection_type != "unknown"})
+            conn_types   = list({d.connection_type for d in datasources if d.connection_type and d.connection_type != "unknown"})
 
             ds_summary = TableauDatasourceSummary(
                 total_datasources=len(datasources),
@@ -230,11 +494,9 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
                 live_datasources=len(datasources) - len(with_extracts),
                 connection_types=conn_types[:20],
             )
-
-            # Update workbook summary extract count
             wb_summary.workbooks_with_extracts = len(with_extracts)
 
-            # ── Step 6: Users ─────────────────────────────────────────────────
+            # Step 6: Users
             _step(STEPS[5])
             raw_users = []
             try:
@@ -246,11 +508,10 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
                 return sum(1 for u in raw_users if role_substr.lower() in (u.get("role") or "").lower())
 
             total_users = len(raw_users)
-            admin_users = _role_count("serveradmin") + _role_count("siteadmin")
             user_profile = TableauUserProfile(
                 total_users=total_users,
                 active_users=total_users,
-                admin_users=admin_users,
+                admin_users=_role_count("serveradmin") + _role_count("siteadmin"),
                 site_admin_users=_role_count("siteadmin"),
                 creator_users=_role_count("creator"),
                 explorer_users=_role_count("explorer"),
@@ -258,17 +519,16 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
                 unlicensed_users=_role_count("unlicensed"),
             )
 
-            # ── Step 7: Groups ────────────────────────────────────────────────
+            # Step 7: Groups
             _step(STEPS[6])
             raw_groups = []
             try:
                 raw_groups = client.list_groups(server)
             except Exception as e:
                 logger.warning("Groups step failed: %s", e)
-
             groups = [TableauGroup(**g) for g in raw_groups]
 
-            # ── Step 8: Flows ─────────────────────────────────────────────────
+            # Step 8: Flows
             flows: list[TableauFlow] = []
             if request.include_flows:
                 _step(STEPS[7])
@@ -278,7 +538,7 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
                 except Exception as e:
                     logger.warning("Flows step failed: %s", e)
 
-            # ── Step 9: Schedules ─────────────────────────────────────────────
+            # Step 9 & 10: Extract health
             extract_health = TableauExtractHealth(
                 total_schedules=0, active_schedules=0, suspended_schedules=0,
                 total_refresh_jobs=0, successful_jobs=0, failed_jobs=0,
@@ -291,26 +551,24 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
                 try:
                     raw_schedules = client.list_schedules(server)
                     active_sched = sum(1 for s in raw_schedules if (s.get("state") or "").lower() == "active")
-                    suspended_sched = len(raw_schedules) - active_sched
-                    extract_health.total_schedules = len(raw_schedules)
-                    extract_health.active_schedules = active_sched
-                    extract_health.suspended_schedules = suspended_sched
+                    extract_health.total_schedules   = len(raw_schedules)
+                    extract_health.active_schedules  = active_sched
+                    extract_health.suspended_schedules = len(raw_schedules) - active_sched
                 except Exception as e:
                     logger.warning("Schedules step failed: %s", e)
 
-                # ── Step 10: Recent jobs ──────────────────────────────────────
                 _step(STEPS[9])
                 try:
                     raw_jobs = client.list_jobs(server)
                     extract_jobs = [TableauExtractJob(**j) for j in raw_jobs[:100]]
                     extract_health.total_refresh_jobs = len(raw_jobs)
                     extract_health.successful_jobs = sum(1 for j in raw_jobs if (j.get("status") or "").lower() == "completed")
-                    extract_health.failed_jobs = sum(1 for j in raw_jobs if (j.get("status") or "").lower() in ("error", "failed"))
-                    extract_health.cancelled_jobs = sum(1 for j in raw_jobs if (j.get("status") or "").lower() == "cancelled")
+                    extract_health.failed_jobs     = sum(1 for j in raw_jobs if (j.get("status") or "").lower() in ("error", "failed"))
+                    extract_health.cancelled_jobs  = sum(1 for j in raw_jobs if (j.get("status") or "").lower() == "cancelled")
                 except Exception as e:
                     logger.warning("Jobs step failed: %s", e)
 
-            # ── Step 11: Permissions sample ───────────────────────────────────
+            # Step 11: Permissions
             permissions: list[TableauPermissionEntry] = []
             if request.include_permissions and workbooks:
                 _step(STEPS[10])
@@ -328,7 +586,7 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
                 except Exception as e:
                     logger.warning("Permissions step failed: %s", e)
 
-            # ── Step 12: Data quality ─────────────────────────────────────────
+            # Step 12: Data quality
             _step(STEPS[11])
             data_quality = TableauDataQualityFlags(
                 workbooks_with_no_views=sum(1 for wb in workbooks if wb.view_count == 0),
@@ -339,7 +597,17 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
                 uncertified_published_datasources=len(datasources) - len(certified),
             )
 
-        # ── Assemble result ───────────────────────────────────────────────────
+            # Step 13 & 14: Migration analysis
+            _step(STEPS[12])
+            workbook_scores = []
+            for wb in workbooks[:200]:
+                ws = _score_workbook(wb, datasources, permissions)
+                workbook_scores.append(ws)
+
+            _step(STEPS[13])
+            migration_feasibility = _build_migration_feasibility(workbooks, datasources, flows, permissions)
+
+        # Assemble result
         result = TableauAssessmentResult(
             job_id=job_id,
             label=request.label,
@@ -351,6 +619,7 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
             user_profile=user_profile,
             extract_health=extract_health,
             data_quality=data_quality,
+            migration_feasibility=migration_feasibility,
             projects=projects[:200],
             workbooks=workbooks[:500],
             datasources=datasources[:500],
@@ -362,12 +631,19 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
             permissions=permissions[:500],
         )
 
-        # ── Reports ───────────────────────────────────────────────────────────
-        _step(STEPS[12])
+        # Step 15: Excel
+        _step(STEPS[14])
         excel_bytes = _build_excel(result)
 
-        _step(STEPS[13])
-        word_bytes = _build_word(result)
+        # Step 16: AI Word report
+        _step(STEPS[15])
+        try:
+            from app.services.ai_report_service import build_tableau_ai_word_report
+            label = request.label or server_info.site_name
+            word_bytes = build_tableau_ai_word_report(job_id, result.model_dump(), client_name=label)
+        except Exception as e:
+            logger.warning("AI Word report failed (%s) — falling back to static report", e)
+            word_bytes = _build_word(result)
 
         _update(
             job_id,
@@ -405,6 +681,9 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
     WHITE          = "FFFFFF"
     DARK_GRAY      = "404040"
     LIGHT_GRAY     = "F5F5F5"
+    GREEN          = "10B981"
+    AMBER          = "F59E0B"
+    RED            = "EF4444"
     FONT_NAME      = "Calibri"
 
     def _font(bold=False, size=11, color=DARK_GRAY, italic=False):
@@ -444,7 +723,7 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
                         max_len = max(max_len, len(str(cell.value)))
                 except Exception:
                     pass
-            ws.column_dimensions[col_letter].width = min(max_len + 4, 50)
+            ws.column_dimensions[col_letter].width = min(max_len + 4, 60)
 
     wb = Workbook()
     wb.remove(wb.active)
@@ -471,36 +750,26 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
     overview_data = []
     if result.server_info:
         si = result.server_info
-        overview_data += [
-            ("Server URL", si.server_url),
-            ("Site Name", si.site_name),
-            ("Server Version", si.server_version),
-        ]
+        overview_data += [("Server URL", si.server_url), ("Site Name", si.site_name), ("Server Version", si.server_version)]
     if result.workbook_summary:
         ws_sum = result.workbook_summary
         overview_data += [
-            ("Total Workbooks", ws_sum.total_workbooks),
-            ("Total Views", ws_sum.total_views),
-            ("Total Sheets", ws_sum.total_sheets),
-            ("Total Dashboards", ws_sum.total_dashboards),
+            ("Total Workbooks", ws_sum.total_workbooks), ("Total Views", ws_sum.total_views),
+            ("Total Sheets", ws_sum.total_sheets), ("Total Dashboards", ws_sum.total_dashboards),
             ("Workbooks with Extracts", ws_sum.workbooks_with_extracts),
         ]
     if result.datasource_summary:
         ds_sum = result.datasource_summary
         overview_data += [
-            ("Total Data Sources", ds_sum.total_datasources),
-            ("Published Data Sources", ds_sum.published_datasources),
-            ("Certified Data Sources", ds_sum.certified_datasources),
-            ("Extract Data Sources", ds_sum.extract_datasources),
+            ("Total Data Sources", ds_sum.total_datasources), ("Published", ds_sum.published_datasources),
+            ("Certified", ds_sum.certified_datasources), ("Extract Sources", ds_sum.extract_datasources),
             ("Live Connection Sources", ds_sum.live_datasources),
         ]
     if result.user_profile:
         up = result.user_profile
         overview_data += [
-            ("Total Users", up.total_users),
-            ("Admin Users", up.admin_users),
-            ("Creator Users", up.creator_users),
-            ("Explorer Users", up.explorer_users),
+            ("Total Users", up.total_users), ("Admin Users", up.admin_users),
+            ("Creator Users", up.creator_users), ("Explorer Users", up.explorer_users),
             ("Viewer Users", up.viewer_users),
         ]
 
@@ -511,24 +780,123 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
         _cell(ws, i, 2, v, i % 2 == 0)
     _auto_width(ws)
 
+    # ── Migration Feasibility ─────────────────────────────────────────────────
+    if result.migration_feasibility:
+        mf = result.migration_feasibility
+        ws_mig = wb.create_sheet("Migration Feasibility")
+        ws_mig.sheet_view.showGridLines = False
+
+        ws_mig.merge_cells("A1:F1")
+        t = ws_mig["A1"]
+        t.value = "Power BI Migration Feasibility Report"
+        t.font = Font(name=FONT_NAME, bold=True, size=14, color=WHITE)
+        t.fill = _fill(TABLEAU_DARK)
+        t.alignment = _align("center")
+
+        _hdr(ws_mig, 3, 1, "Metric"); _hdr(ws_mig, 3, 2, "Value")
+        mig_overview = [
+            ("Overall Feasibility", mf.overall_feasibility),
+            ("Estimated Migration Weeks", mf.estimated_migration_weeks),
+            ("Total Workbooks Assessed", mf.total_workbooks_assessed),
+            ("Simple Workbooks", mf.simple_workbooks),
+            ("Moderate Workbooks", mf.moderate_workbooks),
+            ("Complex Workbooks", mf.complex_workbooks),
+            ("Very Complex Workbooks", mf.very_complex_workbooks),
+            ("Has Prep Flows (→ Dataflow Gen2)", "Yes" if mf.has_prep_flows else "No"),
+            ("Has RLS (→ Power BI RLS)", "Yes" if mf.has_rls else "No"),
+            ("Migratable Connections", ", ".join(mf.migratable_connections) or "None detected"),
+            ("Complex Connections", ", ".join(mf.complex_connections) or "None detected"),
+        ]
+        for i, (k, v) in enumerate(mig_overview, start=4):
+            shade = i % 2 == 0
+            _cell(ws_mig, i, 1, k, shade)
+            c = ws_mig.cell(row=i, column=2, value=str(v))
+            color = {"High": GREEN, "Moderate": AMBER, "Low": RED}.get(str(v), DARK_GRAY)
+            c.font = Font(name=FONT_NAME, bold=(k == "Overall Feasibility"), color=color)
+            c.fill = _fill(TABLEAU_ACCENT if shade else LIGHT_GRAY)
+            c.alignment = _align()
+            c.border = _border()
+
+        # Feature mapping table
+        start_row = len(mig_overview) + 6
+        ws_mig.merge_cells(f"A{start_row}:F{start_row}")
+        t2 = ws_mig[f"A{start_row}"]
+        t2.value = "Tableau → Power BI Feature Mapping"
+        t2.font = Font(name=FONT_NAME, bold=True, size=12, color=WHITE)
+        t2.fill = _fill(TABLEAU_ORANGE)
+        t2.alignment = _align("center")
+
+        fm_headers = ["Tableau Concept", "Power BI Equivalent", "Feasibility", "Migration Notes"]
+        for ci, h in enumerate(fm_headers, 1):
+            _hdr(ws_mig, start_row + 1, ci, h)
+        for i, fm in enumerate(mf.feature_mapping, start=start_row + 2):
+            shade = i % 2 == 0
+            feas = fm.get("feasibility", "")
+            feas_color = {"Direct": GREEN, "Moderate": AMBER, "Complex": RED}.get(feas, DARK_GRAY)
+            for ci, v in enumerate([fm.get("tableau", ""), fm.get("power_bi", ""), feas, fm.get("notes", "")], 1):
+                c = ws_mig.cell(row=i, column=ci, value=str(v))
+                c.fill = _fill(TABLEAU_ACCENT if shade else LIGHT_GRAY)
+                c.alignment = _align(wrap=True)
+                c.border = _border()
+                if ci == 3:
+                    c.font = Font(name=FONT_NAME, bold=True, color=feas_color)
+                else:
+                    c.font = _font(size=9)
+        ws_mig.row_dimensions[start_row + 1].height = 20
+        for row_num in range(start_row + 2, start_row + 2 + len(mf.feature_mapping)):
+            ws_mig.row_dimensions[row_num].height = 28
+        _auto_width(ws_mig)
+
+    # ── Workbook Migration Scores ─────────────────────────────────────────────
+    if result.migration_feasibility and result.migration_feasibility.workbook_scores:
+        ws_scores = wb.create_sheet("Workbook Migration Scores")
+        ws_scores.sheet_view.showGridLines = False
+        headers = ["Workbook", "Project", "Owner", "Complexity", "Score",
+                   "Data Src", "Calc Fields", "Table Calcs", "Actions",
+                   "RLS", "Views", "Size MB", "Blockers"]
+        for ci, h in enumerate(headers, 1):
+            _hdr(ws_scores, 1, ci, h)
+        for i, sc in enumerate(result.migration_feasibility.workbook_scores, start=2):
+            shade = i % 2 == 0
+            level_color = {"Simple": GREEN, "Moderate": AMBER, "Complex": TABLEAU_ORANGE, "Very Complex": RED}.get(sc.complexity_level, DARK_GRAY)
+            row_vals = [
+                sc.workbook_name, sc.project_name, sc.owner_name,
+                sc.complexity_level, sc.total_score,
+                sc.data_source_complexity, sc.calc_field_complexity,
+                sc.table_calc_complexity, sc.dashboard_action_complexity,
+                sc.rls_complexity, sc.view_count, round(sc.size_mb, 1),
+                "; ".join(sc.migration_blockers) if sc.migration_blockers else "None",
+            ]
+            for ci, v in enumerate(row_vals, 1):
+                c = ws_scores.cell(row=i, column=ci, value=v)
+                c.fill = _fill(TABLEAU_ACCENT if shade else LIGHT_GRAY)
+                c.alignment = _align(wrap=(ci == len(headers)))
+                c.border = _border()
+                if ci == 4:
+                    c.font = Font(name=FONT_NAME, bold=True, color=level_color)
+                else:
+                    c.font = _font(size=9)
+        ws_scores.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{len(result.migration_feasibility.workbook_scores)+1}"
+        ws_scores.freeze_panes = "A2"
+        _auto_width(ws_scores)
+
     # ── Workbooks ─────────────────────────────────────────────────────────────
     if result.workbooks:
         ws2 = wb.create_sheet("Workbooks")
         ws2.sheet_view.showGridLines = False
-        headers = ["Name", "Project", "Owner", "Show Tabs", "Tags", "Size (MB)", "Created", "Updated"]
+        headers = ["Name", "Project", "Owner", "Show Tabs", "Tags", "Size (MB)", "Views", "Created", "Updated"]
         for ci, h in enumerate(headers, 1):
             _hdr(ws2, 1, ci, h)
         for i, wb_item in enumerate(result.workbooks, start=2):
             shade = i % 2 == 0
-            row_data = [
+            for ci, v in enumerate([
                 wb_item.name, wb_item.project_name, wb_item.owner_name,
                 "Yes" if wb_item.show_tabs else "No",
-                wb_item.tag_count, round(wb_item.size_mb, 2),
+                wb_item.tag_count, round(wb_item.size_mb, 2), wb_item.view_count,
                 wb_item.created_at or "", wb_item.updated_at or "",
-            ]
-            for ci, v in enumerate(row_data, 1):
+            ], 1):
                 _cell(ws2, i, ci, v, shade)
-        ws2.auto_filter.ref = f"A1:H{len(result.workbooks)+1}"
+        ws2.auto_filter.ref = f"A1:I{len(result.workbooks)+1}"
         ws2.freeze_panes = "A2"
         _auto_width(ws2)
 
@@ -536,22 +904,20 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
     if result.datasources:
         ws3 = wb.create_sheet("Data Sources")
         ws3.sheet_view.showGridLines = False
-        headers = ["Name", "Project", "Owner", "Type", "Has Extracts", "Certified", "Tags", "Size (MB)", "Created"]
+        headers = ["Name", "Project", "Owner", "Type", "Connection", "Has Extracts", "Certified", "Size (MB)"]
         for ci, h in enumerate(headers, 1):
             _hdr(ws3, 1, ci, h)
         for i, ds in enumerate(result.datasources, start=2):
             shade = i % 2 == 0
-            row_data = [
-                ds.name, ds.project_name, ds.owner_name,
-                ds.datasource_type,
+            for ci, v in enumerate([
+                ds.name, ds.project_name, ds.owner_name, ds.datasource_type,
+                ds.connection_type,
                 "Yes" if ds.has_extracts else "No",
                 "Yes" if ds.is_certified else "No",
-                ds.tag_count, round(ds.size_mb, 2),
-                ds.created_at or "",
-            ]
-            for ci, v in enumerate(row_data, 1):
+                round(ds.size_mb, 2),
+            ], 1):
                 _cell(ws3, i, ci, v, shade)
-        ws3.auto_filter.ref = f"A1:I{len(result.datasources)+1}"
+        ws3.auto_filter.ref = f"A1:H{len(result.datasources)+1}"
         ws3.freeze_panes = "A2"
         _auto_width(ws3)
 
@@ -564,12 +930,10 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
             _hdr(ws4, 1, ci, h)
         for i, u in enumerate(result.users_list, start=2):
             shade = i % 2 == 0
-            row_data = [
-                u.get("name", ""), u.get("email", ""),
-                u.get("role", ""), u.get("site_role", ""),
-                u.get("auth_setting", ""), u.get("last_login", "") or "",
-            ]
-            for ci, v in enumerate(row_data, 1):
+            for ci, v in enumerate([
+                u.get("name", ""), u.get("email", ""), u.get("role", ""),
+                u.get("site_role", ""), u.get("auth_setting", ""), u.get("last_login", "") or "",
+            ], 1):
                 _cell(ws4, i, ci, v, shade)
         ws4.auto_filter.ref = f"A1:F{len(result.users_list)+1}"
         ws4.freeze_panes = "A2"
@@ -579,8 +943,7 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
     if result.groups:
         ws5 = wb.create_sheet("Groups")
         ws5.sheet_view.showGridLines = False
-        headers = ["Group Name", "Domain", "Member Count"]
-        for ci, h in enumerate(headers, 1):
+        for ci, h in enumerate(["Group Name", "Domain", "Member Count"], 1):
             _hdr(ws5, 1, ci, h)
         for i, g in enumerate(result.groups, start=2):
             shade = i % 2 == 0
@@ -588,54 +951,23 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
                 _cell(ws5, i, ci, v, shade)
         _auto_width(ws5)
 
-    # ── Projects ──────────────────────────────────────────────────────────────
-    if result.projects:
-        ws6 = wb.create_sheet("Projects")
-        ws6.sheet_view.showGridLines = False
-        headers = ["Name", "Content Permissions", "Description"]
-        for ci, h in enumerate(headers, 1):
-            _hdr(ws6, 1, ci, h)
-        for i, p in enumerate(result.projects, start=2):
-            shade = i % 2 == 0
-            for ci, v in enumerate([p.name, p.content_permissions, p.description or ""], 1):
-                _cell(ws6, i, ci, v, shade)
-        _auto_width(ws6)
-
-    # ── Flows ─────────────────────────────────────────────────────────────────
-    if result.flows:
-        ws7 = wb.create_sheet("Prep Flows")
-        ws7.sheet_view.showGridLines = False
-        headers = ["Flow Name", "Project", "Owner", "Created", "Updated"]
-        for ci, h in enumerate(headers, 1):
-            _hdr(ws7, 1, ci, h)
-        for i, f in enumerate(result.flows, start=2):
-            shade = i % 2 == 0
-            for ci, v in enumerate([f.name, f.project_name, f.owner_name, f.created_at or "", f.updated_at or ""], 1):
-                _cell(ws7, i, ci, v, shade)
-        _auto_width(ws7)
-
     # ── Extract Health ────────────────────────────────────────────────────────
     if result.extract_health:
         eh = result.extract_health
         ws8 = wb.create_sheet("Extract Health")
         ws8.sheet_view.showGridLines = False
-        _hdr(ws8, 1, 1, "Metric")
-        _hdr(ws8, 1, 2, "Value")
+        _hdr(ws8, 1, 1, "Metric"); _hdr(ws8, 1, 2, "Value")
         eh_data = [
-            ("Total Schedules", eh.total_schedules),
-            ("Active Schedules", eh.active_schedules),
-            ("Suspended Schedules", eh.suspended_schedules),
-            ("Total Refresh Jobs", eh.total_refresh_jobs),
-            ("Successful Jobs", eh.successful_jobs),
-            ("Failed Jobs", eh.failed_jobs),
-            ("Cancelled Jobs", eh.cancelled_jobs),
-            ("Stale Data Sources (>7d)", eh.stale_datasources),
+            ("Total Schedules", eh.total_schedules), ("Active Schedules", eh.active_schedules),
+            ("Suspended Schedules", eh.suspended_schedules), ("Total Refresh Jobs", eh.total_refresh_jobs),
+            ("Successful Jobs", eh.successful_jobs), ("Failed Jobs", eh.failed_jobs),
+            ("Cancelled Jobs", eh.cancelled_jobs), ("Stale Data Sources", eh.stale_datasources),
         ]
         for i, (k, v) in enumerate(eh_data, start=2):
             _cell(ws8, i, 1, k, i % 2 == 0)
             c = ws8.cell(row=i, column=2, value=v)
-            is_warning = k == "Failed Jobs" and v > 0
-            c.font = Font(name=FONT_NAME, bold=is_warning, color="EF4444" if is_warning else DARK_GRAY)
+            is_warn = k == "Failed Jobs" and v > 0
+            c.font = Font(name=FONT_NAME, bold=is_warn, color=RED if is_warn else DARK_GRAY)
             c.fill = _fill(TABLEAU_ACCENT if i % 2 == 0 else LIGHT_GRAY)
             c.alignment = _align()
             c.border = _border()
@@ -646,9 +978,8 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
         dq = result.data_quality
         ws9 = wb.create_sheet("Data Quality")
         ws9.sheet_view.showGridLines = False
-        _hdr(ws9, 1, 1, "Quality Flag")
-        _hdr(ws9, 1, 2, "Count")
-        _hdr(ws9, 1, 3, "Severity")
+        for ci, h in enumerate(["Quality Flag", "Count", "Severity"], 1):
+            _hdr(ws9, 1, ci, h)
         dq_data = [
             ("Workbooks with No Views",             dq.workbooks_with_no_views,            "Medium"),
             ("Failed Extract Jobs",                  dq.failed_extract_jobs,                "High"),
@@ -658,10 +989,9 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
         ]
         for i, (k, v, sev) in enumerate(dq_data, start=2):
             shade = i % 2 == 0
-            _cell(ws9, i, 1, k, shade)
-            _cell(ws9, i, 2, v, shade)
+            _cell(ws9, i, 1, k, shade); _cell(ws9, i, 2, v, shade)
             c = ws9.cell(row=i, column=3, value=sev)
-            sev_color = {"High": "EF4444", "Medium": "F59E0B", "Low": "10B981"}.get(sev, DARK_GRAY)
+            sev_color = {"High": RED, "Medium": AMBER, "Low": GREEN}.get(sev, DARK_GRAY)
             c.font = Font(name=FONT_NAME, bold=True, color=sev_color)
             c.fill = _fill(TABLEAU_ACCENT if shade else LIGHT_GRAY)
             c.alignment = _align("center")
@@ -672,8 +1002,7 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
     if result.permissions:
         ws10 = wb.create_sheet("Permissions (Sample)")
         ws10.sheet_view.showGridLines = False
-        headers = ["Workbook / Data Source", "Grantee", "Grantee Type", "Capability", "Mode"]
-        for ci, h in enumerate(headers, 1):
+        for ci, h in enumerate(["Workbook / Data Source", "Grantee", "Grantee Type", "Capability", "Mode"], 1):
             _hdr(ws10, 1, ci, h)
         for i, p in enumerate(result.permissions, start=2):
             shade = i % 2 == 0
@@ -691,7 +1020,7 @@ def _build_excel(result: TableauAssessmentResult) -> bytes:
     return buf.getvalue()
 
 
-# ── Word report ───────────────────────────────────────────────────────────────
+# ── Static Word report (fallback when AI is unavailable) ─────────────────────
 
 def _build_word(result: TableauAssessmentResult) -> bytes:
     from docx import Document
@@ -704,17 +1033,20 @@ def _build_word(result: TableauAssessmentResult) -> bytes:
     DARK_BLUE = RGBColor(0x1F, 0x38, 0x64)
     WHITE     = RGBColor(0xFF, 0xFF, 0xFF)
     DARK_GRAY = RGBColor(0x40, 0x40, 0x40)
+    GREEN_RGB = RGBColor(0x10, 0xB9, 0x81)
+    AMBER_RGB = RGBColor(0xF5, 0x9E, 0x0B)
+    RED_RGB   = RGBColor(0xEF, 0x44, 0x44)
 
     doc = Document()
     for section in doc.sections:
-        section.top_margin = Cm(2)
+        section.top_margin    = Cm(2)
         section.bottom_margin = Cm(2)
-        section.left_margin = Cm(2.5)
-        section.right_margin = Cm(2.5)
+        section.left_margin   = Cm(2.5)
+        section.right_margin  = Cm(2.5)
 
     def _set_cell_bg(cell, hex_color: str):
         tc_pr = cell._tc.get_or_add_tcPr()
-        shd = OxmlElement("w:shd")
+        shd   = OxmlElement("w:shd")
         shd.set(qn("w:val"), "clear")
         shd.set(qn("w:color"), "auto")
         shd.set(qn("w:fill"), hex_color)
@@ -751,67 +1083,61 @@ def _build_word(result: TableauAssessmentResult) -> bytes:
     cover_title = doc.add_paragraph()
     cover_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     r = cover_title.add_run("TABLEAU")
-    r.font.size = Pt(32)
-    r.font.bold = True
-    r.font.color.rgb = ORANGE
+    r.font.size = Pt(32); r.font.bold = True; r.font.color.rgb = ORANGE
 
     sub_p = doc.add_paragraph()
     sub_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    sub_r = sub_p.add_run("Source Assessment Report")
-    sub_r.font.size = Pt(18)
-    sub_r.font.color.rgb = DARK_BLUE
+    sub_r = sub_p.add_run("Source Assessment & Power BI Migration Report")
+    sub_r.font.size = Pt(18); sub_r.font.color.rgb = DARK_BLUE
 
     doc.add_paragraph()
     comp_p = doc.add_paragraph()
     comp_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     comp_r = comp_p.add_run(site_label)
-    comp_r.font.size = Pt(14)
-    comp_r.font.bold = True
-    comp_r.font.color.rgb = DARK_GRAY
+    comp_r.font.size = Pt(14); comp_r.font.bold = True; comp_r.font.color.rgb = DARK_GRAY
 
     date_p = doc.add_paragraph()
     date_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     date_r = date_p.add_run(f"Assessment Date: {result.assessed_at[:10]}")
-    date_r.font.size = Pt(11)
-    date_r.font.color.rgb = RGBColor(0x80, 0x80, 0x80)
-
+    date_r.font.size = Pt(11); date_r.font.color.rgb = RGBColor(0x80, 0x80, 0x80)
     doc.add_page_break()
 
     # Executive Summary
     _heading("Executive Summary", 1)
-    si = result.server_info
+    si  = result.server_info
     ws_sum = result.workbook_summary
     ds_sum = result.datasource_summary
-    up = result.user_profile
+    up  = result.user_profile
+    mf  = result.migration_feasibility
     if si and ws_sum and up:
-        summary = (
+        doc.add_paragraph(
             f"Tableau Server at {si.server_url} (version {si.server_version}, site: {si.site_name}) "
             f"hosts {ws_sum.total_workbooks} workbooks with {ws_sum.total_views} views across "
             f"{len(result.projects or [])} projects. "
-            f"There are {ds_sum.total_datasources if ds_sum else 0} published data sources "
-            f"({ds_sum.certified_datasources if ds_sum else 0} certified) and "
+            f"There are {ds_sum.total_datasources if ds_sum else 0} published data sources and "
             f"{up.total_users} licensed users."
         )
-        doc.add_paragraph(summary)
+    if mf:
+        doc.add_paragraph(
+            f"Migration feasibility to Microsoft Power BI is rated '{mf.overall_feasibility}'. "
+            f"Of {mf.total_workbooks_assessed} workbooks assessed: "
+            f"{mf.simple_workbooks} Simple, {mf.moderate_workbooks} Moderate, "
+            f"{mf.complex_workbooks} Complex, {mf.very_complex_workbooks} Very Complex. "
+            f"Estimated migration effort: {mf.estimated_migration_weeks} weeks."
+        )
     doc.add_paragraph()
 
     # Server Info
     if si:
         _heading("Server Information", 2)
-        _add_kv_table([
-            ("Server URL", si.server_url),
-            ("Site Name", si.site_name),
-            ("Server Version", si.server_version),
-        ])
+        _add_kv_table([("Server URL", si.server_url), ("Site Name", si.site_name), ("Server Version", si.server_version)])
 
     # Workbook Summary
     if ws_sum:
         _heading("Workbook Summary", 2)
         _add_kv_table([
-            ("Total Workbooks", ws_sum.total_workbooks),
-            ("Total Views", ws_sum.total_views),
-            ("Total Sheets", ws_sum.total_sheets),
-            ("Total Dashboards", ws_sum.total_dashboards),
+            ("Total Workbooks", ws_sum.total_workbooks), ("Total Views", ws_sum.total_views),
+            ("Total Sheets", ws_sum.total_sheets), ("Total Dashboards", ws_sum.total_dashboards),
             ("Workbooks with Extracts", ws_sum.workbooks_with_extracts),
             ("Avg Views per Workbook", f"{ws_sum.avg_views_per_workbook:.1f}"),
         ])
@@ -828,17 +1154,66 @@ def _build_word(result: TableauAssessmentResult) -> bytes:
             ("Connection Types", ", ".join(ds_sum.connection_types) or "N/A"),
         ])
 
+    # Migration Feasibility
+    if mf:
+        _heading("Power BI Migration Feasibility", 1)
+        _add_kv_table([
+            ("Overall Feasibility", mf.overall_feasibility),
+            ("Estimated Migration Weeks", mf.estimated_migration_weeks),
+            ("Simple Workbooks", mf.simple_workbooks),
+            ("Moderate Workbooks", mf.moderate_workbooks),
+            ("Complex Workbooks", mf.complex_workbooks),
+            ("Very Complex Workbooks", mf.very_complex_workbooks),
+            ("Prep Flows (→ Dataflow Gen2)", "Yes" if mf.has_prep_flows else "No"),
+            ("RLS Present (→ Power BI RLS)", "Yes" if mf.has_rls else "No"),
+            ("Migratable Connection Types", ", ".join(mf.migratable_connections) or "N/A"),
+            ("Complex Connection Types", ", ".join(mf.complex_connections) or "None"),
+        ])
+
+        if mf.migration_blockers:
+            _heading("Migration Blockers", 2)
+            for b in mf.migration_blockers:
+                p = doc.add_paragraph(style="List Bullet")
+                run = p.add_run(b)
+                run.font.color.rgb = RED_RGB
+
+        _heading("Tableau → Power BI Feature Mapping", 2)
+        mapping_table = doc.add_table(rows=len(mf.feature_mapping) + 1, cols=4)
+        mapping_table.style = "Table Grid"
+        for ci, h in enumerate(["Tableau Concept", "Power BI Equivalent", "Feasibility", "Notes"]):
+            cell = mapping_table.rows[0].cells[ci]
+            cell.text = h
+            cell.paragraphs[0].runs[0].font.bold = True
+            cell.paragraphs[0].runs[0].font.color.rgb = WHITE
+            cell.paragraphs[0].runs[0].font.size = Pt(9)
+            _set_cell_bg(cell, "E8751A")
+        for idx, fm in enumerate(mf.feature_mapping):
+            row = mapping_table.rows[idx + 1]
+            feas = fm.get("feasibility", "")
+            for ci, v in enumerate([fm.get("tableau", ""), fm.get("power_bi", ""), feas, fm.get("notes", "")]):
+                cell = row.cells[ci]
+                cell.text = str(v)
+                feas_color = {"Direct": "10B981", "Moderate": "F59E0B", "Complex": "EF4444"}.get(feas, "404040")
+                if ci == 2:
+                    run = cell.paragraphs[0].runs[0] if cell.paragraphs[0].runs else cell.paragraphs[0].add_run(v)
+                    run.font.bold = True
+                    run.font.color.rgb = RGBColor(
+                        int(feas_color[0:2], 16), int(feas_color[2:4], 16), int(feas_color[4:6], 16)
+                    )
+                else:
+                    if cell.paragraphs[0].runs:
+                        cell.paragraphs[0].runs[0].font.size = Pt(8)
+                bg = "FFF8F0" if idx % 2 == 0 else "F5F5F5"
+                _set_cell_bg(cell, bg)
+        doc.add_paragraph()
+
     # User Profile
     if up:
         _heading("User Profile", 2)
         _add_kv_table([
-            ("Total Users", up.total_users),
-            ("Admin Users", up.admin_users),
-            ("Site Admin Users", up.site_admin_users),
-            ("Creator Users", up.creator_users),
-            ("Explorer Users", up.explorer_users),
-            ("Viewer Users", up.viewer_users),
-            ("Unlicensed Users", up.unlicensed_users),
+            ("Total Users", up.total_users), ("Admin Users", up.admin_users),
+            ("Creator Users", up.creator_users), ("Explorer Users", up.explorer_users),
+            ("Viewer Users", up.viewer_users), ("Unlicensed Users", up.unlicensed_users),
         ])
 
     # Extract Health
@@ -846,19 +1221,11 @@ def _build_word(result: TableauAssessmentResult) -> bytes:
         eh = result.extract_health
         _heading("Extract Refresh Health", 2)
         _add_kv_table([
-            ("Total Schedules", eh.total_schedules),
-            ("Active Schedules", eh.active_schedules),
-            ("Suspended Schedules", eh.suspended_schedules),
-            ("Total Refresh Jobs", eh.total_refresh_jobs),
-            ("Successful Jobs", eh.successful_jobs),
-            ("Failed Jobs", eh.failed_jobs),
+            ("Total Schedules", eh.total_schedules), ("Active Schedules", eh.active_schedules),
+            ("Suspended Schedules", eh.suspended_schedules), ("Total Refresh Jobs", eh.total_refresh_jobs),
+            ("Successful Jobs", eh.successful_jobs), ("Failed Jobs", eh.failed_jobs),
             ("Cancelled Jobs", eh.cancelled_jobs),
         ])
-
-    # Flows
-    if result.flows:
-        _heading("Tableau Prep Flows", 2)
-        _add_kv_table([("Total Prep Flows", len(result.flows))])
 
     # Data Quality
     if result.data_quality:

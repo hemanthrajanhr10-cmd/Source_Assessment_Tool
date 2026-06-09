@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart3, Plus, RefreshCw, CheckCircle2, XCircle,
   Clock, Loader2, ChevronRight, Calendar, Database,
-  AlertTriangle, Globe,
+  AlertTriangle, Globe, Target, Users,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { TableauSessionRecord } from '../types/api'
@@ -130,26 +130,46 @@ function SessionCard({ session, index }: { session: TableauSessionRecord; index:
 
         {/* Metrics row */}
         {session.status === 'completed' && (
-          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100">
-            {totalWorkbooks !== undefined && (
-              <div className="flex items-center gap-1.5">
-                <BarChart3 className="h-3.5 w-3.5 shrink-0" style={{ color: T.primary }} />
-                <span className="text-xs font-semibold text-slate-700">{totalWorkbooks.toLocaleString()}</span>
-                <span className="text-xs text-slate-400">workbooks</span>
-              </div>
-            )}
-            {totalDatasources !== undefined && (
-              <div className="flex items-center gap-1.5">
-                <Database className="h-3.5 w-3.5 shrink-0" style={{ color: T.primary }} />
-                <span className="text-xs font-semibold text-slate-700">{totalDatasources.toLocaleString()}</span>
-                <span className="text-xs text-slate-400">sources</span>
-              </div>
-            )}
-            {totalUsers !== undefined && (
-              <div className="flex items-center gap-1.5 ml-auto">
-                <span className="text-xs text-slate-400">{totalUsers.toLocaleString()} users</span>
-              </div>
-            )}
+          <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+            <div className="flex items-center gap-4 flex-wrap">
+              {totalWorkbooks !== undefined && (
+                <div className="flex items-center gap-1.5">
+                  <BarChart3 className="h-3.5 w-3.5 shrink-0" style={{ color: T.primary }} />
+                  <span className="text-xs font-semibold text-slate-700">{totalWorkbooks.toLocaleString()}</span>
+                  <span className="text-xs text-slate-400">workbooks</span>
+                </div>
+              )}
+              {totalDatasources !== undefined && (
+                <div className="flex items-center gap-1.5">
+                  <Database className="h-3.5 w-3.5 shrink-0" style={{ color: T.primary }} />
+                  <span className="text-xs font-semibold text-slate-700">{totalDatasources.toLocaleString()}</span>
+                  <span className="text-xs text-slate-400">sources</span>
+                </div>
+              )}
+              {totalUsers !== undefined && (
+                <div className="flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 shrink-0" style={{ color: T.primary }} />
+                  <span className="text-xs text-slate-400">{totalUsers.toLocaleString()} users</span>
+                </div>
+              )}
+            </div>
+            {session.results?.migration_feasibility && (() => {
+              const mf = session.results.migration_feasibility
+              const feasColor = { High: '#15803D', Moderate: '#B45309', Low: '#9F1239' }[mf.overall_feasibility]
+              const feasBg    = { High: '#F0FDF4', Moderate: '#FFFBEB', Low: '#FFF1F2' }[mf.overall_feasibility]
+              return (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-semibold"
+                    style={{ background: feasBg, color: feasColor }}>
+                    <Target className="h-3 w-3" />
+                    Migration: {mf.overall_feasibility} · {mf.estimated_migration_weeks}w
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {mf.simple_workbooks}S / {mf.moderate_workbooks}M / {mf.complex_workbooks}C / {mf.very_complex_workbooks}VC
+                  </span>
+                </div>
+              )
+            })()}
           </div>
         )}
 
@@ -228,9 +248,11 @@ export default function TableauSessionsPage() {
             <BarChart3 className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Tableau Assessments</h1>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight">Tableau Assessments</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              {sessions.length > 0 ? `${sessions.length} assessment${sessions.length !== 1 ? 's' : ''}` : 'No assessments yet'}
+              {sessions.length > 0
+                ? `${sessions.length} assessment${sessions.length !== 1 ? 's' : ''} · Power BI migration analysis included`
+                : 'Source assessment + Power BI migration analysis'}
             </p>
           </div>
         </div>

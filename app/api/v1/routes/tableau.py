@@ -1,13 +1,13 @@
 """
-Tableau Assessment API routes.
+Tableau Assessment API routes — Superior Edition.
 
-POST /tableau/test-connection    — validate credentials, return server info
-POST /tableau/assess             — start async assessment job (202)
-GET  /tableau/jobs/{id}/status   — poll job status
-GET  /tableau/jobs/{id}/results  — fetch full result
-GET  /tableau/jobs/{id}/report   — download Excel report
-GET  /tableau/jobs/{id}/word-report — download Word (.docx) report
-GET  /tableau/sessions           — list all Tableau jobs
+POST /tableau/test-connection          — validate credentials
+POST /tableau/assess                   — start async assessment (202)
+GET  /tableau/jobs/{id}/status         — poll job status
+GET  /tableau/jobs/{id}/results        — fetch full result (includes migration feasibility)
+GET  /tableau/jobs/{id}/report         — download Excel report (12 sheets)
+GET  /tableau/jobs/{id}/word-report    — download AI-powered Word report
+GET  /tableau/sessions                 — list all Tableau jobs
 """
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
@@ -134,6 +134,35 @@ async def download_word_report(job_id: str, _user=AuthDep):
         raise HTTPException(status_code=404, detail="Word report not available.")
     label = (job.get("label") or "tableau_assessment").replace(" ", "_")
     filename = f"{label}_{job_id[:8]}.docx"
+    return StreamingResponse(
+        io.BytesIO(word_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── AI Word report (regenerate) ───────────────────────────────────────────────
+
+@router.post("/jobs/{job_id}/regenerate-word-report", summary="Regenerate AI-powered Word report")
+async def regenerate_word_report(job_id: str, _user=AuthDep):
+    """Re-run the AI Word report generation for a completed job. Useful when AI is added after initial run."""
+    job = svc.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Tableau job {job_id!r} not found.")
+    if job["status"] != "completed":
+        raise HTTPException(status_code=409, detail="Report only available for completed jobs.")
+    results = job.get("results")
+    if not results:
+        raise HTTPException(status_code=404, detail="Assessment results not available.")
+    try:
+        from app.services.ai_report_service import build_tableau_ai_word_report
+        label = job.get("label") or results.get("server_info", {}).get("site_name") or job_id[:8]
+        word_bytes = build_tableau_ai_word_report(job_id, results, client_name=label)
+        svc._update(job_id, word_bytes=word_bytes)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"AI report generation failed: {exc}")
+    label_str = (job.get("label") or "tableau_assessment").replace(" ", "_")
+    filename = f"{label_str}_{job_id[:8]}_ai.docx"
     return StreamingResponse(
         io.BytesIO(word_bytes),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

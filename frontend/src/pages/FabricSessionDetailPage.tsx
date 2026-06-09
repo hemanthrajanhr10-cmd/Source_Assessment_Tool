@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Zap, Database, FileText, BarChart2, ChevronDown, ChevronUp,
+  Zap, Database, FileText, BarChart2, ChevronDown, ChevronUp, ChevronRight,
   Loader2, CheckCircle2, XCircle, AlertCircle, ExternalLink,
   Table2, Hash, Calculator, Link2, Eye,
   ArrowLeft, ArrowRight, Code2, StopCircle, Download, TrendingUp,
@@ -808,8 +808,8 @@ function TablesPanel({ tables }: { tables: FabricTable[] }) {
 
 type ModelSubTab = 'source_feeds' | 'tables' | 'measures' | 'calc_cols' | 'calc_tables' | 'relationships'
 
-function DatasetSection({ ds }: { ds: FabricDataset }) {
-  const [open, setOpen] = useState(false)
+function DatasetSection({ ds, defaultOpen }: { ds: FabricDataset; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen ?? false)
   const [subTab, setSubTab] = useState<ModelSubTab>('source_feeds')
   const complexityPct = Math.min(100, ds.complexity_score)
   const dist = getComplexityDistribution(ds)
@@ -1193,18 +1193,361 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
   )
 }
 
-// ── Complexity Analysis Tab ───────────────────────────────────────────────────
+// ── Models Tab — card-based workspace → model drill-down ─────────────────────
+
+type ModelsNavLevel = 'workspaces' | 'models' | 'detail'
+
+function ModelsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
+  const [navLevel, setNavLevel] = useState<ModelsNavLevel>('workspaces')
+  const [selectedWs, setSelectedWs] = useState<FabricWorkspace | null>(null)
+  const [selectedDs, setSelectedDs] = useState<FabricDataset | null>(null)
+
+  const handleSelectWorkspace = (ws: FabricWorkspace) => {
+    setSelectedWs(ws)
+    setNavLevel('models')
+  }
+
+  const handleSelectModel = (ds: FabricDataset) => {
+    setSelectedDs(ds)
+    setNavLevel('detail')
+  }
+
+  const handleBackToWorkspaces = () => {
+    setNavLevel('workspaces')
+    setSelectedWs(null)
+    setSelectedDs(null)
+  }
+
+  const handleBackToModels = () => {
+    setNavLevel('models')
+    setSelectedDs(null)
+  }
+
+  // ── Breadcrumb ──────────────────────────────────────────────────────────────
+  const breadcrumb = (
+    <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-4">
+      <button
+        onClick={handleBackToWorkspaces}
+        className={`flex items-center gap-1 font-medium transition-colors ${navLevel === 'workspaces' ? 'text-slate-800 cursor-default' : 'hover:text-brand-600 text-slate-500'}`}
+      >
+        <Database className="h-3.5 w-3.5" /> Semantic Models
+      </button>
+      {(navLevel === 'models' || navLevel === 'detail') && selectedWs && (
+        <>
+          <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />
+          <button
+            onClick={handleBackToModels}
+            className={`font-medium transition-colors truncate max-w-[180px] ${navLevel === 'models' ? 'text-slate-800 cursor-default' : 'hover:text-brand-600 text-slate-500'}`}
+          >
+            {selectedWs.name}
+          </button>
+        </>
+      )}
+      {navLevel === 'detail' && selectedDs && (
+        <>
+          <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />
+          <span className="font-medium text-slate-800 truncate max-w-[200px]">{selectedDs.name}</span>
+        </>
+      )}
+    </div>
+  )
+
+  // ── Level 1: Workspace picker cards ────────────────────────────────────────
+  if (navLevel === 'workspaces') {
+    return (
+      <div className="space-y-4">
+        {breadcrumb}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {workspaces.map((ws, wi) => {
+            const totalMeasures = ws.datasets.reduce((s, d) => s + d.measure_count, 0)
+            const dist: Record<string, number> = { 'Very Complex': 0, 'Complex': 0, 'Moderate': 0, 'Simple': 0 }
+            ws.datasets.forEach(ds => {
+              const d = getComplexityDistribution(ds)
+              Object.keys(dist).forEach(k => { dist[k] = (dist[k] || 0) + (d[k] || 0) })
+            })
+            const topComplexity = ['Very Complex', 'Complex', 'Moderate', 'Simple'].find(l => dist[l] > 0)
+
+            return (
+              <motion.button
+                key={ws.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', duration: 0.4, bounce: 0, delay: wi * 0.05 }}
+                onClick={() => handleSelectWorkspace(ws)}
+                className="group rounded-2xl border text-left transition-all duration-200 overflow-hidden"
+                style={{
+                  border: '1.5px solid rgba(197,213,236,0.8)',
+                  background: 'white',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.border = '1.5px solid rgba(0,86,179,0.42)'
+                  e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,86,179,0.11), 0 2px 8px rgba(0,86,179,0.07)'
+                  e.currentTarget.style.transform = 'translateY(-3px)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.border = '1.5px solid rgba(197,213,236,0.8)'
+                  e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                }}
+              >
+                {/* Card header */}
+                <div className="flex items-center gap-3 px-4 py-3.5"
+                  style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(0,132,212,0.02) 100%)', borderBottom: '1px solid rgba(197,213,236,0.5)' }}>
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: 'linear-gradient(135deg,#0056B3,#0084D4)', boxShadow: '0 2px 8px rgba(0,86,179,0.28)' }}>
+                    <Zap className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-900 truncate">{ws.name}</p>
+                    <p className="text-xs text-slate-400">{ws.type}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-brand-500 transition-colors shrink-0" />
+                </div>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
+                  {[
+                    { label: 'Models', value: ws.dataset_count, color: '#0891B2' },
+                    { label: 'Measures', value: totalMeasures, color: '#5B21B6' },
+                    { label: 'Reports', value: ws.report_count, color: '#0F766E' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex flex-col items-center py-2.5">
+                      <p className="text-base font-black" style={{ color }}>{value}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Complexity hint */}
+                <div className="px-4 py-2.5 flex items-center justify-between">
+                  <span className="text-xs text-slate-400">
+                    {ws.dataset_count} semantic model{ws.dataset_count !== 1 ? 's' : ''}
+                  </span>
+                  {topComplexity && (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${COMPLEXITY_COLORS[topComplexity].bg} ${COMPLEXITY_COLORS[topComplexity].text} ${COMPLEXITY_COLORS[topComplexity].border}`}>
+                      <BarChart2 className="h-2.5 w-2.5" />
+                      {dist[topComplexity]} {topComplexity}
+                    </span>
+                  )}
+                </div>
+              </motion.button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Level 2: Semantic model cards for selected workspace ────────────────────
+  if (navLevel === 'models' && selectedWs) {
+    const groups = selectedWs.datasets.map(ds => ({
+      ds,
+      reports: selectedWs.reports.filter(r => r.dataset_id === ds.id),
+      dist: getComplexityDistribution(ds),
+    }))
+
+    return (
+      <div className="space-y-4">
+        {breadcrumb}
+
+        {/* Workspace summary banner */}
+        <div className="rounded-2xl overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 50%, #0891B2 100%)', boxShadow: '0 4px 20px rgba(0,86,179,0.22)' }}>
+          <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-white/60 text-xs font-medium uppercase tracking-widest mb-0.5">Workspace</p>
+              <p className="text-white text-lg font-bold leading-tight">{selectedWs.name}</p>
+            </div>
+            <div className="flex items-center gap-4">
+              {[
+                { label: 'Models', value: selectedWs.dataset_count },
+                { label: 'Reports', value: selectedWs.report_count },
+                { label: 'Measures', value: selectedWs.datasets.reduce((s, d) => s + d.measure_count, 0) },
+              ].map(({ label, value }) => (
+                <div key={label} className="text-center">
+                  <p className="text-white text-xl font-black">{value}</p>
+                  <p className="text-white/60 text-[10px] uppercase tracking-wider">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Lineage-style: model cards → their linked reports */}
+        {groups.length === 0 ? (
+          <p className="text-xs text-slate-400 italic text-center py-8">No semantic models in this workspace.</p>
+        ) : (
+          <div className="space-y-3">
+            {groups.map(({ ds, reports, dist }, gi) => {
+              const complexityPct = Math.min(100, ds.complexity_score)
+              const riskLevel = ds.storage_recommendation?.risk_level ?? 'Low'
+              const topItems = Object.entries(dist).filter(([, v]) => v > 0).sort(([a], [b]) =>
+                ['Very Complex', 'Complex', 'Moderate', 'Simple', 'None'].indexOf(a) -
+                ['Very Complex', 'Complex', 'Moderate', 'Simple', 'None'].indexOf(b)
+              )
+
+              return (
+                <motion.div
+                  key={ds.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0, delay: gi * 0.04 }}
+                  className="rounded-2xl border overflow-hidden"
+                  style={{ borderColor: 'rgba(197,213,236,0.8)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+                >
+                  {/* Model header — clickable */}
+                  <button
+                    onClick={() => handleSelectModel(ds)}
+                    className="w-full group flex items-center gap-3 px-4 py-3.5 text-left transition-all"
+                    style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(0,132,212,0.02) 100%)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(0,86,179,0.08) 0%, rgba(0,132,212,0.04) 100%)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(0,132,212,0.02) 100%)' }}
+                  >
+                    <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: 'linear-gradient(135deg,#0056B3,#0084D4)', boxShadow: '0 2px 8px rgba(0,86,179,0.25)' }}>
+                      <Database className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{ds.name}</p>
+                      <p className="text-xs text-slate-500">by {ds.configured_by || 'unknown'} · {ds.storage_mode}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StorageRiskBadge risk={riskLevel} />
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                        complexityPct >= 60 ? 'bg-red-50 text-red-700 border-red-200'
+                        : complexityPct >= 25 ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-earth-50 text-earth-700 border-earth-200'
+                      }`}>
+                        <BarChart2 className="h-3 w-3" />
+                        {complexityPct >= 60 ? 'High' : complexityPct >= 25 ? 'Medium' : 'Low'} ({complexityPct})
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-brand-500 transition-colors" />
+                    </div>
+                  </button>
+
+                  {/* KPI strip */}
+                  <div className="grid grid-cols-4 sm:grid-cols-6 divide-x divide-slate-100 border-t border-slate-100">
+                    {[
+                      { label: 'Tables', value: ds.table_count, color: '#475569' },
+                      { label: 'Measures', value: ds.measure_count, color: '#5B21B6' },
+                      { label: 'Calc Cols', value: ds.calculated_column_count, color: '#D97706' },
+                      { label: 'Calc Tables', value: ds.calculated_table_count, color: '#F97316' },
+                      { label: 'Rels', value: ds.relationship_count, color: '#0891B2' },
+                      { label: 'Reports', value: reports.length, color: '#0F766E' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} className="flex flex-col items-center py-2 hidden sm:flex">
+                        <p className="text-sm font-black" style={{ color }}>{value}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">{label}</p>
+                      </div>
+                    ))}
+                    {/* mobile: show only first 4 */}
+                    {[
+                      { label: 'Tables', value: ds.table_count, color: '#475569' },
+                      { label: 'Measures', value: ds.measure_count, color: '#5B21B6' },
+                      { label: 'Calc Cols', value: ds.calculated_column_count, color: '#D97706' },
+                      { label: 'Reports', value: reports.length, color: '#0F766E' },
+                    ].map(({ label, value, color }) => (
+                      <div key={`m-${label}`} className="flex flex-col items-center py-2 sm:hidden">
+                        <p className="text-sm font-black" style={{ color }}>{value}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Complexity bar + lineage connector to reports */}
+                  {(topItems.length > 0 || reports.length > 0) && (
+                    <div className="border-t border-slate-100 bg-slate-50/40 px-4 py-3">
+                      {/* Complexity mini distribution */}
+                      {topItems.length > 0 && (
+                        <div className="mb-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">DAX Complexity</span>
+                            <div className="flex-1 flex gap-0.5 h-1.5 rounded-full overflow-hidden">
+                              {topItems.map(([level, count]) => {
+                                const total = topItems.reduce((s, [, v]) => s + v, 0)
+                                return (
+                                  <div key={level} style={{ width: `${(count / total) * 100}%`, backgroundColor: COMPLEXITY_COLORS[level]?.hex ?? '#71717a' }} />
+                                )
+                              })}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {topItems.map(([level, count]) => (
+                              <span key={level} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${COMPLEXITY_COLORS[level]?.bg} ${COMPLEXITY_COLORS[level]?.text} ${COMPLEXITY_COLORS[level]?.border}`}>
+                                {count} {level}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Linked reports as lineage nodes */}
+                      {reports.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                            <Link2 className="h-3 w-3" /> Linked Reports ({reports.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {reports.map(r => (
+                              <div key={r.id}
+                                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 font-medium"
+                                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                                <FileText className="h-3 w-3 text-earth-500 shrink-0" />
+                                <span className="truncate max-w-[160px]">{r.name}</span>
+                                {r.visual_count != null && (
+                                  <span className="text-[10px] text-slate-400 shrink-0">{r.visual_count}v</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Level 3: Full DatasetSection detail for selected model ──────────────────
+  if (navLevel === 'detail' && selectedDs) {
+    return (
+      <div className="space-y-4">
+        {breadcrumb}
+        <DatasetSection ds={selectedDs} defaultOpen />
+      </div>
+    )
+  }
+
+  return null
+}
+
+// ── Complexity Analysis Tab — workspace → model → measures drill-down ─────────
 
 type ComplexityItem = {
   workspace: string; model: string; type: 'Measure' | 'Calc Column' | 'Calc Table'
   name: string; table: string; level: string; score: number; expression: string
 }
 
+type ComplexityNavLevel = 'workspaces' | 'models' | 'measures'
+
 function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
-  const [filter, setFilter] = useState<string>('All')
+  const [complexityFilter, setComplexityFilter] = useState<string>('All')
   const [search, setSearch] = useState('')
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+  const [navLevel, setNavLevel] = useState<ComplexityNavLevel>('workspaces')
+  const [selectedWs, setSelectedWs] = useState<FabricWorkspace | null>(null)
+  const [selectedDs, setSelectedDs] = useState<FabricDataset | null>(null)
+  // track which empty workspace was clicked to show the message
+  const [emptyWsMessage, setEmptyWsMessage] = useState<string | null>(null)
+  const [emptyDsMessage, setEmptyDsMessage] = useState<string | null>(null)
 
+  // Build the full item list
   const all: ComplexityItem[] = []
   workspaces.forEach(ws => {
     ws.datasets.forEach(ds => {
@@ -1224,121 +1567,495 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
   })
   all.sort((a, b) => b.score - a.score)
 
-  const levels = ['All', 'Very Complex', 'Complex', 'Moderate', 'Simple']
-  const filtered = all.filter(item =>
-    (filter === 'All' || item.level === filter) &&
-    (!search || item.name.toLowerCase().includes(search.toLowerCase()) || item.model.toLowerCase().includes(search.toLowerCase()))
-  )
-
   const typeBadge = (t: string) => {
     const map: Record<string, string> = {
       'Measure':     'bg-earth-500/10 text-earth-500 border-earth-500/30',
-      'Calc Column': 'bg-amber-50       text-amber-700  border-amber-200',
+      'Calc Column': 'bg-amber-50 text-amber-700 border-amber-200',
       'Calc Table':  'bg-orange-500/10 text-orange-400 border-orange-500/30',
     }
     return <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-xs font-medium ${map[t] ?? 'bg-slate-100/50 text-slate-500 border-slate-200'}`}>{t}</span>
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Summary cards per level */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {['Very Complex', 'Complex', 'Moderate', 'Simple'].map(level => {
-          const count = all.filter(x => x.level === level).length
-          const clr   = COMPLEXITY_COLORS[level]
-          return (
-            <button key={level}
-              onClick={() => setFilter(f => f === level ? 'All' : level)}
-              className={`rounded-xl p-3 border-2 text-left transition-all ${
-                filter === level ? `${clr.bg} ${clr.border}` : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-              }`}>
-              <p className={`text-xl font-bold ${clr.text}`}>{count}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{level}</p>
-            </button>
-          )
-        })}
-      </div>
+  // Context-aware counts: what scope are we in?
+  const contextItems = navLevel === 'workspaces'
+    ? all
+    : navLevel === 'models' && selectedWs
+      ? all.filter(x => x.workspace === selectedWs.name)
+      : navLevel === 'measures' && selectedDs
+        ? all.filter(x => x.model === selectedDs.name)
+        : all
 
-      {/* Filter & search bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 flex-1 min-w-48">
-          <Filter className="h-3.5 w-3.5 text-slate-500" />
-          <input
-            className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder-zinc-600"
-            placeholder="Search by name or model…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-1">
-          {levels.map(l => (
-            <button key={l}
-              onClick={() => setFilter(l)}
-              className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
-                filter === l
-                  ? 'bg-earth-600 text-white'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
-              }`}>{l}</button>
-          ))}
-        </div>
-        <span className="text-xs text-slate-400">{filtered.length} items</span>
-      </div>
+  // Summary card counts update based on navigation context
+  const summaryCountFor = (level: string) =>
+    contextItems.filter(x => x.level === level).length
 
-      {/* List */}
-      {filtered.length === 0 ? (
-        <div className="card p-8 text-center text-slate-400">
-          <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No items match the current filter.</p>
-        </div>
-      ) : (
-        <div className="card overflow-hidden">
-          <div className="divide-y divide-slate-50">
-            {filtered.map((item, idx) => {
-              const clr   = COMPLEXITY_COLORS[item.level] ?? COMPLEXITY_COLORS['None']
-              const isExp = expandedIdx === idx
-              const maxScore = filtered[0].score || 1
-              const barPct = (item.score / maxScore) * 100
+  const handleSelectWorkspace = (ws: FabricWorkspace) => {
+    // Check if this workspace has any items matching the current filter
+    const wsItems = all.filter(x => x.workspace === ws.name &&
+      (complexityFilter === 'All' || x.level === complexityFilter))
+    if (wsItems.length === 0 && complexityFilter !== 'All') {
+      setEmptyWsMessage(ws.name)
+      return
+    }
+    setEmptyWsMessage(null)
+    setSelectedWs(ws)
+    setNavLevel('models')
+  }
 
-              return (
-                <div key={idx}>
-                  <button onClick={() => setExpandedIdx(isExp ? null : idx)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left">
-                    <span className="text-xs font-bold text-slate-400 w-6 shrink-0">#{idx + 1}</span>
-                    <div className="w-24 shrink-0">{typeBadge(item.type)}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{item.name}</p>
-                      <p className="text-xs text-slate-500 truncate">{item.workspace} / {item.model}{item.table && item.table !== item.name ? ` · ${item.table}` : ''}</p>
-                    </div>
-                    <div className="w-24 hidden sm:block">
-                      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                        <div className="h-1.5 rounded-full transition-all"
-                          style={{ width: `${barPct}%`, backgroundColor: clr.hex }} />
-                      </div>
-                    </div>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${clr.bg} ${clr.text} ${clr.border} shrink-0`}>
-                      {item.level} <span className="opacity-60">({item.score})</span>
-                    </span>
-                    {isExp ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                           : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />}
-                  </button>
-                  {isExp && item.expression && (
-                    <div className="px-4 pb-3 border-t border-slate-100 bg-slate-50/60">
-                      <p className="text-xs font-semibold text-slate-500 mb-1 mt-2 flex items-center gap-1">
-                        <Code2 className="h-3 w-3" /> DAX Expression
-                      </p>
-                      <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-40">
-                        {item.expression}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+  const handleSelectModel = (ds: FabricDataset) => {
+    if (!selectedWs) return
+    const dsItems = all.filter(x => x.model === ds.name && x.workspace === selectedWs.name &&
+      (complexityFilter === 'All' || x.level === complexityFilter))
+    if (dsItems.length === 0 && complexityFilter !== 'All') {
+      setEmptyDsMessage(ds.name)
+      return
+    }
+    setEmptyDsMessage(null)
+    setSelectedDs(ds)
+    setNavLevel('measures')
+    setExpandedIdx(null)
+  }
+
+  const handleBackToWorkspaces = () => {
+    setNavLevel('workspaces')
+    setSelectedWs(null)
+    setSelectedDs(null)
+    setEmptyWsMessage(null)
+    setEmptyDsMessage(null)
+    setExpandedIdx(null)
+  }
+
+  const handleBackToModels = () => {
+    setNavLevel('models')
+    setSelectedDs(null)
+    setEmptyDsMessage(null)
+    setExpandedIdx(null)
+  }
+
+  // Breadcrumb
+  const breadcrumb = (
+    <div className="flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
+      <button
+        onClick={handleBackToWorkspaces}
+        className={`flex items-center gap-1 font-medium transition-colors ${navLevel === 'workspaces' ? 'text-slate-800 cursor-default' : 'hover:text-brand-600 text-slate-500'}`}
+      >
+        <TrendingUp className="h-3.5 w-3.5" /> Complexity Analysis
+      </button>
+      {(navLevel === 'models' || navLevel === 'measures') && selectedWs && (
+        <>
+          <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />
+          <button
+            onClick={handleBackToModels}
+            className={`font-medium transition-colors truncate max-w-[180px] ${navLevel === 'models' ? 'text-slate-800 cursor-default' : 'hover:text-brand-600 text-slate-500'}`}
+          >
+            {selectedWs.name}
+          </button>
+        </>
+      )}
+      {navLevel === 'measures' && selectedDs && (
+        <>
+          <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />
+          <span className="font-medium text-slate-800 truncate max-w-[200px]">{selectedDs.name}</span>
+        </>
       )}
     </div>
   )
+
+  // Summary cards (always shown, counts change with context)
+  const summaryCards = (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {['Very Complex', 'Complex', 'Moderate', 'Simple'].map(level => {
+        const count = summaryCountFor(level)
+        const isTotal = navLevel === 'workspaces'
+        const clr = COMPLEXITY_COLORS[level]
+        return (
+          <button key={level}
+            onClick={() => { setComplexityFilter(f => f === level ? 'All' : level); setEmptyWsMessage(null); setEmptyDsMessage(null) }}
+            className={`rounded-xl p-3.5 border-2 text-left transition-all ${
+              complexityFilter === level ? `${clr.bg} ${clr.border}` : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+            }`}
+            style={{ boxShadow: complexityFilter === level ? `0 0 0 3px ${clr.hex}22` : undefined }}
+          >
+            <p className={`text-2xl font-black ${clr.text}`}>{count}</p>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">{level}</p>
+            {!isTotal && (
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {navLevel === 'models' ? 'in this workspace' : 'in this model'}
+              </p>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  // Complexity filter pills
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-2">
+      {['All', 'Very Complex', 'Complex', 'Moderate', 'Simple'].map(l => {
+        const clr = COMPLEXITY_COLORS[l]
+        return (
+          <button key={l}
+            onClick={() => { setComplexityFilter(l); setEmptyWsMessage(null); setEmptyDsMessage(null) }}
+            className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors border ${
+              complexityFilter === l
+                ? `${clr?.bg ?? 'bg-earth-600'} ${clr?.text ?? 'text-white'} ${clr?.border ?? 'border-earth-600'}`
+                : 'bg-slate-100 text-slate-500 border-transparent hover:bg-slate-200 hover:text-slate-800'
+            }`}>{l}</button>
+        )
+      })}
+    </div>
+  )
+
+  // ── Level 1: Workspace cards ────────────────────────────────────────────────
+  if (navLevel === 'workspaces') {
+    return (
+      <div className="space-y-4">
+        {summaryCards}
+        {filterBar}
+
+        {emptyWsMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2.5 text-sm text-amber-800"
+          >
+            <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">No {complexityFilter} measures in "{emptyWsMessage}"</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                None of the semantic models in this workspace contain any measures, calculated columns,
+                or calculated tables classified as <strong>{complexityFilter}</strong>.
+                Try selecting a different complexity level or view all workspaces with the "All" filter.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {workspaces.map((ws, wi) => {
+            const wsItems = all.filter(x => x.workspace === ws.name)
+            const wsFiltered = complexityFilter === 'All'
+              ? wsItems
+              : wsItems.filter(x => x.level === complexityFilter)
+            const hasMatches = wsFiltered.length > 0
+            const isEmpty = !hasMatches && complexityFilter !== 'All'
+
+            const wsDist: Record<string, number> = {}
+            wsItems.forEach(x => { wsDist[x.level] = (wsDist[x.level] || 0) + 1 })
+
+            return (
+              <motion.button
+                key={ws.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', duration: 0.4, bounce: 0, delay: wi * 0.05 }}
+                onClick={() => handleSelectWorkspace(ws)}
+                className="rounded-2xl border text-left transition-all duration-200 overflow-hidden"
+                style={{
+                  border: isEmpty
+                    ? '1.5px solid rgba(197,213,236,0.5)'
+                    : '1.5px solid rgba(197,213,236,0.8)',
+                  background: isEmpty ? 'rgba(248,250,252,0.7)' : 'white',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                  opacity: isEmpty ? 0.65 : 1,
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.border = isEmpty
+                    ? '1.5px solid rgba(245,158,11,0.4)'
+                    : '1.5px solid rgba(0,86,179,0.42)'
+                  e.currentTarget.style.boxShadow = isEmpty
+                    ? '0 4px 14px rgba(245,158,11,0.10)'
+                    : '0 8px 28px rgba(0,86,179,0.11), 0 2px 8px rgba(0,86,179,0.07)'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.opacity = '1'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.border = isEmpty
+                    ? '1.5px solid rgba(197,213,236,0.5)'
+                    : '1.5px solid rgba(197,213,236,0.8)'
+                  e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.opacity = isEmpty ? '0.65' : '1'
+                }}
+              >
+                <div className="flex items-center gap-3 px-4 py-3.5"
+                  style={{
+                    background: isEmpty
+                      ? 'rgba(248,250,252,0.8)'
+                      : 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(0,132,212,0.02) 100%)',
+                    borderBottom: '1px solid rgba(197,213,236,0.5)',
+                  }}>
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: isEmpty
+                        ? 'rgba(148,163,184,0.15)'
+                        : 'linear-gradient(135deg,#0056B3,#0084D4)',
+                      boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(0,86,179,0.28)',
+                    }}>
+                    <TrendingUp className={`h-4 w-4 ${isEmpty ? 'text-slate-400' : 'text-white'}`} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm font-bold truncate ${isEmpty ? 'text-slate-500' : 'text-slate-900'}`}>{ws.name}</p>
+                    <p className="text-xs text-slate-400">{ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''}</p>
+                  </div>
+                  {isEmpty
+                    ? <span className="text-xs text-slate-400 italic shrink-0">No match</span>
+                    : <ArrowRight className="h-4 w-4 text-slate-300 shrink-0" />}
+                </div>
+
+                {isEmpty ? (
+                  <div className="px-4 py-3 text-xs text-slate-400 italic">
+                    No <strong className="text-slate-500">{complexityFilter}</strong> DAX items in any model within this workspace.
+                    Click to confirm.
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
+                      {['Very Complex', 'Complex', 'Moderate'].map(level => (
+                        <div key={level} className="flex flex-col items-center py-2">
+                          <p className={`text-base font-black ${COMPLEXITY_COLORS[level].text}`}>{wsDist[level] || 0}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{level.replace(' ', ' ')}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="px-4 py-2.5 flex items-center justify-between">
+                      <span className="text-xs text-slate-400">{wsItems.length} total DAX items</span>
+                      <span className="text-xs font-semibold" style={{ color: '#0056B3' }}>{wsFiltered.length} matching</span>
+                    </div>
+                  </>
+                )}
+              </motion.button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Level 2: Semantic model cards for selected workspace ─────────────────────
+  if (navLevel === 'models' && selectedWs) {
+    const wsItems = all.filter(x => x.workspace === selectedWs.name)
+
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          {breadcrumb}
+          {filterBar}
+        </div>
+        {summaryCards}
+
+        {emptyDsMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2.5 text-sm text-amber-800"
+          >
+            <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">No {complexityFilter} measures in "{emptyDsMessage}"</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                This semantic model does not contain any DAX items classified as <strong>{complexityFilter}</strong>.
+                Try a different complexity filter to explore what's inside this model.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="space-y-3">
+          {selectedWs.datasets.map((ds, di) => {
+            const dsItems = wsItems.filter(x => x.model === ds.name)
+            const dsFiltered = complexityFilter === 'All'
+              ? dsItems
+              : dsItems.filter(x => x.level === complexityFilter)
+            const isEmpty = dsFiltered.length === 0 && complexityFilter !== 'All'
+            const dsDist: Record<string, number> = {}
+            dsItems.forEach(x => { dsDist[x.level] = (dsDist[x.level] || 0) + 1 })
+            const topLevel = ['Very Complex', 'Complex', 'Moderate', 'Simple'].find(l => dsDist[l] > 0)
+
+            return (
+              <motion.button
+                key={ds.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', duration: 0.38, bounce: 0, delay: di * 0.04 }}
+                onClick={() => handleSelectModel(ds)}
+                className="w-full rounded-2xl border text-left transition-all overflow-hidden"
+                style={{
+                  border: isEmpty ? '1.5px solid rgba(197,213,236,0.5)' : '1.5px solid rgba(197,213,236,0.8)',
+                  background: isEmpty ? 'rgba(248,250,252,0.7)' : 'white',
+                  opacity: isEmpty ? 0.65 : 1,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.border = isEmpty
+                    ? '1.5px solid rgba(245,158,11,0.4)'
+                    : '1.5px solid rgba(0,86,179,0.42)'
+                  e.currentTarget.style.opacity = '1'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,86,179,0.10)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.border = isEmpty
+                    ? '1.5px solid rgba(197,213,236,0.5)'
+                    : '1.5px solid rgba(197,213,236,0.8)'
+                  e.currentTarget.style.opacity = isEmpty ? '0.65' : '1'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
+                }}
+              >
+                <div className="flex items-center gap-3 px-4 py-3.5"
+                  style={{
+                    background: isEmpty
+                      ? 'rgba(248,250,252,0.8)'
+                      : 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(0,132,212,0.02) 100%)',
+                    borderBottom: '1px solid rgba(197,213,236,0.5)',
+                  }}>
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: isEmpty ? 'rgba(148,163,184,0.15)' : 'linear-gradient(135deg,#0056B3,#0084D4)',
+                      boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(0,86,179,0.25)',
+                    }}>
+                    <Database className={`h-4 w-4 ${isEmpty ? 'text-slate-400' : 'text-white'}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold truncate ${isEmpty ? 'text-slate-500' : 'text-slate-900'}`}>{ds.name}</p>
+                    <p className="text-xs text-slate-400">{dsItems.length} DAX item{dsItems.length !== 1 ? 's' : ''} total</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!isEmpty && topLevel && (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${COMPLEXITY_COLORS[topLevel].bg} ${COMPLEXITY_COLORS[topLevel].text} ${COMPLEXITY_COLORS[topLevel].border}`}>
+                        {dsDist[topLevel]} {topLevel}
+                      </span>
+                    )}
+                    {isEmpty
+                      ? <span className="text-xs text-slate-400 italic">No match</span>
+                      : <ArrowRight className="h-4 w-4 text-slate-300" />}
+                  </div>
+                </div>
+
+                {isEmpty ? (
+                  <div className="px-4 py-2.5 text-xs text-slate-400 italic">
+                    No <strong className="text-slate-500">{complexityFilter}</strong> DAX items in this model. Click to see what's here.
+                  </div>
+                ) : (
+                  <div className="px-4 py-2.5 flex items-center gap-3 flex-wrap">
+                    {Object.entries(dsDist)
+                      .filter(([, v]) => v > 0)
+                      .sort(([a], [b]) => ['Very Complex', 'Complex', 'Moderate', 'Simple'].indexOf(a) - ['Very Complex', 'Complex', 'Moderate', 'Simple'].indexOf(b))
+                      .map(([level, count]) => (
+                        <span key={level} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${COMPLEXITY_COLORS[level]?.bg} ${COMPLEXITY_COLORS[level]?.text} ${COMPLEXITY_COLORS[level]?.border}`}>
+                          {count} {level}
+                        </span>
+                      ))}
+                    <span className="ml-auto text-xs font-semibold" style={{ color: '#0056B3' }}>
+                      {dsFiltered.length} matching
+                    </span>
+                  </div>
+                )}
+              </motion.button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Level 3: Measures list for selected model ────────────────────────────────
+  if (navLevel === 'measures' && selectedDs) {
+    const modelItems = all
+      .filter(x => x.model === selectedDs.name && (selectedWs ? x.workspace === selectedWs.name : true))
+      .filter(x => complexityFilter === 'All' || x.level === complexityFilter)
+      .filter(x => !search || x.name.toLowerCase().includes(search.toLowerCase()) || x.model.toLowerCase().includes(search.toLowerCase()))
+
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          {breadcrumb}
+          {filterBar}
+        </div>
+        {summaryCards}
+
+        {/* Search */}
+        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <Filter className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+          <input
+            className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder-slate-400"
+            placeholder="Search by measure name…"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setExpandedIdx(null) }}
+          />
+          <span className="text-xs text-slate-400 shrink-0">{modelItems.length} item{modelItems.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        {modelItems.length === 0 ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-center">
+            <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-30 text-amber-400" />
+            <p className="text-sm font-semibold text-amber-800">
+              No {complexityFilter !== 'All' ? complexityFilter : ''} DAX items in this model
+            </p>
+            <p className="text-xs text-amber-600 mt-1">
+              {complexityFilter !== 'All'
+                ? `"${selectedDs.name}" does not have any DAX items classified as ${complexityFilter}. Try clearing the filter to view all items.`
+                : `No DAX items with a complexity score were found in this model.`}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'rgba(197,213,236,0.8)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div className="divide-y divide-slate-50">
+              {modelItems.map((item, idx) => {
+                const clr = COMPLEXITY_COLORS[item.level] ?? COMPLEXITY_COLORS['None']
+                const isExp = expandedIdx === idx
+                const maxScore = modelItems[0].score || 1
+                const barPct = (item.score / maxScore) * 100
+
+                return (
+                  <div key={idx}>
+                    <button onClick={() => setExpandedIdx(isExp ? null : idx)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left">
+                      <span className="text-xs font-bold text-slate-400 w-6 shrink-0">#{idx + 1}</span>
+                      <div className="w-24 shrink-0">{typeBadge(item.type)}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{item.name}</p>
+                        {item.table && item.table !== item.name && (
+                          <p className="text-xs text-slate-400 truncate font-mono">{item.table}</p>
+                        )}
+                      </div>
+                      <div className="w-24 hidden sm:block">
+                        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                          <div className="h-1.5 rounded-full transition-all" style={{ width: `${barPct}%`, backgroundColor: clr.hex }} />
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${clr.bg} ${clr.text} ${clr.border} shrink-0`}>
+                        {item.level} <span className="opacity-60">({item.score})</span>
+                      </span>
+                      {isExp ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                             : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />}
+                    </button>
+                    {isExp && item.expression && (
+                      <div className="px-4 pb-3 border-t border-slate-100 bg-slate-50/60">
+                        <div className="flex items-center justify-between mb-1 mt-2">
+                          <p className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                            <Code2 className="h-3 w-3" /> DAX Expression
+                          </p>
+                          <CopyButton text={item.expression} />
+                        </div>
+                        <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-40">
+                          {item.expression}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return null
 }
 
 // ── Progress message parser ───────────────────────────────────────────────────
@@ -1399,7 +2116,6 @@ function FabricSessionDetailPageInner() {
   const [activeTab, setActiveTab]   = useState<Tab>('overview')
   const [exporting,  setExporting]  = useState(false)
   const [exportingWord, setExportingWord] = useState(false)
-  const [wsPage, setWsPage]         = useState(5)
 
   const { data: session, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['fabric-session', sessionId],
@@ -1629,46 +2345,8 @@ function FabricSessionDetailPageInner() {
                   animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
                   transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
-                  className="space-y-4"
                 >
-                  {workspaces.slice(0, wsPage).map((ws, wi) => (
-                    <motion.div
-                      key={ws.id}
-                      initial={{ opacity: 0, y: 14 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ type: 'spring', duration: 0.4, bounce: 0, delay: wi * 0.05 }}
-                      className="card overflow-hidden border-2 border-slate-200"
-                    >
-                      <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
-                        <Zap className="h-4 w-4 text-earth-600" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-slate-900">{ws.name}</p>
-                          <p className="text-xs text-slate-500">
-                            {ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''} ·{' '}
-                            {ws.report_count} report{ws.report_count !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        <span className="text-xs text-slate-400">{ws.type}</span>
-                      </div>
-                      {ws.datasets.length > 0 ? (
-                        <div className="p-4 space-y-3">
-                          {ws.datasets.map(ds => <DatasetSection key={ds.id} ds={ds} />)}
-                        </div>
-                      ) : (
-                        <p className="p-4 text-xs text-slate-400 italic">No semantic models in this workspace.</p>
-                      )}
-                    </motion.div>
-                  ))}
-                  {wsPage < workspaces.length && (
-                    <motion.button
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                      onClick={() => setWsPage(p => p + 5)}
-                      className="w-full py-2.5 rounded-xl text-sm font-medium text-slate-500 border border-slate-200 hover:bg-slate-50 transition-colors"
-                    >
-                      Show more workspaces ({workspaces.length - wsPage} remaining)
-                    </motion.button>
-                  )}
+                  <ModelsTab workspaces={workspaces} />
                 </motion.div>
               )}
 

@@ -250,40 +250,6 @@ class MigrationFeasibilityReport(BaseModel):
     recommended_migration_order: list[str] = Field(default_factory=list)
 
 
-# ── Top-level assessment result ───────────────────────────────────────────────
-
-class TableauAssessmentResult(BaseModel):
-    job_id: str
-    label: Optional[str] = None
-    assessed_at: str
-    status: Literal["completed", "failed"]
-    error: Optional[str] = None
-
-    server_info: Optional[TableauServerInfo] = None
-    workbook_summary: Optional[TableauWorkbookSummary] = None
-    datasource_summary: Optional[TableauDatasourceSummary] = None
-    user_profile: Optional[TableauUserProfile] = None
-    extract_health: Optional[TableauExtractHealth] = None
-    data_quality: Optional[TableauDataQualityFlags] = None
-
-    # Migration analysis
-    migration_feasibility: Optional[MigrationFeasibilityReport] = None
-
-    # Deep workbook analysis (from .twb/.twbx XML parsing)
-    workbook_deep_analysis: Optional[list[WorkbookDeepAnalysis]] = None
-
-    # Lists (capped for payload size)
-    projects: Optional[list[TableauProject]] = None
-    workbooks: Optional[list[TableauWorkbook]] = None
-    datasources: Optional[list[TableauDatasource]] = None
-    views: Optional[list[TableauView]] = None
-    users_list: Optional[list[dict]] = None
-    groups: Optional[list[TableauGroup]] = None
-    flows: Optional[list[TableauFlow]] = None
-    extract_jobs: Optional[list[TableauExtractJob]] = None
-    permissions: Optional[list[TableauPermissionEntry]] = None
-
-
 # ── Deep workbook analysis models (from .twb/.twbx XML parsing) ──────────────
 
 class CalcFieldSummary(BaseModel):
@@ -480,6 +446,40 @@ class WorkbookDeepAnalysis(BaseModel):
 
     # Raw worksheet count
     raw_worksheet_count: int = 0
+
+
+# ── Top-level assessment result ───────────────────────────────────────────────
+
+class TableauAssessmentResult(BaseModel):
+    job_id: str
+    label: Optional[str] = None
+    assessed_at: str
+    status: Literal["completed", "failed"]
+    error: Optional[str] = None
+
+    server_info: Optional[TableauServerInfo] = None
+    workbook_summary: Optional[TableauWorkbookSummary] = None
+    datasource_summary: Optional[TableauDatasourceSummary] = None
+    user_profile: Optional[TableauUserProfile] = None
+    extract_health: Optional[TableauExtractHealth] = None
+    data_quality: Optional[TableauDataQualityFlags] = None
+
+    # Migration analysis
+    migration_feasibility: Optional[MigrationFeasibilityReport] = None
+
+    # Deep workbook analysis (from .twb/.twbx XML parsing)
+    workbook_deep_analysis: Optional[list[WorkbookDeepAnalysis]] = None
+
+    # Lists (capped for payload size)
+    projects: Optional[list[TableauProject]] = None
+    workbooks: Optional[list[TableauWorkbook]] = None
+    datasources: Optional[list[TableauDatasource]] = None
+    views: Optional[list[TableauView]] = None
+    users_list: Optional[list[dict]] = None
+    groups: Optional[list[TableauGroup]] = None
+    flows: Optional[list[TableauFlow]] = None
+    extract_jobs: Optional[list[TableauExtractJob]] = None
+    permissions: Optional[list[TableauPermissionEntry]] = None
 
 
 # ── Job response models ───────────────────────────────────────────────────────

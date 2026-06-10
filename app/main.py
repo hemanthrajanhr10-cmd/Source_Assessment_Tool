@@ -34,23 +34,38 @@ from app.db import service_bus
 logger = get_logger(__name__)
 
 
+async def _init_schema_background() -> None:
+    """
+    Run Azure SQL schema initialisation after a short delay so that the server
+    is already listening on port 8000 when Azure's health probe fires.
+    Retries every 30 s indefinitely — a serverless Azure SQL tier can take
+    several minutes to resume after auto-pause.
+    """
+    await asyncio.sleep(5)   # let uvicorn finish binding before the first attempt
+    while True:
+        try:
+            logger.info("Initialising Azure SQL schema…")
+            await asyncio.get_event_loop().run_in_executor(None, azure_store.init_schema)
+            logger.info("Azure SQL schema ready")
+            return
+        except Exception as exc:
+            logger.warning(
+                "Azure SQL schema init failed — will retry in 30 s. Error: %s", exc
+            )
+            await asyncio.sleep(30)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     settings.reports_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Reports directory: %s", settings.reports_dir.resolve())
 
-    # Initialise Azure SQL schema — non-fatal: API still starts if DB is
-    # temporarily unreachable (firewall propagation, cold start, etc.)
-    logger.info("Initialising Azure SQL schema…")
-    try:
-        azure_store.init_schema()
-        logger.info("Azure SQL schema ready")
-    except Exception as exc:
-        logger.warning(
-            "Azure SQL schema init failed — API will start but persistence "
-            "is unavailable until the DB is reachable. Error: %s", exc
-        )
+    # Run schema init in a background task so the server binds to port 8000
+    # immediately and passes the Azure Container Apps health check.
+    # Azure SQL serverless tier can take 60–120 s to wake up on first connection;
+    # blocking here causes ContainerTimeout (230 s limit) before /health ever responds.
+    _schema_task = asyncio.create_task(_init_schema_background())
 
     # Start Service Bus result listener if configured
     if service_bus.is_available():
@@ -68,6 +83,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     _watchdog_task.cancel()
+    _schema_task.cancel()
     logger.info("SQL Server Assessment API stopped")
 
 

@@ -10,20 +10,20 @@ import { api, getApiErrorMessage } from '../api/client'
 import type { TableauAssessmentRequest } from '../types/api'
 import Spinner from '../components/ui/Spinner'
 
-// ── Design tokens (Tableau orange + dark navy) ────────────────────────────────
+// ── Design tokens (Ocean / Deep Atlantic) ────────────────────────────────────
 
 const T = {
-  primary:    '#E8751A',
-  dark:       '#1F3864',
-  mid:        '#C45E0F',
-  accent:     '#FFB81C',
-  light50:    '#FFF8F0',
-  light100:   '#FFF3E0',
-  light200:   '#FFE0B2',
-  glow:       'rgba(232,117,26,0.15)',
-  shadowCard: '0 2px 4px rgba(232,117,26,0.04), 0 8px 24px rgba(232,117,26,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowHover:'0 4px 8px rgba(232,117,26,0.06), 0 16px 40px rgba(232,117,26,0.10), 0 2px 4px rgba(0,0,0,0.04)',
-  shadowBtn:  '0 2px 8px rgba(232,117,26,0.35), inset 0 1px 0 rgba(255,255,255,0.16)',
+  primary:    '#0084D4',
+  dark:       '#003D82',
+  mid:        '#0056B3',
+  accent:     '#38A8F5',
+  light50:    '#EFF6FF',
+  light100:   '#DBEEFF',
+  light200:   '#BAE0FF',
+  glow:       'rgba(0,132,212,0.15)',
+  shadowCard: '0 2px 4px rgba(0,86,179,0.04), 0 8px 24px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowHover:'0 4px 8px rgba(0,86,179,0.06), 0 16px 40px rgba(0,86,179,0.10), 0 2px 4px rgba(0,0,0,0.04)',
+  shadowBtn:  '0 2px 8px rgba(0,132,212,0.35), inset 0 1px 0 rgba(255,255,255,0.16)',
 }
 
 // ── Component helpers ─────────────────────────────────────────────────────────
@@ -172,8 +172,8 @@ function SectionCard({
         <div
           className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0"
           style={{
-            background: `linear-gradient(135deg, ${T.dark} 0%, #2E4E90 100%)`,
-            boxShadow: `0 3px 8px rgba(31,56,100,0.3)`,
+            background: `linear-gradient(135deg, ${T.mid} 0%, ${T.primary} 100%)`,
+            boxShadow: `0 3px 8px rgba(0,86,179,0.3)`,
           }}
         >
           <Icon className="h-4 w-4 text-white" aria-hidden="true" />
@@ -213,9 +213,9 @@ function AuthModeToggle({
           onClick={() => onChange(m)}
           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150"
           style={{
-            background: mode === m ? `linear-gradient(135deg, ${T.dark} 0%, #2E4E90 100%)` : 'transparent',
+            background: mode === m ? `linear-gradient(135deg, ${T.mid} 0%, ${T.primary} 100%)` : 'transparent',
             color: mode === m ? 'white' : '#64748B',
-            boxShadow: mode === m ? '0 2px 6px rgba(31,56,100,0.25)' : 'none',
+            boxShadow: mode === m ? '0 2px 6px rgba(0,86,179,0.25)' : 'none',
           }}
         >
           {m === 'password' ? <><Lock className="h-3 w-3" /> Username / Password</> : <><Key className="h-3 w-3" /> Personal Access Token</>}
@@ -259,7 +259,7 @@ function ConnectionTestBar({
       </div>
       <div className="flex-1 min-w-0">
         <p className={`text-sm ${state === 'error' ? 'text-red-600' : state === 'success' ? 'font-semibold' : 'text-slate-500'}`}
-          style={state === 'success' ? { color: T.dark } : {}}>
+          style={state === 'success' ? { color: T.mid } : {}}>
           {message || 'Test credentials before starting the assessment'}
         </p>
       </div>
@@ -453,7 +453,7 @@ export default function TableauAssessmentPage() {
         <div className="ml-auto shrink-0">
           <span
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold"
-            style={{ background: T.light100, color: T.dark, border: `1px solid ${T.light200}` }}
+            style={{ background: T.light100, color: T.mid, border: `1px solid ${T.light200}` }}
           >
             <div className="h-1.5 w-1.5 rounded-full" style={{ background: T.primary, boxShadow: `0 0 5px ${T.primary}` }} />
             Tableau Server / Cloud

@@ -32,6 +32,7 @@ import type {
   SageIntacctSessionRecord,
   TableauAssessmentRequest,
   TableauAssessmentResult,
+  WorkbookDeepAnalysis,
   TableauJobResponse,
   TableauSessionRecord,
   SnowflakeAuthRequest,
@@ -423,6 +424,9 @@ export const api = {
     a.click()
     URL.revokeObjectURL(url)
   },
+
+  tableauGetWorkbookAnalysis: (jobId: string) =>
+    http.get<WorkbookDeepAnalysis[]>(`/api/v1/tableau/jobs/${jobId}/workbook-analysis`),
 
   // ── Snowflake Assessments ─────────────────────────────────────────────────
   snowflakeInitAuth: (data: SnowflakeAuthRequest) =>

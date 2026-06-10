@@ -49,6 +49,18 @@ from app.models.tableau_requests import (
     TableauDatasourceSummary,
     MigrationFeasibilityReport,
     WorkbookMigrationScore,
+    WorkbookDeepAnalysis,
+    CalcFieldSummary,
+    LODSummary,
+    TableCalcSummary,
+    ParameterSummary,
+    DatasourceSummary as DatasourceSummaryModel,
+    MarkTypeEntry,
+    DashboardSummary as DashboardSummaryModel,
+    ActionSummary,
+    SetSummary,
+    HierarchySummary,
+    ExtensionSummary,
 )
 
 logger = get_logger(__name__)
@@ -120,6 +132,7 @@ STEPS = [
     "Building data quality flags",
     "Analysing migration complexity",
     "Building migration feasibility report",
+    "Deep analysis: parsing workbook XML (.twb/.twbx)",
     "Generating Excel report",
     "Generating Word report (AI-powered)",
 ]
@@ -382,6 +395,303 @@ def _build_migration_feasibility(
     return report
 
 
+# ── TWB deep analysis conversion ─────────────────────────────────────────────
+
+def _twb_to_model(analysis) -> WorkbookDeepAnalysis:
+    """Convert twb_parser.WorkbookDeepAnalysis dataclass to the Pydantic model."""
+    from app.services.twb_parser import WorkbookDeepAnalysis as TWBResult
+
+    # Build refined scores from real XML data
+    calc_count   = analysis.total_calc_fields
+    lod_count    = analysis.total_lod_count
+    tc_count     = analysis.total_table_calc_count
+    param_count  = analysis.total_parameter_count
+    ext_count    = analysis.total_extensions
+    action_count = analysis.filter_action_count + analysis.set_action_count + analysis.parameter_action_count + analysis.url_action_count
+
+    # Calc field complexity: LODs are harder than plain calcs
+    refined_calc = min(calc_count // 3 + lod_count * 2, 10)
+    refined_tc   = min(tc_count, 10)
+    refined_param = min(param_count, 8)
+    refined_rls   = 5 if (any(f.field_name.lower() in ('username()', 'userdn()', 'ismemberof()') for f in analysis.filters) or
+                          any('username' in (cf.formula or '').lower() for cf in analysis.calc_fields)) else 0
+    refined_ext   = min(ext_count * 4, 10)
+    # viz complexity from mark types
+    hard_marks = {'Polygon', 'Density', 'Gantt Bar', 'Map'}
+    viz_score = sum(2 for mt in analysis.mark_types if mt.mark_type in hard_marks)
+    if analysis.has_viz_in_tooltip:
+        viz_score += 3
+    refined_viz = min(viz_score, 10)
+    refined_action = min(action_count, 10)
+
+    refined_total = (refined_calc + refined_tc + refined_param + refined_rls +
+                     refined_ext + refined_viz + refined_action)
+    if refined_total <= 15:
+        refined_level = "Simple"
+    elif refined_total <= 30:
+        refined_level = "Moderate"
+    elif refined_total <= 50:
+        refined_level = "Complex"
+    else:
+        refined_level = "Very Complex"
+
+    # LOD type breakdown
+    lod_type_counts: dict[str, int] = {}
+    for lod in analysis.lod_expressions:
+        lod_type_counts[lod.lod_type] = lod_type_counts.get(lod.lod_type, 0) + 1
+
+    # Unique table calc types
+    tc_types = list({tc.calc_type for tc in analysis.table_calcs})
+
+    return WorkbookDeepAnalysis(
+        workbook_name=analysis.workbook_name,
+        parse_errors=analysis.parse_errors,
+
+        datasource_details=[DatasourceSummaryModel(
+            name=ds.name, connection_type=ds.connection_type,
+            has_custom_sql=ds.has_custom_sql, has_extract=ds.has_extract,
+            join_count=ds.join_count, join_types=ds.join_types,
+            has_stored_proc=ds.has_stored_proc,
+        ) for ds in analysis.datasources],
+        has_data_blending=analysis.has_data_blending,
+        has_cross_database_join=analysis.has_cross_database_join,
+        has_custom_sql=any(ds.has_custom_sql for ds in analysis.datasources),
+        has_stored_procedures=any(ds.has_stored_proc for ds in analysis.datasources),
+
+        total_dimensions=len(analysis.dimensions),
+        total_measures=len(analysis.measures),
+        total_hidden_fields=len(analysis.hidden_fields),
+
+        calc_fields=[CalcFieldSummary(
+            name=cf.name, formula=cf.formula, datatype=cf.datatype, role=cf.role,
+            is_lod=cf.is_lod, lod_type=cf.lod_type, is_table_calc=cf.is_table_calc,
+            table_calc_type=cf.table_calc_type, dependencies=cf.dependencies,
+            nested_lod_count=cf.nested_lod_count,
+        ) for cf in analysis.calc_fields[:100]],
+        total_calc_fields=analysis.total_calc_fields,
+
+        lod_expressions=[LODSummary(
+            name=lod.name, formula=lod.formula, lod_type=lod.lod_type, is_nested=lod.is_nested,
+        ) for lod in analysis.lod_expressions[:50]],
+        total_lod_count=analysis.total_lod_count,
+        has_nested_lod=analysis.has_nested_lod,
+        lod_type_counts=lod_type_counts,
+
+        table_calcs=[TableCalcSummary(
+            name=tc.name, formula=tc.formula, calc_type=tc.calc_type,
+        ) for tc in analysis.table_calcs[:50]],
+        total_table_calc_count=analysis.total_table_calc_count,
+        table_calc_types_used=tc_types,
+
+        parameters=[ParameterSummary(
+            name=p.name, caption=p.caption, datatype=p.datatype,
+            current_value=p.current_value, allowable_values_type=p.allowable_values_type,
+            list_values=p.list_values[:20],
+        ) for p in analysis.parameters],
+        total_parameter_count=analysis.total_parameter_count,
+        has_parameter_actions=analysis.has_parameter_actions,
+
+        extract_filter_count=analysis.extract_filter_count,
+        datasource_filter_count=analysis.datasource_filter_count,
+        context_filter_count=analysis.context_filter_count,
+        dimension_filter_count=analysis.dimension_filter_count,
+        measure_filter_count=analysis.measure_filter_count,
+        total_filter_count=(analysis.extract_filter_count + analysis.datasource_filter_count +
+                            analysis.context_filter_count + analysis.dimension_filter_count +
+                            analysis.measure_filter_count),
+
+        sort_count=analysis.sort_count,
+        custom_sort_count=analysis.custom_sort_count,
+
+        sets=[SetSummary(
+            name=s.name, set_type=s.set_type, member_count=len(s.members), is_combined=s.is_combined,
+        ) for s in analysis.sets],
+        has_set_actions=analysis.has_set_actions,
+        combined_set_count=analysis.combined_set_count,
+
+        group_count=len(analysis.groups),
+        hierarchy_count=len(analysis.hierarchies),
+        hierarchies=[HierarchySummary(name=h.name, levels=h.levels) for h in analysis.hierarchies],
+
+        mark_types=[MarkTypeEntry(
+            worksheet=mt.worksheet, mark_type=mt.mark_type,
+            has_dual_axis=mt.has_dual_axis, has_viz_in_tooltip=mt.has_viz_in_tooltip,
+        ) for mt in analysis.mark_types],
+        has_viz_in_tooltip=analysis.has_viz_in_tooltip,
+        has_custom_marks=analysis.has_custom_marks,
+        unique_mark_types=analysis.unique_mark_types,
+
+        dashboards=[DashboardSummaryModel(
+            name=db.name, object_count=len(db.objects),
+            has_floating_objects=db.has_floating_objects,
+            has_device_layouts=db.has_device_layouts,
+            device_types=db.device_types,
+        ) for db in analysis.dashboards],
+        total_dashboards=analysis.total_dashboards,
+        has_floating_objects=analysis.has_floating_objects,
+        has_device_layouts=analysis.has_device_layouts,
+
+        actions=[ActionSummary(
+            name=a.name, action_type=a.action_type,
+            source_sheet=a.source_sheet, target_sheet=a.target_sheet,
+        ) for a in analysis.actions],
+        filter_action_count=analysis.filter_action_count,
+        highlight_action_count=analysis.highlight_action_count,
+        url_action_count=analysis.url_action_count,
+        set_action_count=analysis.set_action_count,
+        parameter_action_count=analysis.parameter_action_count,
+
+        has_custom_number_formats=analysis.has_custom_number_formats,
+        custom_font_count=analysis.custom_font_count,
+
+        story_count=analysis.total_stories,
+        story_point_count=sum(len(s.story_points) for s in analysis.stories),
+
+        extensions=[ExtensionSummary(
+            name=e.name, url=e.url, version=e.version, is_dashboard_extension=e.is_dashboard_extension,
+        ) for e in analysis.extensions],
+        total_extensions=analysis.total_extensions,
+
+        has_javascript_api=analysis.has_javascript_api,
+        has_embedding_params=analysis.has_embedding_params,
+
+        refined_calc_field_complexity=refined_calc,
+        refined_table_calc_complexity=refined_tc,
+        refined_parameter_complexity=refined_param,
+        refined_rls_complexity=refined_rls,
+        refined_extension_complexity=refined_ext,
+        refined_viz_type_complexity=refined_viz,
+        refined_dashboard_action_complexity=refined_action,
+        refined_total_score=refined_total,
+        refined_complexity_level=refined_level,
+        raw_worksheet_count=analysis.raw_worksheet_count,
+    )
+
+
+def _download_and_parse_workbooks(
+    server,
+    workbooks: list[TableauWorkbook],
+    max_workbooks: int = 30,
+) -> list[WorkbookDeepAnalysis]:
+    """Download up to max_workbooks .twb/.twbx files and parse their XML."""
+    import tempfile, os
+    from app.services.twb_parser import parse_twb
+
+    results: list[WorkbookDeepAnalysis] = []
+    # sort by size desc so we parse the most interesting ones first
+    sorted_wbs = sorted(workbooks, key=lambda w: w.size_mb, reverse=True)[:max_workbooks]
+
+    for wb in sorted_wbs:
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                # TSC download writes the file to tmpdir and returns the path
+                file_path, _ = server.workbooks.download(wb.id, filepath=tmpdir, include_extract=False)
+                with open(file_path, "rb") as fh:
+                    data = fh.read()
+                raw = parse_twb(data, workbook_name=wb.name)
+                model = _twb_to_model(raw)
+                results.append(model)
+                logger.debug("Parsed %s: %d calcs, %d LODs, %d params",
+                             wb.name, model.total_calc_fields, model.total_lod_count, model.total_parameter_count)
+        except Exception as exc:
+            logger.warning("Failed to parse workbook %s: %s", wb.name, exc)
+            results.append(WorkbookDeepAnalysis(
+                workbook_name=wb.name,
+                parse_errors=[f"Download/parse failed: {exc}"],
+            ))
+
+    return results
+
+
+def _apply_deep_scores(
+    migration_feasibility: MigrationFeasibilityReport,
+    deep_analyses: list[WorkbookDeepAnalysis],
+) -> None:
+    """Refine per-workbook migration scores using real formula data from .twb parse."""
+    deep_by_name = {da.workbook_name: da for da in deep_analyses}
+
+    for score in migration_feasibility.workbook_scores:
+        da = deep_by_name.get(score.workbook_name)
+        if not da:
+            continue
+        # Override heuristic dimensions with real values where available
+        if da.refined_calc_field_complexity is not None:
+            score.calc_field_complexity = da.refined_calc_field_complexity
+        if da.refined_table_calc_complexity is not None:
+            score.table_calc_complexity = da.refined_table_calc_complexity
+        if da.refined_parameter_complexity is not None:
+            score.parameter_complexity = da.refined_parameter_complexity
+        if da.refined_rls_complexity is not None:
+            score.rls_complexity = da.refined_rls_complexity
+        if da.refined_extension_complexity is not None:
+            score.extension_complexity = da.refined_extension_complexity
+        if da.refined_viz_type_complexity is not None:
+            score.viz_type_complexity = da.refined_viz_type_complexity
+        if da.refined_dashboard_action_complexity is not None:
+            score.dashboard_action_complexity = da.refined_dashboard_action_complexity
+
+        # Recalculate total and complexity level
+        total = (score.data_source_complexity + score.calc_field_complexity +
+                 score.table_calc_complexity + score.dashboard_action_complexity +
+                 score.rls_complexity + score.extension_complexity +
+                 score.viz_type_complexity + score.parameter_complexity)
+        score.total_score = total
+        if total <= 15:
+            score.complexity_level = "Simple"
+        elif total <= 30:
+            score.complexity_level = "Moderate"
+        elif total <= 50:
+            score.complexity_level = "Complex"
+        else:
+            score.complexity_level = "Very Complex"
+
+        # Enrich blockers with real formula-level evidence
+        if da.total_lod_count > 5:
+            score.migration_blockers.append(
+                f"{da.total_lod_count} LOD expressions detected — each requires a custom CALCULATE pattern in DAX"
+            )
+        if da.total_extensions > 0:
+            score.migration_blockers.append(
+                f"{da.total_extensions} Tableau Extension(s) — no direct Power BI AppSource equivalent"
+            )
+        if da.has_viz_in_tooltip:
+            score.migration_warnings.append("Viz-in-tooltip detected — replace with Power BI report page tooltip")
+        if da.has_set_actions:
+            score.migration_warnings.append("Set actions detected — redesign as cross-filter + slicer interactions in Power BI")
+        if da.has_custom_sql:
+            score.migration_warnings.append("Custom SQL detected — validate compatibility with Power BI connector or migrate to view")
+        if da.total_calc_fields > 0:
+            score.pbi_equivalent_notes.append(
+                f"{da.total_calc_fields} calculated fields → {da.total_lod_count} as DAX measures (CALCULATE), "
+                f"{da.total_table_calc_count} table calcs → DAX running/window measures"
+            )
+
+    # Update feasibility-level feature flags with real data
+    if any(da.total_lod_count > 0 for da in deep_analyses):
+        migration_feasibility.has_lod_expressions = True
+    if any(da.total_table_calc_count > 0 for da in deep_analyses):
+        migration_feasibility.has_table_calculations = True
+    if any(da.total_extensions > 0 for da in deep_analyses):
+        migration_feasibility.has_tableau_extensions = True
+    if any(da.has_viz_in_tooltip for da in deep_analyses):
+        migration_feasibility.has_viz_in_tooltip = True
+    if any(da.has_parameter_actions for da in deep_analyses):
+        migration_feasibility.has_parameter_actions = True
+    if any(da.has_custom_sql for da in deep_analyses):
+        migration_feasibility.has_custom_sql = True
+
+    # Recompute feasibility after real data
+    total_scored = len(migration_feasibility.workbook_scores)
+    vc_count = sum(1 for s in migration_feasibility.workbook_scores if s.complexity_level == "Very Complex")
+    vc_pct = vc_count / max(total_scored, 1)
+    if vc_pct > 0.3 or migration_feasibility.has_tableau_extensions:
+        migration_feasibility.overall_feasibility = "Low"
+    elif vc_pct > 0.1 or migration_feasibility.has_rls:
+        migration_feasibility.overall_feasibility = "Moderate"
+    else:
+        migration_feasibility.overall_feasibility = "High"
+
+
 # ── Assessment runner ─────────────────────────────────────────────────────────
 
 def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
@@ -607,6 +917,19 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
             _step(STEPS[13])
             migration_feasibility = _build_migration_feasibility(workbooks, datasources, flows, permissions)
 
+            # Step 15: Deep workbook analysis via .twb XML parsing
+            _step(STEPS[14])
+            deep_analyses: list[WorkbookDeepAnalysis] = []
+            try:
+                # Download and parse up to 30 workbooks (largest first)
+                raw_deep = _download_and_parse_workbooks(server, workbooks, max_workbooks=30)
+                deep_analyses = raw_deep
+                # Refine migration scores with real formula data
+                _apply_deep_scores(migration_feasibility, deep_analyses)
+                logger.info("[tableau:%s] Deep analysis completed: %d workbooks parsed", job_id[:8], len(deep_analyses))
+            except Exception as e:
+                logger.warning("Deep workbook analysis failed (%s) — continuing without formula-level data", e)
+
         # Assemble result
         result = TableauAssessmentResult(
             job_id=job_id,
@@ -620,6 +943,7 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
             extract_health=extract_health,
             data_quality=data_quality,
             migration_feasibility=migration_feasibility,
+            workbook_deep_analysis=deep_analyses if deep_analyses else None,
             projects=projects[:200],
             workbooks=workbooks[:500],
             datasources=datasources[:500],
@@ -631,12 +955,12 @@ def run_assessment(job_id: str, request: TableauAssessmentRequest) -> None:
             permissions=permissions[:500],
         )
 
-        # Step 15: Excel
-        _step(STEPS[14])
+        # Step 16: Excel
+        _step(STEPS[15])
         excel_bytes = _build_excel(result)
 
-        # Step 16: AI Word report
-        _step(STEPS[15])
+        # Step 17: AI Word report
+        _step(STEPS[16])
         try:
             from app.services.ai_report_service import build_tableau_ai_word_report
             label = request.label or server_info.site_name

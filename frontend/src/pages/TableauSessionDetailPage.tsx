@@ -5,13 +5,14 @@ import {
   CheckCircle2, XCircle, Loader2, ArrowLeft,
   FileSpreadsheet, BookOpen, ChevronDown, ChevronUp,
   AlertTriangle, Layers, Zap, FileText, TrendingUp,
-  ArrowRight, Target, Activity, Sparkles, Info,
+  ArrowRight, Target, Activity, Sparkles, Info, Code2, FlaskConical,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type {
   TableauAssessmentResult,
   MigrationFeasibilityReport,
   WorkbookMigrationScore,
+  WorkbookDeepAnalysis,
 } from '../types/api'
 import Loader3D from '../components/ui/Loader3D'
 
@@ -64,12 +65,13 @@ const STEPS = [
   'Building data quality flags',
   'Analysing migration complexity',
   'Building migration feasibility report',
+  'Deep analysis: parsing workbook XML (.twb/.twbx)',
   'Generating Excel report',
   'Generating Word report (AI-powered)',
 ]
 
 // ── Tab type ──────────────────────────────────────────────────────────────────
-type Tab = 'overview' | 'migration' | 'workbooks' | 'datasources' | 'users' | 'quality'
+type Tab = 'overview' | 'migration' | 'workbooks' | 'datasources' | 'users' | 'quality' | 'analysis'
 
 // ── SVG Donut Chart ───────────────────────────────────────────────────────────
 
@@ -342,34 +344,352 @@ function DataTable({ headers, rows, compact }: {
   )
 }
 
+// ── Formula Analysis tab ─────────────────────────────────────────────────────
+
+function FormulaRow({ cf, index }: { cf: import('../types/api').CalcFieldSummary; index: number }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-xl overflow-hidden border mb-1.5"
+      style={{ borderColor: cf.is_lod ? '#FED7AA' : cf.is_table_calc ? '#BAE6FD' : '#E2E8F0' }}>
+      <button type="button" onClick={() => setOpen(p => !p)}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors"
+        style={{ background: index % 2 === 0 ? '#FAFAFA' : 'white' }}>
+        <div className="flex items-center gap-2 min-w-0">
+          <Code2 className="h-3.5 w-3.5 flex-shrink-0" style={{ color: cf.is_lod ? T.primary : cf.is_table_calc ? '#0284C7' : '#64748B' }} />
+          <span className="text-xs font-bold text-slate-800 truncate">{cf.name}</span>
+          {cf.is_lod && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded"
+              style={{ background: '#FFF7ED', color: T.primary, border: `1px solid #FED7AA` }}>LOD {cf.lod_type}</span>
+          )}
+          {cf.is_table_calc && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded"
+              style={{ background: '#F0F9FF', color: '#0284C7', border: '1px solid #BAE6FD' }}>
+              {cf.table_calc_type || 'TABLE CALC'}</span>
+          )}
+          {cf.nested_lod_count > 1 && (
+            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded"
+              style={{ background: '#FFF1F2', color: '#BE123C', border: '1px solid #FECDD3' }}>NESTED</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-[10px] text-slate-400 font-medium">{cf.role} · {cf.datatype}</span>
+          {open ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+        </div>
+      </button>
+      {open && (
+        <div className="px-4 pb-3 pt-1 border-t" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }}>
+          <pre className="text-[11px] text-slate-700 font-mono whitespace-pre-wrap break-all leading-relaxed rounded-lg px-3 py-2"
+            style={{ background: '#1E293B', color: '#94A3B8', border: '1px solid #334155' }}>
+            <span style={{ color: cf.is_lod ? '#FB923C' : cf.is_table_calc ? '#38BDF8' : '#A3E635' }}>
+              {cf.formula}
+            </span>
+          </pre>
+          {cf.dependencies.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              <span className="text-[10px] text-slate-500 font-medium mr-1">Refs:</span>
+              {cf.dependencies.slice(0, 10).map((d, i) => (
+                <span key={i} className="px-1.5 py-0.5 text-[10px] rounded font-medium"
+                  style={{ background: T.light100, color: T.dark }}>[{d}]</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WorkbookAnalysisCard({ da }: { da: WorkbookDeepAnalysis; index: number }) {
+  const [section, setSection] = useState<'calcs' | 'filters' | 'params' | 'structure'>('calcs')
+  const level = da.refined_complexity_level || 'Simple'
+  const cfg = COMPLEXITY_CONFIG[level as keyof typeof COMPLEXITY_CONFIG] || COMPLEXITY_CONFIG.Simple
+
+  const sectionTabs = [
+    { id: 'calcs' as const,     label: `Calcs (${da.total_calc_fields})`,   show: da.total_calc_fields > 0 },
+    { id: 'filters' as const,   label: `Filters (${da.total_filter_count})`, show: da.total_filter_count > 0 },
+    { id: 'params' as const,    label: `Params (${da.total_parameter_count})`, show: da.total_parameter_count > 0 },
+    { id: 'structure' as const, label: 'Structure', show: true },
+  ]
+
+  return (
+    <div className="rounded-2xl border overflow-hidden mb-4" style={{ borderColor: cfg.border, background: 'white', boxShadow: T.card }}>
+      {/* Header */}
+      <div className="px-5 py-4 flex items-center justify-between"
+        style={{ background: `linear-gradient(135deg, ${T.dark} 0%, #2C4D8A 100%)` }}>
+        <div className="flex items-center gap-3 min-w-0">
+          <FlaskConical className="h-4 w-4 flex-shrink-0 text-white opacity-80" />
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white truncate">{da.workbook_name}</p>
+            <p className="text-[10px] text-blue-200 mt-0.5">
+              {da.raw_worksheet_count} sheets · {da.total_calc_fields} calcs · {da.total_lod_count} LODs · {da.total_table_calc_count} table calcs
+            </p>
+          </div>
+        </div>
+        <span className="flex-shrink-0 px-3 py-1 text-xs font-bold rounded-full"
+          style={{ background: cfg.bg, color: cfg.text, border: `1px solid ${cfg.border}` }}>
+          {level}
+          {da.refined_total_score !== undefined && ` (${da.refined_total_score})`}
+        </span>
+      </div>
+
+      {/* Quick stats row */}
+      <div className="px-5 py-3 flex flex-wrap gap-4 border-b" style={{ borderColor: '#F1F5F9', background: T.light50 }}>
+        {[
+          { label: 'LOD', value: da.total_lod_count, color: T.primary, warn: da.total_lod_count > 0 },
+          { label: 'Table Calcs', value: da.total_table_calc_count, color: '#0284C7', warn: da.total_table_calc_count > 0 },
+          { label: 'Parameters', value: da.total_parameter_count, color: T.teal, warn: false },
+          { label: 'Dimensions', value: da.total_dimensions, color: '#64748B', warn: false },
+          { label: 'Measures', value: da.total_measures, color: '#64748B', warn: false },
+          { label: 'Extensions', value: da.total_extensions, color: '#DC2626', warn: da.total_extensions > 0 },
+          { label: 'Actions', value: da.filter_action_count + da.set_action_count + da.parameter_action_count + da.url_action_count, color: '#7C3AED', warn: da.has_set_actions },
+          { label: 'Sets', value: da.sets.length, color: '#D97706', warn: da.has_set_actions },
+        ].filter(s => s.value > 0).map((s, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full" style={{ background: s.color }} />
+            <span className="text-[10px] text-slate-500">{s.label}</span>
+            <span className="text-xs font-bold tabular-nums" style={{ color: s.warn ? s.color : '#334155' }}>{s.value}</span>
+          </div>
+        ))}
+        {da.has_viz_in_tooltip && (
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full" style={{ background: '#7C3AED' }} />
+            <span className="text-[10px] font-bold" style={{ color: '#7C3AED' }}>Viz-in-Tooltip</span>
+          </div>
+        )}
+        {da.has_custom_sql && (
+          <div className="flex items-center gap-1.5">
+            <div className="h-2 w-2 rounded-full" style={{ background: '#DC2626' }} />
+            <span className="text-[10px] font-bold text-red-600">Custom SQL</span>
+          </div>
+        )}
+        {da.parse_errors.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <AlertTriangle className="h-3 w-3 text-amber-500" />
+            <span className="text-[10px] text-amber-600 font-medium">Parse errors: {da.parse_errors.length}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Sub-tab navigation */}
+      <div className="px-5 pt-3 pb-0 flex gap-1">
+        {sectionTabs.filter(t => t.show).map(t => (
+          <button key={t.id} type="button" onClick={() => setSection(t.id)}
+            className="px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-colors"
+            style={section === t.id
+              ? { background: T.dark, color: 'white' }
+              : { background: '#F1F5F9', color: '#64748B' }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Section content */}
+      <div className="p-4">
+        {/* Calculated fields */}
+        {section === 'calcs' && (
+          <div>
+            {da.calc_fields.length === 0 ? (
+              <p className="text-xs text-slate-400 italic text-center py-4">No calculated fields found</p>
+            ) : (
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {da.lod_expressions.length > 0 && `${da.lod_expressions.length} LOD  ·  `}
+                    {da.table_calcs.length > 0 && `${da.table_calcs.length} Table Calcs  ·  `}
+                    {da.total_calc_fields - da.lod_expressions.length - da.table_calcs.length > 0 &&
+                      `${da.total_calc_fields - da.lod_expressions.length - da.table_calcs.length} Standard`}
+                  </span>
+                </div>
+                {da.calc_fields.slice(0, 50).map((cf, i) => (
+                  <FormulaRow key={i} cf={cf} index={i} />
+                ))}
+                {da.calc_fields.length > 50 && (
+                  <p className="text-xs text-slate-400 text-center pt-2">+ {da.calc_fields.length - 50} more calculated fields</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Filters */}
+        {section === 'filters' && (
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
+              {[
+                { label: 'Extract', value: da.extract_filter_count, color: '#7C3AED' },
+                { label: 'Datasource', value: da.datasource_filter_count, color: T.dark },
+                { label: 'Context', value: da.context_filter_count, color: T.primary },
+                { label: 'Dimension', value: da.dimension_filter_count, color: '#0284C7' },
+                { label: 'Measure', value: da.measure_filter_count, color: T.teal },
+              ].map((f, i) => (
+                <div key={i} className="px-3 py-2 rounded-xl text-center"
+                  style={{ background: T.light50, border: `1px solid ${T.light200}` }}>
+                  <div className="text-base font-black tabular-nums" style={{ color: f.color }}>{f.value}</div>
+                  <div className="text-[10px] text-slate-500 font-medium mt-0.5">{f.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Parameters */}
+        {section === 'params' && (
+          <div className="space-y-2">
+            {da.parameters.slice(0, 30).map((p, i) => (
+              <div key={i} className="flex items-center justify-between px-3 py-2 rounded-xl"
+                style={{ background: i % 2 === 0 ? T.light50 : 'white', border: `1px solid ${T.light200}` }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Target className="h-3.5 w-3.5 flex-shrink-0" style={{ color: T.primary }} />
+                  <span className="text-xs font-bold text-slate-800 truncate">{p.caption || p.name}</span>
+                  <span className="text-[10px] text-slate-400">{p.datatype}</span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {p.allowable_values_type !== 'all' && (
+                    <span className="px-1.5 py-0.5 text-[10px] rounded font-medium"
+                      style={{ background: T.light100, color: T.dark }}>{p.allowable_values_type}</span>
+                  )}
+                  {p.current_value && (
+                    <span className="text-[10px] text-slate-500 font-mono">{p.current_value}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Structure */}
+        {section === 'structure' && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              { label: 'Dashboards', value: da.total_dashboards, icon: Layers, sub: da.has_floating_objects ? 'floating objects' : da.has_device_layouts ? 'device layouts' : '' },
+              { label: 'Actions', value: da.actions.length, icon: Zap, sub: [da.has_set_actions && 'set actions', da.has_parameter_actions && 'param actions'].filter(Boolean).join(', ') },
+              { label: 'Sets', value: da.sets.length, icon: Globe, sub: da.combined_set_count > 0 ? `${da.combined_set_count} combined` : '' },
+              { label: 'Hierarchies', value: da.hierarchy_count, icon: Layers, sub: '' },
+              { label: 'Groups', value: da.group_count, icon: Users, sub: '' },
+              { label: 'Stories', value: da.story_count, icon: BookOpen, sub: da.story_count > 0 ? `${da.story_point_count} story points` : '' },
+              { label: 'Extensions', value: da.total_extensions, icon: Code2, sub: da.total_extensions > 0 ? 'requires AppSource review' : '' },
+              { label: 'Mark Types', value: da.unique_mark_types.length, icon: BarChart3, sub: da.unique_mark_types.slice(0, 3).join(', ') },
+              { label: 'Sorts', value: da.sort_count, icon: Activity, sub: da.custom_sort_count > 0 ? `${da.custom_sort_count} custom` : '' },
+            ].map((s, i) => (
+              <div key={i} className="rounded-xl px-4 py-3 flex items-start gap-3"
+                style={{ background: T.light50, border: `1px solid ${T.light200}` }}>
+                <s.icon className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: T.primary }} />
+                <div className="min-w-0">
+                  <div className="text-lg font-black tabular-nums" style={{ color: T.dark }}>{s.value}</div>
+                  <div className="text-[11px] font-semibold text-slate-700">{s.label}</div>
+                  {s.sub && <div className="text-[10px] text-slate-400 mt-0.5 truncate">{s.sub}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DeepAnalysisTab({ analyses }: { analyses: WorkbookDeepAnalysis[] }) {
+  const [filter, setFilter] = useState<string>('all')
+  const levels = ['all', 'Simple', 'Moderate', 'Complex', 'Very Complex']
+
+  const filtered = filter === 'all'
+    ? analyses
+    : analyses.filter(a => (a.refined_complexity_level || 'Simple') === filter)
+
+  const totals = {
+    calcs: analyses.reduce((s, a) => s + a.total_calc_fields, 0),
+    lods: analyses.reduce((s, a) => s + a.total_lod_count, 0),
+    tableCalcs: analyses.reduce((s, a) => s + a.total_table_calc_count, 0),
+    params: analyses.reduce((s, a) => s + a.total_parameter_count, 0),
+    extensions: analyses.reduce((s, a) => s + a.total_extensions, 0),
+    hasVIT: analyses.some(a => a.has_viz_in_tooltip),
+    hasSQL: analyses.some(a => a.has_custom_sql),
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Workbooks Parsed', value: analyses.length, color: T.dark, icon: FlaskConical },
+          { label: 'Calculated Fields', value: totals.calcs, color: T.primary, icon: Code2 },
+          { label: 'LOD Expressions', value: totals.lods, color: '#C2410C', icon: Zap, warn: totals.lods > 0 },
+          { label: 'Table Calcs', value: totals.tableCalcs, color: '#0284C7', icon: Activity, warn: totals.tableCalcs > 0 },
+          { label: 'Parameters', value: totals.params, color: T.teal, icon: Target },
+          { label: 'Extensions', value: totals.extensions, color: '#DC2626', icon: Globe, warn: totals.extensions > 0 },
+          { label: 'Viz-in-Tooltip', value: totals.hasVIT ? 'Yes' : 'No', color: totals.hasVIT ? '#7C3AED' : '#22C55E', icon: Layers },
+          { label: 'Custom SQL', value: totals.hasSQL ? 'Yes' : 'No', color: totals.hasSQL ? '#DC2626' : '#22C55E', icon: Database },
+        ].map((stat, i) => (
+          <div key={i} className="rounded-2xl p-4 flex items-start gap-3"
+            style={{ background: 'white', border: `1px solid ${T.light200}`, boxShadow: T.card }}>
+            <stat.icon className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: stat.color }} />
+            <div>
+              <div className="text-xl font-black tabular-nums" style={{ color: stat.color }}>{stat.value}</div>
+              <div className="text-[11px] text-slate-500 font-medium mt-0.5">{stat.label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-slate-500 font-medium">Filter by complexity:</span>
+        {levels.map(l => (
+          <button key={l} type="button" onClick={() => setFilter(l)}
+            className="px-3 py-1.5 text-xs font-semibold rounded-xl transition-colors"
+            style={filter === l
+              ? { background: T.dark, color: 'white' }
+              : { background: T.light50, color: '#64748B', border: `1px solid ${T.light200}` }}>
+            {l === 'all' ? `All (${analyses.length})` : `${l} (${analyses.filter(a => (a.refined_complexity_level || 'Simple') === l).length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Per-workbook analysis cards */}
+      {filtered.length === 0 ? (
+        <p className="text-sm text-slate-400 italic text-center py-8">No workbooks match the selected filter</p>
+      ) : (
+        filtered.map((da, i) => (
+          <WorkbookAnalysisCard key={da.workbook_name + i} da={da} index={i} />
+        ))
+      )}
+    </div>
+  )
+}
+
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
-function TabBar({ active, onChange, hasMigration }: {
-  active: Tab; onChange: (t: Tab) => void; hasMigration: boolean
+function TabBar({ active, onChange, hasMigration, hasDeepAnalysis }: {
+  active: Tab; onChange: (t: Tab) => void; hasMigration: boolean; hasDeepAnalysis: boolean
 }) {
-  const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+  const tabs: { id: Tab; label: string; icon: React.ElementType; special?: boolean }[] = [
     { id: 'overview',    label: 'Overview',    icon: Activity },
-    { id: 'migration',   label: 'Migration',   icon: TrendingUp },
+    { id: 'migration',   label: 'Migration',   icon: TrendingUp, special: true },
     { id: 'workbooks',   label: 'Workbooks',   icon: BarChart3 },
     { id: 'datasources', label: 'Data Sources', icon: Database },
     { id: 'users',       label: 'Users',       icon: Users },
     { id: 'quality',     label: 'Quality',     icon: Shield },
+    { id: 'analysis',    label: 'Formula Analysis', icon: FlaskConical, special: true },
   ]
   return (
-    <div className="flex items-center gap-1 p-1 rounded-2xl border border-slate-200/80"
+    <div className="flex items-center gap-1 p-1 rounded-2xl border border-slate-200/80 flex-wrap"
       style={{ background: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(8px)', boxShadow: T.shadow }}>
-      {tabs.filter(t => t.id !== 'migration' || hasMigration).map(tab => {
+      {tabs.filter(t => {
+        if (t.id === 'migration' && !hasMigration) return false
+        if (t.id === 'analysis' && !hasDeepAnalysis) return false
+        return true
+      }).map(tab => {
         const isActive = active === tab.id
         return (
           <button key={tab.id} type="button" onClick={() => onChange(tab.id)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150"
             style={isActive
               ? {
-                  background: tab.id === 'migration'
+                  background: tab.id === 'migration' || tab.id === 'analysis'
                     ? `linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%)`
                     : `linear-gradient(135deg, ${T.dark} 0%, #2C4D8A 100%)`,
                   color: 'white',
-                  boxShadow: tab.id === 'migration' ? T.shadowBtn : `0 2px 8px ${T.glowD}`,
+                  boxShadow: tab.id === 'migration' || tab.id === 'analysis' ? T.shadowBtn : `0 2px 8px ${T.glowD}`,
                 }
               : { color: '#64748B', background: 'transparent' }}>
             <tab.icon className="h-3.5 w-3.5" />
@@ -639,6 +959,8 @@ export default function TableauSessionDetailPage() {
   const dq  = results?.data_quality
   const mf  = results?.migration_feasibility
   const hasMigration = !!mf
+  const deepAnalyses = results?.workbook_deep_analysis ?? []
+  const hasDeepAnalysis = deepAnalyses.length > 0
 
   return (
     <div className="space-y-5">
@@ -783,7 +1105,7 @@ export default function TableauSessionDetailPage() {
           )}
 
           {/* Tab navigation */}
-          <TabBar active={activeTab} onChange={setActiveTab} hasMigration={hasMigration} />
+          <TabBar active={activeTab} onChange={setActiveTab} hasMigration={hasMigration} hasDeepAnalysis={hasDeepAnalysis} />
 
           {/* ── Overview tab ─────────────────────────────────────────────── */}
           {activeTab === 'overview' && (
@@ -1213,6 +1535,11 @@ export default function TableauSessionDetailPage() {
                 </SectionCard>
               )}
             </div>
+          )}
+
+          {/* ── Formula Analysis tab ─────────────────────────────────────── */}
+          {activeTab === 'analysis' && hasDeepAnalysis && (
+            <DeepAnalysisTab analyses={deepAnalyses} />
           )}
 
           {/* ── Download footer ────────────────────────────────────────────── */}

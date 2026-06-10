@@ -269,6 +269,9 @@ class TableauAssessmentResult(BaseModel):
     # Migration analysis
     migration_feasibility: Optional[MigrationFeasibilityReport] = None
 
+    # Deep workbook analysis (from .twb/.twbx XML parsing)
+    workbook_deep_analysis: Optional[list[WorkbookDeepAnalysis]] = None
+
     # Lists (capped for payload size)
     projects: Optional[list[TableauProject]] = None
     workbooks: Optional[list[TableauWorkbook]] = None
@@ -279,6 +282,204 @@ class TableauAssessmentResult(BaseModel):
     flows: Optional[list[TableauFlow]] = None
     extract_jobs: Optional[list[TableauExtractJob]] = None
     permissions: Optional[list[TableauPermissionEntry]] = None
+
+
+# ── Deep workbook analysis models (from .twb/.twbx XML parsing) ──────────────
+
+class CalcFieldSummary(BaseModel):
+    name: str
+    formula: str
+    datatype: str = "string"
+    role: str = "dimension"
+    is_lod: bool = False
+    lod_type: Optional[str] = None
+    is_table_calc: bool = False
+    table_calc_type: Optional[str] = None
+    dependencies: list[str] = Field(default_factory=list)
+    nested_lod_count: int = 0
+
+
+class LODSummary(BaseModel):
+    name: str
+    formula: str
+    lod_type: str
+    is_nested: bool = False
+
+
+class TableCalcSummary(BaseModel):
+    name: str
+    formula: str
+    calc_type: str
+
+
+class ParameterSummary(BaseModel):
+    name: str
+    caption: Optional[str] = None
+    datatype: str = "string"
+    current_value: Optional[str] = None
+    allowable_values_type: str = "all"
+    list_values: list[str] = Field(default_factory=list)
+
+
+class DatasourceSummary(BaseModel):
+    name: str
+    connection_type: str = "unknown"
+    has_custom_sql: bool = False
+    has_extract: bool = False
+    join_count: int = 0
+    join_types: list[str] = Field(default_factory=list)
+    has_stored_proc: bool = False
+
+
+class MarkTypeEntry(BaseModel):
+    worksheet: str
+    mark_type: str
+    has_dual_axis: bool = False
+    has_viz_in_tooltip: bool = False
+
+
+class DashboardSummary(BaseModel):
+    name: str
+    object_count: int = 0
+    has_floating_objects: bool = False
+    has_device_layouts: bool = False
+    device_types: list[str] = Field(default_factory=list)
+
+
+class ActionSummary(BaseModel):
+    name: str
+    action_type: str
+    source_sheet: Optional[str] = None
+    target_sheet: Optional[str] = None
+
+
+class SetSummary(BaseModel):
+    name: str
+    set_type: str = "fixed"
+    member_count: int = 0
+    is_combined: bool = False
+
+
+class HierarchySummary(BaseModel):
+    name: str
+    levels: list[str] = Field(default_factory=list)
+
+
+class ExtensionSummary(BaseModel):
+    name: str
+    url: Optional[str] = None
+    version: Optional[str] = None
+    is_dashboard_extension: bool = False
+
+
+class WorkbookDeepAnalysis(BaseModel):
+    """Full formula-level analysis from parsing a .twb/.twbx workbook file."""
+    workbook_name: str
+    parse_errors: list[str] = Field(default_factory=list)
+
+    # §3 Data model
+    datasource_details: list[DatasourceSummary] = Field(default_factory=list)
+    has_data_blending: bool = False
+    has_cross_database_join: bool = False
+    has_custom_sql: bool = False
+    has_stored_procedures: bool = False
+
+    # §4 Field inventory
+    total_dimensions: int = 0
+    total_measures: int = 0
+    total_hidden_fields: int = 0
+
+    # §5 Calculated fields
+    calc_fields: list[CalcFieldSummary] = Field(default_factory=list)
+    total_calc_fields: int = 0
+
+    # §6 LOD expressions
+    lod_expressions: list[LODSummary] = Field(default_factory=list)
+    total_lod_count: int = 0
+    has_nested_lod: bool = False
+    lod_type_counts: dict = Field(default_factory=dict)
+
+    # §7 Table calculations
+    table_calcs: list[TableCalcSummary] = Field(default_factory=list)
+    total_table_calc_count: int = 0
+    table_calc_types_used: list[str] = Field(default_factory=list)
+
+    # §8 Parameters
+    parameters: list[ParameterSummary] = Field(default_factory=list)
+    total_parameter_count: int = 0
+    has_parameter_actions: bool = False
+
+    # §9 Filters
+    extract_filter_count: int = 0
+    datasource_filter_count: int = 0
+    context_filter_count: int = 0
+    dimension_filter_count: int = 0
+    measure_filter_count: int = 0
+    total_filter_count: int = 0
+
+    # §10 Sorting
+    sort_count: int = 0
+    custom_sort_count: int = 0
+
+    # §11 Sets
+    sets: list[SetSummary] = Field(default_factory=list)
+    has_set_actions: bool = False
+    combined_set_count: int = 0
+
+    # §12 Groups & hierarchies
+    group_count: int = 0
+    hierarchy_count: int = 0
+    hierarchies: list[HierarchySummary] = Field(default_factory=list)
+
+    # §13 Mark types
+    mark_types: list[MarkTypeEntry] = Field(default_factory=list)
+    has_viz_in_tooltip: bool = False
+    has_custom_marks: bool = False
+    unique_mark_types: list[str] = Field(default_factory=list)
+
+    # §14 Dashboard layout
+    dashboards: list[DashboardSummary] = Field(default_factory=list)
+    total_dashboards: int = 0
+    has_floating_objects: bool = False
+    has_device_layouts: bool = False
+
+    # §15 Actions
+    actions: list[ActionSummary] = Field(default_factory=list)
+    filter_action_count: int = 0
+    highlight_action_count: int = 0
+    url_action_count: int = 0
+    set_action_count: int = 0
+    parameter_action_count: int = 0
+
+    # §16 Formatting
+    has_custom_number_formats: bool = False
+    custom_font_count: int = 0
+
+    # §20 Stories
+    story_count: int = 0
+    story_point_count: int = 0
+
+    # §21 Extensions
+    extensions: list[ExtensionSummary] = Field(default_factory=list)
+    total_extensions: int = 0
+
+    # §23 Embedded analytics
+    has_javascript_api: bool = False
+    has_embedding_params: bool = False
+
+    # Refined migration scores (override heuristics from REST data)
+    refined_calc_field_complexity: Optional[int] = None
+    refined_table_calc_complexity: Optional[int] = None
+    refined_parameter_complexity: Optional[int] = None
+    refined_rls_complexity: Optional[int] = None
+    refined_extension_complexity: Optional[int] = None
+    refined_viz_type_complexity: Optional[int] = None
+    refined_dashboard_action_complexity: Optional[int] = None
+    refined_total_score: Optional[int] = None
+    refined_complexity_level: Optional[str] = None
+
+    # Raw worksheet count
+    raw_worksheet_count: int = 0
 
 
 # ── Job response models ───────────────────────────────────────────────────────

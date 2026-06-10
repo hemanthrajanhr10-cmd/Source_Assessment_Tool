@@ -1300,16 +1300,51 @@ def _build_tableau_context(results: dict, client_name: str) -> dict:
     workbooks    = results.get("workbooks") or []
     datasources  = results.get("datasources") or []
     flows        = results.get("flows") or []
+    deep_list    = results.get("workbook_deep_analysis") or []
 
     conn_types = list({d.get("connection_type", "") for d in datasources if d.get("connection_type") and d.get("connection_type") != "unknown"})
 
     # Per-workbook scores from migration feasibility
-    scores      = mf.get("workbook_scores") or []
+    scores       = mf.get("workbook_scores") or []
     very_complex = [s for s in scores if s.get("complexity_level") == "Very Complex"]
-    complex_wb   = [s for s in scores if s.get("complexity_level") == "Complex"]
     top_blockers = []
     for s in very_complex[:5]:
         top_blockers.extend(s.get("migration_blockers") or [])
+
+    # Aggregate formula-level metrics from deep analysis (real .twb parse data)
+    total_calc_fields    = sum(d.get("total_calc_fields", 0) for d in deep_list)
+    total_lod_count      = sum(d.get("total_lod_count", 0) for d in deep_list)
+    total_table_calcs    = sum(d.get("total_table_calc_count", 0) for d in deep_list)
+    total_parameters     = sum(d.get("total_parameter_count", 0) for d in deep_list)
+    total_extensions     = sum(d.get("total_extensions", 0) for d in deep_list)
+    has_viz_in_tooltip   = any(d.get("has_viz_in_tooltip") for d in deep_list)
+    has_custom_sql       = any(d.get("has_custom_sql") for d in deep_list)
+    has_nested_lod       = any(d.get("has_nested_lod") for d in deep_list)
+    has_set_actions      = any(d.get("has_set_actions") for d in deep_list)
+    has_parameter_actions = any(d.get("has_parameter_actions") for d in deep_list)
+    has_data_blending    = any(d.get("has_data_blending") for d in deep_list)
+    has_cross_db_join    = any(d.get("has_cross_database_join") for d in deep_list)
+    lod_type_counts: dict[str, int] = {}
+    tc_types_used: set[str] = set()
+    for d in deep_list:
+        for k, v in (d.get("lod_type_counts") or {}).items():
+            lod_type_counts[k] = lod_type_counts.get(k, 0) + v
+        for t in (d.get("table_calc_types_used") or []):
+            tc_types_used.add(t)
+    # Sample of top LOD formulas from the most complex workbook for the AI prompt
+    top_lod_samples: list[str] = []
+    for d in sorted(deep_list, key=lambda x: x.get("total_lod_count", 0), reverse=True)[:3]:
+        for lod in (d.get("lod_expressions") or [])[:3]:
+            if lod.get("formula"):
+                top_lod_samples.append(f"[{d['workbook_name']}] {lod['lod_type']}: {lod['formula'][:120]}")
+    # Sample table calc formulas
+    top_tc_samples: list[str] = []
+    for d in sorted(deep_list, key=lambda x: x.get("total_table_calc_count", 0), reverse=True)[:3]:
+        for tc in (d.get("table_calcs") or [])[:2]:
+            if tc.get("formula"):
+                top_tc_samples.append(f"[{d['workbook_name']}] {tc['calc_type']}: {tc['formula'][:120]}")
+
+    has_deep_analysis = len(deep_list) > 0
 
     return {
         "client_name":           client_name,
@@ -1353,10 +1388,30 @@ def _build_tableau_context(results: dict, client_name: str) -> dict:
         "top_blockers":          list(dict.fromkeys(top_blockers))[:5],
         "feature_mapping":       mf.get("feature_mapping") or [],
         "workbook_scores":       scores[:20],
+        # Formula-level data from .twb parsing
+        "has_deep_analysis":     has_deep_analysis,
+        "deep_workbooks_parsed": len(deep_list),
+        "total_calc_fields":     total_calc_fields,
+        "total_lod_count":       total_lod_count,
+        "total_table_calcs":     total_table_calcs,
+        "total_parameters":      total_parameters,
+        "total_extensions":      total_extensions,
+        "has_viz_in_tooltip":    has_viz_in_tooltip,
+        "has_custom_sql":        has_custom_sql,
+        "has_nested_lod":        has_nested_lod,
+        "has_set_actions":       has_set_actions,
+        "has_parameter_actions": has_parameter_actions,
+        "has_data_blending":     has_data_blending,
+        "has_cross_db_join":     has_cross_db_join,
+        "lod_type_counts":       lod_type_counts,
+        "tc_types_used":         sorted(tc_types_used),
+        "top_lod_samples":       top_lod_samples[:5],
+        "top_tc_samples":        top_tc_samples[:5],
         # Raw for tables
         "_workbooks":   workbooks[:50],
         "_datasources": datasources[:30],
         "_flows":       flows[:20],
+        "_deep":        deep_list[:10],
     }
 
 
@@ -1388,6 +1443,35 @@ Formal consultant tone. Cite specific numbers. No bullet points. No em dashes.""
 
 def _gen_tableau_migration_analysis(client: openai.OpenAI, ctx: dict) -> str:
     blockers_text = "\n".join(f"- {b}" for b in ctx["migration_blockers"][:5]) if ctx["migration_blockers"] else "No critical blockers identified."
+
+    # Enrich with real formula data if .twb parsing was performed
+    formula_section = ""
+    if ctx.get("has_deep_analysis"):
+        lod_breakdown = ", ".join(f"{k}: {v}" for k, v in (ctx.get("lod_type_counts") or {}).items()) or "none"
+        tc_types = ", ".join(ctx.get("tc_types_used") or []) or "none"
+        formula_section = f"""
+FORMULA-LEVEL DATA (from actual .twb workbook file parsing — {ctx['deep_workbooks_parsed']} workbooks analysed):
+- Total Calculated Fields: {ctx['total_calc_fields']} (across all parsed workbooks)
+- LOD Expressions: {ctx['total_lod_count']} (breakdown by type: {lod_breakdown}){' — includes NESTED LODs requiring special REMOVEFILTERS handling' if ctx.get('has_nested_lod') else ''}
+- Table Calculations: {ctx['total_table_calcs']} (types used: {tc_types})
+- Parameters: {ctx['total_parameters']}
+- Tableau Extensions: {ctx['total_extensions']}{' — critical blocker' if ctx['total_extensions'] > 0 else ''}
+- Custom SQL queries detected: {'Yes — requires Power BI connector validation' if ctx.get('has_custom_sql') else 'No'}
+- Viz-in-Tooltip: {'Yes — replace with Power BI report page tooltips' if ctx.get('has_viz_in_tooltip') else 'No'}
+- Set Actions: {'Yes — must be redesigned as cross-filter + slicer interactions' if ctx.get('has_set_actions') else 'No'}
+- Parameter Actions: {'Yes — replace with Power BI bookmark navigator or field parameters' if ctx.get('has_parameter_actions') else 'No'}
+- Data Blending: {'Yes — redesign as Power BI composite model or single semantic model' if ctx.get('has_data_blending') else 'No'}
+- Cross-Database Joins: {'Yes — evaluate Power BI DirectQuery composite model' if ctx.get('has_cross_db_join') else 'No'}
+"""
+        if ctx.get("top_lod_samples"):
+            formula_section += "\nSample LOD Expressions (actual formulas):\n"
+            for s in ctx["top_lod_samples"]:
+                formula_section += f"  {s}\n"
+        if ctx.get("top_tc_samples"):
+            formula_section += "\nSample Table Calculations (actual formulas):\n"
+            for s in ctx["top_tc_samples"]:
+                formula_section += f"  {s}\n"
+
     prompt = f"""Write a 3-paragraph Power BI Migration Analysis section for a Tableau assessment report.
 
 Client: {ctx['client_name']}
@@ -1397,16 +1481,16 @@ Migratable connections (direct Power BI equivalents): {', '.join(ctx['migratable
 Complex connections (require mapping work): {', '.join(ctx['complex_connections']) or 'none identified'}
 Prep Flows present (need Dataflow Gen2 mapping): {'Yes — ' + str(ctx['total_flows']) + ' flows' if ctx['has_prep_flows'] else 'No'}
 Row-Level Security present (needs Power BI RLS): {'Yes' if ctx['has_rls'] else 'No'}
-
+{formula_section}
 Migration blockers:
 {blockers_text}
 
 Paragraph 1: Explain the migration feasibility rating — why the environment is rated {ctx['overall_feasibility']}, referencing the complexity distribution and connection types.
-Paragraph 2: Address the primary technical challenges — LOD expressions to DAX CALCULATE patterns, table calculations to time-intelligence, parameters to What-If / field parameters. Cite which workbooks are Complex/Very Complex and why.
-Paragraph 3: Outline the recommended phased migration approach — start with Simple workbooks, migrate Moderate with guidance, plan dedicated sprints for Complex. Reference Prep Flows to Dataflow Gen2 migration.
+Paragraph 2: Address the primary technical challenges using the real formula-level data above where available — cite exact counts of LOD expressions, table calculations, custom SQL, extensions. Map each to its Power BI / DAX equivalent (FIXED LOD → CALCULATE+REMOVEFILTERS, table calcs → DAX running totals/RANKX, etc.).
+Paragraph 3: Outline the recommended phased migration approach — start with Simple workbooks, migrate Moderate with guidance, plan dedicated sprints for Complex. Reference Prep Flows to Dataflow Gen2 migration. If extensions were detected, call out the AppSource evaluation step.
 
-Formal consultant tone. Cite numbers. No bullet points. No em dashes."""
-    return _call_ai(client, prompt, max_tokens=700)
+Formal consultant tone. Cite specific numbers from the data. No bullet points. No em dashes."""
+    return _call_ai(client, prompt, max_tokens=800)
 
 
 def _gen_tableau_pain_points(client: openai.OpenAI, ctx: dict) -> str:
@@ -1688,6 +1772,59 @@ def build_tableau_ai_word_report(
         [1.5, 6, 2, 6.5],
     )
 
+    # ── Formula-Level Deep Analysis (from .twb parsing) ──────────────────────
+    if ctx.get("has_deep_analysis") and ctx.get("_deep"):
+        _h1(doc, "Formula-Level Deep Analysis (.twb Workbook Parsing)")
+        _body(doc,
+            f"The following section presents formula-level analysis obtained by downloading and parsing "
+            f"{ctx['deep_workbooks_parsed']} workbook files (.twb/.twbx XML). This data is sourced directly "
+            f"from workbook internals and supersedes heuristic estimates used in the migration scoring above.")
+
+        lod_breakdown = ", ".join(f"{k}: {v}" for k, v in (ctx.get("lod_type_counts") or {}).items()) or "none"
+        tc_types = ", ".join(ctx.get("tc_types_used") or []) or "none"
+
+        _table(
+            doc,
+            ["Formula Metric", "Count / Status"],
+            [
+                ["Workbooks Parsed",                  str(ctx["deep_workbooks_parsed"])],
+                ["Total Calculated Fields",           str(ctx["total_calc_fields"])],
+                ["LOD Expressions",                   f"{ctx['total_lod_count']} ({lod_breakdown})"],
+                ["Nested LOD Expressions",            "Yes — require extra REMOVEFILTERS handling" if ctx.get("has_nested_lod") else "None detected"],
+                ["Table Calculations",                f"{ctx['total_table_calcs']} (types: {tc_types})"],
+                ["Parameters",                        str(ctx["total_parameters"])],
+                ["Tableau Extensions",                f"{ctx['total_extensions']} — no direct Power BI equivalent" if ctx['total_extensions'] > 0 else "None detected"],
+                ["Custom SQL Queries",                "Detected — validate Power BI connector support" if ctx.get("has_custom_sql") else "None detected"],
+                ["Viz-in-Tooltip",                    "Detected — replace with Power BI report page tooltips" if ctx.get("has_viz_in_tooltip") else "Not detected"],
+                ["Set Actions",                       "Detected — redesign as cross-filter + slicer" if ctx.get("has_set_actions") else "Not detected"],
+                ["Parameter Actions",                 "Detected — replace with bookmark / field parameters" if ctx.get("has_parameter_actions") else "Not detected"],
+                ["Data Blending",                     "Detected — redesign as composite model" if ctx.get("has_data_blending") else "Not detected"],
+                ["Cross-Database Joins",              "Detected — evaluate DirectQuery composite model" if ctx.get("has_cross_db_join") else "Not detected"],
+            ],
+            [8, 8],
+        )
+
+        # Per-workbook summary from deep analysis
+        if ctx["_deep"]:
+            _h2(doc, "Per-Workbook Formula Summary")
+            deep_rows = []
+            for d in ctx["_deep"][:15]:
+                deep_rows.append([
+                    d.get("workbook_name", "—"),
+                    str(d.get("total_calc_fields", 0)),
+                    str(d.get("total_lod_count", 0)),
+                    str(d.get("total_table_calc_count", 0)),
+                    str(d.get("total_parameter_count", 0)),
+                    str(d.get("total_extensions", 0)),
+                    d.get("refined_complexity_level", d.get("refined_complexity_level", "—")),
+                ])
+            _table(
+                doc,
+                ["Workbook", "Calcs", "LODs", "Table Calcs", "Params", "Exts", "Refined Level"],
+                deep_rows or [["—"] * 7],
+                [4, 1.5, 1.5, 2.5, 1.5, 1.5, 3.5],
+            )
+
     # ── Conclusion ────────────────────────────────────────────────────────────
     _h1(doc, "Conclusion")
     for para in conclusion.split("\n\n"):
@@ -1705,6 +1842,9 @@ def build_tableau_ai_word_report(
             ["Estimated Migration Weeks", str(ctx["migration_weeks"])],
             ["Simple / Moderate Workbooks", f"{ctx['simple_workbooks']} / {ctx['moderate_workbooks']}"],
             ["Complex / Very Complex",   f"{ctx['complex_workbooks']} / {ctx['very_complex_workbooks']}"],
+            ["Calculated Fields (parsed)", str(ctx.get("total_calc_fields", "N/A"))],
+            ["LOD Expressions (parsed)",   str(ctx.get("total_lod_count", "N/A"))],
+            ["Table Calculations (parsed)", str(ctx.get("total_table_calcs", "N/A"))],
         ],
         [8, 8],
     )

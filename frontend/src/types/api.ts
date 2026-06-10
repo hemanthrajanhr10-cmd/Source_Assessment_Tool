@@ -1349,6 +1349,200 @@ export interface MigrationFeasibilityReport {
   recommended_migration_order: string[]
 }
 
+export interface CalcFieldSummary {
+  name: string
+  formula: string
+  datatype: string
+  role: string
+  is_lod: boolean
+  lod_type?: string
+  is_table_calc: boolean
+  table_calc_type?: string
+  dependencies: string[]
+  nested_lod_count: number
+}
+
+export interface LODSummary {
+  name: string
+  formula: string
+  lod_type: string
+  is_nested: boolean
+}
+
+export interface TableCalcSummary {
+  name: string
+  formula: string
+  calc_type: string
+}
+
+export interface ParameterSummary {
+  name: string
+  caption?: string
+  datatype: string
+  current_value?: string
+  allowable_values_type: string
+  list_values: string[]
+}
+
+export interface DatasourceDetailSummary {
+  name: string
+  connection_type: string
+  has_custom_sql: boolean
+  has_extract: boolean
+  join_count: number
+  join_types: string[]
+  has_stored_proc: boolean
+}
+
+export interface MarkTypeEntry {
+  worksheet: string
+  mark_type: string
+  has_dual_axis: boolean
+  has_viz_in_tooltip: boolean
+}
+
+export interface DashboardSummaryEntry {
+  name: string
+  object_count: number
+  has_floating_objects: boolean
+  has_device_layouts: boolean
+  device_types: string[]
+}
+
+export interface ActionSummaryEntry {
+  name: string
+  action_type: string
+  source_sheet?: string
+  target_sheet?: string
+}
+
+export interface SetSummaryEntry {
+  name: string
+  set_type: string
+  member_count: number
+  is_combined: boolean
+}
+
+export interface HierarchySummaryEntry {
+  name: string
+  levels: string[]
+}
+
+export interface ExtensionSummaryEntry {
+  name: string
+  url?: string
+  version?: string
+  is_dashboard_extension: boolean
+}
+
+export interface WorkbookDeepAnalysis {
+  workbook_name: string
+  parse_errors: string[]
+
+  // §3 Data model
+  datasource_details: DatasourceDetailSummary[]
+  has_data_blending: boolean
+  has_cross_database_join: boolean
+  has_custom_sql: boolean
+  has_stored_procedures: boolean
+
+  // §4 Fields
+  total_dimensions: number
+  total_measures: number
+  total_hidden_fields: number
+
+  // §5 Calculated fields
+  calc_fields: CalcFieldSummary[]
+  total_calc_fields: number
+
+  // §6 LOD
+  lod_expressions: LODSummary[]
+  total_lod_count: number
+  has_nested_lod: boolean
+  lod_type_counts: Record<string, number>
+
+  // §7 Table calcs
+  table_calcs: TableCalcSummary[]
+  total_table_calc_count: number
+  table_calc_types_used: string[]
+
+  // §8 Parameters
+  parameters: ParameterSummary[]
+  total_parameter_count: number
+  has_parameter_actions: boolean
+
+  // §9 Filters
+  extract_filter_count: number
+  datasource_filter_count: number
+  context_filter_count: number
+  dimension_filter_count: number
+  measure_filter_count: number
+  total_filter_count: number
+
+  // §10 Sorting
+  sort_count: number
+  custom_sort_count: number
+
+  // §11 Sets
+  sets: SetSummaryEntry[]
+  has_set_actions: boolean
+  combined_set_count: number
+
+  // §12 Groups & hierarchies
+  group_count: number
+  hierarchy_count: number
+  hierarchies: HierarchySummaryEntry[]
+
+  // §13 Mark types
+  mark_types: MarkTypeEntry[]
+  has_viz_in_tooltip: boolean
+  has_custom_marks: boolean
+  unique_mark_types: string[]
+
+  // §14 Dashboards
+  dashboards: DashboardSummaryEntry[]
+  total_dashboards: number
+  has_floating_objects: boolean
+  has_device_layouts: boolean
+
+  // §15 Actions
+  actions: ActionSummaryEntry[]
+  filter_action_count: number
+  highlight_action_count: number
+  url_action_count: number
+  set_action_count: number
+  parameter_action_count: number
+
+  // §16 Formatting
+  has_custom_number_formats: boolean
+  custom_font_count: number
+
+  // §20 Stories
+  story_count: number
+  story_point_count: number
+
+  // §21 Extensions
+  extensions: ExtensionSummaryEntry[]
+  total_extensions: number
+
+  // §23 Embedded analytics
+  has_javascript_api: boolean
+  has_embedding_params: boolean
+
+  // Refined migration scores
+  refined_calc_field_complexity?: number
+  refined_table_calc_complexity?: number
+  refined_parameter_complexity?: number
+  refined_rls_complexity?: number
+  refined_extension_complexity?: number
+  refined_viz_type_complexity?: number
+  refined_dashboard_action_complexity?: number
+  refined_total_score?: number
+  refined_complexity_level?: string
+
+  raw_worksheet_count: number
+}
+
 export interface TableauAssessmentResult {
   job_id: string
   label?: string
@@ -1362,6 +1556,7 @@ export interface TableauAssessmentResult {
   extract_health?: TableauExtractHealth
   data_quality?: TableauDataQualityFlags
   migration_feasibility?: MigrationFeasibilityReport
+  workbook_deep_analysis?: WorkbookDeepAnalysis[]
   projects?: TableauProject[]
   workbooks?: TableauWorkbook[]
   datasources?: TableauDatasource[]

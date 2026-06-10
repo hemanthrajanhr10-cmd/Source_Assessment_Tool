@@ -1,13 +1,15 @@
 """
 Tableau Assessment API routes — Superior Edition.
 
-POST /tableau/test-connection          — validate credentials
-POST /tableau/assess                   — start async assessment (202)
-GET  /tableau/jobs/{id}/status         — poll job status
-GET  /tableau/jobs/{id}/results        — fetch full result (includes migration feasibility)
-GET  /tableau/jobs/{id}/report         — download Excel report (12 sheets)
-GET  /tableau/jobs/{id}/word-report    — download AI-powered Word report
-GET  /tableau/sessions                 — list all Tableau jobs
+POST /tableau/test-connection                  — validate credentials
+POST /tableau/assess                           — start async assessment (202)
+GET  /tableau/jobs/{id}/status                 — poll job status
+GET  /tableau/jobs/{id}/results                — fetch full result (includes migration feasibility)
+GET  /tableau/jobs/{id}/report                 — download Excel report (12 sheets)
+GET  /tableau/jobs/{id}/word-report            — download AI-powered Word report
+POST /tableau/jobs/{id}/regenerate-word-report — regenerate AI Word report
+GET  /tableau/jobs/{id}/workbook-analysis      — per-workbook deep analysis (from .twb parsing)
+GET  /tableau/sessions                         — list all Tableau jobs
 """
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
@@ -21,6 +23,7 @@ from app.models.tableau_requests import (
     TableauJobResponse,
     TableauJobStatusResponse,
     TableauSessionRecord,
+    WorkbookDeepAnalysis,
 )
 from app.services import tableau_service as svc
 
@@ -168,6 +171,32 @@ async def regenerate_word_report(job_id: str, _user=AuthDep):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ── Workbook deep analysis ────────────────────────────────────────────────────
+
+@router.get(
+    "/jobs/{job_id}/workbook-analysis",
+    response_model=list[WorkbookDeepAnalysis],
+    summary="Per-workbook deep analysis from .twb/.twbx XML parsing",
+)
+async def get_workbook_analysis(job_id: str, _user=AuthDep) -> list[WorkbookDeepAnalysis]:
+    """Return per-workbook deep formula analysis extracted from .twb/.twbx file parsing."""
+    job = svc.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Tableau job {job_id!r} not found.")
+    if job["status"] not in ("completed", "failed"):
+        raise HTTPException(status_code=409, detail=f"Job is still {job['status']}.")
+    results = job.get("results")
+    if not results:
+        raise HTTPException(status_code=404, detail="Results not available.")
+    deep = results.get("workbook_deep_analysis")
+    if not deep:
+        raise HTTPException(
+            status_code=404,
+            detail="No deep workbook analysis available. The workbooks may not have been downloadable from this server.",
+        )
+    return [WorkbookDeepAnalysis(**d) for d in deep]
 
 
 # ── Sessions list ─────────────────────────────────────────────────────────────

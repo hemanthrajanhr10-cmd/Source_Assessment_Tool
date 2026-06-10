@@ -1,6 +1,6 @@
-﻿// Unified Assessment only — SQL Server and Fabric standalone assessments are handled in their respective sections.
-// This page always runs a combined Source DB + Fabric assessment ("both" mode).
-// Do NOT add Source-only or Fabric-only entry points here.
+// Unified Assessment — users choose which sources to include (SQL Server / Fabric / both),
+// configure each, and run them together in one session.
+// Do NOT add separate source-only or fabric-only entry points here.
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -9,7 +9,8 @@ import {
   ArrowRight, Server, Plus, Trash2, Eye, EyeOff,
   Wifi, WifiOff, RefreshCw, Search, ExternalLink, Copy,
   Loader2, Tag, Building2, FileText, ChevronDown, ChevronRight,
-  MonitorSmartphone, Share2, Network, Info, ShieldCheck, Zap,
+  Share2, Network, Info, ShieldCheck, Zap,
+  Layers3, X, Settings2,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type {
@@ -21,12 +22,11 @@ import type {
   HybridConnection,
 } from '../types/api'
 import { ACCESS_LEVEL_OPTIONS } from '../types/api'
-import Button from '../components/ui/Button'
-import Spinner from '../components/ui/Spinner'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Phase =
+  | 'source-selection'   // NEW: pick which sources to include
   | 'source-form'
   | 'source-submitting'
   | 'fabric-auth'
@@ -35,6 +35,8 @@ type Phase =
   | 'fabric-naming'
   | 'fabric-submitting'
   | 'done'
+
+type SourceSelection = 'source_only' | 'fabric_only' | 'both'
 
 interface SelectedDb {
   name: string
@@ -53,7 +55,7 @@ interface ServerEntry {
   trust_server_certificate: boolean
   encrypt: boolean
   access_level: AccessLevel
-  gateway_key: string | null   // set when a Hybrid Connection is selected
+  gateway_key: string | null
   gcp_sa_key: string
   show_gcp_sa_key: boolean
   gcp_private_ip: boolean
@@ -94,18 +96,68 @@ function makeServer(): ServerEntry {
 
 type PgPlatformKey = 'azure' | 'gcp_cloudsql_name' | 'aws' | 'local' | 'other'
 
-function detectPgPlatform(server: string): { key: PgPlatformKey; label: string; badge: string } {
+function detectPgPlatform(server: string): { key: PgPlatformKey; label: string } {
   const s = server.trim().toLowerCase()
   const parts = server.trim().split(':')
   if (parts.length === 3 && parts.every(p => p.trim()))
-    return { key: 'gcp_cloudsql_name', label: 'GCP Cloud SQL', badge: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' }
+    return { key: 'gcp_cloudsql_name', label: 'GCP Cloud SQL' }
   if (s.endsWith('.postgres.database.azure.com') || s.endsWith('.database.windows.net'))
-    return { key: 'azure', label: 'Azure PostgreSQL', badge: 'bg-sky-50 text-sky-700 ring-1 ring-sky-200' }
+    return { key: 'azure', label: 'Azure PostgreSQL' }
   if (s.includes('.rds.amazonaws.com'))
-    return { key: 'aws', label: 'AWS RDS / Aurora', badge: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200' }
+    return { key: 'aws', label: 'AWS RDS / Aurora' }
   if (s === 'localhost' || s.startsWith('127.') || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(s))
-    return { key: 'local', label: 'Local / On-premises', badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' }
-  return { key: 'other', label: 'PostgreSQL', badge: 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' }
+    return { key: 'local', label: 'Local / On-premises' }
+  return { key: 'other', label: 'PostgreSQL' }
+}
+
+// ── Shared style helpers ──────────────────────────────────────────────────────
+
+const cardCls = 'rounded-xl border bg-[#18181b] overflow-hidden transition-all duration-200'
+const activeBorderCls = 'border-[rgba(245,158,11,0.45)]'
+const doneBorderCls = 'border-[#3f3f46]'
+const pendingBorderCls = 'border-[#3f3f46] opacity-50 pointer-events-none select-none'
+
+const inputCls = [
+  'w-full text-sm border border-[#3f3f46] rounded-lg px-3 py-2',
+  'bg-[#27272a] text-[#f4f4f5] placeholder-[#71717a]',
+  'focus:outline-none focus:border-[rgba(245,158,11,0.6)] focus:ring-1 focus:ring-[rgba(245,158,11,0.15)]',
+  'transition-colors',
+].join(' ')
+
+const selectCls = [
+  'text-sm border border-[#3f3f46] rounded-lg px-2 py-2',
+  'bg-[#27272a] text-[#f4f4f5]',
+  'focus:outline-none focus:border-[rgba(245,158,11,0.6)] focus:ring-1 focus:ring-[rgba(245,158,11,0.15)]',
+].join(' ')
+
+// ── Step header ───────────────────────────────────────────────────────────────
+
+function StepHeader({
+  number, title, done, active, count,
+}: { number: number; title: string; done: boolean; active: boolean; count?: string }) {
+  return (
+    <div className={`flex items-center gap-3 px-5 py-4 border-b ${
+      done ? 'border-[#3f3f46] bg-[#18181b]' : active ? 'border-[rgba(245,158,11,0.2)] bg-[#1e1b10]' : 'border-[#3f3f46] bg-[#18181b]'
+    }`}>
+      <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold shrink-0 ${
+        done
+          ? 'bg-[rgba(52,211,153,0.15)] text-[#34d399]'
+          : active
+          ? 'bg-[rgba(245,158,11,0.2)] text-[#f59e0b]'
+          : 'bg-[#27272a] text-[#71717a]'
+      }`}>
+        {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : number}
+      </span>
+      <h2 className={`text-sm font-semibold flex-1 ${
+        done ? 'text-[#a1a1aa]' : active ? 'text-[#f4f4f5]' : 'text-[#71717a]'
+      }`}>
+        {title}
+      </h2>
+      {count && (
+        <span className="text-xs font-medium text-[#f59e0b]">{count}</span>
+      )}
+    </div>
+  )
 }
 
 // ── Toggle ────────────────────────────────────────────────────────────────────
@@ -122,61 +174,17 @@ function Toggle({ checked, onChange, label, description }: {
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent
-          transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-earth-600/40
-          ${checked ? 'bg-earth-600' : 'bg-slate-300'}`}
+          transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(245,158,11,0.4)]
+          ${checked ? 'bg-[#f59e0b]' : 'bg-[#3f3f46]'}`}
       >
-        <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform
-          ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
+        <span className={`inline-block h-4 w-4 rounded-full shadow-sm transform transition-transform
+          ${checked ? 'translate-x-4 bg-[#09090b]' : 'translate-x-0 bg-[#71717a]'}`} />
       </button>
       <div>
-        <span className="text-sm font-medium text-slate-700">{label}</span>
-        {description && <p className="text-xs text-slate-400 mt-0.5">{description}</p>}
+        <span className="text-sm font-medium text-[#f4f4f5]">{label}</span>
+        {description && <p className="text-xs text-[#71717a] mt-0.5">{description}</p>}
       </div>
     </label>
-  )
-}
-
-// ── Progress Stepper ──────────────────────────────────────────────────────────
-
-function Stepper({ phase }: { phase: Phase }) {
-  const steps = ['Source Assessment', 'Fabric Assessment']
-
-  const activeStep = phase.startsWith('fabric') || phase === 'done' ? 1 : 0
-
-  const completedUpTo =
-    phase === 'done' ? steps.length :
-    phase.startsWith('fabric') ? 1 : 0
-
-  return (
-    <div className="flex items-center gap-0 mb-8">
-      {steps.map((label, i) => {
-        const done = i < completedUpTo
-        const active = i === activeStep && phase !== 'done'
-        return (
-          <div key={label} className="flex items-center flex-1">
-            <div className="flex flex-col items-center flex-1">
-              <div
-                className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
-                  done
-                    ? 'bg-earth-500 text-white'
-                    : active
-                    ? 'bg-earth-700 text-white shadow-lg shadow-earth-200'
-                    : 'bg-slate-100 text-slate-400 border border-slate-200'
-                }`}
-              >
-                {done ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
-              </div>
-              <span className={`mt-1.5 text-xs font-medium ${active ? 'text-earth-800' : done ? 'text-earth-600' : 'text-slate-400'}`}>
-                {label}
-              </span>
-            </div>
-            {i < steps.length - 1 && (
-              <div className={`h-0.5 flex-1 mx-2 rounded-full transition-all ${completedUpTo > i ? 'bg-earth-400' : 'bg-slate-200'}`} />
-            )}
-          </div>
-        )
-      })}
-    </div>
   )
 }
 
@@ -185,12 +193,14 @@ function Stepper({ phase }: { phase: Phase }) {
 export default function UnifiedAssessmentPage() {
   const navigate = useNavigate()
 
-  // Unified Assessment always runs source + fabric together.
-  const mode = 'both' as const
-  const [phase, setPhase]                 = useState<Phase>('source-form')
+  const [phase, setPhase]                 = useState<Phase>('source-selection')
+  const [sourceSelection, setSourceSelection] = useState<SourceSelection>('both')
   const [unifiedSessionId, setUnifiedSessionId] = useState<string>('')
   const [sessionLabel, setSessionLabel]   = useState('')
   const [error, setError]                 = useState<string | null>(null)
+
+  const includeSource = sourceSelection === 'source_only' || sourceSelection === 'both'
+  const includeFabric = sourceSelection === 'fabric_only' || sourceSelection === 'both'
 
   // Source form state
   const [servers, setServers]             = useState<ServerEntry[]>([makeServer()])
@@ -271,15 +281,13 @@ export default function UnifiedAssessmentPage() {
     setSourceSubmitting(true)
     setError(null)
     try {
-      // Create the unified session at submit time so abandoned flows never leave
-      // ghost "Pending / Unlabelled" rows in the database.
+      const mode = sourceSelection
       let sessionId = unifiedSessionId
       if (!sessionId) {
-        const { data: us } = await api.createUnifiedSession({ mode, label: sessionLabel || undefined })
+        const { data: us } = await api.createUnifiedSession({ mode: mode === 'both' ? 'both' : 'source', label: sessionLabel || undefined })
         sessionId = us.unified_session_id
         setUnifiedSessionId(sessionId)
       }
-
       await api.createSession({
         label: sessionLabel || undefined,
         unified_session_id: sessionId,
@@ -300,14 +308,17 @@ export default function UnifiedAssessmentPage() {
           databases: s.selected_dbs,
         })),
       })
-
-      setPhase('fabric-auth')
+      if (includeFabric) {
+        setPhase('fabric-auth')
+      } else {
+        navigate(`/unified/sessions/${sessionId}`)
+      }
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {
       setSourceSubmitting(false)
     }
-  }, [servers, sessionLabel, unifiedSessionId, navigate])
+  }, [servers, sessionLabel, unifiedSessionId, sourceSelection, includeFabric, navigate])
 
   // ── Fabric auth helpers ─────────────────────────────────────────────────────
 
@@ -346,7 +357,6 @@ export default function UnifiedAssessmentPage() {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [phase, authId])
 
-  // Auto-start fabric auth when entering fabric-auth phase for the first time
   useEffect(() => {
     if (phase === 'fabric-auth' && !authId) {
       startFabricAuth()
@@ -360,6 +370,10 @@ export default function UnifiedAssessmentPage() {
     try {
       const { data } = await api.fabricListWorkspaceItems(authId, Array.from(selectedWsIds))
       setWorkspaceItems(data)
+      const allDs  = new Set(data.flatMap(w => w.datasets.map(d => d.id)))
+      const allRpt = new Set(data.flatMap(w => w.reports.map(r => r.id)))
+      setSelectedDatasetIds(allDs)
+      setSelectedReportIds(allRpt)
       setExpandedWorkspaces(new Set(data.map(w => w.workspace_id)))
     } catch (err) {
       setError(getApiErrorMessage(err))
@@ -372,168 +386,366 @@ export default function UnifiedAssessmentPage() {
     setPhase('fabric-submitting')
     setError(null)
     try {
+      let sessionId = unifiedSessionId
+      if (!sessionId) {
+        const { data: us } = await api.createUnifiedSession({ mode: 'fabric', label: sessionLabel || undefined })
+        sessionId = us.unified_session_id
+        setUnifiedSessionId(sessionId)
+      }
       await api.createFabricSession({
         auth_id: authId,
         label: fabricLabel || sessionLabel || undefined,
         workspace_ids: Array.from(selectedWsIds),
         dataset_ids: Array.from(selectedDatasetIds),
         report_ids: Array.from(selectedReportIds),
-        unified_session_id: unifiedSessionId,
+        unified_session_id: sessionId,
       })
-      navigate(`/unified/sessions/${unifiedSessionId}`)
+      navigate(`/unified/sessions/${sessionId}`)
     } catch (err) {
       setError(getApiErrorMessage(err))
       setPhase('fabric-naming')
     }
   }, [authId, fabricLabel, sessionLabel, selectedWsIds, selectedDatasetIds, selectedReportIds, unifiedSessionId, navigate])
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Derived state for step visibility ──────────────────────────────────────
+
+  const selectionDone = phase !== 'source-selection'
+  const sourceDone    = ['fabric-auth', 'fabric-picking', 'fabric-picking-items', 'fabric-naming', 'fabric-submitting', 'done'].includes(phase)
+  const fabricAuthDone = ['fabric-picking', 'fabric-picking-items', 'fabric-naming', 'fabric-submitting', 'done'].includes(phase)
+  const wsDone        = ['fabric-picking-items', 'fabric-naming', 'fabric-submitting', 'done'].includes(phase)
+  const itemsDone     = ['fabric-naming', 'fabric-submitting', 'done'].includes(phase)
+
+  const sourceStepNum  = includeSource ? 2 : null
+  const fabricStepBase = includeSource ? 2 : 1
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-2xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">New Assessment</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Assess your Source databases and Microsoft Fabric workspaces in one unified session.
+        <div className="flex items-center gap-3 mb-2">
+          <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(245,158,11,0.08))', border: '1px solid rgba(245,158,11,0.3)' }}>
+            <Layers3 className="h-4.5 w-4.5 text-[#f59e0b]" style={{ height: 18, width: 18 }} />
+          </div>
+          <h1 className="text-2xl font-bold text-[#f4f4f5] tracking-tight" style={{ fontFamily: 'Syne, system-ui, sans-serif' }}>
+            New Unified Assessment
+          </h1>
+        </div>
+        <p className="text-sm text-[#71717a] ml-12">
+          Choose your sources, configure connections, and run a single session that covers everything.
         </p>
       </div>
 
-      {/* Stepper */}
-      <Stepper phase={phase} />
-
       {/* Global error */}
       {error && (
-        <div className="mb-6 flex items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+        <div className="mb-5 flex items-start gap-3 p-4 rounded-xl bg-[rgba(248,113,113,0.08)] border border-[rgba(248,113,113,0.25)] text-[#f87171] text-sm">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-          <span>{error}</span>
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError(null)} className="text-[#f87171]/60 hover:text-[#f87171] transition-colors">
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
-      {/* ── Phase: source-form ─────────────────────────────────────────────── */}
-      {phase === 'source-form' && (
-        <div className="space-y-4">
-          {/* Session label */}
-          <div
-            className="p-4 rounded-2xl border border-slate-200 bg-white"
-            style={{ boxShadow: 'var(--elevation-1)' }}
-          >
-            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
-              Session label <span className="text-slate-400 font-normal normal-case">(optional)</span>
-            </label>
-            <div className="relative">
-              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                value={sessionLabel}
-                onChange={e => setSessionLabel(e.target.value)}
-                placeholder="e.g. Q2 2026 Full Assessment"
-                className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl
-                           focus:outline-none focus:ring-2 focus:ring-earth-600/30 focus:border-earth-400
-                           bg-white text-slate-800 placeholder-slate-400"
-              />
-            </div>
-          </div>
+      <div className="space-y-4">
 
-          <SourceAssessmentForm
-            servers={servers}
-            setServers={setServers}
-            updateServer={updateServer}
-            testConnectivity={testConnectivity}
-            loadDatabases={loadDatabases}
-            onSubmit={handleSourceSubmit}
-            onBack={() => navigate('/unified/sessions')}
-            submitting={sourceSubmitting}
+        {/* ── Step 1: Source Selection ──────────────────────────────────────── */}
+        <div className={`${cardCls} ${!selectionDone ? activeBorderCls : doneBorderCls}`}>
+          <StepHeader
+            number={1}
+            title="Select sources to assess"
+            done={selectionDone}
+            active={!selectionDone}
           />
+          <div className="p-5 space-y-5">
+            {/* Session label */}
+            <div>
+              <label className="block text-[10px] font-semibold text-[#71717a] uppercase tracking-widest mb-1.5">
+                Session Label <span className="text-[#52525b] font-normal normal-case">(optional)</span>
+              </label>
+              <div className="relative">
+                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#52525b]" />
+                <input
+                  value={sessionLabel}
+                  onChange={e => setSessionLabel(e.target.value)}
+                  placeholder="e.g. Q2 2026 Full Assessment"
+                  disabled={selectionDone}
+                  className={`${inputCls} pl-9 disabled:opacity-40`}
+                />
+              </div>
+            </div>
+
+            {/* Source toggles */}
+            {selectionDone ? (
+              <div className="flex items-center gap-2 text-sm text-[#34d399]">
+                <CheckCircle2 className="h-4 w-4" />
+                {sourceSelection === 'both' ? 'Source DB + Microsoft Fabric'
+                  : sourceSelection === 'source_only' ? 'Source DB only'
+                  : 'Microsoft Fabric only'}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-3">
+                  {([
+                    { value: 'source_only' as SourceSelection, label: 'Source DB Only', icon: Database, desc: 'SQL Server, PostgreSQL, MySQL, Oracle' },
+                    { value: 'fabric_only' as SourceSelection, label: 'Fabric Only', icon: Zap, desc: 'Workspaces, semantic models, reports' },
+                    { value: 'both' as SourceSelection, label: 'Full Assessment', icon: Layers3, desc: 'Source DB + Microsoft Fabric together' },
+                  ] as const).map(opt => {
+                    const Icon = opt.icon
+                    const selected = sourceSelection === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setSourceSelection(opt.value)}
+                        className={`flex flex-col items-start gap-2 p-4 rounded-xl border text-left transition-all duration-150 ${
+                          selected
+                            ? 'border-[rgba(245,158,11,0.5)] bg-[rgba(245,158,11,0.06)]'
+                            : 'border-[#3f3f46] bg-[#27272a] hover:border-[#52525b]'
+                        }`}
+                      >
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
+                          selected ? 'bg-[rgba(245,158,11,0.15)]' : 'bg-[#3f3f46]'
+                        }`}>
+                          <Icon className={`h-4 w-4 ${selected ? 'text-[#f59e0b]' : 'text-[#71717a]'}`} />
+                        </div>
+                        <div>
+                          <p className={`text-xs font-semibold ${selected ? 'text-[#f4f4f5]' : 'text-[#a1a1aa]'}`}>{opt.label}</p>
+                          <p className="text-[10px] text-[#71717a] mt-0.5 leading-tight">{opt.desc}</p>
+                        </div>
+                        {selected && (
+                          <div className="w-full flex justify-end">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-[#f59e0b]" />
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  onClick={() => setPhase('source-form')}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
+                             bg-[#f59e0b] text-[#09090b] hover:bg-[#fbbf24] transition-colors
+                             focus:outline-none focus:ring-2 focus:ring-[rgba(245,158,11,0.4)]"
+                  style={{ boxShadow: '0 0 20px rgba(245,158,11,0.2)' }}
+                >
+                  <Settings2 className="h-4 w-4" />
+                  Configure {sourceSelection === 'both' ? 'Source + Fabric' : sourceSelection === 'source_only' ? 'Source DB' : 'Fabric'}
+                  <ArrowRight className="h-4 w-4 ml-auto" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      )}
 
-      {/* ── Phase: fabric-auth ─────────────────────────────────────────────── */}
-      {phase === 'fabric-auth' && (
-        <FabricAuthPanel
-          userCode={userCode}
-          verificationUrl={verificationUrl}
-          copied={copied}
-          setCopied={setCopied}
-        />
-      )}
-
-      {/* ── Phase: fabric-picking ──────────────────────────────────────────── */}
-      {phase === 'fabric-picking' && (
-        <FabricWorkspacePicker
-          workspaces={workspaces}
-          loading={workspacesLoading}
-          selectedIds={selectedWsIds}
-          setSelectedIds={setSelectedWsIds}
-          filter={wsFilter}
-          setFilter={setWsFilter}
-          onNext={handleFetchItems}
-        />
-      )}
-
-      {/* ── Phase: fabric-picking-items ────────────────────────────────────── */}
-      {phase === 'fabric-picking-items' && (
-        <FabricItemPicker
-          workspaceItems={workspaceItems}
-          workspaces={workspaces}
-          loading={itemsLoading}
-          selectedDatasetIds={selectedDatasetIds}
-          setSelectedDatasetIds={setSelectedDatasetIds}
-          selectedReportIds={selectedReportIds}
-          setSelectedReportIds={setSelectedReportIds}
-          expandedWorkspaces={expandedWorkspaces}
-          setExpandedWorkspaces={setExpandedWorkspaces}
-          filter={itemFilter}
-          setFilter={setItemFilter}
-          onBack={() => setPhase('fabric-picking')}
-          onNext={() => setPhase('fabric-naming')}
-        />
-      )}
-
-      {/* ── Phase: fabric-naming ───────────────────────────────────────────── */}
-      {phase === 'fabric-naming' && (
-        <div className="space-y-6">
-          <div
-            className="p-5 rounded-2xl border border-slate-200 bg-white"
-            style={{ boxShadow: 'var(--elevation-1)' }}
-          >
-            <p className="text-sm font-semibold text-slate-800 mb-1">Fabric assessment label</p>
-            <p className="text-xs text-slate-500 mb-4">Optionally name the Fabric portion of this assessment.</p>
-            <div className="relative">
-              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                value={fabricLabel}
-                onChange={e => setFabricLabel(e.target.value)}
-                placeholder="e.g. Production Fabric Q2"
-                className="w-full pl-9 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl
-                           focus:outline-none focus:ring-2 focus:ring-earth-600/30 focus:border-earth-400
-                           bg-white text-slate-800 placeholder-slate-400"
-              />
+        {/* ── Step 2: Source DB Configuration (conditional) ─────────────────── */}
+        {includeSource && phase !== 'source-selection' && (
+          <div className={`${cardCls} ${
+            !sourceDone && phase === 'source-form' ? activeBorderCls
+            : sourceDone ? doneBorderCls
+            : pendingBorderCls
+          }`}>
+            <StepHeader
+              number={sourceStepNum!}
+              title="Configure source databases"
+              done={sourceDone}
+              active={phase === 'source-form'}
+              count={sourceDone ? `${servers.reduce((a,s)=>a+s.selected_dbs.length,0)} DB${servers.reduce((a,s)=>a+s.selected_dbs.length,0)!==1?'s':''}` : undefined}
+            />
+            <div className="p-5">
+              {sourceDone ? (
+                <div className="flex items-center gap-2 text-sm text-[#34d399]">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {servers.length} server{servers.length!==1?'s':''} · {servers.reduce((a,s)=>a+s.selected_dbs.length,0)} database{servers.reduce((a,s)=>a+s.selected_dbs.length,0)!==1?'s':''} queued
+                </div>
+              ) : (
+                <SourceConfigForm
+                  servers={servers}
+                  setServers={setServers}
+                  updateServer={updateServer}
+                  testConnectivity={testConnectivity}
+                  loadDatabases={loadDatabases}
+                  onSubmit={handleSourceSubmit}
+                  submitting={sourceSubmitting}
+                  includeFabric={includeFabric}
+                />
+              )}
             </div>
           </div>
-          <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => setPhase('fabric-picking-items')}>Back</Button>
-            <Button onClick={handleFabricSubmit}>
-              Start Fabric Assessment <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* ── Phase: fabric-submitting ───────────────────────────────────────── */}
-      {phase === 'fabric-submitting' && (
-        <div className="flex flex-col items-center gap-4 py-16">
-          <Spinner size="lg" />
-          <p className="text-sm text-slate-600">Starting Fabric assessment…</p>
-        </div>
-      )}
+        {/* ── Fabric-only: jump to auth ──────────────────────────────────────── */}
+        {!includeSource && phase === 'source-form' && (() => {
+          // Skip source form, go straight to fabric
+          setTimeout(() => setPhase('fabric-auth'), 0)
+          return null
+        })()}
+
+        {/* ── Step: Fabric Sign-in ──────────────────────────────────────────── */}
+        {includeFabric && (phase === 'fabric-auth' || fabricAuthDone) && (
+          <div className={`${cardCls} ${
+            phase === 'fabric-auth' ? activeBorderCls
+            : fabricAuthDone ? doneBorderCls
+            : pendingBorderCls
+          }`}>
+            <StepHeader
+              number={fabricStepBase + (includeSource ? 1 : 0)}
+              title="Sign in with Microsoft"
+              done={fabricAuthDone}
+              active={phase === 'fabric-auth'}
+            />
+            <div className="p-5">
+              {fabricAuthDone ? (
+                <div className="flex items-center gap-2 text-sm text-[#34d399]">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Authenticated with Microsoft
+                </div>
+              ) : (
+                <FabricAuthPanel
+                  userCode={userCode}
+                  verificationUrl={verificationUrl}
+                  copied={copied}
+                  setCopied={setCopied}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Step: Select Workspaces ───────────────────────────────────────── */}
+        {includeFabric && (phase === 'fabric-picking' || wsDone) && (
+          <div className={`${cardCls} ${
+            phase === 'fabric-picking' ? activeBorderCls
+            : wsDone ? doneBorderCls
+            : pendingBorderCls
+          }`}>
+            <StepHeader
+              number={fabricStepBase + (includeSource ? 2 : 1)}
+              title="Select workspaces"
+              done={wsDone}
+              active={phase === 'fabric-picking'}
+              count={wsDone ? `${selectedWsIds.size} workspace${selectedWsIds.size!==1?'s':''}` : undefined}
+            />
+            <div className="p-5">
+              {wsDone ? (
+                <div className="flex items-center gap-2 text-sm text-[#34d399]">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {selectedWsIds.size} workspace{selectedWsIds.size!==1?'s':''} selected
+                </div>
+              ) : (
+                <FabricWorkspacePicker
+                  workspaces={workspaces}
+                  loading={workspacesLoading}
+                  selectedIds={selectedWsIds}
+                  setSelectedIds={setSelectedWsIds}
+                  filter={wsFilter}
+                  setFilter={setWsFilter}
+                  onNext={handleFetchItems}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Step: Select Models & Reports ─────────────────────────────────── */}
+        {includeFabric && (phase === 'fabric-picking-items' || itemsDone) && (
+          <div className={`${cardCls} ${
+            phase === 'fabric-picking-items' ? activeBorderCls
+            : itemsDone ? doneBorderCls
+            : pendingBorderCls
+          }`}>
+            <StepHeader
+              number={fabricStepBase + (includeSource ? 3 : 2)}
+              title="Select models &amp; reports"
+              done={itemsDone}
+              active={phase === 'fabric-picking-items'}
+              count={itemsDone ? `${selectedDatasetIds.size}M · ${selectedReportIds.size}R` : undefined}
+            />
+            <div className="p-5">
+              {itemsDone ? (
+                <div className="flex items-center gap-2 text-sm text-[#34d399]">
+                  <CheckCircle2 className="h-4 w-4" />
+                  {selectedDatasetIds.size} model{selectedDatasetIds.size!==1?'s':''} and {selectedReportIds.size} report{selectedReportIds.size!==1?'s':''} selected
+                </div>
+              ) : (
+                <FabricItemPicker
+                  workspaceItems={workspaceItems}
+                  workspaces={workspaces}
+                  loading={itemsLoading}
+                  selectedDatasetIds={selectedDatasetIds}
+                  setSelectedDatasetIds={setSelectedDatasetIds}
+                  selectedReportIds={selectedReportIds}
+                  setSelectedReportIds={setSelectedReportIds}
+                  expandedWorkspaces={expandedWorkspaces}
+                  setExpandedWorkspaces={setExpandedWorkspaces}
+                  filter={itemFilter}
+                  setFilter={setItemFilter}
+                  onBack={() => setPhase('fabric-picking')}
+                  onNext={() => setPhase('fabric-naming')}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Step: Run ─────────────────────────────────────────────────────── */}
+        {includeFabric && itemsDone && (
+          <div className={`${cardCls} ${activeBorderCls}`}>
+            <StepHeader
+              number={fabricStepBase + (includeSource ? 4 : 3)}
+              title="Label &amp; run assessment"
+              done={false}
+              active={true}
+            />
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-[10px] font-semibold text-[#71717a] uppercase tracking-widest mb-1.5">
+                  Fabric Label <span className="text-[#52525b] font-normal normal-case">(optional)</span>
+                </label>
+                <div className="relative">
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#52525b]" />
+                  <input
+                    value={fabricLabel}
+                    onChange={e => setFabricLabel(e.target.value)}
+                    placeholder="e.g. Production Fabric Q2"
+                    disabled={phase === 'fabric-submitting'}
+                    className={`${inputCls} pl-9 disabled:opacity-40`}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[#3f3f46] bg-[#27272a] px-4 py-3 space-y-1 text-sm text-[#a1a1aa]">
+                {includeSource && (
+                  <p>Source: <strong className="text-[#f4f4f5]">{servers.reduce((a,s)=>a+s.selected_dbs.length,0)} database{servers.reduce((a,s)=>a+s.selected_dbs.length,0)!==1?'s':''}</strong> across <strong className="text-[#f4f4f5]">{servers.length} server{servers.length!==1?'s':''}</strong></p>
+                )}
+                <p>Fabric: <strong className="text-[#f4f4f5]">{selectedDatasetIds.size} model{selectedDatasetIds.size!==1?'s':''}</strong> and <strong className="text-[#f4f4f5]">{selectedReportIds.size} report{selectedReportIds.size!==1?'s':''}</strong> across <strong className="text-[#f4f4f5]">{selectedWsIds.size} workspace{selectedWsIds.size!==1?'s':''}</strong></p>
+              </div>
+
+              <button
+                onClick={handleFabricSubmit}
+                disabled={phase === 'fabric-submitting'}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold
+                           bg-[#f59e0b] text-[#09090b] hover:bg-[#fbbf24] disabled:opacity-50
+                           transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(245,158,11,0.4)]"
+                style={{ boxShadow: phase !== 'fabric-submitting' ? '0 0 24px rgba(245,158,11,0.25)' : undefined }}
+              >
+                {phase === 'fabric-submitting'
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Starting assessment…</>
+                  : <>Run Assessment <ArrowRight className="h-4 w-4" /></>}
+              </button>
+            </div>
+          </div>
+        )}
+
+      </div>
     </div>
   )
 }
 
-// ── Source Assessment Form ────────────────────────────────────────────────────
+// ── Source Config Form ────────────────────────────────────────────────────────
 
-function SourceAssessmentForm({
-  servers, setServers, updateServer, testConnectivity, loadDatabases, onSubmit, onBack, submitting,
+function SourceConfigForm({
+  servers, setServers, updateServer, testConnectivity, loadDatabases, onSubmit, submitting, includeFabric,
 }: {
   servers: ServerEntry[]
   setServers: React.Dispatch<React.SetStateAction<ServerEntry[]>>
@@ -541,22 +753,26 @@ function SourceAssessmentForm({
   testConnectivity: (srv: ServerEntry) => void
   loadDatabases: (srv: ServerEntry) => void
   onSubmit: () => void
-  onBack: () => void
   submitting: boolean
+  includeFabric: boolean
 }) {
   const totalDbs = servers.reduce((acc, s) => acc + s.selected_dbs.length, 0)
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-700">Step 1 — Source databases to assess</p>
-        <Button
-          size="sm"
-          variant="secondary"
+        <p className="text-xs font-semibold text-[#71717a] uppercase tracking-widest">
+          {servers.length} server{servers.length!==1?'s':''} · {totalDbs} DB{totalDbs!==1?'s':''} selected
+        </p>
+        <button
+          type="button"
           onClick={() => setServers(prev => [...prev, makeServer()])}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+                     border border-[#3f3f46] bg-[#27272a] text-[#a1a1aa] hover:border-[#52525b] hover:text-[#f4f4f5]
+                     transition-colors"
         >
-          <Plus className="h-3.5 w-3.5 mr-1" /> Add server
-        </Button>
+          <Plus className="h-3.5 w-3.5" /> Add server
+        </button>
       </div>
 
       {servers.map((srv, idx) => (
@@ -571,21 +787,20 @@ function SourceAssessmentForm({
         />
       ))}
 
-      <div className="pt-2 flex items-center justify-between">
-        <Button variant="secondary" onClick={onBack} disabled={submitting}>
-          Back
-        </Button>
-        <div className="flex items-center gap-3">
-          <p className="text-xs text-slate-500">
-            {totalDbs} DB{totalDbs !== 1 ? 's' : ''} across {servers.length} server{servers.length !== 1 ? 's' : ''}
-          </p>
-          <Button onClick={onSubmit} disabled={submitting || totalDbs === 0}>
-            {submitting
-              ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Starting…</>
-              : <>Next: Fabric Assessment <ArrowRight className="h-4 w-4 ml-1" /></>}
-          </Button>
-        </div>
-      </div>
+      <button
+        onClick={onSubmit}
+        disabled={submitting || totalDbs === 0}
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold
+                   bg-[#f59e0b] text-[#09090b] hover:bg-[#fbbf24] disabled:opacity-40
+                   transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(245,158,11,0.4)]"
+        style={{ boxShadow: (!submitting && totalDbs > 0) ? '0 0 20px rgba(245,158,11,0.2)' : undefined }}
+      >
+        {submitting
+          ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+          : includeFabric
+          ? <>Next: Fabric Sign-in <ArrowRight className="h-4 w-4" /></>
+          : <>Run Source Assessment <ArrowRight className="h-4 w-4" /></>}
+      </button>
     </div>
   )
 }
@@ -627,29 +842,25 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
       <button
         type="button"
         onClick={handleOpen}
-        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-earth-50 hover:border-earth-200 hover:text-earth-800 transition-colors"
-        title="Pick from your saved Hybrid Connections"
+        className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#3f3f46] bg-[#27272a]
+                   text-xs font-medium text-[#a1a1aa] hover:border-[#52525b] hover:text-[#f4f4f5] transition-colors"
       >
         <Share2 className="h-3.5 w-3.5" />
         Hybrid
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1.5 left-0 z-50 w-72 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50">
-            <Share2 className="h-3.5 w-3.5 text-earth-600" />
-            <span className="text-xs font-semibold text-slate-700">Your Hybrid Connections</span>
+        <div className="absolute top-full mt-1.5 left-0 z-50 w-72 rounded-xl border border-[#3f3f46] bg-[#18181b] overflow-hidden"
+          style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-[#3f3f46]">
+            <Share2 className="h-3.5 w-3.5 text-[#f59e0b]" />
+            <span className="text-xs font-semibold text-[#f4f4f5]">Hybrid Connections</span>
           </div>
-          {loading && (
-            <div className="flex items-center justify-center py-6">
-              <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
-            </div>
-          )}
-          {error && <div className="px-3 py-3 text-xs text-red-600">{error}</div>}
+          {loading && <div className="flex items-center justify-center py-6"><RefreshCw className="h-4 w-4 animate-spin text-[#71717a]" /></div>}
+          {error && <div className="px-3 py-3 text-xs text-[#f87171]">{error}</div>}
           {!loading && !error && connections.length === 0 && (
-            <div className="px-3 py-4 text-xs text-slate-400 text-center">
-              No saved connections.{' '}
-              <a href="/hybrid-connection" className="text-earth-700 underline underline-offset-2">Create one</a> first.
+            <div className="px-3 py-4 text-xs text-[#71717a] text-center">
+              No saved connections. <a href="/hybrid-connection" className="text-[#f59e0b] underline underline-offset-2">Create one</a> first.
             </div>
           )}
           {!loading && connections.map(hc => (
@@ -657,14 +868,14 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
               key={hc.connection_id}
               type="button"
               onClick={() => { onSelect(hc.endpoint_host, hc.endpoint_port); setOpen(false) }}
-              className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-earth-50 transition-colors border-b border-slate-50 last:border-0"
+              className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-[#27272a] transition-colors border-b border-[#27272a] last:border-0"
             >
-              <div className="h-7 w-7 rounded-lg bg-earth-50 border border-earth-100 flex items-center justify-center shrink-0 mt-0.5">
-                <Share2 className="h-3.5 w-3.5 text-earth-600" />
+              <div className="h-7 w-7 rounded-lg bg-[rgba(245,158,11,0.1)] border border-[rgba(245,158,11,0.2)] flex items-center justify-center shrink-0 mt-0.5">
+                <Share2 className="h-3.5 w-3.5 text-[#f59e0b]" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-800 truncate">{hc.name}</p>
-                <p className="text-[11px] text-slate-500 truncate">{hc.endpoint_host}:{hc.endpoint_port}</p>
+                <p className="text-xs font-semibold text-[#f4f4f5] truncate">{hc.name}</p>
+                <p className="text-[11px] text-[#71717a] truncate">{hc.endpoint_host}:{hc.endpoint_port}</p>
               </div>
             </button>
           ))}
@@ -674,7 +885,7 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Server Card ───────────────────────────────────────────────────────────────
 
 function ServerCard({
   srv, index, updateServer, testConnectivity, loadDatabases, onRemove,
@@ -688,35 +899,32 @@ function ServerCard({
   const filteredDbs = srv.available_dbs || []
 
   return (
-    <div
-      className="rounded-2xl border border-slate-200 bg-white overflow-hidden"
-      style={{ boxShadow: 'var(--elevation-1)' }}
-    >
+    <div className="rounded-xl border border-[#3f3f46] bg-[#27272a] overflow-hidden">
       {/* Header */}
       <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-colors"
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[rgba(255,255,255,0.02)] transition-colors"
         onClick={() => updateServer(srv.id, { expanded: !srv.expanded })}
       >
-        <div
-          className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.10), rgba(8,145,178,0.06))', border: '1px solid rgba(0,86,179,0.15)' }}
-        >
-          <Server className="h-3.5 w-3.5 text-earth-700" />
+        <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}>
+          <Server className="h-3.5 w-3.5 text-[#f59e0b]" />
         </div>
-        <span className="flex-1 text-sm font-semibold text-slate-800">
+        <span className="flex-1 text-sm font-semibold text-[#f4f4f5]">
           {srv.server || `Server ${index + 1}`}
         </span>
-        <span className="text-xs text-slate-400">{srv.selected_dbs.length} DB{srv.selected_dbs.length !== 1 ? 's' : ''}</span>
+        {srv.selected_dbs.length > 0 && (
+          <span className="text-xs font-mono text-[#f59e0b]">{srv.selected_dbs.length} DB{srv.selected_dbs.length!==1?'s':''}</span>
+        )}
         {srv.connectivity && (
           srv.connectivity.reachable
-            ? <Wifi className="h-4 w-4 text-earth-500" />
-            : <WifiOff className="h-4 w-4 text-red-400" />
+            ? <Wifi className="h-4 w-4 text-[#34d399]" />
+            : <WifiOff className="h-4 w-4 text-[#f87171]" />
         )}
-        {srv.expanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+        {srv.expanded ? <ChevronDown className="h-4 w-4 text-[#52525b]" /> : <ChevronRight className="h-4 w-4 text-[#52525b]" />}
         {onRemove && (
           <button
             onClick={e => { e.stopPropagation(); onRemove() }}
-            className="p-1 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors"
+            className="p-1 rounded-lg hover:bg-[rgba(248,113,113,0.1)] text-[#52525b] hover:text-[#f87171] transition-colors"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -724,62 +932,57 @@ function ServerCard({
       </div>
 
       {srv.expanded && (
-        <div className="border-t border-slate-100 px-4 pb-4 pt-3 space-y-3">
+        <div className="border-t border-[#3f3f46] px-4 pb-4 pt-3 space-y-3">
           {/* DB type + server + port */}
           <div className="grid grid-cols-[auto_1fr_auto] gap-2 items-end">
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Type</label>
+              <label className="block text-[10px] font-semibold text-[#71717a] uppercase tracking-widest mb-1.5">Type</label>
               <select
                 value={srv.db_type}
                 onChange={e => {
                   const opt = DB_TYPE_OPTIONS.find(o => o.value === e.target.value)
                   updateServer(srv.id, { db_type: e.target.value as DbType, port: opt?.defaultPort || 1433 })
                 }}
-                className="text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white focus:ring-1 focus:ring-earth-600/35 focus:outline-none"
+                className={selectCls}
               >
                 {DB_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Server / Host</label>
+              <label className="block text-[10px] font-semibold text-[#71717a] uppercase tracking-widest mb-1.5">Server / Host</label>
               <div className="flex gap-1.5">
                 <input
                   value={srv.server}
                   onChange={e => updateServer(srv.id, { server: e.target.value, connectivity: null })}
                   placeholder="hostname or IP"
-                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-earth-600/35 focus:outline-none"
+                  className={inputCls}
                 />
                 <HybridConnectionPicker
-                  onSelect={(host, port) =>
-                    updateServer(srv.id, { server: host, port, gateway_key: null, connectivity: null })
-                  }
+                  onSelect={(host, port) => updateServer(srv.id, { server: host, port, gateway_key: null, connectivity: null })}
                 />
               </div>
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Port</label>
+              <label className="block text-[10px] font-semibold text-[#71717a] uppercase tracking-widest mb-1.5">Port</label>
               <input
                 type="number"
                 value={srv.port}
                 onChange={e => updateServer(srv.id, { port: Number(e.target.value) })}
-                className="w-20 text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-earth-600/35 focus:outline-none"
+                className={`${inputCls} w-20`}
               />
             </div>
           </div>
 
           {/* PostgreSQL platform badge */}
-          {srv.db_type === 'postgres' && srv.server.trim() && (
-            <div className="flex items-center gap-2">
-              {(() => {
-                const p = detectPgPlatform(srv.server)
-                return (
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${p.badge}`}>
-                    <Zap className="h-3 w-3" />{p.label}
-                  </span>
-                )
-              })()}
-            </div>
-          )}
+          {srv.db_type === 'postgres' && srv.server.trim() && (() => {
+            const p = detectPgPlatform(srv.server)
+            return (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium
+                               bg-[rgba(96,165,250,0.1)] text-[#60a5fa] border border-[rgba(96,165,250,0.2)]">
+                <Zap className="h-3 w-3" />{p.label}
+              </span>
+            )
+          })()}
 
           {/* Azure MSI toggle */}
           {srv.db_type === 'postgres' && detectPgPlatform(srv.server).key === 'azure' && (
@@ -791,9 +994,9 @@ function ServerCard({
                 description="Authenticate via Microsoft Entra ID — no password needed."
               />
               {srv.azure_managed_identity && (
-                <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-700 space-y-1">
-                  <p className="font-semibold text-sky-800">Required on the Azure PostgreSQL side:</p>
-                  <ol className="list-decimal list-inside space-y-0.5 text-sky-600">
+                <div className="rounded-xl border border-[rgba(96,165,250,0.2)] bg-[rgba(96,165,250,0.05)] px-3 py-2.5 text-xs text-[#60a5fa] space-y-1">
+                  <p className="font-semibold text-[#93c5fd]">Required on the Azure PostgreSQL side:</p>
+                  <ol className="list-decimal list-inside space-y-0.5 text-[#7dd3fc]">
                     <li>Enable <strong>Microsoft Entra authentication</strong> on the Flexible Server</li>
                     <li><code className="font-mono">SELECT pgaadauth_create_principal('user@tenant.com', false, false);</code></li>
                     <li><code className="font-mono">GRANT pg_read_all_data TO "user@tenant.com";</code></li>
@@ -803,12 +1006,12 @@ function ServerCard({
             </div>
           )}
 
-          {/* GCP Cloud SQL auth + private IP */}
+          {/* GCP Cloud SQL */}
           {srv.db_type === 'postgres' && detectPgPlatform(srv.server).key === 'gcp_cloudsql_name' && (
             <div className="space-y-3">
-              <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs text-blue-700">
-                <p className="font-semibold text-blue-800 mb-1">GCP Authentication</p>
-                <ul className="list-disc list-inside space-y-0.5 text-blue-600">
+              <div className="rounded-xl border border-[rgba(96,165,250,0.2)] bg-[rgba(96,165,250,0.05)] px-3 py-2.5 text-xs text-[#60a5fa]">
+                <p className="font-semibold text-[#93c5fd] mb-1">GCP Authentication</p>
+                <ul className="list-disc list-inside space-y-0.5 text-[#7dd3fc]">
                   <li><strong>GCE / Cloud Run / GKE:</strong> ADC is automatic — no key needed</li>
                   <li><strong>Dev machine:</strong> <code className="font-mono">gcloud auth application-default login</code></li>
                   <li><strong>Fallback:</strong> paste SA key below</li>
@@ -818,7 +1021,7 @@ function ServerCard({
                 <button
                   type="button"
                   onClick={() => updateServer(srv.id, { show_gcp_sa_key: !srv.show_gcp_sa_key })}
-                  className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  className="flex items-center gap-1.5 text-xs text-[#60a5fa] hover:text-[#93c5fd] font-medium transition-colors"
                 >
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Service Account Key JSON (optional fallback)
@@ -828,7 +1031,7 @@ function ServerCard({
                 </button>
                 {srv.show_gcp_sa_key && (
                   <textarea
-                    className="mt-2 w-full font-mono text-xs border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-earth-600/35 focus:outline-none resize-none"
+                    className={`mt-2 w-full font-mono text-xs resize-none ${inputCls}`}
                     rows={3}
                     placeholder={'{\n  "type": "service_account",\n  ...\n}'}
                     value={srv.gcp_sa_key}
@@ -849,18 +1052,18 @@ function ServerCard({
           {/* Credentials */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Username</label>
+              <label className="block text-[10px] font-semibold text-[#71717a] uppercase tracking-widest mb-1.5">Username</label>
               <input
                 value={srv.username}
                 onChange={e => updateServer(srv.id, { username: e.target.value })}
                 placeholder="login"
-                className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-earth-600/35 focus:outline-none"
+                className={inputCls}
               />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+              <label className="block text-[10px] font-semibold text-[#71717a] uppercase tracking-widest mb-1.5">
                 Password{srv.db_type === 'postgres' && srv.azure_managed_identity
-                  ? <span className="text-sky-500 font-normal normal-case ml-1 text-[10px]">(not needed)</span>
+                  ? <span className="text-[#52525b] font-normal normal-case ml-1 text-[10px]">(not needed)</span>
                   : null}
               </label>
               <div className="relative">
@@ -870,12 +1073,12 @@ function ServerCard({
                   onChange={e => updateServer(srv.id, { password: e.target.value })}
                   placeholder={srv.db_type === 'postgres' && srv.azure_managed_identity ? 'Leave blank' : 'password'}
                   disabled={srv.db_type === 'postgres' && srv.azure_managed_identity}
-                  className={`w-full text-sm border border-slate-200 rounded-lg pl-3 pr-9 py-2 bg-white focus:ring-1 focus:ring-earth-600/35 focus:outline-none ${srv.db_type === 'postgres' && srv.azure_managed_identity ? 'opacity-40' : ''}`}
+                  className={`${inputCls} pr-9 disabled:opacity-40`}
                 />
                 <button
                   type="button"
                   onClick={() => updateServer(srv.id, { show_password: !srv.show_password })}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#52525b] hover:text-[#a1a1aa] transition-colors"
                 >
                   {srv.show_password ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -885,11 +1088,11 @@ function ServerCard({
 
           {/* Access level */}
           <div>
-            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Access level</label>
+            <label className="block text-[10px] font-semibold text-[#71717a] uppercase tracking-widest mb-1.5">Access Level</label>
             <select
               value={srv.access_level}
               onChange={e => updateServer(srv.id, { access_level: e.target.value as AccessLevel })}
-              className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white focus:ring-1 focus:ring-earth-600/35 focus:outline-none"
+              className={`${selectCls} w-full`}
             >
               {ACCESS_LEVEL_OPTIONS.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -897,13 +1100,13 @@ function ServerCard({
             </select>
           </div>
 
-          {/* Actions */}
+          {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => testConnectivity(srv)}
               disabled={!srv.server || srv.connectivity_loading}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg
-                         border border-slate-200 bg-white text-slate-600 hover:border-earth-300 hover:text-earth-800
+                         border border-[#3f3f46] bg-[#18181b] text-[#a1a1aa] hover:border-[#52525b] hover:text-[#f4f4f5]
                          disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {srv.connectivity_loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
@@ -913,40 +1116,38 @@ function ServerCard({
               onClick={() => loadDatabases(srv)}
               disabled={!srv.server || !srv.username || srv.dbs_loading}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg
-                         border border-slate-200 bg-white text-slate-600 hover:border-earth-300 hover:text-earth-800
+                         border border-[#3f3f46] bg-[#18181b] text-[#a1a1aa] hover:border-[#52525b] hover:text-[#f4f4f5]
                          disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {srv.dbs_loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
               Load databases
             </button>
-            {/* Connectivity badge */}
             {srv.connectivity && (
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                 srv.connectivity.reachable
-                  ? 'bg-earth-50 text-earth-700 ring-1 ring-earth-200'
-                  : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                  ? 'bg-[rgba(52,211,153,0.1)] text-[#34d399] border border-[rgba(52,211,153,0.2)]'
+                  : 'bg-[rgba(248,113,113,0.1)] text-[#f87171] border border-[rgba(248,113,113,0.2)]'
               }`}>
                 {srv.connectivity.reachable
                   ? <><Wifi className="h-3 w-3" /> Reachable {srv.connectivity.latency_ms != null ? `(${srv.connectivity.latency_ms}ms)` : ''}</>
-                  : <><WifiOff className="h-3 w-3" /> Not directly reachable</>}
+                  : <><WifiOff className="h-3 w-3" /> Not reachable</>}
               </span>
             )}
           </div>
 
-          {/* Azure Hybrid Connection callout when server is not reachable */}
+          {/* Not reachable callout */}
           {srv.connectivity && !srv.connectivity.reachable && (
-            <div className="flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
-              <Network className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-              <div className="text-xs text-blue-700 space-y-1">
-                <p className="font-semibold text-blue-800">Server not directly reachable from Azure</p>
+            <div className="flex items-start gap-2.5 rounded-xl border border-[rgba(96,165,250,0.2)] bg-[rgba(96,165,250,0.05)] px-4 py-3">
+              <Network className="h-4 w-4 text-[#60a5fa] mt-0.5 shrink-0" />
+              <div className="text-xs text-[#93c5fd] space-y-1">
+                <p className="font-semibold text-[#bfdbfe]">Server not directly reachable from Azure</p>
                 <p>
                   If this is an on-premises {DB_TYPE_OPTIONS.find(o => o.value === srv.db_type)?.label ?? 'database server'}, ensure the{' '}
-                  <strong>Azure Hybrid Connection Manager</strong> is running on a machine
-                  connected to the same network as the server.
+                  <strong>Azure Hybrid Connection Manager</strong> is running on a connected machine.
                 </p>
                 <a
                   href="/hybrid-connection"
-                  className="inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:text-blue-900 transition-colors"
+                  className="inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:text-white transition-colors"
                 >
                   <Info className="h-3 w-3" />
                   Hybrid Connection setup guide
@@ -955,15 +1156,19 @@ function ServerCard({
             </div>
           )}
 
-          {/* Databases */}
+          {/* DB error */}
           {srv.dbs_error && (
-            <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{srv.dbs_error}</p>
+            <p className="text-xs text-[#f87171] bg-[rgba(248,113,113,0.08)] rounded-lg px-3 py-2 border border-[rgba(248,113,113,0.15)]">
+              {srv.dbs_error}
+            </p>
           )}
+
+          {/* Databases list */}
           {filteredDbs.length > 0 && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                  Databases ({srv.selected_dbs.length}/{filteredDbs.length} selected)
+                <p className="text-[10px] font-semibold text-[#71717a] uppercase tracking-widest">
+                  Databases ({srv.selected_dbs.length}/{filteredDbs.length})
                 </p>
                 <button
                   type="button"
@@ -972,41 +1177,42 @@ function ServerCard({
                       updateServer(srv.id, { selected_dbs: [] })
                     } else {
                       updateServer(srv.id, {
-                        selected_dbs: filteredDbs.map(d => ({
-                          name: d.name,
-                          include_null_analysis: true,
-                          null_analysis_sample_limit: 30,
-                        })),
+                        selected_dbs: filteredDbs.map(d => ({ name: d.name, include_null_analysis: true, null_analysis_sample_limit: 30 })),
                       })
                     }
                   }}
-                  className="text-[10px] font-semibold text-earth-700 hover:text-earth-900 uppercase tracking-wider transition-colors"
+                  className="text-[10px] font-semibold text-[#f59e0b] hover:text-[#fbbf24] uppercase tracking-widest transition-colors"
                 >
                   {srv.selected_dbs.length === filteredDbs.length ? 'Unselect All' : 'Select All'}
                 </button>
               </div>
-              {filteredDbs.map(db => {
-                const selected = srv.selected_dbs.some(s => s.name === db.name)
-                return (
-                  <label key={db.name} className="flex items-center gap-2.5 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={e => {
-                        const next = e.target.checked
-                          ? [...srv.selected_dbs, { name: db.name, include_null_analysis: true, null_analysis_sample_limit: 30 }]
-                          : srv.selected_dbs.filter(s => s.name !== db.name)
-                        updateServer(srv.id, { selected_dbs: next })
-                      }}
-                      className="rounded border-slate-300 text-earth-700 focus:ring-earth-600/35"
-                    />
-                    <span className="text-sm text-slate-700 group-hover:text-earth-800 transition-colors">{db.name}</span>
-                    {db.size_mb != null && (
-                      <span className="text-xs text-slate-400 ml-auto">{db.size_mb.toFixed(0)} MB</span>
-                    )}
-                  </label>
-                )
-              })}
+              <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                {filteredDbs.map(db => {
+                  const selected = srv.selected_dbs.some(s => s.name === db.name)
+                  return (
+                    <label key={db.name}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                        selected ? 'bg-[rgba(245,158,11,0.06)] hover:bg-[rgba(245,158,11,0.1)]' : 'hover:bg-[rgba(255,255,255,0.03)]'
+                      }`}>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={e => {
+                          const next = e.target.checked
+                            ? [...srv.selected_dbs, { name: db.name, include_null_analysis: true, null_analysis_sample_limit: 30 }]
+                            : srv.selected_dbs.filter(s => s.name !== db.name)
+                          updateServer(srv.id, { selected_dbs: next })
+                        }}
+                        className="rounded border-[#3f3f46] accent-[#f59e0b]"
+                      />
+                      <span className={`text-sm flex-1 ${selected ? 'text-[#f4f4f5]' : 'text-[#a1a1aa]'}`}>{db.name}</span>
+                      {db.size_mb != null && (
+                        <span className="text-xs font-mono text-[#52525b]">{db.size_mb.toFixed(0)} MB</span>
+                      )}
+                    </label>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
@@ -1032,61 +1238,44 @@ function FabricAuthPanel({
 
   if (!userCode) {
     return (
-      <div className="flex flex-col items-center gap-4 py-16">
-        <Spinner size="lg" />
-        <p className="text-sm text-slate-600">Initiating Microsoft authentication…</p>
+      <div className="flex items-center gap-3 text-sm text-[#71717a]">
+        <Loader2 className="h-4 w-4 animate-spin text-[#f59e0b]" />
+        Requesting device code from Microsoft…
       </div>
     )
   }
 
   return (
-    <div
-      className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5"
-      style={{ boxShadow: 'var(--elevation-1)' }}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, #0056B3, #0891B2)' }}
+    <div className="space-y-4">
+      <p className="text-sm text-[#a1a1aa]">
+        Open the link below in any browser and enter the code to authenticate:
+      </p>
+      <a
+        href={verificationUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 text-sm font-medium text-[#f59e0b] hover:text-[#fbbf24] hover:underline transition-colors"
+      >
+        <ExternalLink className="h-4 w-4 shrink-0" />
+        {verificationUrl}
+      </a>
+      <div className="flex items-stretch gap-3">
+        <div className="flex-1 rounded-xl border-2 border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.06)] px-5 py-3 text-center">
+          <p className="text-[10px] text-[#71717a] font-semibold uppercase tracking-widest mb-1">Your code</p>
+          <p className="text-2xl font-mono font-bold tracking-widest text-[#f59e0b]">{userCode}</p>
+        </div>
+        <button
+          onClick={copyCode}
+          className="shrink-0 flex flex-col items-center justify-center gap-1 px-4 rounded-xl border border-[#3f3f46]
+                     bg-[#27272a] text-xs text-[#a1a1aa] hover:border-[#52525b] hover:text-[#f4f4f5] transition-colors"
         >
-          <MonitorSmartphone className="h-5 w-5 text-white" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-slate-900">Step 2 — Microsoft Authentication</p>
-          <p className="text-xs text-slate-500">Sign in with your Microsoft account to access Fabric workspaces.</p>
-        </div>
+          {copied ? <CheckCircle2 className="h-4 w-4 text-[#34d399]" /> : <Copy className="h-4 w-4" />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
       </div>
-
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3">
-        <p className="text-xs text-slate-600">1. Visit the Microsoft device login page:</p>
-        <a
-          href={verificationUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-earth-700 hover:underline"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          {verificationUrl}
-        </a>
-        <p className="text-xs text-slate-600">2. Enter this code when prompted:</p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 text-center text-xl font-bold tracking-widest text-earth-800 bg-earth-50 border border-earth-200 rounded-lg py-3">
-            {userCode}
-          </code>
-          <button
-            onClick={copyCode}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
-                       border border-slate-200 text-slate-600 hover:bg-earth-50 hover:border-earth-300 hover:text-earth-800 transition-colors"
-          >
-            {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-earth-500" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 text-xs text-slate-500">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-earth-600" />
-        Waiting for you to authenticate…
+      <div className="flex items-center gap-2 text-xs text-[#71717a]">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-[#f59e0b]" />
+        Waiting for you to sign in…
       </div>
     </div>
   )
@@ -1103,31 +1292,49 @@ function FabricWorkspacePicker({
   onNext: () => void
 }) {
   const filtered = workspaces.filter(w => !filter || w.name.toLowerCase().includes(filter.toLowerCase()))
+  const allSelected = filtered.length > 0 && filtered.every(w => selectedIds.has(w.id))
 
   if (loading) return (
-    <div className="flex flex-col items-center gap-4 py-16">
-      <Spinner size="lg" />
-      <p className="text-sm text-slate-600">Loading workspaces…</p>
+    <div className="flex items-center gap-3 text-sm text-[#71717a]">
+      <Loader2 className="h-4 w-4 animate-spin text-[#f59e0b]" />
+      Loading accessible workspaces…
     </div>
   )
 
   return (
     <div className="space-y-4">
-      <div>
-        <p className="text-sm font-semibold text-slate-700 mb-3">Select workspaces to assess</p>
-        <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#52525b]" />
           <input
             value={filter}
             onChange={e => setFilter(e.target.value)}
             placeholder="Filter workspaces…"
-            className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl bg-white
-                       focus:outline-none focus:ring-2 focus:ring-earth-600/30 focus:border-earth-400"
+            className={`${inputCls} pl-9`}
           />
         </div>
-        <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+        <button
+          onClick={() => {
+            const next = new Set(selectedIds)
+            if (allSelected) filtered.forEach(w => next.delete(w.id))
+            else filtered.forEach(w => next.add(w.id))
+            setSelectedIds(next)
+          }}
+          className="shrink-0 text-xs text-[#f59e0b] hover:text-[#fbbf24] font-semibold transition-colors"
+        >
+          {allSelected ? 'Deselect all' : 'Select all'}
+        </button>
+      </div>
+
+      {workspaces.length === 0 ? (
+        <p className="text-sm text-[#71717a]">No accessible workspaces found for this account.</p>
+      ) : (
+        <div className="max-h-72 overflow-y-auto rounded-xl border border-[#3f3f46] divide-y divide-[#27272a]">
           {filtered.map(ws => (
-            <label key={ws.id} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-earth-200 hover:bg-earth-50/30 cursor-pointer transition-colors">
+            <label
+              key={ws.id}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-[rgba(255,255,255,0.02)] cursor-pointer transition-colors"
+            >
               <input
                 type="checkbox"
                 checked={selectedIds.has(ws.id)}
@@ -1136,21 +1343,39 @@ function FabricWorkspacePicker({
                   e.target.checked ? next.add(ws.id) : next.delete(ws.id)
                   setSelectedIds(next)
                 }}
-                className="rounded border-slate-300 text-earth-700 focus:ring-earth-600/35"
+                className="h-4 w-4 rounded border-[#3f3f46] accent-[#f59e0b]"
               />
-              <Building2 className="h-4 w-4 text-earth-600 shrink-0" />
-              <span className="flex-1 text-sm text-slate-800">{ws.name}</span>
-              <span className="text-xs text-slate-400">{ws.dataset_count}M · {ws.report_count}R</span>
+              <Building2 className="h-4 w-4 text-[#52525b] shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[#f4f4f5] truncate">{ws.name}</p>
+                <div className="flex items-center gap-3 mt-0.5 text-xs text-[#71717a]">
+                  <span className="flex items-center gap-1">
+                    <Database className="h-3 w-3" />{ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <FileText className="h-3 w-3" />{ws.report_count} report{ws.report_count !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+              {selectedIds.has(ws.id) && <CheckCircle2 className="h-4 w-4 text-[#f59e0b] shrink-0" />}
             </label>
           ))}
           {filtered.length === 0 && (
-            <p className="text-xs text-slate-400 text-center py-8">No workspaces found</p>
+            <div className="px-4 py-6 text-center text-sm text-[#52525b]">No workspaces match "{filter}"</div>
           )}
         </div>
-      </div>
-      <Button onClick={onNext} disabled={selectedIds.size === 0}>
-        Next: Select models & reports <ArrowRight className="h-4 w-4 ml-1" />
-      </Button>
+      )}
+
+      <button
+        onClick={onNext}
+        disabled={selectedIds.size === 0}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
+                   bg-[#f59e0b] text-[#09090b] hover:bg-[#fbbf24] disabled:opacity-40
+                   transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(245,158,11,0.4)]"
+      >
+        Continue with {selectedIds.size || '…'} workspace{selectedIds.size !== 1 ? 's' : ''}
+        <ArrowRight className="h-4 w-4" />
+      </button>
     </div>
   )
 }
@@ -1172,148 +1397,178 @@ function FabricItemPicker({
   const totalSelected = selectedDatasetIds.size + selectedReportIds.size
   const lf = filter.toLowerCase()
 
+  const allDs  = workspaceItems.flatMap(w => w.datasets.map(d => d.id))
+  const allRpt = workspaceItems.flatMap(w => w.reports.map(r => r.id))
+  const allSelected = allDs.every(id => selectedDatasetIds.has(id)) && allRpt.every(id => selectedReportIds.has(id))
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedDatasetIds(new Set())
+      setSelectedReportIds(new Set())
+    } else {
+      setSelectedDatasetIds(new Set(allDs))
+      setSelectedReportIds(new Set(allRpt))
+    }
+  }
+
   if (loading) return (
-    <div className="flex flex-col items-center gap-4 py-16">
-      <Spinner size="lg" />
-      <p className="text-sm text-slate-600">Loading workspace items…</p>
+    <div className="flex items-center gap-3 text-sm text-[#71717a]">
+      <Loader2 className="h-4 w-4 animate-spin text-[#f59e0b]" />
+      Loading workspace items…
     </div>
   )
 
   return (
     <div className="space-y-4">
-      <p className="text-sm font-semibold text-slate-700">Select semantic models and reports</p>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <input
-          value={filter}
-          onChange={e => setFilter(e.target.value)}
-          placeholder="Filter items…"
-          className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-xl bg-white
-                     focus:outline-none focus:ring-2 focus:ring-earth-600/30 focus:border-earth-400"
-        />
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#52525b]" />
+          <input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Filter models and reports…"
+            className={`${inputCls} pl-9`}
+          />
+        </div>
+        <button
+          onClick={toggleAll}
+          className="shrink-0 text-xs text-[#f59e0b] hover:text-[#fbbf24] font-semibold transition-colors"
+        >
+          {allSelected ? 'Deselect all' : 'Select all'}
+        </button>
       </div>
-      <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+
+      <div className="max-h-96 overflow-y-auto rounded-xl border border-[#3f3f46] divide-y divide-[#27272a]">
         {workspaceItems.map(wi => {
-          const expanded = expandedWorkspaces.has(wi.workspace_id)
+          const expanded  = expandedWorkspaces.has(wi.workspace_id)
           const filteredDs = wi.datasets.filter(d => !lf || d.name.toLowerCase().includes(lf))
           const filteredRp = wi.reports.filter(r => !lf || r.name.toLowerCase().includes(lf))
-          const wsName = workspaces.find(w => w.id === wi.workspace_id)?.name || wi.workspace_id
-
-          const allDsSelected = filteredDs.length > 0 && filteredDs.every(d => selectedDatasetIds.has(d.id))
-          const allRpSelected = filteredRp.length > 0 && filteredRp.every(r => selectedReportIds.has(r.id))
+          const wsName     = workspaces.find(w => w.id === wi.workspace_id)?.name || wi.workspace_id
+          const dsSelected  = wi.datasets.filter(d => selectedDatasetIds.has(d.id)).length
+          const rptSelected = wi.reports.filter(r => selectedReportIds.has(r.id)).length
 
           const toggleAllDs = () => {
             const next = new Set(selectedDatasetIds)
-            if (allDsSelected) filteredDs.forEach(d => next.delete(d.id))
+            const allSel = filteredDs.every(d => next.has(d.id))
+            if (allSel) filteredDs.forEach(d => next.delete(d.id))
             else filteredDs.forEach(d => next.add(d.id))
             setSelectedDatasetIds(next)
           }
           const toggleAllRp = () => {
             const next = new Set(selectedReportIds)
-            if (allRpSelected) filteredRp.forEach(r => next.delete(r.id))
+            const allSel = filteredRp.every(r => next.has(r.id))
+            if (allSel) filteredRp.forEach(r => next.delete(r.id))
             else filteredRp.forEach(r => next.add(r.id))
             setSelectedReportIds(next)
           }
 
           return (
-            <div key={wi.workspace_id} className="rounded-xl border border-slate-200 overflow-hidden">
+            <div key={wi.workspace_id}>
               <button
+                className="w-full flex items-center gap-2 px-4 py-2.5 bg-[#27272a] hover:bg-[rgba(255,255,255,0.03)] transition-colors text-left"
                 onClick={() => {
                   const next = new Set(expandedWorkspaces)
                   expanded ? next.delete(wi.workspace_id) : next.add(wi.workspace_id)
                   setExpandedWorkspaces(next)
                 }}
-                className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
               >
-                <Building2 className="h-4 w-4 text-earth-600 shrink-0" />
-                <span className="flex-1 text-sm font-semibold text-slate-800">{wsName}</span>
-                <span className="text-xs text-slate-400 mr-1">
-                  {wi.datasets.length} model{wi.datasets.length !== 1 ? 's' : ''} · {wi.reports.length} report{wi.reports.length !== 1 ? 's' : ''}
+                {expanded ? <ChevronDown className="h-3.5 w-3.5 text-[#52525b] shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-[#52525b] shrink-0" />}
+                <Building2 className="h-3.5 w-3.5 text-[#71717a] shrink-0" />
+                <span className="flex-1 text-xs font-semibold text-[#f4f4f5] truncate">{wsName}</span>
+                <span className="text-xs text-[#52525b]">
+                  {dsSelected}/{wi.datasets.length} models · {rptSelected}/{wi.reports.length} reports
                 </span>
-                {expanded ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
               </button>
+
               {expanded && (
-                <div className="px-4 py-3 space-y-3">
-                  {/* Semantic Models section */}
+                <div className="divide-y divide-[#3f3f46]">
                   {filteredDs.length > 0 && (
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 uppercase tracking-wide">
-                          <Database className="h-3 w-3" /> Semantic Models
-                        </span>
-                        <button
-                          onClick={toggleAllDs}
-                          className="text-xs text-earth-600 hover:text-earth-800 font-medium"
-                        >
-                          {allDsSelected ? 'Deselect all' : 'Select all'}
+                      <div className="flex items-center gap-2 px-5 py-1.5 bg-[rgba(245,158,11,0.03)]">
+                        <Database className="h-3 w-3 text-[#f59e0b] shrink-0" />
+                        <span className="text-xs font-medium text-[#a1a1aa] flex-1">Semantic Models</span>
+                        <button onClick={toggleAllDs} className="text-xs text-[#f59e0b] hover:text-[#fbbf24] transition-colors">
+                          {filteredDs.every(d => selectedDatasetIds.has(d.id)) ? 'Deselect' : 'Select'} all
                         </button>
                       </div>
-                      <div className="space-y-1">
-                        {filteredDs.map(d => (
-                          <label key={d.id} className="flex items-center gap-2 py-1 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedDatasetIds.has(d.id)}
-                              onChange={e => {
-                                const next = new Set(selectedDatasetIds)
-                                e.target.checked ? next.add(d.id) : next.delete(d.id)
-                                setSelectedDatasetIds(next)
-                              }}
-                              className="rounded border-slate-300 text-earth-700 focus:ring-earth-600/35"
-                            />
-                            <span className="text-sm text-slate-700">{d.name}</span>
-                          </label>
-                        ))}
-                      </div>
+                      {filteredDs.map(ds => (
+                        <label key={ds.id} className="flex items-center gap-3 px-6 py-2 hover:bg-[rgba(255,255,255,0.02)] cursor-pointer transition-colors">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 rounded border-[#3f3f46] accent-[#f59e0b]"
+                            checked={selectedDatasetIds.has(ds.id)}
+                            onChange={() => {
+                              const next = new Set(selectedDatasetIds)
+                              next.has(ds.id) ? next.delete(ds.id) : next.add(ds.id)
+                              setSelectedDatasetIds(next)
+                            }}
+                          />
+                          <span className="text-sm text-[#a1a1aa] truncate">{ds.name}</span>
+                        </label>
+                      ))}
                     </div>
                   )}
-                  {/* Reports section */}
                   {filteredRp.length > 0 && (
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 uppercase tracking-wide">
-                          <FileText className="h-3 w-3" /> Reports
-                        </span>
-                        <button
-                          onClick={toggleAllRp}
-                          className="text-xs text-earth-600 hover:text-earth-800 font-medium"
-                        >
-                          {allRpSelected ? 'Deselect all' : 'Select all'}
+                      <div className="flex items-center gap-2 px-5 py-1.5 bg-[rgba(96,165,250,0.03)]">
+                        <FileText className="h-3 w-3 text-[#60a5fa] shrink-0" />
+                        <span className="text-xs font-medium text-[#a1a1aa] flex-1">Reports</span>
+                        <button onClick={toggleAllRp} className="text-xs text-[#f59e0b] hover:text-[#fbbf24] transition-colors">
+                          {filteredRp.every(r => selectedReportIds.has(r.id)) ? 'Deselect' : 'Select'} all
                         </button>
                       </div>
-                      <div className="space-y-1">
-                        {filteredRp.map(r => (
-                          <label key={r.id} className="flex items-center gap-2 py-1 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedReportIds.has(r.id)}
-                              onChange={e => {
-                                const next = new Set(selectedReportIds)
-                                e.target.checked ? next.add(r.id) : next.delete(r.id)
-                                setSelectedReportIds(next)
-                              }}
-                              className="rounded border-slate-300 text-earth-700 focus:ring-earth-600/35"
-                            />
-                            <span className="text-sm text-slate-700">{r.name}</span>
-                          </label>
-                        ))}
-                      </div>
+                      {filteredRp.map(rpt => (
+                        <label key={rpt.id} className="flex items-center gap-3 px-6 py-2 hover:bg-[rgba(255,255,255,0.02)] cursor-pointer transition-colors">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5 rounded border-[#3f3f46] accent-[#f59e0b]"
+                            checked={selectedReportIds.has(rpt.id)}
+                            onChange={() => {
+                              const next = new Set(selectedReportIds)
+                              next.has(rpt.id) ? next.delete(rpt.id) : next.add(rpt.id)
+                              setSelectedReportIds(next)
+                            }}
+                          />
+                          <span className="flex-1 text-sm text-[#a1a1aa] truncate">{rpt.name}</span>
+                          {rpt.report_type === 'PaginatedReport' && (
+                            <span className="text-xs text-[#52525b] shrink-0">Paginated</span>
+                          )}
+                        </label>
+                      ))}
                     </div>
                   )}
                   {filteredDs.length === 0 && filteredRp.length === 0 && (
-                    <p className="text-xs text-slate-400 py-1">No items match filter</p>
+                    <p className="text-xs text-[#52525b] py-3 px-5">No items match filter</p>
                   )}
                 </div>
               )}
             </div>
           )
         })}
+        {workspaceItems.length === 0 && (
+          <div className="px-4 py-6 text-center text-sm text-[#52525b]">No models or reports found.</div>
+        )}
       </div>
+
       <div className="flex gap-3">
-        <Button variant="secondary" onClick={onBack}>Back</Button>
-        <Button onClick={onNext} disabled={totalSelected === 0}>
-          Next <ArrowRight className="h-4 w-4 ml-1" />
-        </Button>
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium
+                     border border-[#3f3f46] bg-[#27272a] text-[#a1a1aa] hover:border-[#52525b] hover:text-[#f4f4f5]
+                     transition-colors"
+        >
+          Back
+        </button>
+        <button
+          onClick={onNext}
+          disabled={totalSelected === 0}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
+                     bg-[#f59e0b] text-[#09090b] hover:bg-[#fbbf24] disabled:opacity-40
+                     transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(245,158,11,0.4)]"
+        >
+          Continue with {selectedDatasetIds.size} model{selectedDatasetIds.size!==1?'s':''} &amp; {selectedReportIds.size} report{selectedReportIds.size!==1?'s':''}
+          <ArrowRight className="h-4 w-4" />
+        </button>
       </div>
     </div>
   )

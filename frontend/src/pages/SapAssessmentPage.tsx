@@ -484,11 +484,17 @@ export default function SapAssessmentPage() {
     <div className="max-w-3xl mx-auto animate-fade-in">
       {/* Page header */}
       <div className="page-header">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 font-display">SAP Assessment</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Connect to any SAP system variant and run a comprehensive readiness assessment.
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(0,155,215,0.12)' }}>
+            <img src="/logos/sap.svg" alt="SAP" style={{ height: 28, width: 28 }} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 font-display">SAP Assessment</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Connect to any SAP system variant and run a comprehensive readiness assessment.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -499,7 +505,7 @@ export default function SapAssessmentPage() {
             <div className="flex items-center gap-2.5">
               <div
                 className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                style={{ background: 'linear-gradient(135deg, #7B5E00 0%, #C49A0F 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)' }}
               >
                 1
               </div>
@@ -539,7 +545,7 @@ export default function SapAssessmentPage() {
                   className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
                   style={{ background: 'linear-gradient(135deg, rgba(123,94,0,0.08), rgba(196,154,15,0.12))', border: '1px solid rgba(196,154,15,0.3)' }}
                 >
-                  <CheckCircle2 className="h-4 w-4" style={{ color: '#7B5E00' }} />
+                  <CheckCircle2 className="h-4 w-4" style={{ color: '#0056B3' }} />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-800">{selectedMeta?.label}</p>
@@ -582,7 +588,7 @@ export default function SapAssessmentPage() {
                 <div className="flex items-center gap-2.5">
                   <div
                     className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                    style={{ background: 'linear-gradient(135deg, #7B5E00 0%, #C49A0F 100%)' }}
+                    style={{ background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)' }}
                   >
                     2
                   </div>

@@ -690,7 +690,7 @@ export default function LineageExplorer({
       {/* Canvas */}
       <div style={{
         flex: 1, overflow: 'auto', padding: 28,
-        background: 'oklch(0.987 0.005 240)',
+        background: '#F8FAFF',
       }}>
         {filteredGroups.length > 0 ? (
           <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start', minWidth: 700 }}>

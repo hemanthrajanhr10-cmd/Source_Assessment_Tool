@@ -10,38 +10,38 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { SnowflakeJobStatusResponse, SnowflakeAssessmentResult } from '../types/api'
 
-// ── SAT dark design tokens ────────────────────────────────────────────────────
+// ── Ocean design tokens ───────────────────────────────────────────────────────
 
 const D = {
-  bg:          'oklch(0.09 0.005 265)',
-  surface:     'oklch(0.12 0.006 265)',
-  surface2:    'oklch(0.15 0.007 265)',
-  surface3:    'oklch(0.18 0.008 265)',
-  border:      'oklch(0.22 0.006 265)',
-  borderFaint: 'oklch(0.18 0.005 265)',
-  amber:       'oklch(0.78 0.17 75)',
-  amberDim:    'oklch(0.65 0.14 75)',
-  amberGlow:   'rgba(245,158,11,0.12)',
-  amberFaint:  'rgba(245,158,11,0.07)',
-  textPrimary: 'oklch(0.93 0.005 265)',
-  textSecond:  'oklch(0.55 0.01 265)',
-  textMuted:   'oklch(0.40 0.008 265)',
-  green:       'oklch(0.72 0.15 155)',
-  greenDim:    'rgba(16,185,129,0.12)',
-  red:         'oklch(0.65 0.19 25)',
-  redDim:      'rgba(239,68,68,0.12)',
-  blue:        'oklch(0.70 0.14 240)',
-  blueDim:     'rgba(99,102,241,0.12)',
-  purple:      'oklch(0.72 0.14 290)',
-  purpleDim:   'rgba(168,85,247,0.12)',
-  orange:      'oklch(0.72 0.17 50)',
-  orangeDim:   'rgba(249,115,22,0.12)',
-  teal:        'oklch(0.72 0.13 190)',
-  tealDim:     'rgba(20,184,166,0.12)',
-  shadowCard:  '0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25)',
-  shadowHover: '0 2px 8px rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.35)',
-  fontSyne:    '"Syne", system-ui, sans-serif',
-  fontDM:      '"DM Sans", system-ui, sans-serif',
+  bg:          '#EFF6FF',
+  surface:     '#FFFFFF',
+  surface2:    '#F8FAFF',
+  surface3:    '#EFF6FF',
+  border:      '#C5D5EC',
+  borderFaint: '#DDE8F5',
+  amber:       '#29B5E8',
+  amberDim:    '#0099CC',
+  amberGlow:   'rgba(41,181,232,0.12)',
+  amberFaint:  'rgba(41,181,232,0.07)',
+  textPrimary: '#0D1117',
+  textSecond:  '#404555',
+  textMuted:   '#767A8C',
+  green:       '#059669',
+  greenDim:    'rgba(5,150,105,0.10)',
+  red:         '#DC2626',
+  redDim:      'rgba(220,38,38,0.08)',
+  blue:        '#0056B3',
+  blueDim:     'rgba(0,86,179,0.10)',
+  purple:      '#7C3AED',
+  purpleDim:   'rgba(124,58,237,0.10)',
+  orange:      '#EA580C',
+  orangeDim:   'rgba(234,88,12,0.10)',
+  teal:        '#0D9488',
+  tealDim:     'rgba(13,148,136,0.10)',
+  shadowCard:  '0 1px 3px rgba(0,86,179,0.04), 0 4px 16px rgba(0,86,179,0.06)',
+  shadowHover: '0 4px 12px rgba(0,86,179,0.08), 0 16px 40px rgba(0,86,179,0.10)',
+  fontSyne:    'inherit',
+  fontDM:      'inherit',
   fontMono:    '"JetBrains Mono", "Fira Code", monospace',
 }
 
@@ -123,7 +123,7 @@ function DonutChart({ data, size = 140, label }: {
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {arcs.map((a, i) => (
-        <path key={i} d={a.path} fill={a.color} stroke="oklch(0.12 0.006 265)" strokeWidth="2" />
+        <path key={i} d={a.path} fill={a.color} stroke="#FFFFFF" strokeWidth="2" />
       ))}
       <text x={cx} y={cy - 4} textAnchor="middle" dominantBaseline="middle"
         fontSize="15" fontWeight="800" fill={D.textPrimary} fontFamily={D.fontMono}>{fmtNum(total)}</text>
@@ -372,7 +372,7 @@ function AssessmentTerminal({ status, progressMessage, error }: {
           height: '100%', borderRadius: 4,
           width: `${status === 'completed' ? 100 : progress}%`,
           background: status === 'failed'
-            ? `linear-gradient(90deg, ${D.red}, oklch(0.7 0.22 25))`
+            ? `linear-gradient(90deg, ${D.red}, #F87171)`
             : `linear-gradient(90deg, ${D.amberDim}, ${D.amber})`,
           boxShadow: status !== 'failed' ? `0 0 8px ${D.amberGlow}` : 'none',
           transition: 'width 0.7s ease',
@@ -476,7 +476,7 @@ function OverviewTab({ result }: { result: SnowflakeAssessmentResult }) {
                 label="total"
                 data={Object.entries(wm.warehouses_by_size).map(([size, cnt], i) => ({
                   label: size, value: cnt,
-                  color: ['#f59e0b','#6366f1','#10b981','#f97316','#14b8a6','#a855f7'][i % 6],
+                  color: ['#0056B3','#0084D4','#38A8F5','#29B5E8','#10b981','#6366f1'][i % 6],
                 }))}
               />
               <div style={{ flex: 1 }}>
@@ -484,7 +484,7 @@ function OverviewTab({ result }: { result: SnowflakeAssessmentResult }) {
                   <div key={size} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <div style={{
                       width: 8, height: 8, borderRadius: '50%',
-                      background: ['#f59e0b','#6366f1','#10b981','#f97316','#14b8a6','#a855f7'][i % 6],
+                      background: ['#0056B3','#0084D4','#38A8F5','#29B5E8','#10b981','#6366f1'][i % 6],
                     }} />
                     <span style={{ fontSize: 11, fontFamily: D.fontDM, color: D.textSecond, flex: 1 }}>{size}</span>
                     <span style={{ fontSize: 12, fontFamily: D.fontMono, fontWeight: 700, color: D.textPrimary }}>{cnt}</span>
@@ -1258,7 +1258,7 @@ function ResultsDashboard({ result, onDownloadExcel, onDownloadWord, downloading
             padding: '9px 18px', borderRadius: 10, fontSize: 13,
             fontFamily: D.fontDM, fontWeight: 600, cursor: 'pointer',
             background: `linear-gradient(135deg, ${D.amberDim}, ${D.amber})`,
-            color: 'oklch(0.09 0.005 265)', border: 'none',
+            color: '#ffffff', border: 'none',
             boxShadow: `0 2px 12px ${D.amberGlow}`,
             opacity: downloading === 'excel' ? 0.6 : 1,
           }}
@@ -1344,14 +1344,14 @@ export default function SnowflakeSessionDetailPage() {
       {/* hero header */}
       <div style={{
         position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, oklch(0.10 0.007 265) 0%, oklch(0.13 0.008 265) 100%)',
+        background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEEFF 100%)',
         borderBottom: `1px solid ${D.border}`,
       }}>
         {/* ambient glow */}
         <div style={{
           position: 'absolute', width: 600, height: 600,
           top: -300, right: -150, borderRadius: '50%', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(245,158,11,0.05) 0%, transparent 65%)',
+          background: 'radial-gradient(circle, rgba(41,181,232,0.06) 0%, transparent 65%)',
         }} />
 
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 32px' }}>
@@ -1374,10 +1374,11 @@ export default function SnowflakeSessionDetailPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{
                 width: 48, height: 48, borderRadius: 12, flexShrink: 0,
-                background: D.amberFaint, border: `1px solid ${D.amber}33`,
+                background: 'linear-gradient(135deg, #29B5E8 0%, #0099CC 100%)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: D.shadowCard,
               }}>
-                <Snowflake style={{ width: 24, height: 24, color: D.amber }} />
+                <img src="/logos/snowflake.svg" alt="Snowflake" style={{ width: 26, height: 26 }} />
               </div>
               <div>
                 <h1 style={{ fontSize: 20, fontFamily: D.fontSyne, fontWeight: 800,

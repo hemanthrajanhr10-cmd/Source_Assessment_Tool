@@ -1,17 +1,33 @@
 ﻿import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  Database, Layers, List, Network, Zap,
-  PlusCircle, LogOut, Shield, ChevronDown,
-  X, BarChart3, Sparkles, LayoutDashboard, Combine,
+  Layers, List, Network,
+  LogOut, Shield, ChevronDown,
+  X, BarChart3, Sparkles, LayoutDashboard, Combine, PlusCircle,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 
-// Tri-element nav groups: ember = brand/action, tide = connectivity/data, grove = fabric/success, sand = SAP
+// Source brand logo component
+function SourceLogo({ src, alt, size = 18 }: { src: string; alt: string; size?: number }) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={size}
+      height={size}
+      className="shrink-0 rounded"
+      style={{ objectFit: 'contain' }}
+    />
+  )
+}
+
+// Nav groups — each source has its brand logo and Ocean-palette accent colors
 const NAV_GROUPS = [
   {
     label: 'Unified Assessment',
     element: 'ocean',
+    logo: '/logos/unified.svg',
+    logoAlt: 'Unified Assessment',
     dotGradient:      'linear-gradient(135deg, #0056B3, #38A8F5)',
     activeBg:         'rgba(0,86,179,0.09)',
     activeText:       '#003D82',
@@ -29,15 +45,17 @@ const NAV_GROUPS = [
   {
     label: 'SQL Server',
     element: 'tide',
-    dotGradient:      'linear-gradient(135deg, #0891B2, #22D3EE)',
-    activeBg:         'rgba(8,145,178,0.09)',
-    activeText:       '#0E7490',
-    activeBorder:     'rgba(34,211,238,0.40)',
-    activeIconColor:  '#0891B2',
-    activeDotGlow:    'rgba(8,145,178,0.45)',
-    hoverBg:          'rgba(8,145,178,0.07)',
-    hoverText:        '#0E7490',
-    hoverIconColor:   '#0891B2',
+    logo: '/logos/sqlserver.svg',
+    logoAlt: 'SQL Server',
+    dotGradient:      'linear-gradient(135deg, #CC2936, #E84855)',
+    activeBg:         'rgba(204,41,54,0.08)',
+    activeText:       '#9B1C1C',
+    activeBorder:     'rgba(232,72,85,0.35)',
+    activeIconColor:  '#CC2936',
+    activeDotGlow:    'rgba(204,41,54,0.40)',
+    hoverBg:          'rgba(204,41,54,0.06)',
+    hoverText:        '#9B1C1C',
+    hoverIconColor:   '#CC2936',
     items: [
       { to: '/',                   label: 'Source Only',       icon: PlusCircle, exact: true },
       { to: '/sessions',           label: 'Sessions',          icon: Layers  },
@@ -48,32 +66,36 @@ const NAV_GROUPS = [
   {
     label: 'Microsoft Fabric',
     element: 'grove',
-    dotGradient:      'linear-gradient(135deg, #0D9488, #2DD4BF)',
-    activeBg:         'rgba(13,148,136,0.09)',
-    activeText:       '#0F766E',
-    activeBorder:     'rgba(45,212,191,0.40)',
-    activeIconColor:  '#0D9488',
-    activeDotGlow:    'rgba(13,148,136,0.45)',
-    hoverBg:          'rgba(13,148,136,0.07)',
-    hoverText:        '#0F766E',
-    hoverIconColor:   '#0D9488',
+    logo: '/logos/fabric.svg',
+    logoAlt: 'Microsoft Fabric',
+    dotGradient:      'linear-gradient(135deg, #0078D4, #00BCF2)',
+    activeBg:         'rgba(0,120,212,0.09)',
+    activeText:       '#0F5DB3',
+    activeBorder:     'rgba(0,188,242,0.40)',
+    activeIconColor:  '#0078D4',
+    activeDotGlow:    'rgba(0,120,212,0.45)',
+    hoverBg:          'rgba(0,120,212,0.07)',
+    hoverText:        '#0F5DB3',
+    hoverIconColor:   '#0078D4',
     items: [
-      { to: '/fabric/new',      label: 'Fabric Only',  icon: Zap       },
-      { to: '/fabric/sessions', label: 'Assessments',  icon: BarChart3 },
+      { to: '/fabric/new',      label: 'Fabric Only',  icon: PlusCircle },
+      { to: '/fabric/sessions', label: 'Assessments',  icon: BarChart3  },
     ],
   },
   {
     label: 'SAP Systems',
     element: 'sand',
-    dotGradient:      'linear-gradient(135deg, #7B5E00, #C49A0F)',
-    activeBg:         'rgba(123,94,0,0.09)',
-    activeText:       '#5C4500',
-    activeBorder:     'rgba(196,154,15,0.40)',
-    activeIconColor:  '#7B5E00',
-    activeDotGlow:    'rgba(123,94,0,0.45)',
-    hoverBg:          'rgba(123,94,0,0.07)',
-    hoverText:        '#5C4500',
-    hoverIconColor:   '#7B5E00',
+    logo: '/logos/sap.svg',
+    logoAlt: 'SAP',
+    dotGradient:      'linear-gradient(135deg, #009BD7, #0BBBE8)',
+    activeBg:         'rgba(0,155,215,0.09)',
+    activeText:       '#006E99',
+    activeBorder:     'rgba(11,187,232,0.40)',
+    activeIconColor:  '#009BD7',
+    activeDotGlow:    'rgba(0,155,215,0.45)',
+    hoverBg:          'rgba(0,155,215,0.07)',
+    hoverText:        '#006E99',
+    hoverIconColor:   '#009BD7',
     items: [
       { to: '/sap/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/sap/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -82,15 +104,17 @@ const NAV_GROUPS = [
   {
     label: 'Sage Intacct',
     element: 'sage',
-    dotGradient:      'linear-gradient(135deg, #0056B3, #38A8F5)',
-    activeBg:         'rgba(0,86,179,0.08)',
-    activeText:       '#003D82',
-    activeBorder:     'rgba(56,168,245,0.35)',
-    activeIconColor:  '#0056B3',
-    activeDotGlow:    'rgba(56,168,245,0.50)',
-    hoverBg:          'rgba(0,86,179,0.06)',
-    hoverText:        '#003D82',
-    hoverIconColor:   '#0056B3',
+    logo: '/logos/sage-intacct.svg',
+    logoAlt: 'Sage Intacct',
+    dotGradient:      'linear-gradient(135deg, #00DC82, #00A65A)',
+    activeBg:         'rgba(0,166,90,0.09)',
+    activeText:       '#00613A',
+    activeBorder:     'rgba(0,220,130,0.40)',
+    activeIconColor:  '#00A65A',
+    activeDotGlow:    'rgba(0,220,130,0.50)',
+    hoverBg:          'rgba(0,166,90,0.07)',
+    hoverText:        '#00613A',
+    hoverIconColor:   '#00A65A',
     items: [
       { to: '/sage-intacct/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/sage-intacct/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -99,15 +123,17 @@ const NAV_GROUPS = [
   {
     label: 'Tableau',
     element: 'tableau',
-    dotGradient:      'linear-gradient(135deg, #E8751A, #FFB81C)',
-    activeBg:         'rgba(232,117,26,0.09)',
-    activeText:       '#8B4513',
-    activeBorder:     'rgba(255,184,28,0.40)',
-    activeIconColor:  '#E8751A',
-    activeDotGlow:    'rgba(232,117,26,0.45)',
-    hoverBg:          'rgba(232,117,26,0.07)',
-    hoverText:        '#8B4513',
-    hoverIconColor:   '#E8751A',
+    logo: '/logos/tableau.svg',
+    logoAlt: 'Tableau',
+    dotGradient:      'linear-gradient(135deg, #0056B3, #0084D4)',
+    activeBg:         'rgba(0,86,179,0.09)',
+    activeText:       '#003D82',
+    activeBorder:     'rgba(0,132,212,0.40)',
+    activeIconColor:  '#0056B3',
+    activeDotGlow:    'rgba(0,86,179,0.45)',
+    hoverBg:          'rgba(0,86,179,0.07)',
+    hoverText:        '#003D82',
+    hoverIconColor:   '#0056B3',
     items: [
       { to: '/tableau/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/tableau/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -116,15 +142,17 @@ const NAV_GROUPS = [
   {
     label: 'Snowflake',
     element: 'snowflake',
-    dotGradient:      'linear-gradient(135deg, #0099CC, #00D4FF)',
-    activeBg:         'rgba(0,184,230,0.09)',
+    logo: '/logos/snowflake.svg',
+    logoAlt: 'Snowflake',
+    dotGradient:      'linear-gradient(135deg, #29B5E8, #0099CC)',
+    activeBg:         'rgba(41,181,232,0.09)',
     activeText:       '#006B99',
-    activeBorder:     'rgba(0,212,255,0.40)',
-    activeIconColor:  '#00B8E6',
-    activeDotGlow:    'rgba(0,212,255,0.50)',
-    hoverBg:          'rgba(0,184,230,0.07)',
+    activeBorder:     'rgba(41,181,232,0.40)',
+    activeIconColor:  '#29B5E8',
+    activeDotGlow:    'rgba(41,181,232,0.50)',
+    hoverBg:          'rgba(41,181,232,0.07)',
     hoverText:        '#006B99',
-    hoverIconColor:   '#00B8E6',
+    hoverIconColor:   '#29B5E8',
     items: [
       { to: '/snowflake/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/snowflake/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -133,6 +161,8 @@ const NAV_GROUPS = [
   {
     label: 'Dataverse',
     element: 'dataverse',
+    logo: '/logos/dataverse.svg',
+    logoAlt: 'Microsoft Dataverse',
     dotGradient:      'linear-gradient(135deg, #742774, #C084FC)',
     activeBg:         'rgba(116,39,116,0.09)',
     activeText:       '#5B1E5B',
@@ -251,7 +281,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   el.style.boxShadow = '0 4px 12px rgba(0,86,179,0.28), inset 0 1px 0 rgba(255,255,255,0.20)'
                 }}
               >
-                <Database className="h-4.5 w-4.5 text-white" aria-hidden="true" style={{ height: '18px', width: '18px' }} />
+                <img src="/logos/unified.svg" alt="SourceSAT" style={{ height: '18px', width: '18px' }} aria-hidden="true" />
               </div>
             </div>
 
@@ -284,13 +314,9 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         >
           {NAV_GROUPS.map((group) => (
             <div key={group.label}>
-              {/* Section label with per-element dot */}
+              {/* Section label with brand logo */}
               <div className="flex items-center gap-2 px-2 mb-2.5">
-                <div
-                  className="h-1 w-1 rounded-full shrink-0"
-                  style={{ background: group.dotGradient }}
-                  aria-hidden="true"
-                />
+                <SourceLogo src={group.logo} alt={group.logoAlt} size={14} />
                 <p className="section-title">{group.label}</p>
               </div>
 

@@ -513,8 +513,8 @@ export default function ReportMetadataView({ report, workspace }: ReportMetadata
             transition={SPRING_GENTLE}
             style={{
               display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 16px',
-              borderRadius: 10, background: 'rgba(245,158,11,0.06)',
-              border: '1px solid rgba(245,158,11,0.22)', fontSize: 12, color: '#92400E',
+              borderRadius: 10, background: 'rgba(0,86,179,0.05)',
+              border: '1px solid rgba(0,86,179,0.18)', fontSize: 12, color: '#003D82',
             }}
           >
             <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />

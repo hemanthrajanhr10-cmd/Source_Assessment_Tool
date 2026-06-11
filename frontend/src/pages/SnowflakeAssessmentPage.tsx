@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Database, Globe, User, Shield, Layers,
   CheckCircle2, AlertCircle, Loader2, ArrowRight,
-  Tag, Settings2, Snowflake, RefreshCw,
+  Tag, Settings2, RefreshCw,
   ChevronDown, ChevronUp, Zap, BarChart3,
   Key, Lock, Smartphone, Hash, Cloud, FileText,
   Server, ExternalLink, Eye, EyeOff, Link2,
@@ -16,33 +16,33 @@ import type {
   SnowflakeAssessmentRequest,
 } from '../types/api'
 
-// ── SAT dark design tokens ────────────────────────────────────────────────────
+// ── Ocean design tokens ───────────────────────────────────────────────────────
 
 const D = {
-  bg:          'oklch(0.09 0.005 265)',
-  surface:     'oklch(0.12 0.006 265)',
-  surface2:    'oklch(0.15 0.007 265)',
-  surface3:    'oklch(0.18 0.008 265)',
-  border:      'oklch(0.22 0.006 265)',
-  borderFaint: 'oklch(0.18 0.005 265)',
-  amber:       'oklch(0.78 0.17 75)',
-  amberDim:    'oklch(0.65 0.14 75)',
-  amberGlow:   'rgba(245,158,11,0.15)',
-  amberFaint:  'rgba(245,158,11,0.07)',
-  textPrimary: 'oklch(0.93 0.005 265)',
-  textSecond:  'oklch(0.55 0.01 265)',
-  textMuted:   'oklch(0.40 0.008 265)',
-  green:       'oklch(0.72 0.15 155)',
-  greenDim:    'rgba(16,185,129,0.12)',
-  red:         'oklch(0.65 0.19 25)',
-  redDim:      'rgba(239,68,68,0.12)',
-  blue:        'oklch(0.70 0.14 240)',
-  blueDim:     'rgba(99,102,241,0.12)',
-  shadowCard:  '0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.25)',
-  shadowHover: '0 2px 8px rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.35)',
-  shadowAmber: '0 2px 16px rgba(245,158,11,0.35)',
-  fontSyne:    '"Syne", system-ui, sans-serif',
-  fontDM:      '"DM Sans", system-ui, sans-serif',
+  bg:          '#EFF6FF',
+  surface:     '#FFFFFF',
+  surface2:    '#F8FAFF',
+  surface3:    '#EFF6FF',
+  border:      '#C5D5EC',
+  borderFaint: '#DDE8F5',
+  amber:       '#29B5E8',
+  amberDim:    '#0099CC',
+  amberGlow:   'rgba(41,181,232,0.15)',
+  amberFaint:  'rgba(41,181,232,0.07)',
+  textPrimary: '#0D1117',
+  textSecond:  '#404555',
+  textMuted:   '#767A8C',
+  green:       '#059669',
+  greenDim:    'rgba(5,150,105,0.10)',
+  red:         '#DC2626',
+  redDim:      'rgba(220,38,38,0.08)',
+  blue:        '#0056B3',
+  blueDim:     'rgba(0,86,179,0.10)',
+  shadowCard:  '0 1px 3px rgba(0,86,179,0.04), 0 4px 16px rgba(0,86,179,0.06)',
+  shadowHover: '0 4px 12px rgba(0,86,179,0.08), 0 16px 40px rgba(0,86,179,0.10)',
+  shadowAmber: '0 2px 12px rgba(41,181,232,0.30)',
+  fontSyne:    'inherit',
+  fontDM:      'inherit',
   fontMono:    '"JetBrains Mono", "Fira Code", monospace',
 }
 
@@ -270,7 +270,7 @@ function ToggleOpt({
         boxShadow: checked ? D.shadowAmber : 'none',
         transition: 'all 0.15s ease',
       }}>
-        {checked && <CheckCircle2 style={{ width: 10, height: 10, color: 'oklch(0.09 0.005 265)' }} />}
+        {checked && <CheckCircle2 style={{ width: 10, height: 10, color: '#ffffff' }} />}
       </div>
       <div style={{ flex: 1 }}>
         <p style={{ fontSize: 13, fontFamily: D.fontDM, fontWeight: 600, color: D.textPrimary }}>{label}</p>
@@ -322,7 +322,7 @@ function MethodCard({
           border: `1px solid ${selected ? 'transparent' : D.border}`,
           transition: 'all 0.15s ease',
         }}>
-          <Icon style={{ width: 13, height: 13, color: selected ? 'oklch(0.09 0.005 265)' : D.textSecond }} />
+          <Icon style={{ width: 13, height: 13, color: selected ? '#ffffff' : D.textSecond }} />
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <p style={{ fontSize: 12, fontFamily: D.fontDM, fontWeight: 700,
@@ -412,7 +412,7 @@ function CardHeader({ icon: Icon, step, title, sub, badge }: {
           background: `linear-gradient(135deg, ${D.amberDim}, ${D.amber})`,
           boxShadow: D.shadowAmber,
         }}>
-          <Icon style={{ width: 16, height: 16, color: 'oklch(0.09 0.005 265)' }} />
+          <Icon style={{ width: 16, height: 16, color: '#ffffff' }} />
         </div>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 1 }}>
@@ -616,40 +616,39 @@ export default function SnowflakeAssessmentPage() {
       {/* ── Hero header ──────────────────────────────────────────────────── */}
       <div style={{
         position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, oklch(0.10 0.007 265) 0%, oklch(0.13 0.008 265) 100%)',
+        background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEEFF 100%)',
         borderBottom: `1px solid ${D.border}`,
       }}>
         <div style={{
           position: 'absolute', width: 700, height: 700, top: -350, right: -200,
           borderRadius: '50%', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(245,158,11,0.04) 0%, transparent 60%)',
+          background: 'radial-gradient(circle, rgba(41,181,232,0.06) 0%, transparent 60%)',
         }} />
 
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 32px 28px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{
               width: 52, height: 52, borderRadius: 14, flexShrink: 0,
-              background: D.amberFaint, border: `1px solid ${D.amber}33`,
+              background: 'linear-gradient(135deg, #29B5E8 0%, #0099CC 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: D.shadowAmber,
             }}>
-              <Snowflake style={{ width: 26, height: 26, color: D.amber }} />
+              <img src="/logos/snowflake.svg" alt="Snowflake" style={{ width: 28, height: 28 }} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <span style={{
-                  fontSize: 9, fontFamily: D.fontMono, fontWeight: 700, letterSpacing: '0.1em',
+                  fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
                   textTransform: 'uppercase', padding: '3px 10px', borderRadius: 20,
-                  background: D.amberFaint, color: D.amberDim, border: `1px solid ${D.amber}22`,
+                  background: D.amberFaint, color: D.amberDim, border: `1px solid ${D.amber}33`,
                 }}>
                   Data Cloud
                 </span>
               </div>
-              <h1 style={{ fontSize: 22, fontFamily: D.fontSyne, fontWeight: 800,
-                color: D.textPrimary, margin: 0 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: D.textPrimary, margin: 0 }}>
                 Snowflake Assessment
               </h1>
-              <p style={{ fontSize: 12, fontFamily: D.fontDM, color: D.textMuted, marginTop: 4 }}>
+              <p style={{ fontSize: 12, color: D.textMuted, marginTop: 4 }}>
                 11 authentication methods · 22-step analysis · warehouses, security, cost, performance, governance
               </p>
             </div>
@@ -664,14 +663,14 @@ export default function SnowflakeAssessmentPage() {
             ].map(({ n, Icon, label: lbl, sub }) => (
               <div key={n} style={{
                 padding: '12px 16px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.03)', border: `1px solid ${D.border}`,
+                background: 'rgba(255,255,255,0.7)', border: `1px solid ${D.border}`,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, fontFamily: D.fontMono, fontWeight: 700, color: D.amberDim }}>{n}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: D.amberDim }}>{n}</span>
                   <Icon style={{ width: 13, height: 13, color: D.amber }} />
                 </div>
-                <p style={{ fontSize: 12, fontFamily: D.fontDM, fontWeight: 700, color: D.textPrimary }}>{lbl}</p>
-                <p style={{ fontSize: 10, fontFamily: D.fontDM, color: D.textMuted, marginTop: 2 }}>{sub}</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: D.textPrimary }}>{lbl}</p>
+                <p style={{ fontSize: 10, color: D.textMuted, marginTop: 2 }}>{sub}</p>
               </div>
             ))}
           </div>
@@ -984,7 +983,7 @@ export default function SnowflakeAssessmentPage() {
                     background: canStartAuth
                       ? `linear-gradient(135deg, ${D.amberDim}, ${D.amber})`
                       : D.surface3,
-                    color: canStartAuth ? 'oklch(0.09 0.005 265)' : D.textMuted,
+                    color: canStartAuth ? '#ffffff' : D.textMuted,
                     border: 'none',
                     boxShadow: canStartAuth ? D.shadowAmber : 'none',
                     opacity: canStartAuth ? 1 : 0.5,
@@ -1134,7 +1133,7 @@ export default function SnowflakeAssessmentPage() {
               background: canAssess
                 ? `linear-gradient(135deg, ${D.amberDim}, ${D.amber})`
                 : D.surface3,
-              color: canAssess ? 'oklch(0.09 0.005 265)' : D.textMuted,
+              color: canAssess ? '#ffffff' : D.textMuted,
               border: 'none',
               boxShadow: canAssess ? D.shadowAmber : 'none',
               opacity: canAssess ? 1 : 0.5,

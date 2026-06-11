@@ -127,10 +127,10 @@ export default function SapSessionsPage() {
       ) : sessions.length === 0 ? (
         <div className="card flex flex-col items-center justify-center py-16 text-center gap-4">
           <div
-            className="h-12 w-12 rounded-2xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, rgba(123,94,0,0.08), rgba(196,154,15,0.14))' }}
+            className="h-12 w-12 rounded-2xl flex items-center justify-center overflow-hidden"
+            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC' }}
           >
-            <span className="text-xl font-bold" style={{ color: '#7B5E00' }}>SAP</span>
+            <img src="/logos/sap.svg" alt="SAP" style={{ height: 36, width: 36 }} />
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-700">No SAP assessments yet</p>

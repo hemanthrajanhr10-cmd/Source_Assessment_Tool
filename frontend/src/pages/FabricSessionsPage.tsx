@@ -1,6 +1,6 @@
 ﻿import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Zap, PlusCircle, CheckCircle2, XCircle, Loader2, Clock, StopCircle, BarChart3 } from 'lucide-react'
+import { Zap, PlusCircle, CheckCircle2, XCircle, Loader2, Clock, StopCircle } from 'lucide-react'
 import { api } from '../api/client'
 import type { FabricSessionRecord } from '../types/api'
 import { formatDateTime } from '../utils/dateTime'
@@ -52,8 +52,11 @@ export default function FabricSessionsPage() {
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-2.5">
-            <BarChart3 className="h-6 w-6 text-earth-600" />
+          <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+              style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(0,120,212,0.10)' }}>
+              <img src="/logos/fabric.svg" alt="Microsoft Fabric" style={{ height: 26, width: 26 }} />
+            </div>
             Fabric Assessments
           </h1>
           <p className="mt-1 text-sm text-slate-500">Power BI / Fabric workspace assessment history</p>

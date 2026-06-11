@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- Microsoft Dataverse logo — ellipses/rings like the official logo -->
+  <defs>
+    <linearGradient id="dg1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#742774"/>
+      <stop offset="100%" stop-color="#C084FC"/>
+    </linearGradient>
+    <linearGradient id="dg2" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9333EA"/>
+      <stop offset="100%" stop-color="#6B21A8"/>
+    </linearGradient>
+  </defs>
+  <!-- Outer ellipse ring -->
+  <ellipse cx="24" cy="24" rx="19" ry="10" stroke="url(#dg1)" stroke-width="3.5" fill="none"/>
+  <!-- Tilted ellipse ring -->
+  <ellipse cx="24" cy="24" rx="19" ry="10" stroke="url(#dg2)" stroke-width="3.5" fill="none" transform="rotate(60 24 24)"/>
+  <!-- Second tilted ellipse ring -->
+  <ellipse cx="24" cy="24" rx="19" ry="10" stroke="url(#dg1)" stroke-width="3.5" fill="none" transform="rotate(-60 24 24)"/>
+  <!-- Center dot -->
+  <circle cx="24" cy="24" r="4" fill="url(#dg2)"/>
+  <circle cx="24" cy="24" r="2" fill="white" opacity="0.7"/>
+</svg>

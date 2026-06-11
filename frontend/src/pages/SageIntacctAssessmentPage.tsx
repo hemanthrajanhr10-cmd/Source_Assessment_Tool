@@ -453,13 +453,14 @@ export default function SageIntacctAssessmentPage() {
       {/* ── Page header ─────────────────────────────────────────────── */}
       <div className="flex items-start gap-4">
         <div
-          className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0"
+          className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden"
           style={{
-            background: `linear-gradient(135deg, ${SAGE.primary} 0%, ${SAGE.mid} 100%)`,
-            boxShadow: `0 6px 20px ${SAGE.glow}, inset 0 1px 0 rgba(255,255,255,0.18)`,
+            background: '#F8FAFF',
+            border: '1px solid #C5D5EC',
+            boxShadow: `0 6px 20px ${SAGE.glow}`,
           }}
         >
-          <Building2 className="h-5.5 w-5.5 text-white" style={{ height: 22, width: 22 }} />
+          <img src="/logos/sage-intacct.svg" alt="Sage Intacct" style={{ height: 36, width: 36 }} />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Sage Intacct Assessment</h1>

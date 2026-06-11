@@ -13,31 +13,31 @@ import type {
   DataverseAssessmentRequest,
 } from '../types/api'
 
-// ── Ocean theme ───────────────────────────────────────────────────────────────
+// ── Ocean / Deep Atlantic theme ───────────────────────────────────────────────
 const T = {
-  primary:     '#0E7490',
-  mid:         '#0891B2',
-  accent:      '#22D3EE',
-  accentLight: '#CFFAFE',
-  dark:        '#0C1A2E',
-  darkMid:     '#0F2C45',
-  surface:     '#F0FDFE',
-  light50:     '#ECFEFF',
-  light100:    '#CFFAFE',
-  light200:    '#A5F3FC',
-  ice:         '#67E8F9',
-  text:        '#0C4A6E',
-  textMid:     '#0369A1',
-  glow:        'rgba(14,116,144,0.18)',
-  glowDeep:    'rgba(14,116,144,0.30)',
-  shadowCard:  '0 1px 3px rgba(14,116,144,0.06), 0 4px 16px rgba(14,116,144,0.08), 0 12px 40px rgba(14,116,144,0.05)',
-  shadowHover: '0 4px 12px rgba(14,116,144,0.14), 0 16px 48px rgba(14,116,144,0.10)',
-  shadowBtn:   '0 2px 12px rgba(14,116,144,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
-  shadowBtnHover: '0 4px 20px rgba(14,116,144,0.50), inset 0 1px 0 rgba(255,255,255,0.20)',
-  gradHero:    'linear-gradient(135deg, #0C1A2E 0%, #0F2C45 50%, #103755 100%)',
-  gradSurface: 'linear-gradient(180deg, #F0FDFE 0%, #ECFEFF 100%)',
-  gradBtn:     'linear-gradient(135deg, #0E7490 0%, #0891B2 60%, #06B6D4 100%)',
-  gradAccent:  'linear-gradient(135deg, #0E7490, #22D3EE)',
+  primary:     '#0056B3',
+  mid:         '#0084D4',
+  accent:      '#38A8F5',
+  accentLight: '#DBEEFF',
+  dark:        '#003D82',
+  darkMid:     '#0056B3',
+  surface:     '#EFF6FF',
+  light50:     '#EFF6FF',
+  light100:    '#DBEEFF',
+  light200:    '#BAE0FF',
+  ice:         '#7BC8FF',
+  text:        '#003D82',
+  textMid:     '#0056B3',
+  glow:        'rgba(0,86,179,0.18)',
+  glowDeep:    'rgba(0,86,179,0.30)',
+  shadowCard:  '0 1px 3px rgba(0,86,179,0.06), 0 4px 16px rgba(0,86,179,0.08), 0 12px 40px rgba(0,86,179,0.05)',
+  shadowHover: '0 4px 12px rgba(0,86,179,0.14), 0 16px 48px rgba(0,86,179,0.10)',
+  shadowBtn:   '0 2px 12px rgba(0,86,179,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
+  shadowBtnHover: '0 4px 20px rgba(0,86,179,0.50), inset 0 1px 0 rgba(255,255,255,0.20)',
+  gradHero:    'linear-gradient(135deg, #EFF6FF 0%, #DBEEFF 100%)',
+  gradSurface: 'linear-gradient(180deg, #EFF6FF 0%, #DBEEFF 100%)',
+  gradBtn:     'linear-gradient(135deg, #0056B3 0%, #0084D4 60%, #38A8F5 100%)',
+  gradAccent:  'linear-gradient(135deg, #0056B3, #38A8F5)',
 }
 
 type AuthState = 'idle' | 'testing' | 'ok' | 'failed'
@@ -255,29 +255,28 @@ export default function DataverseAssessmentPage() {
         {/* Decorative orbs */}
         <div style={{
           position: 'absolute', top: '-60px', right: '-60px', width: '220px', height: '220px',
-          borderRadius: '50%', background: 'rgba(34,211,238,0.08)', pointerEvents: 'none',
+          borderRadius: '50%', background: 'rgba(0,132,212,0.08)', pointerEvents: 'none',
         }} />
         <div style={{
           position: 'absolute', bottom: '-40px', left: '20%', width: '160px', height: '160px',
-          borderRadius: '50%', background: 'rgba(14,116,144,0.12)', pointerEvents: 'none',
+          borderRadius: '50%', background: 'rgba(0,86,179,0.12)', pointerEvents: 'none',
         }} />
 
         <div style={{ position: 'relative', maxWidth: '780px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
             <div style={{
               width: '44px', height: '44px', borderRadius: '14px',
-              background: 'linear-gradient(135deg, rgba(34,211,238,0.25) 0%, rgba(14,116,144,0.30) 100%)',
-              border: '1px solid rgba(34,211,238,0.30)',
+              background: '#F8FAFF', border: '1px solid #C5D5EC',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 16px rgba(14,116,144,0.25)',
+              boxShadow: '0 4px 16px rgba(0,86,179,0.15)', overflow: 'hidden',
             }}>
-              <Database style={{ width: '20px', height: '20px', color: T.accent }} />
+              <img src="/logos/dataverse.svg" alt="Dataverse" style={{ width: '30px', height: '30px' }} />
             </div>
             <div>
-              <h1 style={{ color: '#fff', fontSize: '22px', fontWeight: 700, margin: 0, lineHeight: 1.2 }}>
+              <h1 style={{ color: T.dark, fontSize: '22px', fontWeight: 700, margin: 0, lineHeight: 1.2 }}>
                 Microsoft Dataverse Assessment
               </h1>
-              <p style={{ color: 'rgba(34,211,238,0.85)', fontSize: '13px', margin: 0, marginTop: '2px' }}>
+              <p style={{ color: T.textMid, fontSize: '13px', margin: 0, marginTop: '2px' }}>
                 23 domains · 100+ checks · Tables, Security, Flows, Plugins, Solutions & more
               </p>
             </div>
@@ -288,8 +287,8 @@ export default function DataverseAssessmentPage() {
             {['Tables', 'Columns', 'Security Roles', 'Users & Teams', 'Solutions', 'Flows', 'Plugins', 'Audit', 'AI & Copilot'].map(d => (
               <span key={d} style={{
                 fontSize: '10.5px', fontWeight: 600, padding: '3px 9px', borderRadius: '99px',
-                background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.20)',
-                color: 'rgba(207,250,254,0.90)', letterSpacing: '0.03em',
+                background: 'rgba(0,86,179,0.08)', border: '1px solid rgba(0,86,179,0.18)',
+                color: '#003D82', letterSpacing: '0.03em',
               }}>{d}</span>
             ))}
           </div>
@@ -441,7 +440,7 @@ export default function DataverseAssessmentPage() {
                 <div style={{
                   marginTop: '4px', padding: '10px 14px', borderRadius: '10px',
                   display: 'flex', alignItems: 'center', gap: '10px',
-                  background: authState === 'ok' ? 'rgba(5,150,105,0.06)' : authState === 'failed' ? 'rgba(220,38,38,0.06)' : 'rgba(14,116,144,0.06)',
+                  background: authState === 'ok' ? 'rgba(5,150,105,0.06)' : authState === 'failed' ? 'rgba(220,38,38,0.06)' : 'rgba(0,86,179,0.06)',
                   border: `1px solid ${authState === 'ok' ? 'rgba(5,150,105,0.20)' : authState === 'failed' ? 'rgba(220,38,38,0.20)' : T.light200}`,
                 }}>
                   {authState === 'testing' && <Loader2 style={{ width: '15px', height: '15px', color: T.primary, animation: 'spin 1s linear infinite', flexShrink: 0 }} />}
@@ -559,7 +558,7 @@ export default function DataverseAssessmentPage() {
             {/* Info card */}
             <div style={{
               borderRadius: '14px', padding: '16px',
-              background: 'linear-gradient(135deg, rgba(14,116,144,0.06) 0%, rgba(34,211,238,0.06) 100%)',
+              background: 'linear-gradient(135deg, rgba(0,86,179,0.06) 0%, rgba(0,132,212,0.06) 100%)',
               border: `1px solid ${T.light200}`,
               display: 'flex', gap: '12px', alignItems: 'flex-start',
             }}>

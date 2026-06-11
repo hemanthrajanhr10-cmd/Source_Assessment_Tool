@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- SAP logo — official dark blue background with white SAP text -->
+  <rect width="48" height="48" rx="8" fill="#009BD7"/>
+  <!-- SAP wordmark in white -->
+  <text x="24" y="31" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="18" letter-spacing="1" fill="white">SAP</text>
+</svg>

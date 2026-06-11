@@ -126,13 +126,14 @@ function SessionCard({ session, index }: { session: SageIntacctSessionRecord; in
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div
-              className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
+              className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
               style={{
-                background: `linear-gradient(135deg, ${SAGE.primary} 0%, ${SAGE.mid} 100%)`,
+                background: '#F8FAFF',
+                border: '1px solid #C5D5EC',
                 boxShadow: `0 4px 12px ${SAGE.glow}`,
               }}
             >
-              <Building2 className="h-5 w-5 text-white" />
+              <img src="/logos/sage-intacct.svg" alt="Sage Intacct" style={{ height: 28, width: 28 }} />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-slate-800 truncate">

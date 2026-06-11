@@ -16,22 +16,22 @@ import type {
 } from '../types/api'
 import Loader3D from '../components/ui/Loader3D'
 
-// ── Design tokens — Tableau orange stays, structural redesign ─────────────────
+// ── Design tokens (Ocean / Deep Atlantic) ────────────────────────────────────
 
 const T = {
-  primary:  '#E8751A',
-  dark:     '#1F3864',
-  accent:   '#FFB81C',
+  primary:  '#0056B3',
+  dark:     '#003D82',
+  accent:   '#0084D4',
   teal:     '#0D9488',
-  light50:  '#FFF8F0',
-  light100: '#FFF3E0',
-  light200: '#FFE0B2',
-  glow:     'rgba(232,117,26,0.12)',
-  glowD:    'rgba(31,56,100,0.08)',
-  shadow:   '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(31,56,100,0.06)',
-  shadowH:  '0 4px 8px rgba(232,117,26,0.08), 0 16px 40px rgba(232,117,26,0.12)',
-  shadowBtn:'0 2px 8px rgba(232,117,26,0.32), inset 0 1px 0 rgba(255,255,255,0.18)',
-  card:     '0 1px 2px rgba(0,0,0,0.04), 0 4px 20px rgba(31,56,100,0.05)',
+  light50:  '#EFF6FF',
+  light100: '#DBEEFF',
+  light200: '#BAE0FF',
+  glow:     'rgba(0,86,179,0.12)',
+  glowD:    'rgba(0,86,179,0.08)',
+  shadow:   '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,86,179,0.06)',
+  shadowH:  '0 4px 8px rgba(0,86,179,0.08), 0 16px 40px rgba(0,86,179,0.12)',
+  shadowBtn:'0 2px 8px rgba(0,86,179,0.32), inset 0 1px 0 rgba(255,255,255,0.18)',
+  card:     '0 1px 2px rgba(0,0,0,0.04), 0 4px 20px rgba(0,86,179,0.05)',
   radius:   '14px',
 }
 
@@ -976,12 +976,13 @@ export default function TableauSessionDetailPage() {
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = '' }}>
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0"
+            <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
               style={{
-                background: `linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%)`,
+                background: '#F8FAFF',
+                border: '1px solid #C5D5EC',
                 boxShadow: `0 4px 14px ${T.glow}`,
               }}>
-              <BarChart3 className="h-5 w-5 text-white" />
+              <img src="/logos/tableau.svg" alt="Tableau" className="h-8 w-8" />
             </div>
             <div>
               <h1 className="text-xl font-black text-slate-900 tracking-tight">

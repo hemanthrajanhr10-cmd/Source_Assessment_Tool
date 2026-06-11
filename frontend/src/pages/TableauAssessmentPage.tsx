@@ -436,13 +436,14 @@ export default function TableauAssessmentPage() {
       {/* ── Page header ────────────────────────────────────────────── */}
       <div className="flex items-start gap-4">
         <div
-          className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0"
+          className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden"
           style={{
-            background: `linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%)`,
-            boxShadow: `0 6px 20px ${T.glow}, inset 0 1px 0 rgba(255,255,255,0.18)`,
+            background: '#F8FAFF',
+            border: '1px solid #C5D5EC',
+            boxShadow: `0 6px 20px ${T.glow}`,
           }}
         >
-          <BarChart3 className="h-6 w-6 text-white" />
+          <img src="/logos/tableau.svg" alt="Tableau" style={{ height: 36, width: 36 }} />
         </div>
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Tableau Assessment</h1>

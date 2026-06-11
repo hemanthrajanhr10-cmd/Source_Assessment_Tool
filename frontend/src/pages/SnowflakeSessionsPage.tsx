@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Snowflake, PlusCircle, CheckCircle2, XCircle,
-  Loader2, Clock, ChevronRight, Database,
+  PlusCircle, CheckCircle2, XCircle,
+  Loader2, Clock, ChevronRight,
   AlertTriangle,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
@@ -11,20 +11,20 @@ import type { SnowflakeSessionRecord } from '../types/api'
 // ── Ocean design tokens ───────────────────────────────────────────────────────
 
 const T = {
-  primary:    '#00B8E6',
-  dark:       '#0A1628',
-  mid:        '#0099CC',
-  accent:     '#00D4FF',
-  surface:    '#EBF4FF',
-  light50:    '#F0F8FF',
-  light100:   '#E0F2FF',
-  ice:        '#B8D4E8',
-  glow:       'rgba(0,184,230,0.15)',
-  shadowCard: '0 2px 4px rgba(0,184,230,0.05), 0 8px 32px rgba(0,184,230,0.08), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowHover:'0 4px 12px rgba(0,184,230,0.10), 0 20px 48px rgba(0,184,230,0.12)',
-  gradBtn:    'linear-gradient(135deg, #0099CC 0%, #00B8E6 60%, #00D4FF 100%)',
-  gradHero:   'linear-gradient(135deg, #0A1628 0%, #0D2040 50%, #102848 100%)',
-  gradSurface:'linear-gradient(180deg, #F0F8FF 0%, #E8F4FF 100%)',
+  primary:    '#0056B3',
+  dark:       '#0D1829',
+  mid:        '#0084D4',
+  accent:     '#38A8F5',
+  surface:    '#EFF6FF',
+  light50:    '#F8FAFF',
+  light100:   '#DBEEFF',
+  ice:        '#C5D5EC',
+  glow:       'rgba(0,86,179,0.10)',
+  shadowCard: '0 2px 4px rgba(0,86,179,0.05), 0 8px 32px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowHover:'0 4px 12px rgba(0,86,179,0.10), 0 20px 48px rgba(0,86,179,0.10)',
+  gradBtn:    'linear-gradient(135deg, #0056B3 0%, #0084D4 60%, #38A8F5 100%)',
+  gradHero:   'linear-gradient(135deg, #EFF6FF 0%, #DBEEFF 100%)',
+  gradSurface:'linear-gradient(180deg, #F8FAFF 0%, #EFF6FF 100%)',
 }
 
 function statusConfig(status: string) {
@@ -78,17 +78,18 @@ export default function SnowflakeSessionsPage() {
         <div className="relative max-w-5xl mx-auto px-6 py-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div
-              className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0"
+              className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
               style={{
-                background: 'rgba(0,184,230,0.15)',
-                border: '1px solid rgba(0,212,255,0.20)',
+                background: '#F8FAFF',
+                border: '1px solid #C5D5EC',
+                boxShadow: '0 2px 8px rgba(41,181,232,0.12)',
               }}
             >
-              <Snowflake className="h-6 w-6" style={{ color: T.accent }} />
+              <img src="/logos/snowflake.svg" alt="Snowflake" style={{ height: 30, width: 30 }} />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white">Snowflake Assessments</h1>
-              <p className="text-sm" style={{ color: 'rgba(176,212,232,0.8)' }}>
+              <h1 className="text-xl font-bold" style={{ color: T.dark }}>Snowflake Assessments</h1>
+              <p className="text-sm" style={{ color: '#64748B' }}>
                 {loading ? 'Loading…' : `${sessions.length} assessment${sessions.length !== 1 ? 's' : ''}`}
               </p>
             </div>
@@ -109,12 +110,8 @@ export default function SnowflakeSessionsPage() {
         </div>
       </div>
 
-      {/* Wave */}
-      <div className="h-5 overflow-hidden" style={{ background: T.gradHero }}>
-        <svg viewBox="0 0 1440 20" fill="none" preserveAspectRatio="none" style={{ width: '100%', height: '20px' }}>
-          <path d="M0 0 Q360 20 720 10 Q1080 0 1440 18 L1440 20 L0 20Z" fill="#EBF4FF" />
-        </svg>
-      </div>
+      {/* Divider */}
+      <div className="h-px" style={{ background: T.ice }} />
 
       <div className="max-w-5xl mx-auto px-6 py-8">
         {loading && (
@@ -140,7 +137,7 @@ export default function SnowflakeSessionsPage() {
               className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
               style={{ background: T.light100, border: `1px solid ${T.ice}` }}
             >
-              <Snowflake className="h-8 w-8" style={{ color: T.primary }} />
+              <img src="/logos/snowflake.svg" alt="Snowflake" style={{ height: 36, width: 36 }} />
             </div>
             <h3 className="text-base font-bold mb-2" style={{ color: T.dark }}>No assessments yet</h3>
             <p className="text-sm mb-6" style={{ color: '#64748B' }}>
@@ -187,10 +184,10 @@ export default function SnowflakeSessionsPage() {
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 min-w-0">
                       <div
-                        className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0"
-                        style={{ background: T.light100, border: `1px solid ${T.ice}` }}
+                        className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+                        style={{ background: '#F8FAFF', border: '1px solid #C5D5EC' }}
                       >
-                        <Database className="h-5 w-5" style={{ color: T.primary }} />
+                        <img src="/logos/snowflake.svg" alt="Snowflake" style={{ height: 28, width: 28 }} />
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-bold truncate" style={{ color: T.dark }}>

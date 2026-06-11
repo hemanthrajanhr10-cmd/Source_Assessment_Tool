@@ -1003,11 +1003,17 @@ export default function NewAssessmentPage() {
   return (
     <div className="max-w-3xl mx-auto animate-fade-in">
       <div className="page-header">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 font-display">New Assessment</h1>
-          <p className="mt-1 text-sm text-slate-500">
-            Add one or more SQL Server instances, select databases, and run a comprehensive schema analysis.
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(204,41,54,0.10)' }}>
+            <img src="/logos/sqlserver.svg" alt="SQL Server" style={{ height: 28, width: 28 }} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 font-display">New Assessment</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Add one or more SQL Server instances, select databases, and run a comprehensive schema analysis.
+            </p>
+          </div>
         </div>
       </div>
 

@@ -23,7 +23,7 @@ const T = {
   border: 'rgba(197,213,236,0.65)',
   shadow:    '0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.8)',
   shadowMd:  '0 4px 16px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
-  canvas:    'oklch(0.987 0.005 240)',
+  canvas:    '#F8FAFF',
   toolbarBg: 'linear-gradient(180deg, #F9FAFD 0%, #F2F6FB 100%)',
 }
 

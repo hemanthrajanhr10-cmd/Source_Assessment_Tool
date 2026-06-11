@@ -1762,10 +1762,10 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.border = isEmpty
-                    ? '1.5px solid rgba(245,158,11,0.4)'
+                    ? '1.5px solid rgba(148,163,184,0.5)'
                     : '1.5px solid rgba(0,86,179,0.42)'
                   e.currentTarget.style.boxShadow = isEmpty
-                    ? '0 4px 14px rgba(245,158,11,0.10)'
+                    ? '0 4px 14px rgba(148,163,184,0.15)'
                     : '0 8px 28px rgba(0,86,179,0.11), 0 2px 8px rgba(0,86,179,0.07)'
                   e.currentTarget.style.transform = 'translateY(-2px)'
                   e.currentTarget.style.opacity = '1'
@@ -1889,7 +1889,7 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.border = isEmpty
-                    ? '1.5px solid rgba(245,158,11,0.4)'
+                    ? '1.5px solid rgba(148,163,184,0.5)'
                     : '1.5px solid rgba(0,86,179,0.42)'
                   e.currentTarget.style.opacity = '1'
                   e.currentTarget.style.transform = 'translateY(-2px)'

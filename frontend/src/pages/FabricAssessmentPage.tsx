@@ -1,7 +1,7 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Zap, MonitorSmartphone, CheckCircle2, AlertCircle,
+  MonitorSmartphone, CheckCircle2, AlertCircle,
   Loader2, ExternalLink, Tag, ArrowRight, Copy,
   Building2, Database, FileText, Search, ChevronDown, ChevronRight, X,
 } from 'lucide-react'
@@ -327,8 +327,11 @@ export default function FabricAssessmentPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-2.5">
-          <Zap className="h-6 w-6 text-earth-600" />
+        <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(0,120,212,0.10)' }}>
+            <img src="/logos/fabric.svg" alt="Microsoft Fabric" style={{ height: 28, width: 28 }} />
+          </div>
           Fabric Workspace Assessment
         </h1>
         <p className="mt-1 text-sm text-slate-500">

@@ -6,6 +6,7 @@ import type { FabricSessionRecord } from '../types/api'
 import { formatDateTime } from '../utils/dateTime'
 import Button from '../components/ui/Button'
 import Loader3D from '../components/ui/Loader3D'
+import { FabricLogo } from '../components/ui/SourceLogos'
 
 function FabricStatusBadge({ status }: { status: string }) {
   if (status === 'completed')
@@ -55,7 +56,7 @@ export default function FabricSessionsPage() {
           <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
               style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(0,120,212,0.10)' }}>
-              <img src="/logos/fabric.svg" alt="Microsoft Fabric" style={{ height: 26, width: 26 }} />
+              <FabricLogo size={26} />
             </div>
             Fabric Assessments
           </h1>

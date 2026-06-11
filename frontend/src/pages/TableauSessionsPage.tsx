@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   BarChart3, Plus, RefreshCw, CheckCircle2, XCircle,
@@ -8,6 +8,7 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { TableauSessionRecord } from '../types/api'
 import Loader3D from '../components/ui/Loader3D'
+import { TableauLogo } from '../components/ui/SourceLogos'
 
 // ── Design tokens (Ocean / Deep Atlantic) ────────────────────────────────────
 
@@ -108,7 +109,7 @@ function SessionCard({ session, index }: { session: TableauSessionRecord; index:
               className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
               style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: `0 2px 8px ${T.glow}` }}
             >
-              <img src="/logos/tableau.svg" alt="Tableau" className="h-7 w-7" />
+              <TableauLogo size={28} />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-slate-900 truncate">
@@ -245,7 +246,7 @@ export default function TableauSessionsPage() {
             className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
             style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: `0 2px 8px rgba(0,86,179,0.10)` }}
           >
-            <img src="/logos/tableau.svg" alt="Tableau" className="h-7 w-7" />
+            <TableauLogo size={28} />
           </div>
           <div>
             <h1 className="text-xl font-black text-slate-900 tracking-tight">Tableau Assessments</h1>
@@ -325,7 +326,7 @@ export default function TableauSessionsPage() {
             className="h-16 w-16 rounded-2xl flex items-center justify-center mb-4 overflow-hidden"
             style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: `0 6px 20px ${T.glow}` }}
           >
-            <img src="/logos/tableau.svg" alt="Tableau" className="h-12 w-12" />
+            <TableauLogo size={48} />
           </div>
           <h3 className="text-lg font-bold text-slate-800 mb-1">No Tableau assessments yet</h3>
           <p className="text-sm text-slate-500 mb-6 max-w-sm">

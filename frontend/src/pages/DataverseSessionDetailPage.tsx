@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Database, ChevronLeft, Loader2, AlertTriangle, CheckCircle,
@@ -7,6 +7,7 @@ import {
   GitBranch, FlaskConical, Globe,
 } from 'lucide-react'
 import axios from 'axios'
+import { DataverseLogo } from '../components/ui/SourceLogos'
 import type {
   DataverseJobStatusResponse,
   DataverseAssessmentResult,
@@ -434,7 +435,7 @@ export default function DataverseSessionDetailPage() {
                 }}>
                   {isRunning
                     ? <Loader2 style={{ width: '20px', height: '20px', color: T.primary, animation: 'spin 1s linear infinite' }} />
-                    : <img src="/logos/dataverse.svg" alt="Dataverse" style={{ width: '32px', height: '32px' }} />
+                    : <DataverseLogo size={32} />
                   }
                 </div>
               )}

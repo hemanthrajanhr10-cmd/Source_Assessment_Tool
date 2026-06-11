@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Database, PlusCircle, RefreshCw, Loader2, AlertTriangle,
@@ -6,6 +6,7 @@ import {
   TrendingUp, Shield, AlertCircle,
 } from 'lucide-react'
 import axios from 'axios'
+import { DataverseLogo } from '../components/ui/SourceLogos'
 import type { DataverseSessionRecord } from '../types/api'
 
 const T = {
@@ -103,7 +104,7 @@ export default function DataverseSessionsPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden',
             }}>
-              <img src="/logos/dataverse.svg" alt="Dataverse" style={{ width: '26px', height: '26px' }} />
+              <DataverseLogo size={26} />
             </div>
             <div>
               <h1 style={{ color: T.dark, fontSize: '20px', fontWeight: 700, margin: 0 }}>Dataverse Assessments</h1>
@@ -195,7 +196,7 @@ export default function DataverseSessionsPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: `0 4px 20px ${T.glow}`, overflow: 'hidden',
             }}>
-              <img src="/logos/dataverse.svg" alt="Dataverse" style={{ width: '44px', height: '44px' }} />
+              <DataverseLogo size={44} />
             </div>
             <h3 style={{ fontSize: '18px', fontWeight: 700, color: T.text, margin: '0 0 8px' }}>No assessments yet</h3>
             <p style={{ fontSize: '13.5px', color: '#64748b', margin: '0 0 20px', maxWidth: '360px', marginLeft: 'auto', marginRight: 'auto' }}>

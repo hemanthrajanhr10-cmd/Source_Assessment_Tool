@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+﻿import { useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Building2, User, Lock, Eye, EyeOff, Tag, Zap,
@@ -9,6 +9,7 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { SageIntacctAssessmentRequest } from '../types/api'
 import Spinner from '../components/ui/Spinner'
+import { SageIntacctLogo } from '../components/ui/SourceLogos'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -460,7 +461,7 @@ export default function SageIntacctAssessmentPage() {
             boxShadow: `0 6px 20px ${SAGE.glow}`,
           }}
         >
-          <img src="/logos/sage-intacct.svg" alt="Sage Intacct" style={{ height: 36, width: 36 }} />
+          <SageIntacctLogo size={36} />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Sage Intacct Assessment</h1>

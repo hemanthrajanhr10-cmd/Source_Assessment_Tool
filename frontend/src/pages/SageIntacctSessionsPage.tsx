@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Building2, Plus, RefreshCw, CheckCircle2, XCircle,
@@ -8,6 +8,7 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { SageIntacctSessionRecord } from '../types/api'
 import Loader3D from '../components/ui/Loader3D'
+import { SageIntacctLogo } from '../components/ui/SourceLogos'
 
 // ── Design tokens (Ocean theme) ───────────────────────────────────────────────
 
@@ -133,7 +134,7 @@ function SessionCard({ session, index }: { session: SageIntacctSessionRecord; in
                 boxShadow: `0 4px 12px ${SAGE.glow}`,
               }}
             >
-              <img src="/logos/sage-intacct.svg" alt="Sage Intacct" style={{ height: 28, width: 28 }} />
+              <SageIntacctLogo size={28} />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-slate-800 truncate">

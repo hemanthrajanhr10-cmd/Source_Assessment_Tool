@@ -8,6 +8,7 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { FabricWorkspaceInfo, FabricWorkspaceItems } from '../types/api'
 import Button from '../components/ui/Button'
+import { FabricLogo } from '../components/ui/SourceLogos'
 import { formatTime } from '../utils/dateTime'
 
 // Steps: start → waiting (device code) → picking (workspaces) → picking-items (models & reports) → naming → submitting
@@ -330,7 +331,7 @@ export default function FabricAssessmentPage() {
         <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
             style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(0,120,212,0.10)' }}>
-            <img src="/logos/fabric.svg" alt="Microsoft Fabric" style={{ height: 28, width: 28 }} />
+            <FabricLogo size={28} />
           </div>
           Fabric Workspace Assessment
         </h1>

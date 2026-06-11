@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+﻿import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   BarChart3, Users, Database, Globe, RefreshCw, Shield,
@@ -15,6 +15,7 @@ import type {
   WorkbookDeepAnalysis,
 } from '../types/api'
 import Loader3D from '../components/ui/Loader3D'
+import { TableauLogo } from '../components/ui/SourceLogos'
 
 // ── Design tokens (Ocean / Deep Atlantic) ────────────────────────────────────
 
@@ -982,7 +983,7 @@ export default function TableauSessionDetailPage() {
                 border: '1px solid #C5D5EC',
                 boxShadow: `0 4px 14px ${T.glow}`,
               }}>
-              <img src="/logos/tableau.svg" alt="Tableau" className="h-8 w-8" />
+              <TableauLogo size={32} />
             </div>
             <div>
               <h1 className="text-xl font-black text-slate-900 tracking-tight">

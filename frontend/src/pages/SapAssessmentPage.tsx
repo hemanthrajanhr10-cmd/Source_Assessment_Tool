@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+﻿import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Server, User, Lock, Eye, EyeOff, ArrowRight,
@@ -18,6 +18,7 @@ import type {
 } from '../types/api'
 import { SAP_VARIANTS } from '../types/api'
 import Button from '../components/ui/Button'
+import { SapLogo } from '../components/ui/SourceLogos'
 import Spinner from '../components/ui/Spinner'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -487,7 +488,7 @@ export default function SapAssessmentPage() {
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
             style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(0,155,215,0.12)' }}>
-            <img src="/logos/sap.svg" alt="SAP" style={{ height: 28, width: 28 }} />
+            <SapLogo size={28} />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-display">SAP Assessment</h1>

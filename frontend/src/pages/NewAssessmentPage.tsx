@@ -10,6 +10,7 @@ import { api, getApiErrorMessage } from '../api/client'
 import type { AccessLevel, DatabaseInfo, DbType, HybridConnection } from '../types/api'
 import { ACCESS_LEVEL_OPTIONS } from '../types/api'
 import Button from '../components/ui/Button'
+import { SqlServerLogo } from '../components/ui/SourceLogos'
 import Spinner from '../components/ui/Spinner'
 
 const DB_TYPE_OPTIONS: { value: DbType; label: string; defaultPort: number }[] = [
@@ -1006,7 +1007,7 @@ export default function NewAssessmentPage() {
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
             style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(204,41,54,0.10)' }}>
-            <img src="/logos/sqlserver.svg" alt="SQL Server" style={{ height: 28, width: 28 }} />
+            <SqlServerLogo size={28} />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-display">New Assessment</h1>

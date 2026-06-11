@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+﻿import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Snowflake, CheckCircle2, XCircle, Loader2, ArrowLeft,
@@ -8,6 +8,7 @@ import {
   TrendingUp, Eye, Cpu, Bell, Link2, Tag,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
+import { SnowflakeLogo } from '../components/ui/SourceLogos'
 import type { SnowflakeJobStatusResponse, SnowflakeAssessmentResult } from '../types/api'
 
 // ── Ocean design tokens ───────────────────────────────────────────────────────
@@ -1378,7 +1379,7 @@ export default function SnowflakeSessionDetailPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: D.shadowCard,
               }}>
-                <img src="/logos/snowflake.svg" alt="Snowflake" style={{ width: 26, height: 26 }} />
+                <SnowflakeLogo size={26} />
               </div>
               <div>
                 <h1 style={{ fontSize: 20, fontFamily: D.fontSyne, fontWeight: 800,

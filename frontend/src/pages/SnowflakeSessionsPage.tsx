@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   PlusCircle, CheckCircle2, XCircle,
@@ -6,6 +6,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
+import { SnowflakeLogo } from '../components/ui/SourceLogos'
 import type { SnowflakeSessionRecord } from '../types/api'
 
 // ── Ocean design tokens ───────────────────────────────────────────────────────
@@ -85,7 +86,7 @@ export default function SnowflakeSessionsPage() {
                 boxShadow: '0 2px 8px rgba(41,181,232,0.12)',
               }}
             >
-              <img src="/logos/snowflake.svg" alt="Snowflake" style={{ height: 30, width: 30 }} />
+              <SnowflakeLogo size={30} />
             </div>
             <div>
               <h1 className="text-xl font-bold" style={{ color: T.dark }}>Snowflake Assessments</h1>
@@ -137,7 +138,7 @@ export default function SnowflakeSessionsPage() {
               className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
               style={{ background: T.light100, border: `1px solid ${T.ice}` }}
             >
-              <img src="/logos/snowflake.svg" alt="Snowflake" style={{ height: 36, width: 36 }} />
+              <SnowflakeLogo size={36} />
             </div>
             <h3 className="text-base font-bold mb-2" style={{ color: T.dark }}>No assessments yet</h3>
             <p className="text-sm mb-6" style={{ color: '#64748B' }}>
@@ -187,7 +188,7 @@ export default function SnowflakeSessionsPage() {
                         className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
                         style={{ background: '#F8FAFF', border: '1px solid #C5D5EC' }}
                       >
-                        <img src="/logos/snowflake.svg" alt="Snowflake" style={{ height: 28, width: 28 }} />
+                        <SnowflakeLogo size={28} />
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-bold truncate" style={{ color: T.dark }}>

@@ -1,4 +1,4 @@
-﻿import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Layers, List, Network,
   LogOut, Shield, ChevronDown,
@@ -6,28 +6,35 @@ import {
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import {
+  UnifiedLogo, SqlServerLogo, FabricLogo, SapLogo,
+  SageIntacctLogo, TableauLogo, SnowflakeLogo, DataverseLogo,
+} from '../ui/SourceLogos'
+import type { LucideIcon } from 'lucide-react'
 
-// Source brand logo component
-function SourceLogo({ src, alt, size = 18 }: { src: string; alt: string; size?: number }) {
-  return (
-    <img
-      src={src}
-      alt={alt}
-      width={size}
-      height={size}
-      className="shrink-0 rounded"
-      style={{ objectFit: 'contain' }}
-    />
-  )
+type LogoComponent = React.ComponentType<{ size?: number; className?: string }>
+
+interface NavGroup {
+  label: string
+  element: string
+  LogoComponent: LogoComponent
+  dotGradient: string
+  activeBg: string
+  activeText: string
+  activeBorder: string
+  activeIconColor: string
+  activeDotGlow: string
+  hoverBg: string
+  hoverText: string
+  hoverIconColor: string
+  items: { to: string; label: string; icon: LucideIcon; exact?: boolean }[]
 }
 
-// Nav groups — each source has its brand logo and Ocean-palette accent colors
-const NAV_GROUPS = [
+const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Unified Assessment',
     element: 'ocean',
-    logo: '/logos/unified.svg',
-    logoAlt: 'Unified Assessment',
+    LogoComponent: UnifiedLogo,
     dotGradient:      'linear-gradient(135deg, #0056B3, #38A8F5)',
     activeBg:         'rgba(0,86,179,0.09)',
     activeText:       '#003D82',
@@ -45,8 +52,7 @@ const NAV_GROUPS = [
   {
     label: 'SQL Server',
     element: 'tide',
-    logo: '/logos/sqlserver.svg',
-    logoAlt: 'SQL Server',
+    LogoComponent: SqlServerLogo,
     dotGradient:      'linear-gradient(135deg, #CC2936, #E84855)',
     activeBg:         'rgba(204,41,54,0.08)',
     activeText:       '#9B1C1C',
@@ -66,8 +72,7 @@ const NAV_GROUPS = [
   {
     label: 'Microsoft Fabric',
     element: 'grove',
-    logo: '/logos/fabric.svg',
-    logoAlt: 'Microsoft Fabric',
+    LogoComponent: FabricLogo,
     dotGradient:      'linear-gradient(135deg, #0078D4, #00BCF2)',
     activeBg:         'rgba(0,120,212,0.09)',
     activeText:       '#0F5DB3',
@@ -85,8 +90,7 @@ const NAV_GROUPS = [
   {
     label: 'SAP Systems',
     element: 'sand',
-    logo: '/logos/sap.svg',
-    logoAlt: 'SAP',
+    LogoComponent: SapLogo,
     dotGradient:      'linear-gradient(135deg, #009BD7, #0BBBE8)',
     activeBg:         'rgba(0,155,215,0.09)',
     activeText:       '#006E99',
@@ -104,8 +108,7 @@ const NAV_GROUPS = [
   {
     label: 'Sage Intacct',
     element: 'sage',
-    logo: '/logos/sage-intacct.svg',
-    logoAlt: 'Sage Intacct',
+    LogoComponent: SageIntacctLogo,
     dotGradient:      'linear-gradient(135deg, #00DC82, #00A65A)',
     activeBg:         'rgba(0,166,90,0.09)',
     activeText:       '#00613A',
@@ -123,8 +126,7 @@ const NAV_GROUPS = [
   {
     label: 'Tableau',
     element: 'tableau',
-    logo: '/logos/tableau.svg',
-    logoAlt: 'Tableau',
+    LogoComponent: TableauLogo,
     dotGradient:      'linear-gradient(135deg, #0056B3, #0084D4)',
     activeBg:         'rgba(0,86,179,0.09)',
     activeText:       '#003D82',
@@ -142,8 +144,7 @@ const NAV_GROUPS = [
   {
     label: 'Snowflake',
     element: 'snowflake',
-    logo: '/logos/snowflake.svg',
-    logoAlt: 'Snowflake',
+    LogoComponent: SnowflakeLogo,
     dotGradient:      'linear-gradient(135deg, #29B5E8, #0099CC)',
     activeBg:         'rgba(41,181,232,0.09)',
     activeText:       '#006B99',
@@ -161,8 +162,7 @@ const NAV_GROUPS = [
   {
     label: 'Dataverse',
     element: 'dataverse',
-    logo: '/logos/dataverse.svg',
-    logoAlt: 'Microsoft Dataverse',
+    LogoComponent: DataverseLogo,
     dotGradient:      'linear-gradient(135deg, #742774, #C084FC)',
     activeBg:         'rgba(116,39,116,0.09)',
     activeText:       '#5B1E5B',
@@ -251,20 +251,18 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             className="flex items-center gap-3 group"
             aria-label="Source Assessment Tool home"
           >
-            {/* Logo icon with violet gradient + animated pulse ring */}
             <div className="relative shrink-0">
-              {/* Pulse ring */}
               <div
                 className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100"
                 style={{
-                  background: 'rgba(125, 74, 32, 0.12)',
+                  background: 'rgba(0,86,179,0.12)',
                   animation: 'pulseRing 2.4s ease-out infinite',
                   borderRadius: '12px',
                 }}
                 aria-hidden="true"
               />
               <div
-                className="relative flex items-center justify-center h-9 w-9 rounded-xl"
+                className="relative flex items-center justify-center h-9 w-9 rounded-xl overflow-hidden"
                 style={{
                   background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)',
                   boxShadow: '0 4px 12px rgba(0,86,179,0.28), inset 0 1px 0 rgba(255,255,255,0.20)',
@@ -281,7 +279,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   el.style.boxShadow = '0 4px 12px rgba(0,86,179,0.28), inset 0 1px 0 rgba(255,255,255,0.20)'
                 }}
               >
-                <img src="/logos/unified.svg" alt="SourceSAT" style={{ height: '18px', width: '18px' }} aria-hidden="true" />
+                <UnifiedLogo size={20} />
               </div>
             </div>
 
@@ -312,90 +310,93 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           className="flex-1 overflow-y-auto py-5 px-3 space-y-7"
           aria-label="Main navigation"
         >
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label}>
-              {/* Section label with brand logo */}
-              <div className="flex items-center gap-2 px-2 mb-2.5">
-                <SourceLogo src={group.logo} alt={group.logoAlt} size={14} />
-                <p className="section-title">{group.label}</p>
-              </div>
+          {NAV_GROUPS.map((group) => {
+            const Logo = group.LogoComponent
+            return (
+              <div key={group.label}>
+                {/* Section label with inline brand logo */}
+                <div className="flex items-center gap-2 px-2 mb-2.5">
+                  <Logo size={14} />
+                  <p className="section-title">{group.label}</p>
+                </div>
 
-              <ul className="space-y-0.5" role="list">
-                {group.items.map(({ to, label, icon: Icon, exact }) => (
-                  <li key={to}>
-                    <NavLink
-                      to={to}
-                      end={exact}
-                      onClick={() => onClose()}
-                      className={({ isActive }) =>
-                        `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm
-                         focus-visible:ring-2 focus-visible:outline-none
-                         transition-all duration-150
-                         ${isActive
-                           ? 'font-semibold border'
-                           : 'font-medium text-slate-600 hover:text-slate-900 border border-transparent'
-                         }`
-                      }
-                      style={({ isActive }) => ({
-                        ...(isActive ? {
-                          background: group.activeBg,
-                          color: group.activeText,
-                          borderColor: group.activeBorder,
-                        } : {}),
-                        boxShadow: isActive ? 'var(--elevation-1)' : undefined,
-                        transform: 'translateX(0)',
-                        transition: 'transform 120ms cubic-bezier(0.4,0,0.2,1), background-color 120ms, color 120ms',
-                      })}
-                      onMouseEnter={(e) => {
-                        const el = e.currentTarget as HTMLAnchorElement
-                        if (!el.classList.contains('font-semibold')) {
-                          el.style.transform = 'translateX(2px)'
-                          el.style.backgroundColor = group.hoverBg
-                          el.style.color = group.hoverText
-                          el.style.borderColor = group.activeBorder
-                          const icon = el.querySelector('svg') as SVGElement | null
-                          if (icon) icon.style.color = group.hoverIconColor
+                <ul className="space-y-0.5" role="list">
+                  {group.items.map(({ to, label, icon: Icon, exact }) => (
+                    <li key={to}>
+                      <NavLink
+                        to={to}
+                        end={exact}
+                        onClick={() => onClose()}
+                        className={({ isActive }) =>
+                          `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm
+                           focus-visible:ring-2 focus-visible:outline-none
+                           transition-all duration-150
+                           ${isActive
+                             ? 'font-semibold border'
+                             : 'font-medium text-slate-600 hover:text-slate-900 border border-transparent'
+                           }`
                         }
-                      }}
-                      onMouseLeave={(e) => {
-                        const el = e.currentTarget as HTMLAnchorElement
-                        if (!el.classList.contains('font-semibold')) {
-                          el.style.transform = ''
-                          el.style.backgroundColor = ''
-                          el.style.color = ''
-                          el.style.borderColor = 'transparent'
-                          const icon = el.querySelector('svg') as SVGElement | null
-                          if (icon) icon.style.color = ''
-                        }
-                      }}
-                      aria-current={undefined}
-                    >
-                      {({ isActive }) => (
-                        <>
-                          <Icon
-                            className="h-4 w-4 shrink-0 transition-colors duration-120 text-slate-400"
-                            style={isActive ? { color: group.activeIconColor } : {}}
-                            aria-hidden="true"
-                          />
-                          <span className="flex-1">{label}</span>
-                          {isActive && (
-                            <span
-                              className="h-1.5 w-1.5 rounded-full shrink-0"
-                              style={{
-                                background: group.dotGradient,
-                                boxShadow: `0 0 6px ${group.activeDotGlow}`,
-                              }}
+                        style={({ isActive }) => ({
+                          ...(isActive ? {
+                            background: group.activeBg,
+                            color: group.activeText,
+                            borderColor: group.activeBorder,
+                          } : {}),
+                          boxShadow: isActive ? 'var(--elevation-1)' : undefined,
+                          transform: 'translateX(0)',
+                          transition: 'transform 120ms cubic-bezier(0.4,0,0.2,1), background-color 120ms, color 120ms',
+                        })}
+                        onMouseEnter={(e) => {
+                          const el = e.currentTarget as HTMLAnchorElement
+                          if (!el.classList.contains('font-semibold')) {
+                            el.style.transform = 'translateX(2px)'
+                            el.style.backgroundColor = group.hoverBg
+                            el.style.color = group.hoverText
+                            el.style.borderColor = group.activeBorder
+                            const icon = el.querySelector('svg') as SVGElement | null
+                            if (icon) icon.style.color = group.hoverIconColor
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          const el = e.currentTarget as HTMLAnchorElement
+                          if (!el.classList.contains('font-semibold')) {
+                            el.style.transform = ''
+                            el.style.backgroundColor = ''
+                            el.style.color = ''
+                            el.style.borderColor = 'transparent'
+                            const icon = el.querySelector('svg') as SVGElement | null
+                            if (icon) icon.style.color = ''
+                          }
+                        }}
+                        aria-current={undefined}
+                      >
+                        {({ isActive }) => (
+                          <>
+                            <Icon
+                              className="h-4 w-4 shrink-0 transition-colors duration-120 text-slate-400"
+                              style={isActive ? { color: group.activeIconColor } : {}}
                               aria-hidden="true"
                             />
-                          )}
-                        </>
-                      )}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+                            <span className="flex-1">{label}</span>
+                            {isActive && (
+                              <span
+                                className="h-1.5 w-1.5 rounded-full shrink-0"
+                                style={{
+                                  background: group.dotGradient,
+                                  boxShadow: `0 0 6px ${group.activeDotGlow}`,
+                                }}
+                                aria-hidden="true"
+                              />
+                            )}
+                          </>
+                        )}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )
+          })}
         </nav>
 
         {/* ── User footer ─────────────────────────────────────────────────── */}
@@ -414,7 +415,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               aria-expanded={menuOpen}
               aria-haspopup="menu"
             >
-              {/* Gradient ring avatar */}
               <div className="relative shrink-0">
                 <div
                   className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
@@ -425,7 +425,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 >
                   {initials}
                 </div>
-                {/* Online status dot */}
                 <span
                   className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-earth-500 border-2 border-white"
                   style={{ boxShadow: '0 0 6px rgba(5,150,105,0.50)' }}
@@ -458,7 +457,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 }}
                 role="menu"
               >
-                {/* Top accent line */}
                 <div
                   className="h-0.5 mx-3 mb-2 rounded-full"
                   style={{ background: 'linear-gradient(90deg, #0056B3, #0891B2, #0D9488)' }}
@@ -500,7 +498,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             )}
           </div>
 
-          {/* Bottom branding */}
           <div className="flex items-center justify-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
             <Sparkles className="h-2.5 w-2.5" style={{ color: '#0891B2' }} aria-hidden="true" />
             <span className="text-[9px] text-slate-300 tracking-widest uppercase font-medium">

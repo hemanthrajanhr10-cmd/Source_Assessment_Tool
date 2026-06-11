@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Database, Shield, Zap, Eye, EyeOff, ChevronRight,
@@ -7,6 +7,7 @@ import {
   Layers, GitBranch, CloudCog, FlaskConical,
 } from 'lucide-react'
 import axios from 'axios'
+import { DataverseLogo } from '../components/ui/SourceLogos'
 import type {
   DataverseAuthMethod,
   DataverseCredentials,
@@ -270,7 +271,7 @@ export default function DataverseAssessmentPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 4px 16px rgba(0,86,179,0.15)', overflow: 'hidden',
             }}>
-              <img src="/logos/dataverse.svg" alt="Dataverse" style={{ width: '30px', height: '30px' }} />
+              <DataverseLogo size={30} />
             </div>
             <div>
               <h1 style={{ color: T.dark, fontSize: '22px', fontWeight: 700, margin: 0, lineHeight: 1.2 }}>

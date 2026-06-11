@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+﻿import { useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   BarChart3, Globe, Lock, Eye, EyeOff, Tag, Zap,
@@ -9,6 +9,7 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { TableauAssessmentRequest } from '../types/api'
 import Spinner from '../components/ui/Spinner'
+import { TableauLogo } from '../components/ui/SourceLogos'
 
 // ── Design tokens (Ocean / Deep Atlantic) ────────────────────────────────────
 
@@ -443,7 +444,7 @@ export default function TableauAssessmentPage() {
             boxShadow: `0 6px 20px ${T.glow}`,
           }}
         >
-          <img src="/logos/tableau.svg" alt="Tableau" style={{ height: 36, width: 36 }} />
+          <TableauLogo size={36} />
         </div>
         <div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Tableau Assessment</h1>

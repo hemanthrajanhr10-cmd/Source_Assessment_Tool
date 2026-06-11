@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Database, Globe, User, Shield, Layers,
@@ -9,6 +9,7 @@ import {
   Server, ExternalLink, Eye, EyeOff, Link2,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
+import { SnowflakeLogo } from '../components/ui/SourceLogos'
 import type {
   SnowflakeAuthMethod,
   SnowflakeAuthRequest,
@@ -633,7 +634,7 @@ export default function SnowflakeAssessmentPage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: D.shadowAmber,
             }}>
-              <img src="/logos/snowflake.svg" alt="Snowflake" style={{ width: 28, height: 28 }} />
+              <SnowflakeLogo size={28} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>

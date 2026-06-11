@@ -22,6 +22,7 @@ import type {
   HybridConnection,
 } from '../types/api'
 import { ACCESS_LEVEL_OPTIONS } from '../types/api'
+import { UnifiedLogo } from '../components/ui/SourceLogos'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -425,7 +426,7 @@ export default function UnifiedAssessmentPage() {
         <div className="flex items-center gap-3 mb-2">
           <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
             style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(0,86,179,0.10)' }}>
-            <img src="/logos/unified.svg" alt="Unified Assessment" style={{ height: 24, width: 24 }} />
+            <UnifiedLogo size={24} />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             New Unified Assessment

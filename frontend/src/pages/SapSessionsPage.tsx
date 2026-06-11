@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CheckCircle2, XCircle, Loader2, Clock,
@@ -8,6 +8,7 @@ import { api, getApiErrorMessage } from '../api/client'
 import type { SapSessionRecord, SapVariant } from '../types/api'
 import { SAP_VARIANTS } from '../types/api'
 import Button from '../components/ui/Button'
+import { SapLogo } from '../components/ui/SourceLogos'
 
 function variantLabel(v: SapVariant): string {
   return SAP_VARIANTS.find((m) => m.value === v)?.label ?? v
@@ -130,7 +131,7 @@ export default function SapSessionsPage() {
             className="h-12 w-12 rounded-2xl flex items-center justify-center overflow-hidden"
             style={{ background: '#F8FAFF', border: '1px solid #C5D5EC' }}
           >
-            <img src="/logos/sap.svg" alt="SAP" style={{ height: 36, width: 36 }} />
+            <SapLogo size={36} />
           </div>
           <div>
             <p className="text-sm font-semibold text-slate-700">No SAP assessments yet</p>

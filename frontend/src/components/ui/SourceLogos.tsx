@@ -38,7 +38,7 @@ export function SnowflakeIconLogo({ size = 24, className }: LogoProps) {
 
 /** Snowflake full logo with name (for hero banners) */
 export function SnowflakeFullLogo({ height = 28, className }: { height?: number; className?: string }) {
-  return <img src={snowflakeFullUrl} height={height} className={className} style={{ objectFit: 'contain', display: 'inline-block', width: 'auto' }} alt="Snowflake" />
+  return <img src={snowflakeFullUrl} height={height} className={className} style={{ objectFit: 'contain', display: 'block', width: 'auto', maxWidth: 200 }} alt="Snowflake" />
 }
 
 export function TableauLogo({ size = 24, className }: LogoProps) {

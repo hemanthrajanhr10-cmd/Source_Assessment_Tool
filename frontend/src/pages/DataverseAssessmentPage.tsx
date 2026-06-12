@@ -7,7 +7,7 @@ import {
   Layers, GitBranch, CloudCog, FlaskConical,
 } from 'lucide-react'
 import axios from 'axios'
-import { DataverseLogo } from '../components/ui/SourceLogos'
+import { DataverseFullLogo } from '../components/ui/SourceLogos'
 import type {
   DataverseAuthMethod,
   DataverseCredentials,
@@ -264,18 +264,11 @@ export default function DataverseAssessmentPage() {
         }} />
 
         <div style={{ position: 'relative', maxWidth: '780px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
-            <div style={{
-              width: '44px', height: '44px', borderRadius: '14px',
-              background: '#F8FAFF', border: '1px solid #C5D5EC',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 16px rgba(0,86,179,0.15)', overflow: 'hidden',
-            }}>
-              <DataverseLogo size={30} />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '12px' }}>
+            <DataverseFullLogo height={42} />
             <div>
               <h1 style={{ color: T.dark, fontSize: '22px', fontWeight: 700, margin: 0, lineHeight: 1.2 }}>
-                Microsoft Dataverse Assessment
+                Assessment
               </h1>
               <p style={{ color: T.textMid, fontSize: '13px', margin: 0, marginTop: '2px' }}>
                 23 domains · 100+ checks · Tables, Security, Flows, Plugins, Solutions & more

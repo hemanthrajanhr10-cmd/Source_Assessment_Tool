@@ -8,7 +8,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import {
   UnifiedLogo, SqlServerLogo, FabricLogo, SapLogo,
-  SageIntacctLogo, TableauLogo, SnowflakeLogo, DataverseLogo,
+  SageIntacctLogo, TableauLogo, SnowflakeIconLogo, DataverseIconLogo,
 } from '../ui/SourceLogos'
 import type { LucideIcon } from 'lucide-react'
 
@@ -50,7 +50,7 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'SQL Server',
+    label: 'DB Assessment',
     element: 'tide',
     LogoComponent: SqlServerLogo,
     dotGradient:      'linear-gradient(135deg, #CC2936, #E84855)',
@@ -144,7 +144,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Snowflake',
     element: 'snowflake',
-    LogoComponent: SnowflakeLogo,
+    LogoComponent: SnowflakeIconLogo,
     dotGradient:      'linear-gradient(135deg, #29B5E8, #0099CC)',
     activeBg:         'rgba(41,181,232,0.09)',
     activeText:       '#006B99',
@@ -162,7 +162,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Dataverse',
     element: 'dataverse',
-    LogoComponent: DataverseLogo,
+    LogoComponent: DataverseIconLogo,
     dotGradient:      'linear-gradient(135deg, #742774, #C084FC)',
     activeBg:         'rgba(116,39,116,0.09)',
     activeText:       '#5B1E5B',

@@ -9,7 +9,7 @@ import {
   Server, ExternalLink, Eye, EyeOff, Link2,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
-import { SnowflakeLogo } from '../components/ui/SourceLogos'
+import { SnowflakeFullLogo } from '../components/ui/SourceLogos'
 import type {
   SnowflakeAuthMethod,
   SnowflakeAuthRequest,
@@ -627,15 +627,8 @@ export default function SnowflakeAssessmentPage() {
         }} />
 
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 32px 28px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: 14, flexShrink: 0,
-              background: 'linear-gradient(135deg, #29B5E8 0%, #0099CC 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: D.shadowAmber,
-            }}>
-              <SnowflakeLogo size={28} />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            <SnowflakeFullLogo height={44} />
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <span style={{
@@ -647,7 +640,7 @@ export default function SnowflakeAssessmentPage() {
                 </span>
               </div>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: D.textPrimary, margin: 0 }}>
-                Snowflake Assessment
+                Assessment
               </h1>
               <p style={{ fontSize: 12, color: D.textMuted, marginTop: 4 }}>
                 11 authentication methods · 22-step analysis · warehouses, security, cost, performance, governance

@@ -8,6 +8,15 @@ import dataverseUrl from '../../assets/logos/dataverse.svg'
 import sapUrl from '../../assets/logos/sap.svg'
 import sageIntacctUrl from '../../assets/logos/sage-intacct.svg'
 
+// New PNG logos — icon-only (for sidebar) and full with name (for hero banners)
+import snowflakeIconUrl from '../../assets/src_logos/Snowflake_Logo.png'
+import snowflakeFullUrl from '../../assets/src_logos/Snowflake.png'
+import dataverseIconUrl from '../../assets/src_logos/Dataverse_logo.png'
+import dataverseFullUrl from '../../assets/src_logos/Dataverse.png'
+import mysqlFullUrl from '../../assets/src_logos/MySQL.png'
+import oracleFullUrl from '../../assets/src_logos/Oracle.png'
+import postgresqlIconUrl from '../../assets/src_logos/Postgresql.png'
+
 type LogoProps = { size?: number; className?: string }
 
 export function SqlServerLogo({ size = 24, className }: LogoProps) {
@@ -22,6 +31,16 @@ export function SnowflakeLogo({ size = 24, className }: LogoProps) {
   return <img src={snowflakeUrl} width={size} height={size} className={className} style={{ objectFit: 'contain', display: 'inline-block' }} alt="Snowflake" />
 }
 
+/** Snowflake icon-only PNG (for sidebar nav labels) */
+export function SnowflakeIconLogo({ size = 24, className }: LogoProps) {
+  return <img src={snowflakeIconUrl} width={size} height={size} className={className} style={{ objectFit: 'contain', display: 'inline-block' }} alt="Snowflake" />
+}
+
+/** Snowflake full logo with name (for hero banners) */
+export function SnowflakeFullLogo({ height = 28, className }: { height?: number; className?: string }) {
+  return <img src={snowflakeFullUrl} height={height} className={className} style={{ objectFit: 'contain', display: 'inline-block', width: 'auto' }} alt="Snowflake" />
+}
+
 export function TableauLogo({ size = 24, className }: LogoProps) {
   return <img src={tableauUrl} width={size} height={size} className={className} style={{ objectFit: 'contain', display: 'inline-block' }} alt="Tableau" />
 }
@@ -30,12 +49,36 @@ export function DataverseLogo({ size = 24, className }: LogoProps) {
   return <img src={dataverseUrl} width={size} height={size} className={className} style={{ objectFit: 'contain', display: 'inline-block' }} alt="Microsoft Dataverse" />
 }
 
+/** Dataverse icon-only PNG (for sidebar nav labels) */
+export function DataverseIconLogo({ size = 24, className }: LogoProps) {
+  return <img src={dataverseIconUrl} width={size} height={size} className={className} style={{ objectFit: 'contain', display: 'inline-block' }} alt="Dataverse" />
+}
+
+/** Dataverse full logo with name (for hero banners) */
+export function DataverseFullLogo({ height = 28, className }: { height?: number; className?: string }) {
+  return <img src={dataverseFullUrl} height={height} className={className} style={{ objectFit: 'contain', display: 'inline-block', width: 'auto' }} alt="Dataverse" />
+}
+
 export function SapLogo({ size = 24, className }: LogoProps) {
   return <img src={sapUrl} width={size} height={size} className={className} style={{ objectFit: 'contain', display: 'inline-block' }} alt="SAP" />
 }
 
 export function SageIntacctLogo({ size = 24, className }: LogoProps) {
   return <img src={sageIntacctUrl} width={size} height={size} className={className} style={{ objectFit: 'contain', display: 'inline-block' }} alt="Sage Intacct" />
+}
+
+/** DB-type-specific full logos (for DB Assessment hero banner) */
+export function MySQLFullLogo({ height = 28, className }: { height?: number; className?: string }) {
+  return <img src={mysqlFullUrl} height={height} className={className} style={{ objectFit: 'contain', display: 'inline-block', width: 'auto' }} alt="MySQL" />
+}
+
+export function OracleFullLogo({ height = 28, className }: { height?: number; className?: string }) {
+  return <img src={oracleFullUrl} height={height} className={className} style={{ objectFit: 'contain', display: 'inline-block', width: 'auto' }} alt="Oracle" />
+}
+
+/** PostgreSQL icon PNG (icon-only — no separate "with name" logo provided) */
+export function PostgreSQLIconLogo({ size = 24, className }: LogoProps) {
+  return <img src={postgresqlIconUrl} width={size} height={size} className={className} style={{ objectFit: 'contain', display: 'inline-block' }} alt="PostgreSQL" />
 }
 
 export function UnifiedLogo({ size = 24, className }: LogoProps) {

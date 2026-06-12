@@ -10,7 +10,7 @@ import { api, getApiErrorMessage } from '../api/client'
 import type { AccessLevel, DatabaseInfo, DbType, HybridConnection } from '../types/api'
 import { ACCESS_LEVEL_OPTIONS } from '../types/api'
 import Button from '../components/ui/Button'
-import { SqlServerLogo } from '../components/ui/SourceLogos'
+import { SqlServerLogo, MySQLFullLogo, OracleFullLogo, PostgreSQLIconLogo } from '../components/ui/SourceLogos'
 import Spinner from '../components/ui/Spinner'
 
 const DB_TYPE_OPTIONS: { value: DbType; label: string; defaultPort: number }[] = [
@@ -925,6 +925,23 @@ function ServerCard({
   )
 }
 
+function DbHeroLogo({ dbType }: { dbType: string }) {
+  if (dbType === 'mysql')    return <MySQLFullLogo height={38} />
+  if (dbType === 'oracle')   return <OracleFullLogo height={30} />
+  if (dbType === 'postgres') return (
+    <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+      style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(70,130,180,0.12)' }}>
+      <PostgreSQLIconLogo size={28} />
+    </div>
+  )
+  return (
+    <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+      style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(204,41,54,0.10)' }}>
+      <SqlServerLogo size={28} />
+    </div>
+  )
+}
+
 export default function NewAssessmentPage() {
   const navigate = useNavigate()
   const [label, setLabel] = useState('')
@@ -1005,14 +1022,11 @@ export default function NewAssessmentPage() {
     <div className="max-w-3xl mx-auto animate-fade-in">
       <div className="page-header">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(204,41,54,0.10)' }}>
-            <SqlServerLogo size={28} />
-          </div>
+          <DbHeroLogo dbType={servers[0]?.db_type ?? 'mssql'} />
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 font-display">New Assessment</h1>
+            <h1 className="text-2xl font-bold text-slate-900 font-display">DB Assessment</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Add one or more SQL Server instances, select databases, and run a comprehensive schema analysis.
+              Add one or more database servers, select databases, and run a comprehensive schema analysis.
             </p>
           </div>
         </div>

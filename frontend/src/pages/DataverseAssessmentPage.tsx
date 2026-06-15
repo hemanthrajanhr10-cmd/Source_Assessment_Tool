@@ -265,7 +265,7 @@ export default function DataverseAssessmentPage() {
 
         <div style={{ position: 'relative', maxWidth: '780px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '12px' }}>
-            <DataverseFullLogo height={42} />
+            <DataverseFullLogo height={32} />
             <div>
               <h1 style={{ color: T.dark, fontSize: '22px', fontWeight: 700, margin: 0, lineHeight: 1.2 }}>
                 Assessment

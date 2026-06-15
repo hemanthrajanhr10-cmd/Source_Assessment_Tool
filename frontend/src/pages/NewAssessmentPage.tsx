@@ -926,8 +926,8 @@ function ServerCard({
 }
 
 function DbHeroLogo({ dbType }: { dbType: string }) {
-  if (dbType === 'mysql')    return <MySQLFullLogo height={38} />
-  if (dbType === 'oracle')   return <OracleFullLogo height={30} />
+  if (dbType === 'mysql')    return <MySQLFullLogo height={44} />
+  if (dbType === 'oracle')   return <OracleFullLogo height={22} />
   if (dbType === 'postgres') return (
     <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
       style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(70,130,180,0.12)' }}>

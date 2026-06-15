@@ -626,46 +626,49 @@ export default function SnowflakeAssessmentPage() {
           background: 'radial-gradient(circle, rgba(41,181,232,0.06) 0%, transparent 60%)',
         }} />
 
-        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '28px 32px 24px' }}>
-          {/* Logo row — constrained width so the wide wordmark stays compact */}
-          <div style={{ marginBottom: 14 }}>
-            <SnowflakeFullLogo height={38} />
-          </div>
-          {/* Title + description below the logo */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <span style={{
-                fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
-                textTransform: 'uppercase', padding: '3px 10px', borderRadius: 20,
-                background: D.amberFaint, color: D.amberDim, border: `1px solid ${D.amber}33`,
-              }}>
-                Data Cloud
-              </span>
-            </div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: D.textPrimary, margin: 0 }}>
-              Snowflake Assessment
-            </h1>
-            <p style={{ fontSize: 12, color: D.textMuted, marginTop: 4 }}>
-              11 authentication methods · 22-step analysis · warehouses, security, cost, performance, governance
-            </p>
+        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 32px 28px' }}>
+          {/* Logo — full wordmark, anchored left */}
+          <div style={{ marginBottom: 16 }}>
+            <SnowflakeFullLogo height={40} />
           </div>
 
-          {/* step indicators */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 24 }}>
+          {/* Category badge */}
+          <div style={{ marginBottom: 8 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center',
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+              textTransform: 'uppercase', padding: '3px 10px', borderRadius: 20,
+              background: D.amberFaint, color: D.amberDim, border: `1px solid ${D.amber}33`,
+            }}>
+              Data Cloud
+            </span>
+          </div>
+
+          {/* Title + description */}
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: D.textPrimary, margin: 0, lineHeight: 1.2 }}>
+            Snowflake Assessment
+          </h1>
+          <p style={{ fontSize: 12, color: D.textMuted, marginTop: 6, lineHeight: 1.6 }}>
+            11 authentication methods · 22-step analysis · warehouses, security, cost, performance, governance
+          </p>
+
+          {/* Step indicators */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 20 }}>
             {[
-              { n: '01', Icon: Shield,   label: 'Authenticate',       sub: '11 methods — SSO, Key-Pair, OAuth' },
-              { n: '02', Icon: Settings2, label: 'Configure Scope',   sub: 'Modules, depth, label' },
-              { n: '03', Icon: Zap,      label: 'Run Assessment',     sub: '22-step platform analysis' },
+              { n: '01', Icon: Shield,    label: 'Authenticate',     sub: '11 methods — SSO, Key-Pair, OAuth' },
+              { n: '02', Icon: Settings2, label: 'Configure Scope',  sub: 'Modules, depth, label' },
+              { n: '03', Icon: Zap,       label: 'Run Assessment',   sub: '22-step platform analysis' },
             ].map(({ n, Icon, label: lbl, sub }) => (
               <div key={n} style={{
                 padding: '12px 16px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.7)', border: `1px solid ${D.border}`,
+                background: 'rgba(255,255,255,0.72)', border: `1px solid ${D.border}`,
+                backdropFilter: 'blur(4px)',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: D.amberDim }}>{n}</span>
-                  <Icon style={{ width: 13, height: 13, color: D.amber }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: D.amberDim, fontVariantNumeric: 'tabular-nums' }}>{n}</span>
+                  <Icon style={{ width: 12, height: 12, color: D.amber }} />
                 </div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: D.textPrimary }}>{lbl}</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: D.textPrimary, margin: 0 }}>{lbl}</p>
                 <p style={{ fontSize: 10, color: D.textMuted, marginTop: 2 }}>{sub}</p>
               </div>
             ))}

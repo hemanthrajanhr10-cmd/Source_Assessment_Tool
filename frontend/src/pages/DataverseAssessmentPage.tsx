@@ -252,37 +252,47 @@ export default function DataverseAssessmentPage() {
   return (
     <div style={{ minHeight: '100vh', background: T.gradSurface }}>
       {/* Hero header */}
-      <div style={{ background: T.gradHero, padding: '36px 32px 28px', position: 'relative', overflow: 'hidden' }}>
-        {/* Decorative orbs */}
+      <div style={{ background: T.gradHero, borderBottom: '1px solid #DBEEFF', position: 'relative', overflow: 'hidden' }}>
+        {/* Decorative orb */}
         <div style={{
-          position: 'absolute', top: '-60px', right: '-60px', width: '220px', height: '220px',
-          borderRadius: '50%', background: 'rgba(0,132,212,0.08)', pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: '-40px', left: '20%', width: '160px', height: '160px',
-          borderRadius: '50%', background: 'rgba(0,86,179,0.12)', pointerEvents: 'none',
+          position: 'absolute', width: 700, height: 700, top: -350, right: -200,
+          borderRadius: '50%', pointerEvents: 'none',
+          background: 'radial-gradient(circle, rgba(0,132,212,0.06) 0%, transparent 60%)',
         }} />
 
-        <div style={{ position: 'relative', maxWidth: '780px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '12px' }}>
-            <DataverseFullLogo height={32} />
-            <div>
-              <h1 style={{ color: T.dark, fontSize: '22px', fontWeight: 700, margin: 0, lineHeight: 1.2 }}>
-                Assessment
-              </h1>
-              <p style={{ color: T.textMid, fontSize: '13px', margin: 0, marginTop: '2px' }}>
-                23 domains · 100+ checks · Tables, Security, Flows, Plugins, Solutions & more
-              </p>
-            </div>
+        <div style={{ position: 'relative', maxWidth: 1000, margin: '0 auto', padding: '32px 32px 28px' }}>
+          {/* Logo — full wordmark, anchored left */}
+          <div style={{ marginBottom: 16 }}>
+            <DataverseFullLogo height={40} />
           </div>
 
+          {/* Category badge */}
+          <div style={{ marginBottom: 8 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center',
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+              textTransform: 'uppercase', padding: '3px 10px', borderRadius: 20,
+              background: 'rgba(0,86,179,0.07)', color: T.dark, border: '1px solid rgba(0,86,179,0.20)',
+            }}>
+              Power Platform
+            </span>
+          </div>
+
+          {/* Title + description */}
+          <h1 style={{ color: T.dark, fontSize: 24, fontWeight: 800, margin: 0, lineHeight: 1.2 }}>
+            Dataverse Assessment
+          </h1>
+          <p style={{ color: T.textMid, fontSize: 12, margin: 0, marginTop: 6, lineHeight: 1.6 }}>
+            23 domains · 100+ checks · Tables, Security, Flows, Plugins, Solutions &amp; more
+          </p>
+
           {/* Domain badges */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 16 }}>
             {['Tables', 'Columns', 'Security Roles', 'Users & Teams', 'Solutions', 'Flows', 'Plugins', 'Audit', 'AI & Copilot'].map(d => (
               <span key={d} style={{
-                fontSize: '10.5px', fontWeight: 600, padding: '3px 9px', borderRadius: '99px',
-                background: 'rgba(0,86,179,0.08)', border: '1px solid rgba(0,86,179,0.18)',
-                color: '#003D82', letterSpacing: '0.03em',
+                fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 99,
+                background: 'rgba(255,255,255,0.72)', border: '1px solid rgba(0,86,179,0.18)',
+                color: T.dark, letterSpacing: '0.03em', backdropFilter: 'blur(4px)',
               }}>{d}</span>
             ))}
           </div>

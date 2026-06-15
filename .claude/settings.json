@@ -210,7 +210,17 @@
       "Bash(python -m uvicorn app.main:app --port 8000 --host 127.0.0.1)",
       "Bash(curl -s http://localhost:8000/api/auth/me -o /dev/null -w \"%{http_code}\")",
       "Bash(curl -s -X POST http://localhost:8000/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"mhrajan.rajan1@gmail.com\",\"password\":\"Admin@12345\"}')",
-      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(m.upper\\(\\), p\\) for p,v in d.get\\('paths',{}\\).items\\(\\) for m in v if 'auth' in p.lower\\(\\)]\")"
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(m.upper\\(\\), p\\) for p,v in d.get\\('paths',{}\\).items\\(\\) for m in v if 'auth' in p.lower\\(\\)]\")",
+      "PowerShell(git push origin dev)",
+      "PowerShell(Get-Command playwright -ErrorAction SilentlyContinue)",
+      "PowerShell(npm list -g playwright 2>$null)",
+      "PowerShell(npm list -g \"@playwright/test\" 2>$null)",
+      "PowerShell(Invoke-RestMethod -Uri \"http://localhost:8000/health\" -ErrorAction SilentlyContinue 2>$null)",
+      "PowerShell(curl -s \"http://localhost:8000/health\" 2>$null)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "Bash(curl -s -X POST http://localhost:8000/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"hemanthrajan.hr10@gmail.com\",\"password\":\"welcome@1234\"}')",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"hemanthrajan.hr10@gmail.com\",\"password\":\"welcome@1234\"}')",
+      "Bash(curl -si http://localhost:5173/)"
     ],
     "additionalDirectories": [
       "C:\\Users\\hemanth.rajan\\.claude\\projects\\c--Users-hemanth-rajan-Documents-Source-Assessment-Tool",

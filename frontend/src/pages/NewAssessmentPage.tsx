@@ -404,8 +404,9 @@ function ServerCard({
     <div className="card overflow-hidden animate-slide-up" style={{ animationDelay: `${index * 60}ms` }}>
       {/* Card header */}
       <div className="flex items-center gap-3 px-5 py-3.5 bg-slate-50 border-b border-slate-200">
-        <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-earth-50 border border-earth-200 text-earth-700 text-xs font-bold shrink-0">
-          {index + 1}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <DbEngineChip dbType={entry.db_type} />
+          <span className="text-xs font-bold text-earth-700 tabular-nums">{index + 1}</span>
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-800 truncate">{serverLabel}</p>
@@ -925,19 +926,29 @@ function ServerCard({
   )
 }
 
-function DbHeroLogo({ dbType }: { dbType: string }) {
-  if (dbType === 'mysql')    return <MySQLFullLogo height={44} />
-  if (dbType === 'oracle')   return <OracleFullLogo height={22} />
+function DbEngineChip({ dbType }: { dbType: DbType }) {
+  if (dbType === 'mysql') return (
+    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+      style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', boxShadow: '0 1px 4px rgba(22,163,74,0.10)' }}>
+      <MySQLFullLogo height={18} />
+    </div>
+  )
+  if (dbType === 'oracle') return (
+    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+      style={{ background: '#FFF7F7', border: '1px solid #FECACA', boxShadow: '0 1px 4px rgba(204,41,54,0.10)' }}>
+      <OracleFullLogo height={14} />
+    </div>
+  )
   if (dbType === 'postgres') return (
-    <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-      style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(70,130,180,0.12)' }}>
-      <PostgreSQLIconLogo size={28} />
+    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+      style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 1px 4px rgba(70,130,180,0.12)' }}>
+      <PostgreSQLIconLogo size={18} />
     </div>
   )
   return (
-    <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-      style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(204,41,54,0.10)' }}>
-      <SqlServerLogo size={28} />
+    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+      style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 1px 4px rgba(204,41,54,0.10)' }}>
+      <SqlServerLogo size={18} />
     </div>
   )
 }
@@ -1022,7 +1033,10 @@ export default function NewAssessmentPage() {
     <div className="max-w-3xl mx-auto animate-fade-in">
       <div className="page-header">
         <div className="flex items-center gap-3">
-          <DbHeroLogo dbType={servers[0]?.db_type ?? 'mssql'} />
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(204,41,54,0.10)' }}>
+            <SqlServerLogo size={28} />
+          </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-display">DB Assessment</h1>
             <p className="mt-1 text-sm text-slate-500">

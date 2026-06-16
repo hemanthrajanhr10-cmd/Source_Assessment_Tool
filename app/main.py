@@ -26,6 +26,7 @@ from app.api.v1.routes.sage_intacct import router as sage_intacct_router
 from app.api.v1.routes.tableau import router as tableau_router
 from app.api.v1.routes.snowflake import router as snowflake_router
 from app.api.v1.routes.dataverse import router as dataverse_router
+from app.api.v1.routes.salesforce import router as salesforce_router
 from app.config import settings
 from app.core.logging import get_logger
 from app.db import azure_store
@@ -141,6 +142,7 @@ app.include_router(sage_intacct_router, tags=["Sage Intacct"])
 app.include_router(tableau_router, tags=["Tableau"])
 app.include_router(snowflake_router, tags=["Snowflake"])
 app.include_router(dataverse_router, tags=["Dataverse"])
+app.include_router(salesforce_router, tags=["Salesforce"])
 
 
 @app.get("/health", tags=["Health"])

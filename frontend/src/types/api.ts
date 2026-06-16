@@ -2043,3 +2043,138 @@ export interface DataverseSessionRecord {
   completed_at?: string
   duration_seconds?: number
 }
+
+// ── Salesforce ────────────────────────────────────────────────────────────────
+
+export type SalesforceAuthMethod =
+  | 'username_password'
+  | 'oauth_client_credentials'
+  | 'connected_app_token'
+
+export type SalesforceApiScope =
+  | 'rest_api'
+  | 'metadata_api'
+  | 'tooling_api'
+  | 'bulk_api'
+  | 'analytics_api'
+  | 'security'
+  | 'automation'
+  | 'integration'
+
+export interface SalesforceCredentials {
+  auth_method: SalesforceAuthMethod
+  instance_url: string
+  api_version?: string
+  username?: string
+  password?: string
+  security_token?: string
+  client_id?: string
+  client_secret?: string
+  access_token?: string
+}
+
+export interface SalesforceAssessmentRequest {
+  credentials: SalesforceCredentials
+  label?: string
+  api_scopes?: SalesforceApiScope[]
+  include_objects?: boolean
+  include_fields?: boolean
+  include_relationships?: boolean
+  include_validation?: boolean
+  include_apex?: boolean
+  include_flows?: boolean
+  include_security?: boolean
+  include_bulk?: boolean
+  include_analytics?: boolean
+  include_integrations?: boolean
+  max_objects?: number
+}
+
+export interface SalesforceCheckResult {
+  check_id: string
+  name: string
+  domain: string
+  api_surface: string
+  risk: 'critical' | 'high' | 'medium' | 'low'
+  status: 'passed' | 'warning' | 'critical' | 'info' | 'error' | 'skipped'
+  count?: number
+  value?: unknown
+  details?: string
+  recommendation?: string
+}
+
+export interface SalesforceDomainSummary {
+  domain: string
+  api_surface: string
+  total_checks: number
+  critical: number
+  high: number
+  medium: number
+  low: number
+  passed: number
+  errors: number
+  score: number
+}
+
+export interface SalesforceAssessmentResult {
+  job_id: string
+  status: 'completed' | 'failed'
+  instance_url: string
+  org_name?: string
+  org_id?: string
+  org_type?: string
+  sf_version?: string
+  total_checks: number
+  critical_findings: number
+  high_findings: number
+  medium_findings: number
+  low_findings: number
+  overall_score: number
+  custom_object_count: number
+  standard_object_count: number
+  total_field_count: number
+  apex_class_count: number
+  flow_count: number
+  active_user_count: number
+  profile_count: number
+  permission_set_count: number
+  domain_summaries: SalesforceDomainSummary[]
+  check_results: SalesforceCheckResult[]
+  errors: string[]
+  completed_at?: string
+  duration_seconds?: number
+}
+
+export interface SalesforceJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface SalesforceJobStatusResponse {
+  job_id: string
+  status: string
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+  checks_completed: number
+  total_checks: number
+}
+
+export interface SalesforceSessionRecord {
+  job_id: string
+  status: string
+  label?: string
+  instance_url: string
+  org_name?: string
+  org_type?: string
+  total_checks: number
+  critical_findings: number
+  high_findings: number
+  overall_score: number
+  created_at: string
+  completed_at?: string
+  duration_seconds?: number
+}

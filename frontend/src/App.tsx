@@ -31,6 +31,9 @@ const SnowflakeSessionDetailPage   = lazy(() => import('./pages/SnowflakeSession
 const DataverseAssessmentPage      = lazy(() => import('./pages/DataverseAssessmentPage'))
 const DataverseSessionsPage        = lazy(() => import('./pages/DataverseSessionsPage'))
 const DataverseSessionDetailPage   = lazy(() => import('./pages/DataverseSessionDetailPage'))
+const SalesforceAssessmentPage     = lazy(() => import('./pages/SalesforceAssessmentPage'))
+const SalesforceSessionsPage       = lazy(() => import('./pages/SalesforceSessionsPage'))
+const SalesforceSessionDetailPage  = lazy(() => import('./pages/SalesforceSessionDetailPage'))
 const LoginPage                    = lazy(() => import('./pages/LoginPage'))
 const RegisterPage               = lazy(() => import('./pages/RegisterPage'))
 const MFASetupPage               = lazy(() => import('./pages/MFASetupPage'))
@@ -108,6 +111,9 @@ function AppRoutes() {
                     <Route path="/dataverse/new" element={<DataverseAssessmentPage />} />
                     <Route path="/dataverse/sessions" element={<DataverseSessionsPage />} />
                     <Route path="/dataverse/sessions/:jobId" element={<DataverseSessionDetailPage />} />
+                    <Route path="/salesforce/new" element={<SalesforceAssessmentPage />} />
+                    <Route path="/salesforce/sessions" element={<SalesforceSessionsPage />} />
+                    <Route path="/salesforce/sessions/:jobId" element={<SalesforceSessionDetailPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

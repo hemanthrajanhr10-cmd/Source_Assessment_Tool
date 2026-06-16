@@ -9,6 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   UnifiedLogo, SqlServerLogo, FabricLogo, SapLogo,
   SageIntacctLogo, TableauLogo, SnowflakeIconLogo, DataverseIconLogo,
+  SalesforceIconLogo,
 } from '../ui/SourceLogos'
 import type { LucideIcon } from 'lucide-react'
 
@@ -175,6 +176,24 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/dataverse/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/dataverse/sessions', label: 'Assessments',    icon: BarChart3  },
+    ],
+  },
+  {
+    label: 'Salesforce',
+    element: 'salesforce',
+    LogoComponent: SalesforceIconLogo,
+    dotGradient:      'linear-gradient(135deg, #0176D3, #1B96FF)',
+    activeBg:         'rgba(1,118,211,0.09)',
+    activeText:       '#032D60',
+    activeBorder:     'rgba(27,150,255,0.40)',
+    activeIconColor:  '#0176D3',
+    activeDotGlow:    'rgba(1,118,211,0.50)',
+    hoverBg:          'rgba(1,118,211,0.07)',
+    hoverText:        '#032D60',
+    hoverIconColor:   '#0176D3',
+    items: [
+      { to: '/salesforce/new',      label: 'New Assessment', icon: PlusCircle },
+      { to: '/salesforce/sessions', label: 'Assessments',    icon: BarChart3  },
     ],
   },
 ]

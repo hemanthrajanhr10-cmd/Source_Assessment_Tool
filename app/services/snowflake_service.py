@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from app.core.logging import get_logger
+from app.db import azure_store
 from app.db import snowflake_client as client
 from app.models.snowflake_requests import (
     SnowflakeAssessmentRequest,
@@ -65,7 +66,7 @@ _jobs: dict[str, dict] = {}
 
 def create_job(request: SnowflakeAssessmentRequest, account: str) -> str:
     job_id = str(uuid.uuid4())
-    _jobs[job_id] = {
+    job: dict = {
         "job_id": job_id,
         "label": request.label,
         "account": account,
@@ -78,20 +79,45 @@ def create_job(request: SnowflakeAssessmentRequest, account: str) -> str:
         "excel_bytes": None,
         "word_bytes": None,
     }
+    _jobs[job_id] = job
+    try:
+        azure_store.snowflake_upsert_session(job)
+    except Exception as exc:
+        logger.warning("snowflake_service: DB persist failed on create — %s", exc)
     return job_id
 
 
 def get_job(job_id: str) -> Optional[dict]:
-    return _jobs.get(job_id)
+    if job_id in _jobs:
+        return _jobs[job_id]
+    try:
+        row = azure_store.snowflake_get_session(job_id)
+        if row:
+            _jobs[job_id] = row
+            return row
+    except Exception as exc:
+        logger.warning("snowflake_service: DB lookup failed — %s", exc)
+    return None
 
 
 def list_jobs() -> list[dict]:
-    return sorted(_jobs.values(), key=lambda j: j["created_at"], reverse=True)
+    try:
+        db_rows = {r["job_id"]: r for r in azure_store.snowflake_list_sessions()}
+    except Exception as exc:
+        logger.warning("snowflake_service: DB list failed — %s", exc)
+        db_rows = {}
+    merged = {**db_rows, **_jobs}
+    return sorted(merged.values(), key=lambda j: j["created_at"], reverse=True)
 
 
 def _update(job_id: str, **kwargs) -> None:
     if job_id in _jobs:
         _jobs[job_id].update(kwargs)
+        current = dict(_jobs[job_id])
+        try:
+            azure_store.snowflake_upsert_session(current)
+        except Exception as exc:
+            logger.warning("snowflake_service: DB persist failed on update — %s", exc)
 
 
 # ── Assessment step labels ────────────────────────────────────────────────────

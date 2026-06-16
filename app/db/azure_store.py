@@ -71,6 +71,146 @@ BEGIN
 END;
 """
 
+_SALESFORCE_SESSIONS_DDL = """
+IF OBJECT_ID('dbo.salesforce_sessions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.salesforce_sessions (
+        job_id           VARCHAR(36)     NOT NULL,
+        label            NVARCHAR(200)   NULL,
+        instance_url     NVARCHAR(500)   NOT NULL,
+        org_name         NVARCHAR(200)   NULL,
+        org_id           VARCHAR(50)     NULL,
+        org_type         NVARCHAR(50)    NULL,
+        status           VARCHAR(20)     NOT NULL DEFAULT 'pending',
+        progress_message NVARCHAR(500)   NULL,
+        checks_completed INT             NOT NULL DEFAULT 0,
+        total_checks     INT             NOT NULL DEFAULT 0,
+        overall_score    FLOAT           NULL,
+        critical_findings INT            NULL,
+        high_findings    INT             NULL,
+        total_checks_run INT             NULL,
+        duration_seconds FLOAT           NULL,
+        error            NVARCHAR(MAX)   NULL,
+        results_json     NVARCHAR(MAX)   NULL,
+        created_at       DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at     DATETIME2       NULL,
+        CONSTRAINT PK_salesforce_sessions PRIMARY KEY (job_id)
+    );
+    CREATE INDEX IX_sf_sessions_created ON dbo.salesforce_sessions (created_at DESC);
+END;
+"""
+
+_DATAVERSE_SESSIONS_DDL = """
+IF OBJECT_ID('dbo.dataverse_sessions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.dataverse_sessions (
+        job_id            VARCHAR(36)    NOT NULL,
+        label             NVARCHAR(200)  NULL,
+        environment_url   NVARCHAR(500)  NOT NULL,
+        org_name          NVARCHAR(200)  NULL,
+        org_version       NVARCHAR(50)   NULL,
+        status            VARCHAR(20)    NOT NULL DEFAULT 'pending',
+        progress_message  NVARCHAR(500)  NULL,
+        checks_completed  INT            NOT NULL DEFAULT 0,
+        total_checks      INT            NOT NULL DEFAULT 0,
+        overall_score     FLOAT          NULL,
+        critical_findings INT            NULL,
+        high_findings     INT            NULL,
+        duration_seconds  FLOAT          NULL,
+        error             NVARCHAR(MAX)  NULL,
+        results_json      NVARCHAR(MAX)  NULL,
+        created_at        DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at      DATETIME2      NULL,
+        CONSTRAINT PK_dataverse_sessions PRIMARY KEY (job_id)
+    );
+    CREATE INDEX IX_dv_sessions_created ON dbo.dataverse_sessions (created_at DESC);
+END;
+"""
+
+_SAP_SESSIONS_DDL = """
+IF OBJECT_ID('dbo.sap_sessions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.sap_sessions (
+        job_id           VARCHAR(36)    NOT NULL,
+        label            NVARCHAR(200)  NULL,
+        variant          NVARCHAR(50)   NOT NULL,
+        host             NVARCHAR(500)  NULL,
+        status           VARCHAR(20)    NOT NULL DEFAULT 'pending',
+        progress_message NVARCHAR(500)  NULL,
+        duration_seconds FLOAT          NULL,
+        error            NVARCHAR(MAX)  NULL,
+        results_json     NVARCHAR(MAX)  NULL,
+        created_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at     DATETIME2      NULL,
+        CONSTRAINT PK_sap_sessions PRIMARY KEY (job_id)
+    );
+    CREATE INDEX IX_sap_sessions_created ON dbo.sap_sessions (created_at DESC);
+END;
+"""
+
+_SAGE_SESSIONS_DDL = """
+IF OBJECT_ID('dbo.sage_intacct_sessions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.sage_intacct_sessions (
+        job_id           VARCHAR(36)    NOT NULL,
+        label            NVARCHAR(200)  NULL,
+        company_id       NVARCHAR(200)  NULL,
+        company_name     NVARCHAR(200)  NULL,
+        status           VARCHAR(20)    NOT NULL DEFAULT 'pending',
+        progress_message NVARCHAR(500)  NULL,
+        duration_seconds FLOAT          NULL,
+        error            NVARCHAR(MAX)  NULL,
+        results_json     NVARCHAR(MAX)  NULL,
+        created_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at     DATETIME2      NULL,
+        CONSTRAINT PK_sage_sessions PRIMARY KEY (job_id)
+    );
+    CREATE INDEX IX_sage_sessions_created ON dbo.sage_intacct_sessions (created_at DESC);
+END;
+"""
+
+_SNOWFLAKE_SESSIONS_DDL = """
+IF OBJECT_ID('dbo.snowflake_sessions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.snowflake_sessions (
+        job_id           VARCHAR(36)    NOT NULL,
+        label            NVARCHAR(200)  NULL,
+        account          NVARCHAR(200)  NULL,
+        warehouse        NVARCHAR(200)  NULL,
+        status           VARCHAR(20)    NOT NULL DEFAULT 'pending',
+        progress_message NVARCHAR(500)  NULL,
+        duration_seconds FLOAT          NULL,
+        error            NVARCHAR(MAX)  NULL,
+        results_json     NVARCHAR(MAX)  NULL,
+        created_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at     DATETIME2      NULL,
+        CONSTRAINT PK_snowflake_sessions PRIMARY KEY (job_id)
+    );
+    CREATE INDEX IX_sf2_sessions_created ON dbo.snowflake_sessions (created_at DESC);
+END;
+"""
+
+_TABLEAU_SESSIONS_DDL = """
+IF OBJECT_ID('dbo.tableau_sessions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.tableau_sessions (
+        job_id           VARCHAR(36)    NOT NULL,
+        label            NVARCHAR(200)  NULL,
+        server_url       NVARCHAR(500)  NULL,
+        site_name        NVARCHAR(200)  NULL,
+        status           VARCHAR(20)    NOT NULL DEFAULT 'pending',
+        progress_message NVARCHAR(500)  NULL,
+        duration_seconds FLOAT          NULL,
+        error            NVARCHAR(MAX)  NULL,
+        results_json     NVARCHAR(MAX)  NULL,
+        created_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at     DATETIME2      NULL,
+        CONSTRAINT PK_tableau_sessions PRIMARY KEY (job_id)
+    );
+    CREATE INDEX IX_tab_sessions_created ON dbo.tableau_sessions (created_at DESC);
+END;
+"""
+
 
 def init_schema() -> None:
     """Create all tables if they do not exist. Safe to call on every startup."""
@@ -81,14 +221,168 @@ def init_schema() -> None:
         cur.execute(ddl)
         conn.commit()
         logger.info("Azure SQL schema initialised (tables created if missing)")
-        # Run fabric_sessions separately to ensure it always exists
-        # (large schema batches can silently skip later statements on some drivers)
-        cur.execute(_FABRIC_SESSIONS_DDL)
-        conn.commit()
-        logger.info("fabric_sessions table verified")
+        # Run module-specific tables separately — large batches can silently skip
+        # later statements on some ODBC drivers.
+        for ddl_str, tbl in [
+            (_FABRIC_SESSIONS_DDL,     "fabric_sessions"),
+            (_SALESFORCE_SESSIONS_DDL, "salesforce_sessions"),
+            (_DATAVERSE_SESSIONS_DDL,  "dataverse_sessions"),
+            (_SAP_SESSIONS_DDL,        "sap_sessions"),
+            (_SAGE_SESSIONS_DDL,       "sage_intacct_sessions"),
+            (_SNOWFLAKE_SESSIONS_DDL,  "snowflake_sessions"),
+            (_TABLEAU_SESSIONS_DDL,    "tableau_sessions"),
+        ]:
+            cur.execute(ddl_str)
+            conn.commit()
+            logger.info("%s table verified", tbl)
     except Exception as exc:
         logger.error("Schema init failed: %s", exc)
         raise
+    finally:
+        conn.close()
+
+
+# ── Salesforce persistence helpers ────────────────────────────────────────────
+
+def sf_upsert_session(job: dict) -> None:
+    """Insert or update a Salesforce assessment session row."""
+    import json as _json
+    result = job.get("result")
+    results_json = _json.dumps(result, default=str) if result else None
+
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            MERGE dbo.salesforce_sessions AS target
+            USING (SELECT ? AS job_id) AS src ON target.job_id = src.job_id
+            WHEN MATCHED THEN UPDATE SET
+                label            = ?,
+                instance_url     = ?,
+                org_name         = ?,
+                org_id           = ?,
+                org_type         = ?,
+                status           = ?,
+                progress_message = ?,
+                checks_completed = ?,
+                total_checks     = ?,
+                overall_score    = ?,
+                critical_findings = ?,
+                high_findings    = ?,
+                total_checks_run = ?,
+                duration_seconds = ?,
+                error            = ?,
+                results_json     = ?,
+                completed_at     = ?
+            WHEN NOT MATCHED THEN INSERT (
+                job_id, label, instance_url, org_name, org_id, org_type,
+                status, progress_message, checks_completed, total_checks,
+                overall_score, critical_findings, high_findings, total_checks_run,
+                duration_seconds, error, results_json, created_at, completed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            # WHEN MATCHED params (17)
+            job.get("label"),
+            job.get("instance_url", ""),
+            result.get("org_name") if result else None,
+            result.get("org_id") if result else None,
+            result.get("org_type") if result else None,
+            job.get("status", "pending"),
+            job.get("progress_message"),
+            job.get("checks_completed", 0),
+            job.get("total_checks", 0),
+            result.get("overall_score") if result else None,
+            result.get("critical_findings") if result else None,
+            result.get("high_findings") if result else None,
+            result.get("total_checks") if result else None,
+            job.get("duration_seconds"),
+            job.get("error"),
+            results_json,
+            job.get("completed_at"),
+            # WHEN NOT MATCHED params (19)
+            job["job_id"],
+            job.get("label"),
+            job.get("instance_url", ""),
+            result.get("org_name") if result else None,
+            result.get("org_id") if result else None,
+            result.get("org_type") if result else None,
+            job.get("status", "pending"),
+            job.get("progress_message"),
+            job.get("checks_completed", 0),
+            job.get("total_checks", 0),
+            result.get("overall_score") if result else None,
+            result.get("critical_findings") if result else None,
+            result.get("high_findings") if result else None,
+            result.get("total_checks") if result else None,
+            job.get("duration_seconds"),
+            job.get("error"),
+            results_json,
+            job.get("created_at"),
+            job.get("completed_at"),
+        )
+        conn.commit()
+    except Exception as exc:
+        logger.warning("sf_upsert_session failed (non-fatal): %s", exc)
+    finally:
+        conn.close()
+
+
+def sf_list_sessions() -> list[dict]:
+    """Return all Salesforce sessions ordered by created_at DESC."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT job_id, label, instance_url, org_name, org_id, org_type,
+                   status, overall_score, critical_findings, high_findings,
+                   total_checks_run, duration_seconds, created_at, completed_at, error
+            FROM dbo.salesforce_sessions
+            ORDER BY created_at DESC
+            """
+        )
+        cols = [c[0] for c in cur.description]
+        rows = cur.fetchall()
+        return [dict(zip(cols, row)) for row in rows]
+    except Exception as exc:
+        logger.warning("sf_list_sessions failed: %s", exc)
+        return []
+    finally:
+        conn.close()
+
+
+def sf_get_session(job_id: str) -> Optional[dict]:
+    """Fetch a single Salesforce session row including results_json."""
+    import json as _json
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT job_id, label, instance_url, org_name, org_id, org_type,
+                   status, progress_message, checks_completed, total_checks,
+                   overall_score, critical_findings, high_findings, total_checks_run,
+                   duration_seconds, error, results_json, created_at, completed_at
+            FROM dbo.salesforce_sessions
+            WHERE job_id = ?
+            """,
+            job_id,
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        cols = [c[0] for c in cur.description]
+        data = dict(zip(cols, row))
+        if data.get("results_json"):
+            try:
+                data["result"] = _json.loads(data["results_json"])
+            except Exception:
+                data["result"] = None
+        return data
+    except Exception as exc:
+        logger.warning("sf_get_session failed: %s", exc)
+        return None
     finally:
         conn.close()
 
@@ -1540,3 +1834,310 @@ def delete_user_connection(connection_id: str, user_id: str) -> bool:
         return deleted
     finally:
         conn.close()
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Generic JSON-blob persistence helpers
+# Each module (Dataverse, SAP, Sage Intacct, Snowflake, Tableau) stores its
+# full result as NVARCHAR(MAX) results_json alongside key scalar columns for
+# fast list queries.  Pattern: upsert / list / get_by_id.
+# ═════════════════════════════════════════════════════════════════════════════
+
+import json as _json
+
+
+def _upsert(table: str, pk_col: str, pk_val: str, scalars: dict, results_obj: Any) -> None:
+    """Generic MERGE into any module session table."""
+    results_json = _json.dumps(results_obj, default=str) if results_obj is not None else None
+    all_cols  = list(scalars.keys()) + ["results_json"]
+    all_vals  = list(scalars.values()) + [results_json]
+
+    set_clause    = ", ".join(f"{c} = ?" for c in all_cols)
+    insert_cols   = ", ".join([pk_col] + all_cols)
+    insert_params = ", ".join(["?"] * (1 + len(all_cols)))
+
+    sql = f"""
+        MERGE dbo.{table} AS target
+        USING (SELECT ? AS {pk_col}) AS src ON target.{pk_col} = src.{pk_col}
+        WHEN MATCHED THEN UPDATE SET {set_clause}
+        WHEN NOT MATCHED THEN INSERT ({insert_cols}) VALUES ({insert_params});
+    """
+    params = (
+        pk_val,                       # USING clause
+        *all_vals,                    # UPDATE SET
+        pk_val, *all_vals,            # INSERT VALUES
+    )
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, params)
+        conn.commit()
+    except Exception as exc:
+        logger.warning("_upsert(%s) failed (non-fatal): %s", table, exc)
+    finally:
+        conn.close()
+
+
+def _list_sessions(table: str, list_cols: list[str]) -> list[dict]:
+    """Return all rows ordered newest-first."""
+    cols_sql = ", ".join(list_cols)
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(f"SELECT {cols_sql} FROM dbo.{table} ORDER BY created_at DESC")
+        cols = [c[0] for c in cur.description]
+        return [dict(zip(cols, row)) for row in cur.fetchall()]
+    except Exception as exc:
+        logger.warning("_list_sessions(%s) failed: %s", table, exc)
+        return []
+    finally:
+        conn.close()
+
+
+def _get_session(table: str, pk_col: str, pk_val: str) -> Optional[dict]:
+    """Fetch one row including results_json; parses JSON into result key."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(f"SELECT * FROM dbo.{table} WHERE {pk_col} = ?", pk_val)
+        row = cur.fetchone()
+        if not row:
+            return None
+        cols = [c[0] for c in cur.description]
+        data = dict(zip(cols, row))
+        if data.get("results_json"):
+            try:
+                data["result"] = _json.loads(data["results_json"])
+            except Exception:
+                data["result"] = None
+        return data
+    except Exception as exc:
+        logger.warning("_get_session(%s) failed: %s", table, exc)
+        return None
+    finally:
+        conn.close()
+
+
+# ── Dataverse ─────────────────────────────────────────────────────────────────
+
+_DV_LIST_COLS = [
+    "job_id", "label", "environment_url", "org_name", "org_version",
+    "status", "overall_score", "critical_findings", "high_findings",
+    "duration_seconds", "created_at", "completed_at", "error",
+]
+
+
+def dv_upsert_session(job: dict) -> None:
+    r = job.get("result")
+    # result may be a DataverseAssessmentResult instance or a dict
+    def _g(key, default=None):
+        if r is None:
+            return default
+        return getattr(r, key, None) if not isinstance(r, dict) else r.get(key, default)
+
+    _upsert(
+        table="dataverse_sessions", pk_col="job_id", pk_val=job["job_id"],
+        scalars={
+            "label":            job.get("label"),
+            "environment_url":  job.get("environment_url", ""),
+            "org_name":         _g("organization_name"),
+            "org_version":      _g("organization_version"),
+            "status":           job.get("status", "pending"),
+            "progress_message": job.get("progress_message"),
+            "checks_completed": job.get("checks_completed", 0),
+            "total_checks":     job.get("total_checks", 0),
+            "overall_score":    _g("overall_score"),
+            "critical_findings":_g("critical_findings"),
+            "high_findings":    _g("high_findings"),
+            "duration_seconds": job.get("duration_seconds"),
+            "error":            job.get("error"),
+            "created_at":       job.get("created_at"),
+            "completed_at":     job.get("completed_at"),
+        },
+        results_obj=r.model_dump() if hasattr(r, "model_dump") else r,
+    )
+
+
+def dv_list_sessions() -> list[dict]:
+    return _list_sessions("dataverse_sessions", _DV_LIST_COLS)
+
+
+def dv_get_session(job_id: str) -> Optional[dict]:
+    return _get_session("dataverse_sessions", "job_id", job_id)
+
+
+# ── SAP ───────────────────────────────────────────────────────────────────────
+
+_SAP_LIST_COLS = [
+    "job_id", "label", "variant", "host",
+    "status", "duration_seconds", "created_at", "completed_at", "error",
+]
+
+
+def sap_upsert_session(job: dict) -> None:
+    r = job.get("results")
+    _upsert(
+        table="sap_sessions", pk_col="job_id", pk_val=job["job_id"],
+        scalars={
+            "label":            job.get("label"),
+            "variant":          str(job.get("variant", "")),
+            "host":             job.get("host"),
+            "status":           job.get("status", "pending"),
+            "progress_message": job.get("progress_message"),
+            "duration_seconds": job.get("duration_seconds"),
+            "error":            job.get("error"),
+            "created_at":       job.get("created_at"),
+            "completed_at":     job.get("completed_at"),
+        },
+        results_obj=r.model_dump() if hasattr(r, "model_dump") else r,
+    )
+
+
+def sap_list_sessions() -> list[dict]:
+    return _list_sessions("sap_sessions", _SAP_LIST_COLS)
+
+
+def sap_get_session(job_id: str) -> Optional[dict]:
+    return _get_session("sap_sessions", "job_id", job_id)
+
+
+# ── Sage Intacct ──────────────────────────────────────────────────────────────
+
+_SAGE_LIST_COLS = [
+    "job_id", "label", "company_id", "company_name",
+    "status", "duration_seconds", "created_at", "completed_at", "error",
+]
+
+
+def sage_upsert_session(job: dict) -> None:
+    r = job.get("results")
+    def _g(key, default=None):
+        if r is None:
+            return default
+        return getattr(r, key, None) if not isinstance(r, dict) else r.get(key, default)
+
+    company_profile = _g("company_profile") or {}
+    if hasattr(company_profile, "__dict__"):
+        company_id   = getattr(company_profile, "company_id", None)
+        company_name = getattr(company_profile, "company_name", None)
+    else:
+        company_id   = company_profile.get("company_id") if isinstance(company_profile, dict) else None
+        company_name = company_profile.get("company_name") if isinstance(company_profile, dict) else None
+
+    _upsert(
+        table="sage_intacct_sessions", pk_col="job_id", pk_val=job["job_id"],
+        scalars={
+            "label":            job.get("label"),
+            "company_id":       company_id,
+            "company_name":     company_name,
+            "status":           job.get("status", "pending"),
+            "progress_message": job.get("progress_message"),
+            "duration_seconds": job.get("duration_seconds"),
+            "error":            job.get("error"),
+            "created_at":       job.get("created_at"),
+            "completed_at":     job.get("completed_at"),
+        },
+        results_obj=r.model_dump() if hasattr(r, "model_dump") else r,
+    )
+
+
+def sage_list_sessions() -> list[dict]:
+    return _list_sessions("sage_intacct_sessions", _SAGE_LIST_COLS)
+
+
+def sage_get_session(job_id: str) -> Optional[dict]:
+    return _get_session("sage_intacct_sessions", "job_id", job_id)
+
+
+# ── Snowflake ─────────────────────────────────────────────────────────────────
+
+_SF2_LIST_COLS = [
+    "job_id", "label", "account", "warehouse",
+    "status", "duration_seconds", "created_at", "completed_at", "error",
+]
+
+
+def snowflake_upsert_session(job: dict) -> None:
+    r = job.get("results")
+    def _g(key, default=None):
+        if r is None:
+            return default
+        return getattr(r, key, None) if not isinstance(r, dict) else r.get(key, default)
+
+    account_info = _g("account_info") or {}
+    warehouse    = None
+    if hasattr(account_info, "default_warehouse"):
+        warehouse = getattr(account_info, "default_warehouse", None)
+    elif isinstance(account_info, dict):
+        warehouse = account_info.get("default_warehouse")
+
+    _upsert(
+        table="snowflake_sessions", pk_col="job_id", pk_val=job["job_id"],
+        scalars={
+            "label":            job.get("label"),
+            "account":          job.get("account"),
+            "warehouse":        warehouse,
+            "status":           job.get("status", "pending"),
+            "progress_message": job.get("progress_message"),
+            "duration_seconds": job.get("duration_seconds"),
+            "error":            job.get("error"),
+            "created_at":       job.get("created_at"),
+            "completed_at":     job.get("completed_at"),
+        },
+        results_obj=r.model_dump() if hasattr(r, "model_dump") else r,
+    )
+
+
+def snowflake_list_sessions() -> list[dict]:
+    return _list_sessions("snowflake_sessions", _SF2_LIST_COLS)
+
+
+def snowflake_get_session(job_id: str) -> Optional[dict]:
+    return _get_session("snowflake_sessions", "job_id", job_id)
+
+
+# ── Tableau ───────────────────────────────────────────────────────────────────
+
+_TAB_LIST_COLS = [
+    "job_id", "label", "server_url", "site_name",
+    "status", "duration_seconds", "created_at", "completed_at", "error",
+]
+
+
+def tableau_upsert_session(job: dict) -> None:
+    r = job.get("results")
+    def _g(key, default=None):
+        if r is None:
+            return default
+        return getattr(r, key, None) if not isinstance(r, dict) else r.get(key, default)
+
+    server_info = _g("server_info") or {}
+    site_name   = None
+    if hasattr(server_info, "site_name"):
+        site_name = getattr(server_info, "site_name", None)
+    elif isinstance(server_info, dict):
+        site_name = server_info.get("site_name")
+
+    _upsert(
+        table="tableau_sessions", pk_col="job_id", pk_val=job["job_id"],
+        scalars={
+            "label":            job.get("label"),
+            "server_url":       job.get("server_url"),
+            "site_name":        site_name,
+            "status":           job.get("status", "pending"),
+            "progress_message": job.get("progress_message"),
+            "duration_seconds": job.get("duration_seconds"),
+            "error":            job.get("error"),
+            "created_at":       job.get("created_at"),
+            "completed_at":     job.get("completed_at"),
+        },
+        results_obj=r.model_dump() if hasattr(r, "model_dump") else r,
+    )
+
+
+def tableau_list_sessions() -> list[dict]:
+    return _list_sessions("tableau_sessions", _TAB_LIST_COLS)
+
+
+def tableau_get_session(job_id: str) -> Optional[dict]:
+    return _get_session("tableau_sessions", "job_id", job_id)

@@ -1,6 +1,7 @@
 /** Brand logos — all sourced from src_logos/ via Vite asset imports */
 
 import sqlServerUrl    from '../../assets/src_logos/SqlServer.svg'
+import salesforceUrl  from '../../assets/src_logos/Salesforce.svg'
 import sapUrl          from '../../assets/src_logos/SAP.svg'
 import sageIntacctUrl  from '../../assets/src_logos/Sage.svg'
 import fabricUrl       from '../../assets/src_logos/Fabric.png'
@@ -152,6 +153,27 @@ export function DataverseFullLogo({ height = 32, className }: { height?: number;
     <WordmarkLogo
       src={dataverseUrl}
       alt="Dataverse"
+      height={height}
+      maxWidth={220}
+      className={className}
+    />
+  )
+}
+
+export function SalesforceLogo({ size = 24, className }: LogoProps) {
+  return <IconSlot src={salesforceUrl} alt="Salesforce" size={size} className={className} />
+}
+
+/** Alias — used in sidebar where only the mark is needed */
+export function SalesforceIconLogo({ size = 24, className }: LogoProps) {
+  return <IconSlot src={salesforceUrl} alt="Salesforce" size={size} className={className} />
+}
+
+export function SalesforceFullLogo({ height = 32, className }: { height?: number; className?: string }) {
+  return (
+    <WordmarkLogo
+      src={salesforceUrl}
+      alt="Salesforce"
       height={height}
       maxWidth={220}
       className={className}

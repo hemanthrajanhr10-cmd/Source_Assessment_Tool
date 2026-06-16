@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from app.db.dataverse_client import DataverseClient
+from app.db import azure_store
 from app.models.dataverse_requests import (
     DataverseAssessmentRequest,
     DataverseAssessmentResult,
@@ -62,46 +63,74 @@ STEPS = [
 
 def create_job(request: DataverseAssessmentRequest) -> str:
     job_id = str(uuid.uuid4())
+    job: Dict = {
+        "job_id":           job_id,
+        "status":           "pending",
+        "label":            request.label or f"Dataverse – {request.credentials.environment_url}",
+        "environment_url":  request.credentials.environment_url,
+        "progress_message": "Queued",
+        "checks_completed": 0,
+        "total_checks":     len(STEPS),
+        "created_at":       datetime.now(timezone.utc).isoformat(),
+        "completed_at":     None,
+        "error":            None,
+        "result":           None,
+    }
     with _jobs_lock:
-        _jobs[job_id] = {
-            "job_id":          job_id,
-            "status":          "pending",
-            "label":           request.label or f"Dataverse – {request.credentials.environment_url}",
-            "environment_url": request.credentials.environment_url,
-            "progress_message": "Queued",
-            "checks_completed": 0,
-            "total_checks":    len(STEPS),
-            "created_at":      datetime.now(timezone.utc).isoformat(),
-            "completed_at":    None,
-            "error":           None,
-            "result":          None,
-        }
+        _jobs[job_id] = job
+    try:
+        azure_store.dv_upsert_session(job)
+    except Exception as exc:
+        _logger_warn("dv create_job persist", exc)
     return job_id
 
 
 def get_job(job_id: str) -> Optional[Dict]:
     with _jobs_lock:
-        return _jobs.get(job_id)
+        if job_id in _jobs:
+            return _jobs[job_id]
+    try:
+        row = azure_store.dv_get_session(job_id)
+        if row:
+            with _jobs_lock:
+                _jobs[job_id] = row
+            return row
+    except Exception as exc:
+        _logger_warn("dv get_job DB fallback", exc)
+    return None
 
 
 def list_jobs() -> List[DataverseSessionRecord]:
+    db_rows: List[Dict] = []
+    try:
+        db_rows = azure_store.dv_list_sessions()
+    except Exception as exc:
+        _logger_warn("dv list_jobs DB query", exc)
+
     with _jobs_lock:
-        rows = list(_jobs.values())
+        mem = dict(_jobs)
+
+    merged: Dict[str, Dict] = {r["job_id"]: r for r in db_rows}
+    merged.update(mem)
+
     records = []
-    for j in rows:
-        r: Optional[DataverseAssessmentResult] = j.get("result")
+    for j in merged.values():
+        r = j.get("result")
+        def _g(attr, default=None):
+            if r is None: return default
+            return getattr(r, attr, None) if not isinstance(r, dict) else r.get(attr, default)
         records.append(DataverseSessionRecord(
             job_id=j["job_id"],
             status=j["status"],
             label=j.get("label"),
-            environment_url=j["environment_url"],
-            organization_name=r.organization_name if r else None,
-            total_checks=r.total_checks if r else 0,
-            critical_findings=r.critical_findings if r else 0,
-            high_findings=r.high_findings if r else 0,
-            overall_score=r.overall_score if r else 0.0,
-            created_at=j["created_at"],
-            completed_at=j.get("completed_at"),
+            environment_url=j.get("environment_url", j.get("environment_url", "")),
+            organization_name=_g("organization_name") or j.get("org_name"),
+            total_checks=_g("total_checks", 0) or 0,
+            critical_findings=_g("critical_findings", 0) or 0,
+            high_findings=_g("high_findings", 0) or 0,
+            overall_score=_g("overall_score", 0.0) or 0.0,
+            created_at=str(j["created_at"]),
+            completed_at=str(j["completed_at"]) if j.get("completed_at") else None,
             duration_seconds=j.get("duration_seconds"),
         ))
     records.sort(key=lambda x: x.created_at, reverse=True)
@@ -112,6 +141,16 @@ def _update(job_id: str, **kwargs) -> None:
     with _jobs_lock:
         if job_id in _jobs:
             _jobs[job_id].update(kwargs)
+        current = dict(_jobs.get(job_id, {}))
+    try:
+        azure_store.dv_upsert_session(current)
+    except Exception as exc:
+        _logger_warn("dv _update persist", exc)
+
+
+def _logger_warn(ctx: str, exc: Exception) -> None:
+    import logging
+    logging.getLogger(__name__).warning("%s failed (non-fatal): %s", ctx, exc)
 
 
 # ── Helper: safe check wrapper ────────────────────────────────────────────────

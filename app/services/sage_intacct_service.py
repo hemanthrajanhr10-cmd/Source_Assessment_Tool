@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from app.core.logging import get_logger
+from app.db import azure_store
 from app.db import sage_intacct_client as client
 from app.models.sage_intacct_requests import (
     SageIntacctAssessmentRequest,
@@ -44,7 +45,7 @@ _jobs: dict[str, dict] = {}
 
 def create_job(request: SageIntacctAssessmentRequest) -> str:
     job_id = str(uuid.uuid4())
-    _jobs[job_id] = {
+    job: dict = {
         "job_id": job_id,
         "label": request.label,
         "status": "pending",
@@ -56,20 +57,45 @@ def create_job(request: SageIntacctAssessmentRequest) -> str:
         "excel_bytes": None,
         "word_bytes": None,
     }
+    _jobs[job_id] = job
+    try:
+        azure_store.sage_upsert_session(job)
+    except Exception as exc:
+        logger.warning("sage_intacct_service: DB persist failed on create — %s", exc)
     return job_id
 
 
 def get_job(job_id: str) -> Optional[dict]:
-    return _jobs.get(job_id)
+    if job_id in _jobs:
+        return _jobs[job_id]
+    try:
+        row = azure_store.sage_get_session(job_id)
+        if row:
+            _jobs[job_id] = row
+            return row
+    except Exception as exc:
+        logger.warning("sage_intacct_service: DB lookup failed — %s", exc)
+    return None
 
 
 def list_jobs() -> list[dict]:
-    return sorted(_jobs.values(), key=lambda j: j["created_at"], reverse=True)
+    try:
+        db_rows = {r["job_id"]: r for r in azure_store.sage_list_sessions()}
+    except Exception as exc:
+        logger.warning("sage_intacct_service: DB list failed — %s", exc)
+        db_rows = {}
+    merged = {**db_rows, **_jobs}
+    return sorted(merged.values(), key=lambda j: j["created_at"], reverse=True)
 
 
 def _update(job_id: str, **kwargs) -> None:
     if job_id in _jobs:
         _jobs[job_id].update(kwargs)
+        current = dict(_jobs[job_id])
+        try:
+            azure_store.sage_upsert_session(current)
+        except Exception as exc:
+            logger.warning("sage_intacct_service: DB persist failed on update — %s", exc)
 
 
 # ── Connection test ───────────────────────────────────────────────────────────

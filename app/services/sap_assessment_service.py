@@ -16,6 +16,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from app.db import azure_store
 from app.models.sap_requests import (
     SapAssessmentRequest,
     SapAssessmentResult,
@@ -45,33 +46,65 @@ from app.models.sap_requests import (
 _jobs: dict[str, dict] = {}
 
 
+def _sap_warn(ctx: str, exc: Exception) -> None:
+    import logging
+    logging.getLogger(__name__).warning("%s failed (non-fatal): %s", ctx, exc)
+
+
 def create_job(request: SapAssessmentRequest) -> str:
     job_id = str(uuid.uuid4())
-    _jobs[job_id] = {
-        "job_id": job_id,
-        "variant": request.variant,
-        "label": request.label,
-        "status": "pending",
+    job = {
+        "job_id":           job_id,
+        "variant":          request.variant,
+        "label":            request.label,
+        "host":             getattr(request, "host", None) or getattr(request, "ashost", None),
+        "status":           "pending",
         "progress_message": None,
-        "error": None,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "completed_at": None,
-        "results": None,
+        "error":            None,
+        "created_at":       datetime.now(timezone.utc).isoformat(),
+        "completed_at":     None,
+        "results":          None,
     }
+    _jobs[job_id] = job
+    try:
+        azure_store.sap_upsert_session(job)
+    except Exception as exc:
+        _sap_warn("sap create_job persist", exc)
     return job_id
 
 
 def get_job(job_id: str) -> Optional[dict]:
-    return _jobs.get(job_id)
+    if job_id in _jobs:
+        return _jobs[job_id]
+    try:
+        row = azure_store.sap_get_session(job_id)
+        if row:
+            _jobs[job_id] = row
+            return row
+    except Exception as exc:
+        _sap_warn("sap get_job DB fallback", exc)
+    return None
 
 
 def list_jobs() -> list[dict]:
-    return sorted(_jobs.values(), key=lambda j: j["created_at"], reverse=True)
+    db_rows: list[dict] = []
+    try:
+        db_rows = azure_store.sap_list_sessions()
+    except Exception as exc:
+        _sap_warn("sap list_jobs DB query", exc)
+    merged = {r["job_id"]: r for r in db_rows}
+    merged.update(_jobs)
+    return sorted(merged.values(), key=lambda j: str(j.get("created_at", "")), reverse=True)
 
 
 def _update_job(job_id: str, **kwargs: object) -> None:
     if job_id in _jobs:
         _jobs[job_id].update(kwargs)
+    current = dict(_jobs.get(job_id, {}))
+    try:
+        azure_store.sap_upsert_session(current)
+    except Exception as exc:
+        _sap_warn("sap _update_job persist", exc)
 
 
 # ── Connection test ───────────────────────────────────────────────────────────

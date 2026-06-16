@@ -122,12 +122,19 @@ export function MySQLFullLogo({ height = 44, className }: { height?: number; cla
 
 export function OracleFullLogo({ height = 22, className }: { height?: number; className?: string }) {
   return (
-    <WordmarkLogo
+    <img
       src={oracleUrl}
       alt="Oracle"
-      height={height}
-      maxWidth={160}
       className={className}
+      style={{
+        height,
+        width: 'auto',
+        maxWidth: 160,
+        objectFit: 'contain',
+        objectPosition: 'center center',
+        display: 'block',
+        flexShrink: 0,
+      }}
     />
   )
 }
@@ -207,16 +214,16 @@ export function SourceSATLogo({ size = 24, className }: LogoProps) {
     >
       <defs>
         <radialGradient id={`${id}-bg`} cx="38%" cy="32%" r="70%">
-          <stop offset="0%"   stopColor="#1A6FD4" />
-          <stop offset="100%" stopColor="#003A8C" />
+          <stop offset="0%"   stopColor="#4DA8A0" />
+          <stop offset="100%" stopColor="#25706A" />
         </radialGradient>
         <radialGradient id={`${id}-node`} cx="35%" cy="30%" r="70%">
-          <stop offset="0%"   stopColor="#7ECDFF" />
-          <stop offset="100%" stopColor="#0091CC" />
+          <stop offset="0%"   stopColor="#93CCC6" />
+          <stop offset="100%" stopColor="#6CBDB5" />
         </radialGradient>
         <linearGradient id={`${id}-teal`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%"   stopColor="#2DD4BF" />
-          <stop offset="100%" stopColor="#0D9488" />
+          <stop offset="0%"   stopColor="#93CCC6" />
+          <stop offset="100%" stopColor="#4DA8A0" />
         </linearGradient>
         <filter id={`${id}-glow`} x="-40%" y="-40%" width="180%" height="180%">
           <feGaussianBlur stdDeviation={s * 0.04} result="blur" />

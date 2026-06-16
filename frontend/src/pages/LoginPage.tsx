@@ -14,12 +14,12 @@ type OAuthProvider = 'microsoft' | 'google' | 'apple'
 const BASE_URL = (import.meta as ImportMeta & { env: Record<string, string> }).env.VITE_API_URL || ''
 
 const FEATURES = [
-  { icon: Database,         text: 'SQL Server estate analysis',           color: 'text-[#0056B3]' },
-  { icon: Layers,           text: 'Microsoft Fabric workspace assessment', color: 'text-[#0891B2]'  },
-  { icon: Cloud,            text: 'SAP Systems readiness review',          color: 'text-[#0D9488]'  },
-  { icon: CheckCircle2,     text: 'Sage Intacct cloud ERP scanning',       color: 'text-[#0056B3]' },
-  { icon: FileSpreadsheet,  text: 'Excel & Word report generation',        color: 'text-[#0891B2]'  },
-  { icon: Network,          text: 'Hybrid Connection support',             color: 'text-[#0D9488]' },
+  { icon: Database,         text: 'SQL Server estate analysis',           color: 'text-[#358F87]' },
+  { icon: Layers,           text: 'Microsoft Fabric workspace assessment', color: 'text-[#4DA8A0]'  },
+  { icon: Cloud,            text: 'SAP Systems readiness review',          color: 'text-[#6CBDB5]'  },
+  { icon: CheckCircle2,     text: 'Sage Intacct cloud ERP scanning',       color: 'text-[#358F87]' },
+  { icon: FileSpreadsheet,  text: 'Excel & Word report generation',        color: 'text-[#4DA8A0]'  },
+  { icon: Network,          text: 'Hybrid Connection support',             color: 'text-[#6CBDB5]' },
 ]
 
 const PROVIDER_LABELS: Record<OAuthProvider, string> = {
@@ -131,7 +131,7 @@ export default function LoginPage() {
         <div
           className="absolute inset-0"
           style={{
-            background: 'linear-gradient(-45deg, #EFF7FF, #F0FDFA, #ECFEFF, #EFF7FF, #F0FDFA, #ECFEFF)',
+            background: 'linear-gradient(-45deg, #F0FAF9, #E5F5F3, #CCEFEC, #F0FAF9, #E5F5F3, #F0FAF9)',
             backgroundSize: '400% 400%',
             animation: 'aurora 16s ease-in-out infinite',
           }}
@@ -140,9 +140,9 @@ export default function LoginPage() {
 
         {/* Dot grid */}
         <div
-          className="absolute inset-0 opacity-[0.28]"
+          className="absolute inset-0 opacity-[0.22]"
           style={{
-            backgroundImage: 'radial-gradient(circle, rgba(0,86,179,0.38) 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(circle, rgba(108,189,181,0.55) 1px, transparent 1px)',
             backgroundSize: '26px 26px',
           }}
           aria-hidden="true"
@@ -151,30 +151,30 @@ export default function LoginPage() {
         {/* Key light */}
         <div
           className="absolute inset-0"
-          style={{ background: 'radial-gradient(ellipse at 10% 5%, rgba(255,255,255,0.80) 0%, transparent 55%)' }}
+          style={{ background: 'radial-gradient(ellipse at 10% 5%, rgba(255,255,255,0.85) 0%, transparent 55%)' }}
           aria-hidden="true"
         />
 
         {/* Orbs */}
         <div className="absolute top-16 right-8 h-52 w-52 rounded-full opacity-35 orb-float"
-          style={{ background: 'radial-gradient(circle at 35% 35%, #7EC8FF 0%, #0056B3 55%, transparent 72%)', filter: 'blur(28px)', animationDuration: '10s' }} aria-hidden="true" />
+          style={{ background: 'radial-gradient(circle at 35% 35%, #93CCC6 0%, #358F87 55%, transparent 72%)', filter: 'blur(28px)', animationDuration: '10s' }} aria-hidden="true" />
         <div className="absolute top-1/3 right-4 h-36 w-36 rounded-full opacity-28 orb-float-delayed"
-          style={{ background: 'radial-gradient(circle at 40% 40%, #A5F3FC 0%, #0891B2 60%, transparent 80%)', filter: 'blur(18px)' }} aria-hidden="true" />
+          style={{ background: 'radial-gradient(circle at 40% 40%, #A8E2DD 0%, #4DA8A0 60%, transparent 80%)', filter: 'blur(18px)' }} aria-hidden="true" />
         <div className="absolute bottom-28 left-8 h-28 w-28 rounded-full opacity-30 orb-float-slow"
-          style={{ background: 'radial-gradient(circle, #99F6E4 0%, #0D9488 60%, transparent 80%)', filter: 'blur(14px)' }} aria-hidden="true" />
+          style={{ background: 'radial-gradient(circle, #CCEFEC 0%, #6CBDB5 60%, transparent 80%)', filter: 'blur(14px)' }} aria-hidden="true" />
         <div className="absolute bottom-16 right-20 h-16 w-16 rounded-full opacity-22 orb-float"
-          style={{ background: 'radial-gradient(circle, #7EC8FF 0%, #0084D4 70%, transparent 90%)', filter: 'blur(10px)', animationDuration: '7s', animationDelay: '1s' }} aria-hidden="true" />
+          style={{ background: 'radial-gradient(circle, #93CCC6 0%, #4DA8A0 70%, transparent 90%)', filter: 'blur(10px)', animationDuration: '7s', animationDelay: '1s' }} aria-hidden="true" />
 
         {/* Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center h-12 w-12 rounded-2xl"
-              style={{ background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)', boxShadow: '0 8px 24px rgba(0,86,179,0.30), inset 0 1px 0 rgba(255,255,255,0.20)' }}>
+              style={{ background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)', boxShadow: '0 8px 24px rgba(108,189,181,0.38), inset 0 1px 0 rgba(255,255,255,0.20)' }}>
               <Database className="h-6 w-6 text-white" aria-hidden="true" />
             </div>
             <div>
               <p className="text-lg font-bold text-slate-900 font-display tracking-tight">
-                Source<span className="font-extrabold" style={{ color: '#0056B3' }}>SAT</span>
+                Source<span className="font-extrabold" style={{ color: '#358F87' }}>SAT</span>
               </p>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-0.5">Assessment Tool</p>
             </div>
@@ -185,14 +185,14 @@ export default function LoginPage() {
         <div className="relative z-10 space-y-10">
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-sm"
-              style={{ border: '1px solid rgba(0,86,179,0.35)' }}>
-              <Sparkles className="h-3.5 w-3.5" style={{ color: '#0891B2' }} aria-hidden="true" />
-              <span className="text-xs font-semibold tracking-wide" style={{ color: '#003D82' }}>Enterprise Assessment Intelligence</span>
+              style={{ border: '1px solid rgba(108,189,181,0.45)' }}>
+              <Sparkles className="h-3.5 w-3.5" style={{ color: '#4DA8A0' }} aria-hidden="true" />
+              <span className="text-xs font-semibold tracking-wide" style={{ color: '#25706A' }}>Enterprise Assessment Intelligence</span>
             </div>
 
             <h1 className="text-4xl font-black text-slate-900 font-display leading-[1.05]" style={{ letterSpacing: '-0.04em' }}>
               Multi-Source<br />
-              <span className="font-black" style={{ color: '#0056B3' }}>Assessment</span>{' '}
+              <span className="font-black" style={{ color: '#358F87' }}>Assessment</span>{' '}
               <span className="text-slate-700">Platform</span>
             </h1>
             <p className="text-slate-500 text-sm leading-relaxed max-w-xs">
@@ -224,7 +224,7 @@ export default function LoginPage() {
 
         {/* Bottom tagline */}
         <div className="relative z-10 flex items-center gap-2">
-          <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, rgba(0,86,179,0.22), transparent)' }} />
+          <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, rgba(108,189,181,0.40), transparent)' }} />
           <p className="text-xs text-slate-400 tracking-widest uppercase">UBTI Platform</p>
         </div>
       </div>
@@ -236,11 +236,11 @@ export default function LoginPage() {
         {/* Mobile logo */}
         <div className="lg:hidden flex flex-col items-center mb-10">
           <div className="flex items-center justify-center h-14 w-14 rounded-2xl mb-4"
-            style={{ background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)', boxShadow: '0 8px 24px rgba(0,86,179,0.28)' }}>
+            style={{ background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)', boxShadow: '0 8px 24px rgba(108,189,181,0.36)' }}>
             <Database className="h-7 w-7 text-white" aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-black text-slate-900 font-display tracking-tight">
-            Source<span className="font-extrabold" style={{ color: '#0056B3' }}>SAT</span>
+            Source<span className="font-extrabold" style={{ color: '#358F87' }}>SAT</span>
           </h1>
           <p className="text-xs text-slate-400 mt-1 tracking-widest uppercase">Assessment Tool</p>
         </div>
@@ -248,13 +248,13 @@ export default function LoginPage() {
         {/* Form card */}
         <div className="w-full max-w-sm" style={{ animation: 'slideUp 0.45s cubic-bezier(0.16,1,0.3,1) both' }}>
           <div className="relative rounded-3xl p-px"
-            style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.20) 0%, rgba(8,145,178,0.10) 50%, rgba(13,148,136,0.14) 100%)' }}>
+            style={{ background: 'linear-gradient(135deg, rgba(108,189,181,0.28) 0%, rgba(147,204,198,0.14) 50%, rgba(77,168,160,0.20) 100%)' }}>
             <div className="rounded-[23px] px-8 py-10 relative overflow-hidden"
-              style={{ background: '#ffffff', boxShadow: '0 24px 64px rgba(0,86,179,0.08), 0 4px 16px rgba(0,0,0,0.06)' }}>
+              style={{ background: '#ffffff', boxShadow: '0 24px 64px rgba(108,189,181,0.12), 0 4px 16px rgba(0,0,0,0.06)' }}>
 
               {/* Card rim light */}
               <div className="absolute inset-0 pointer-events-none"
-                style={{ background: 'linear-gradient(135deg, rgba(239,247,255,0.70) 0%, transparent 50%)', borderRadius: 'inherit' }}
+                style={{ background: 'linear-gradient(135deg, rgba(240,250,249,0.80) 0%, transparent 50%)', borderRadius: 'inherit' }}
                 aria-hidden="true" />
 
               <div className="relative z-10">
@@ -382,8 +382,8 @@ export default function LoginPage() {
                         type="submit" disabled={loading}
                         className="w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl text-sm font-semibold text-white btn-physics btn-shimmer focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
                         style={{
-                          background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)',
-                          boxShadow: '0 4px 16px rgba(0,86,179,0.30), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
+                          background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
+                          boxShadow: '0 4px 16px rgba(108,189,181,0.40), 0 1px 3px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.20)',
                         }}
                       >
                         {loading ? 'Signing in…' : <><span>Sign in</span> <ArrowRight className="h-4 w-4" aria-hidden="true" /></>}
@@ -393,9 +393,9 @@ export default function LoginPage() {
                     <p className="text-center text-sm text-slate-500 mt-6">
                       Don't have an account?{' '}
                       <Link to="/register" className="font-semibold transition-colors focus-visible:outline-none focus-visible:underline"
-                        style={{ color: '#0056B3' }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#003D82' }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#0056B3' }}>
+                        style={{ color: '#358F87' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#25706A' }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#358F87' }}>
                         Create account
                       </Link>
                     </p>
@@ -405,8 +405,8 @@ export default function LoginPage() {
                     {/* MFA step */}
                     <div className="flex flex-col items-center text-center mb-8">
                       <div className="h-16 w-16 rounded-2xl flex items-center justify-center mb-5"
-                        style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.07) 0%, rgba(8,145,178,0.04) 100%)', border: '1.5px solid rgba(0,86,179,0.30)', boxShadow: 'var(--elevation-2)' }}>
-                        <Shield className="h-8 w-8" style={{ color: '#0056B3' }} aria-hidden="true" />
+                        style={{ background: 'linear-gradient(135deg, rgba(108,189,181,0.10) 0%, rgba(147,204,198,0.06) 100%)', border: '1.5px solid rgba(108,189,181,0.35)', boxShadow: 'var(--elevation-2)' }}>
+                        <Shield className="h-8 w-8" style={{ color: '#4DA8A0' }} aria-hidden="true" />
                       </div>
                       <h2 className="text-xl font-black text-slate-900 font-display" style={{ letterSpacing: '-0.025em' }}>
                         Two-factor verification
@@ -438,7 +438,7 @@ export default function LoginPage() {
                       <button
                         type="submit" disabled={loading || mfaCode.length !== 6}
                         className="w-full py-3 px-5 rounded-xl text-sm font-semibold text-white btn-physics btn-shimmer focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
-                        style={{ background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)', boxShadow: '0 4px 16px rgba(0,86,179,0.28), inset 0 1px 0 rgba(255,255,255,0.15)' }}
+                        style={{ background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)', boxShadow: '0 4px 16px rgba(108,189,181,0.38), inset 0 1px 0 rgba(255,255,255,0.20)' }}
                       >
                         {loading ? 'Verifying…' : 'Verify code'}
                       </button>
@@ -446,7 +446,7 @@ export default function LoginPage() {
                       <button type="button"
                         onClick={() => { setStep('credentials'); setMfaCode(''); setError('') }}
                         className="w-full text-sm text-slate-400 transition-colors py-1.5 focus-visible:outline-none focus-visible:underline"
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#0056B3' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#358F87' }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '' }}>
                         ← Back to sign in
                       </button>
@@ -490,15 +490,15 @@ function OAuthButton({ provider, label, loading, anyLoading, onClick, icon }: OA
       style={{
         background: '#ffffff',
         boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
-        ['--tw-ring-color' as string]: 'rgba(0,86,179,0.35)',
+        ['--tw-ring-color' as string]: 'rgba(108,189,181,0.45)',
       }}
       onMouseEnter={(e) => {
         if (!isDisabled) {
           const el = e.currentTarget
-          el.style.borderColor = 'rgba(0,86,179,0.40)'
-          el.style.backgroundColor = 'rgba(239,247,255,0.7)'
+          el.style.borderColor = 'rgba(108,189,181,0.50)'
+          el.style.backgroundColor = 'rgba(240,250,249,0.80)'
           el.style.transform = 'translateY(-1px)'
-          el.style.boxShadow = '0 4px 12px rgba(0,86,179,0.12), 0 1px 3px rgba(0,0,0,0.08)'
+          el.style.boxShadow = '0 4px 12px rgba(108,189,181,0.20), 0 1px 3px rgba(0,0,0,0.06)'
         }
       }}
       onMouseLeave={(e) => {
@@ -521,7 +521,7 @@ function OAuthButton({ provider, label, loading, anyLoading, onClick, icon }: OA
     >
       <span className="flex items-center justify-center w-5 h-5 shrink-0">
         {loading ? (
-          <svg className="animate-spin h-4 w-4" style={{ color: '#0056B3' }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <svg className="animate-spin h-4 w-4" style={{ color: '#4DA8A0' }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/>
           </svg>
@@ -529,7 +529,7 @@ function OAuthButton({ provider, label, loading, anyLoading, onClick, icon }: OA
       </span>
       <span className="flex-1 text-left">{loading ? 'Redirecting…' : label}</span>
       <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md shrink-0"
-        style={{ background: 'rgba(0,86,179,0.07)', color: '#0056B3' }}>
+        style={{ background: 'rgba(108,189,181,0.12)', color: '#358F87' }}>
         SSO
       </span>
     </button>

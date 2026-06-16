@@ -935,7 +935,7 @@ function DbEngineIcon({ dbType, size = 'sm' }: { dbType: DbType; size?: 'sm' | '
     </div>
   )
   if (dbType === 'oracle') return (
-    <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden`}
+    <div className={`${size === 'lg' ? 'h-10 w-20' : 'h-7 w-16'} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden px-1.5`}
       style={{ background: '#FFF7F7', border: '1px solid #FECACA', boxShadow: '0 1px 4px rgba(204,41,54,0.10)' }}>
       <OracleFullLogo height={size === 'lg' ? 20 : dim.logoH} />
     </div>

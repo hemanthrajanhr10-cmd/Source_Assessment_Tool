@@ -31,20 +31,25 @@ interface NavGroup {
   items: { to: string; label: string; icon: LucideIcon; exact?: boolean }[]
 }
 
+/* ── Unified teal theme applied to every source ─────────────────────────────── */
+const TEAL_THEME = {
+  dotGradient:     'linear-gradient(135deg, #6CBDB5, #93CCC6)',
+  activeBg:        'rgba(108,189,181,0.10)',
+  activeText:      '#25706A',
+  activeBorder:    'rgba(108,189,181,0.40)',
+  activeIconColor: '#4DA8A0',
+  activeDotGlow:   'rgba(108,189,181,0.50)',
+  hoverBg:         'rgba(108,189,181,0.08)',
+  hoverText:       '#25706A',
+  hoverIconColor:  '#4DA8A0',
+}
+
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Unified Assessment',
     element: 'ocean',
     LogoComponent: UnifiedLogo,
-    dotGradient:      'linear-gradient(135deg, #0056B3, #38A8F5)',
-    activeBg:         'rgba(0,86,179,0.09)',
-    activeText:       '#003D82',
-    activeBorder:     'rgba(56,168,245,0.40)',
-    activeIconColor:  '#0056B3',
-    activeDotGlow:    'rgba(0,86,179,0.45)',
-    hoverBg:          'rgba(0,86,179,0.07)',
-    hoverText:        '#003D82',
-    hoverIconColor:   '#0056B3',
+    ...TEAL_THEME,
     items: [
       { to: '/unified/new',      label: 'New Assessment', icon: Combine,         exact: true },
       { to: '/unified/sessions', label: 'All Reports',    icon: LayoutDashboard },
@@ -54,15 +59,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'DB Assessment',
     element: 'tide',
     LogoComponent: SqlServerLogo,
-    dotGradient:      'linear-gradient(135deg, #CC2936, #E84855)',
-    activeBg:         'rgba(204,41,54,0.08)',
-    activeText:       '#9B1C1C',
-    activeBorder:     'rgba(232,72,85,0.35)',
-    activeIconColor:  '#CC2936',
-    activeDotGlow:    'rgba(204,41,54,0.40)',
-    hoverBg:          'rgba(204,41,54,0.06)',
-    hoverText:        '#9B1C1C',
-    hoverIconColor:   '#CC2936',
+    ...TEAL_THEME,
     items: [
       { to: '/',                   label: 'Source Only',       icon: PlusCircle, exact: true },
       { to: '/sessions',           label: 'Sessions',          icon: Layers  },
@@ -74,15 +71,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Microsoft Fabric',
     element: 'grove',
     LogoComponent: FabricLogo,
-    dotGradient:      'linear-gradient(135deg, #0078D4, #00BCF2)',
-    activeBg:         'rgba(0,120,212,0.09)',
-    activeText:       '#0F5DB3',
-    activeBorder:     'rgba(0,188,242,0.40)',
-    activeIconColor:  '#0078D4',
-    activeDotGlow:    'rgba(0,120,212,0.45)',
-    hoverBg:          'rgba(0,120,212,0.07)',
-    hoverText:        '#0F5DB3',
-    hoverIconColor:   '#0078D4',
+    ...TEAL_THEME,
     items: [
       { to: '/fabric/new',      label: 'Fabric Only',  icon: PlusCircle },
       { to: '/fabric/sessions', label: 'Assessments',  icon: BarChart3  },
@@ -92,15 +81,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'SAP Systems',
     element: 'sand',
     LogoComponent: SapLogo,
-    dotGradient:      'linear-gradient(135deg, #009BD7, #0BBBE8)',
-    activeBg:         'rgba(0,155,215,0.09)',
-    activeText:       '#006E99',
-    activeBorder:     'rgba(11,187,232,0.40)',
-    activeIconColor:  '#009BD7',
-    activeDotGlow:    'rgba(0,155,215,0.45)',
-    hoverBg:          'rgba(0,155,215,0.07)',
-    hoverText:        '#006E99',
-    hoverIconColor:   '#009BD7',
+    ...TEAL_THEME,
     items: [
       { to: '/sap/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/sap/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -110,15 +91,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Sage Intacct',
     element: 'sage',
     LogoComponent: SageIntacctLogo,
-    dotGradient:      'linear-gradient(135deg, #00DC82, #00A65A)',
-    activeBg:         'rgba(0,166,90,0.09)',
-    activeText:       '#00613A',
-    activeBorder:     'rgba(0,220,130,0.40)',
-    activeIconColor:  '#00A65A',
-    activeDotGlow:    'rgba(0,220,130,0.50)',
-    hoverBg:          'rgba(0,166,90,0.07)',
-    hoverText:        '#00613A',
-    hoverIconColor:   '#00A65A',
+    ...TEAL_THEME,
     items: [
       { to: '/sage-intacct/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/sage-intacct/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -128,15 +101,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Tableau',
     element: 'tableau',
     LogoComponent: TableauLogo,
-    dotGradient:      'linear-gradient(135deg, #0056B3, #0084D4)',
-    activeBg:         'rgba(0,86,179,0.09)',
-    activeText:       '#003D82',
-    activeBorder:     'rgba(0,132,212,0.40)',
-    activeIconColor:  '#0056B3',
-    activeDotGlow:    'rgba(0,86,179,0.45)',
-    hoverBg:          'rgba(0,86,179,0.07)',
-    hoverText:        '#003D82',
-    hoverIconColor:   '#0056B3',
+    ...TEAL_THEME,
     items: [
       { to: '/tableau/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/tableau/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -146,15 +111,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Snowflake',
     element: 'snowflake',
     LogoComponent: SnowflakeIconLogo,
-    dotGradient:      'linear-gradient(135deg, #29B5E8, #0099CC)',
-    activeBg:         'rgba(41,181,232,0.09)',
-    activeText:       '#006B99',
-    activeBorder:     'rgba(41,181,232,0.40)',
-    activeIconColor:  '#29B5E8',
-    activeDotGlow:    'rgba(41,181,232,0.50)',
-    hoverBg:          'rgba(41,181,232,0.07)',
-    hoverText:        '#006B99',
-    hoverIconColor:   '#29B5E8',
+    ...TEAL_THEME,
     items: [
       { to: '/snowflake/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/snowflake/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -164,15 +121,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Dataverse',
     element: 'dataverse',
     LogoComponent: DataverseIconLogo,
-    dotGradient:      'linear-gradient(135deg, #742774, #C084FC)',
-    activeBg:         'rgba(116,39,116,0.09)',
-    activeText:       '#5B1E5B',
-    activeBorder:     'rgba(192,132,252,0.40)',
-    activeIconColor:  '#742774',
-    activeDotGlow:    'rgba(192,132,252,0.55)',
-    hoverBg:          'rgba(116,39,116,0.07)',
-    hoverText:        '#5B1E5B',
-    hoverIconColor:   '#742774',
+    ...TEAL_THEME,
     items: [
       { to: '/dataverse/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/dataverse/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -182,15 +131,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Salesforce',
     element: 'salesforce',
     LogoComponent: SalesforceIconLogo,
-    dotGradient:      'linear-gradient(135deg, #0176D3, #1B96FF)',
-    activeBg:         'rgba(1,118,211,0.09)',
-    activeText:       '#032D60',
-    activeBorder:     'rgba(27,150,255,0.40)',
-    activeIconColor:  '#0176D3',
-    activeDotGlow:    'rgba(1,118,211,0.50)',
-    hoverBg:          'rgba(1,118,211,0.07)',
-    hoverText:        '#032D60',
-    hoverIconColor:   '#0176D3',
+    ...TEAL_THEME,
     items: [
       { to: '/salesforce/new',      label: 'New Assessment', icon: PlusCircle },
       { to: '/salesforce/sessions', label: 'Assessments',    icon: BarChart3  },
@@ -252,17 +193,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           ${open ? 'translate-x-0' : '-translate-x-full'}
         `}
         style={{
-          background: 'linear-gradient(180deg, #ffffff 0%, #F5F7F9 100%)',
+          background: 'linear-gradient(180deg, #ffffff 0%, #F4FAFA 100%)',
           boxShadow: open
-            ? '6px 0 40px rgba(0,86,179,0.06), 2px 0 8px rgba(0,0,0,0.04)'
-            : '1px 0 0 0 rgba(197,213,236,0.7)',
+            ? '6px 0 40px rgba(108,189,181,0.10), 2px 0 8px rgba(0,0,0,0.04)'
+            : '1px 0 0 0 rgba(178,221,217,0.7)',
         }}
         aria-label="Sidebar navigation"
       >
         {/* ── Logo ────────────────────────────────────────────────────────── */}
         <div
           className="flex items-center justify-between h-16 px-4 border-b border-slate-200/60 shrink-0"
-          style={{ background: 'linear-gradient(180deg, rgba(243,245,247,0.6) 0%, rgba(255,255,255,0) 100%)' }}
+          style={{ background: 'linear-gradient(180deg, rgba(240,250,249,0.8) 0%, rgba(255,255,255,0) 100%)' }}
         >
           <NavLink
             to="/"
@@ -274,7 +215,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div
                 className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100"
                 style={{
-                  background: 'rgba(0,86,179,0.12)',
+                  background: 'rgba(108,189,181,0.16)',
                   animation: 'pulseRing 2.4s ease-out infinite',
                   borderRadius: '12px',
                 }}
@@ -284,17 +225,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 className="relative flex items-center justify-center h-9 w-9 rounded-xl overflow-hidden"
                 style={{
                   transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 220ms ease',
-                  boxShadow: '0 4px 12px rgba(0,86,179,0.22)',
+                  boxShadow: '0 4px 12px rgba(108,189,181,0.30)',
                 }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLDivElement
                   el.style.transform = 'scale(1.08) rotate(-3deg)'
-                  el.style.boxShadow = '0 6px 20px rgba(0,86,179,0.38)'
+                  el.style.boxShadow = '0 6px 20px rgba(108,189,181,0.48)'
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLDivElement
                   el.style.transform = 'scale(1) rotate(0deg)'
-                  el.style.boxShadow = '0 4px 12px rgba(0,86,179,0.22)'
+                  el.style.boxShadow = '0 4px 12px rgba(108,189,181,0.30)'
                 }}
               >
                 <UnifiedLogo size={36} />
@@ -303,7 +244,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
             <div>
               <p className="text-sm font-bold text-slate-900 leading-tight font-display tracking-tight">
-                Source<span className="font-extrabold" style={{ color: '#0056B3' }}>SAT</span>
+                Source<span className="font-extrabold" style={{ color: '#358F87' }}>SAT</span>
               </p>
               <p className="text-[9px] text-slate-400 leading-tight tracking-widest uppercase mt-0.5">
                 Assessment Tool
@@ -315,7 +256,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <button
             onClick={onClose}
             className="lg:hidden p-1.5 rounded-lg text-slate-400 transition-colors focus-visible:ring-2"
-            onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(239,247,255,0.8)'; el.style.color = '#0056B3' }}
+            onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(108,189,181,0.12)'; el.style.color = '#25706A' }}
             onMouseLeave={(e) => { const el = e.currentTarget; el.style.backgroundColor = ''; el.style.color = '' }}
             aria-label="Close sidebar"
           >
@@ -334,7 +275,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div key={group.label}>
                 {/* Section label with inline brand logo */}
                 <div className="flex items-center gap-2 px-2 mb-2.5">
-                  <Logo size={14} />
+                  <div className="flex items-center justify-center h-5 w-5 rounded-md shrink-0"
+                    style={{ background: 'rgba(108,189,181,0.10)', border: '1px solid rgba(108,189,181,0.20)' }}>
+                    <Logo size={13} />
+                  </div>
                   <p className="section-title">{group.label}</p>
                 </div>
 
@@ -420,7 +364,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         {/* ── User footer ─────────────────────────────────────────────────── */}
         <div
           className="border-t border-slate-200/60 p-3 shrink-0"
-          style={{ background: 'linear-gradient(0deg, rgba(243,245,247,0.5) 0%, rgba(255,255,255,0) 100%)' }}
+          style={{ background: 'linear-gradient(0deg, rgba(240,250,249,0.6) 0%, rgba(255,255,255,0) 100%)' }}
         >
           <div className="relative" ref={menuRef}>
             <button
@@ -428,7 +372,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
                          transition-all duration-150 group
                          focus-visible:ring-2 focus-visible:outline-none"
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(243,245,247,0.8)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(108,189,181,0.08)' }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = '' }}
               aria-expanded={menuOpen}
               aria-haspopup="menu"
@@ -437,15 +381,15 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 <div
                   className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
                   style={{
-                    background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)',
-                    boxShadow: '0 2px 8px rgba(0,86,179,0.28)',
+                    background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
+                    boxShadow: '0 2px 8px rgba(108,189,181,0.40)',
                   }}
                 >
                   {initials}
                 </div>
                 <span
-                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-earth-500 border-2 border-white"
-                  style={{ boxShadow: '0 0 6px rgba(5,150,105,0.50)' }}
+                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-brand-400 border-2 border-white"
+                  style={{ boxShadow: '0 0 6px rgba(108,189,181,0.60)' }}
                   aria-hidden="true"
                 />
               </div>
@@ -469,7 +413,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div
                 className="absolute bottom-full left-0 right-0 mb-2 rounded-2xl border border-slate-200/80 bg-white py-1.5 z-50 overflow-hidden"
                 style={{
-                  boxShadow: '0 -8px 32px rgba(0,86,179,0.06), 0 -2px 8px rgba(0,0,0,0.06)',
+                  boxShadow: '0 -8px 32px rgba(108,189,181,0.10), 0 -2px 8px rgba(0,0,0,0.06)',
                   animation: 'scaleIn 0.20s cubic-bezier(0.34, 1.56, 0.64, 1)',
                   transformOrigin: 'bottom center',
                 }}
@@ -477,7 +421,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               >
                 <div
                   className="h-0.5 mx-3 mb-2 rounded-full"
-                  style={{ background: 'linear-gradient(90deg, #0056B3, #0891B2, #0D9488)' }}
+                  style={{ background: 'linear-gradient(90deg, #358F87, #6CBDB5, #93CCC6)' }}
                   aria-hidden="true"
                 />
 
@@ -494,11 +438,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-slate-600
                                transition-colors rounded-xl"
                     style={{ width: 'calc(100% - 12px)', marginLeft: '6px' }}
-                    onMouseEnter={(e) => { const el = e.currentTarget; el.style.color = '#003D82'; el.style.backgroundColor = 'rgba(239,247,255,0.8)' }}
+                    onMouseEnter={(e) => { const el = e.currentTarget; el.style.color = '#25706A'; el.style.backgroundColor = 'rgba(108,189,181,0.10)' }}
                     onMouseLeave={(e) => { const el = e.currentTarget; el.style.color = ''; el.style.backgroundColor = '' }}
                     role="menuitem"
                   >
-                    <Shield className="h-4 w-4" style={{ color: '#0056B3' }} aria-hidden="true" />
+                    <Shield className="h-4 w-4" style={{ color: '#4DA8A0' }} aria-hidden="true" />
                     Enable MFA
                   </button>
                 )}
@@ -517,7 +461,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           </div>
 
           <div className="flex items-center justify-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-            <Sparkles className="h-2.5 w-2.5" style={{ color: '#0891B2' }} aria-hidden="true" />
+            <Sparkles className="h-2.5 w-2.5" style={{ color: '#6CBDB5' }} aria-hidden="true" />
             <span className="text-[9px] text-slate-300 tracking-widest uppercase font-medium">
               UBTI Intelligence
             </span>

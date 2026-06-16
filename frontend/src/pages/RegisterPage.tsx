@@ -60,11 +60,11 @@ export default function RegisterPage() {
           <div
             className="flex items-center justify-center h-12 w-12 rounded-2xl mb-4"
             style={{
-              background: 'rgba(0,86,179,0.08)',
-              border: '1.5px solid rgba(0,86,179,0.2)',
+              background: 'rgba(22,163,74,0.08)',
+              border: '1.5px solid rgba(22,163,74,0.2)',
             }}
           >
-            <Database className="h-6 w-6 text-ocean-600" />
+            <Database className="h-6 w-6 text-earth-700" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 font-display">Create account</h1>
           <p className="text-sm text-slate-500 mt-1">Join Source Assessment Tool</p>

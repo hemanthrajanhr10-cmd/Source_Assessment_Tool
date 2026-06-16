@@ -79,7 +79,7 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
                       position: 'absolute',
                       inset: -4,
                       borderRadius: '50%',
-                      border: '1.5px solid rgba(0,132,212,0.45)',
+                      border: '1.5px solid rgba(22,163,74,0.45)',
                       animation: 'phase-ring-1 2s cubic-bezier(0,0,0.2,1) infinite',
                     }} />
                   )}
@@ -90,7 +90,7 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
                       position: 'absolute',
                       inset: -1,
                       borderRadius: '50%',
-                      border: '1.5px solid rgba(0,132,212,0.55)',
+                      border: '1.5px solid rgba(22,163,74,0.55)',
                       animation: 'phase-ring-2 2s cubic-bezier(0,0,0.2,1) 0.55s infinite',
                     }} />
                   )}
@@ -106,14 +106,14 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
                       justifyContent: 'center',
                       transition: 'background 0.35s cubic-bezier(0.16,1,0.3,1), border-color 0.35s, box-shadow 0.35s',
                       ...(isCompleted && {
-                        background: '#14B8A6',
-                        border: '2px solid #14B8A6',
-                        boxShadow: '0 0 0 3px rgba(20,184,166,0.14)',
+                        background: '#10B981',
+                        border: '2px solid #10B981',
+                        boxShadow: '0 0 0 3px rgba(16,185,129,0.14)',
                       }),
                       ...(isCurrent && {
-                        background: 'linear-gradient(145deg, #0084D4, #0056B3)',
+                        background: 'linear-gradient(145deg, #22C55E, #166534)',
                         border: '2px solid transparent',
-                        boxShadow: '0 2px 12px rgba(0,84,179,0.35), 0 0 0 3px rgba(0,132,212,0.15)',
+                        boxShadow: '0 2px 12px rgba(22,163,74,0.35), 0 0 0 3px rgba(22,163,74,0.15)',
                       }),
                       ...(isFailed && {
                         background: '#EF4444',
@@ -121,8 +121,8 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
                         boxShadow: '0 0 0 3px rgba(239,68,68,0.15)',
                       }),
                       ...(isPending && {
-                        background: '#EFF6FF',
-                        border: '2px solid #C5D5EC',
+                        background: '#F0FDF4',
+                        border: '2px solid #BBF7D0',
                       }),
                     }}
                   >
@@ -159,8 +159,8 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
                     marginTop: 6,
                     fontSize: 10,
                     fontWeight: isCurrent || isCompleted ? 700 : 400,
-                    color: isCompleted ? '#0D9488'
-                         : isCurrent  ? '#0056B3'
+                    color: isCompleted ? '#059669'
+                         : isCurrent  ? '#16A34A'
                          : isFailed   ? '#DC2626'
                          : '#9CA3AF',
                     textAlign: 'center',
@@ -180,7 +180,7 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
                     style={{
                       marginTop: 2,
                       fontSize: 9,
-                      color: isCurrent ? '#0084D4' : '#9CA3AF',
+                      color: isCurrent ? '#16A34A' : '#9CA3AF',
                       fontVariantNumeric: 'tabular-nums',
                       fontWeight: isCurrent ? 600 : 400,
                       transition: 'color 0.3s',
@@ -204,10 +204,10 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
                     overflow: 'hidden',
                     position: 'relative',
                     ...(connectorDone && {
-                      background: '#14B8A6',
+                      background: '#10B981',
                     }),
                     ...(connectorActive && {
-                      background: `linear-gradient(90deg, #0056B3 0%, #38A8F5 40%, #0056B3 80%, #38A8F5 100%)`,
+                      background: `linear-gradient(90deg, #166534 0%, #4ADE80 40%, #166534 80%, #4ADE80 100%)`,
                       backgroundSize: '200% 100%',
                       animation: 'connector-flow 1.4s linear infinite',
                     }),

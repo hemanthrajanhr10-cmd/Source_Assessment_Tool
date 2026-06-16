@@ -25,8 +25,8 @@ const KEYFRAMES = `
     100% { transform: translateX(280%);  }
   }
   @keyframes card-breathe {
-    0%,  100% { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 0   rgba(0,132,212,0),    0 4px 16px rgba(0,84,179,0.04); }
-    50%        { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 3px rgba(0,132,212,0.12), 0 8px 28px rgba(0,84,179,0.10); }
+    0%,  100% { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 0   rgba(22,163,74,0),    0 4px 16px rgba(22,163,74,0.04); }
+    50%        { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 0 0 3px rgba(22,163,74,0.12), 0 8px 28px rgba(22,163,74,0.10); }
   }
   @keyframes header-scan {
     0%   { transform: translateX(-100%); opacity: 0.6; }
@@ -42,9 +42,9 @@ const KEYFRAMES = `
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { bg: string; border: string; color: string; dot: string; label: string }> = {
-    queued:    { bg: '#EFF6FF', border: 'transparent',          color: '#404555', dot: '#9AB5D8',  label: 'Queued'    },
-    running:   { bg: 'rgba(0,132,212,0.07)', border: 'rgba(0,132,212,0.18)', color: '#003D82', dot: '#0084D4', label: 'Running' },
-    completed: { bg: 'rgba(20,184,166,0.07)', border: 'rgba(20,184,166,0.2)', color: '#0D9488', dot: '#14B8A6', label: 'Completed' },
+    queued:    { bg: '#F0FDF4', border: 'transparent',          color: '#404555', dot: '#86EFAC',  label: 'Queued'    },
+    running:   { bg: 'rgba(22,163,74,0.07)', border: 'rgba(22,163,74,0.18)', color: '#166534', dot: '#16A34A', label: 'Running' },
+    completed: { bg: 'rgba(5,150,105,0.07)', border: 'rgba(5,150,105,0.2)', color: '#059669', dot: '#10B981', label: 'Completed' },
     failed:    { bg: '#FFF1F2', border: '#FECDD3',              color: '#BE123C', dot: '#EF4444', label: 'Failed'    },
     cancelled: { bg: '#F8FAFC', border: 'transparent',          color: '#767A8C', dot: '#9CA3AF', label: 'Cancelled' },
   }
@@ -154,10 +154,10 @@ export default function AssessmentProgress({ sessionId, sessionLabel, onComplete
   const barColor = isFailed
     ? '#EF4444'
     : isCompleted
-      ? '#14B8A6'
-      : 'linear-gradient(90deg, #003D82 0%, #0084D4 45%, #38A8F5 80%, #0084D4 100%)'
+      ? '#10B981'
+      : 'linear-gradient(90deg, #166534 0%, #16A34A 45%, #4ADE80 80%, #16A34A 100%)'
 
-  const barBg = isFailed ? '#FFF1F2' : isCompleted ? 'rgba(20,184,166,0.08)' : '#EFF6FF'
+  const barBg = isFailed ? '#FFF1F2' : isCompleted ? 'rgba(20,184,166,0.08)' : '#F0FDF4'
 
   return (
     <>
@@ -196,7 +196,7 @@ export default function AssessmentProgress({ sessionId, sessionLabel, onComplete
               style={{
                 position: 'absolute',
                 inset: 0,
-                background: 'linear-gradient(90deg, transparent 0%, rgba(0,132,212,0.06) 50%, transparent 100%)',
+                background: 'linear-gradient(90deg, transparent 0%, rgba(22,163,74,0.06) 50%, transparent 100%)',
                 animation: 'header-scan 3.5s cubic-bezier(0.4,0,0.6,1) infinite',
                 pointerEvents: 'none',
               }}
@@ -218,7 +218,7 @@ export default function AssessmentProgress({ sessionId, sessionLabel, onComplete
             {eta && !isTerminal && (
               <span style={{ fontVariantNumeric: 'tabular-nums' }}>
                 ETA{' '}
-                <strong style={{ color: '#0056B3', fontWeight: 600 }}>{eta}</strong>
+                <strong style={{ color: '#16A34A', fontWeight: 600 }}>{eta}</strong>
               </span>
             )}
           </div>
@@ -264,7 +264,7 @@ export default function AssessmentProgress({ sessionId, sessionLabel, onComplete
                 style={{
                   fontSize: 13,
                   fontWeight: 700,
-                  color: isFailed ? '#DC2626' : isCompleted ? '#0D9488' : '#003D82',
+                  color: isFailed ? '#DC2626' : isCompleted ? '#059669' : '#166534',
                   fontVariantNumeric: 'tabular-nums',
                   letterSpacing: '-0.01em',
                   flexShrink: 0,
@@ -394,7 +394,7 @@ export default function AssessmentProgress({ sessionId, sessionLabel, onComplete
                     width: 4,
                     height: 4,
                     borderRadius: '50%',
-                    background: '#0084D4',
+                    background: '#16A34A',
                     display: 'inline-block',
                     animation: 'pulse-status 1.4s ease-in-out infinite',
                   }}
@@ -440,11 +440,11 @@ export default function AssessmentProgress({ sessionId, sessionLabel, onComplete
                   fontSize: 11,
                   color: '#767A8C',
                   scrollbarWidth: 'thin',
-                  scrollbarColor: 'rgba(0,86,179,0.18) transparent',
+                  scrollbarColor: 'rgba(22,163,74,0.18) transparent',
                 }}
               >
                 {progress.errors.map((e, i) => (
-                  <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid #EFF6FF' }}>
+                  <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid #F0FDF4' }}>
                     <strong style={{ color: '#404555' }}>{e.item}</strong>
                     {' — '}
                     <span style={{ color: '#B45309' }}>{e.error}</span>

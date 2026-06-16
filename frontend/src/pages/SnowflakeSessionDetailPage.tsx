@@ -11,15 +11,15 @@ import { api, getApiErrorMessage } from '../api/client'
 import { SnowflakeLogo } from '../components/ui/SourceLogos'
 import type { SnowflakeJobStatusResponse, SnowflakeAssessmentResult } from '../types/api'
 
-// ── Ocean design tokens ───────────────────────────────────────────────────────
+// ── Nature Green design tokens ────────────────────────────────────────────────
 
 const D = {
-  bg:          '#EFF6FF',
+  bg:          '#F0FDF4',
   surface:     '#FFFFFF',
-  surface2:    '#F8FAFF',
-  surface3:    '#EFF6FF',
-  border:      '#C5D5EC',
-  borderFaint: '#DDE8F5',
+  surface2:    '#F7FEF8',
+  surface3:    '#F0FDF4',
+  border:      '#BBF7D0',
+  borderFaint: '#DCFCE7',
   amber:       '#29B5E8',
   amberDim:    '#0099CC',
   amberGlow:   'rgba(41,181,232,0.12)',
@@ -31,16 +31,16 @@ const D = {
   greenDim:    'rgba(5,150,105,0.10)',
   red:         '#DC2626',
   redDim:      'rgba(220,38,38,0.08)',
-  blue:        '#0056B3',
-  blueDim:     'rgba(0,86,179,0.10)',
+  blue:        '#16A34A',
+  blueDim:     'rgba(22,163,74,0.10)',
   purple:      '#7C3AED',
   purpleDim:   'rgba(124,58,237,0.10)',
   orange:      '#EA580C',
   orangeDim:   'rgba(234,88,12,0.10)',
-  teal:        '#0D9488',
-  tealDim:     'rgba(13,148,136,0.10)',
-  shadowCard:  '0 1px 3px rgba(0,86,179,0.04), 0 4px 16px rgba(0,86,179,0.06)',
-  shadowHover: '0 4px 12px rgba(0,86,179,0.08), 0 16px 40px rgba(0,86,179,0.10)',
+  teal:        '#10B981',
+  tealDim:     'rgba(16,185,129,0.10)',
+  shadowCard:  '0 1px 3px rgba(22,163,74,0.04), 0 4px 16px rgba(22,163,74,0.06)',
+  shadowHover: '0 4px 12px rgba(22,163,74,0.08), 0 16px 40px rgba(22,163,74,0.10)',
   fontSyne:    'inherit',
   fontDM:      'inherit',
   fontMono:    '"JetBrains Mono", "Fira Code", monospace',
@@ -477,7 +477,7 @@ function OverviewTab({ result }: { result: SnowflakeAssessmentResult }) {
                 label="total"
                 data={Object.entries(wm.warehouses_by_size).map(([size, cnt], i) => ({
                   label: size, value: cnt,
-                  color: ['#0056B3','#0084D4','#38A8F5','#29B5E8','#10b981','#6366f1'][i % 6],
+                  color: ['#16A34A','#22C55E','#4ADE80','#29B5E8','#10b981','#6366f1'][i % 6],
                 }))}
               />
               <div style={{ flex: 1 }}>
@@ -485,7 +485,7 @@ function OverviewTab({ result }: { result: SnowflakeAssessmentResult }) {
                   <div key={size} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <div style={{
                       width: 8, height: 8, borderRadius: '50%',
-                      background: ['#0056B3','#0084D4','#38A8F5','#29B5E8','#10b981','#6366f1'][i % 6],
+                      background: ['#16A34A','#22C55E','#4ADE80','#29B5E8','#10b981','#6366f1'][i % 6],
                     }} />
                     <span style={{ fontSize: 11, fontFamily: D.fontDM, color: D.textSecond, flex: 1 }}>{size}</span>
                     <span style={{ fontSize: 12, fontFamily: D.fontMono, fontWeight: 700, color: D.textPrimary }}>{cnt}</span>

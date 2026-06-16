@@ -506,7 +506,7 @@ export default function SapAssessmentPage() {
             <div className="flex items-center gap-2.5">
               <div
                 className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                style={{ background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #166534 0%, #16A34A 100%)' }}
               >
                 1
               </div>
@@ -546,7 +546,7 @@ export default function SapAssessmentPage() {
                   className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
                   style={{ background: 'linear-gradient(135deg, rgba(123,94,0,0.08), rgba(196,154,15,0.12))', border: '1px solid rgba(196,154,15,0.3)' }}
                 >
-                  <CheckCircle2 className="h-4 w-4" style={{ color: '#0056B3' }} />
+                  <CheckCircle2 className="h-4 w-4" style={{ color: '#16A34A' }} />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-800">{selectedMeta?.label}</p>
@@ -589,7 +589,7 @@ export default function SapAssessmentPage() {
                 <div className="flex items-center gap-2.5">
                   <div
                     className="h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-                    style={{ background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)' }}
+                    style={{ background: 'linear-gradient(135deg, #166534 0%, #16A34A 100%)' }}
                   >
                     2
                   </div>

@@ -16,20 +16,20 @@ import type {
 } from '../types/api'
 
 const T = {
-  primary:    '#0056B3',
-  mid:        '#0084D4',
-  accent:     '#38A8F5',
-  dark:       '#003D82',
-  surface:    '#EFF6FF',
-  light50:    '#EFF6FF',
-  light100:   '#DBEEFF',
-  light200:   '#BAE0FF',
-  text:       '#003D82',
-  textMid:    '#0056B3',
-  glow:       'rgba(0,86,179,0.15)',
-  gradHero:   'linear-gradient(135deg, #EFF6FF 0%, #DBEEFF 100%)',
-  gradBtn:    'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)',
-  shadowCard: '0 1px 3px rgba(0,86,179,0.06), 0 4px 16px rgba(0,86,179,0.07)',
+  primary:    '#16A34A',
+  mid:        '#22C55E',
+  accent:     '#4ADE80',
+  dark:       '#166534',
+  surface:    '#F0FDF4',
+  light50:    '#F0FDF4',
+  light100:   '#DCFCE7',
+  light200:   '#BBF7D0',
+  text:       '#166534',
+  textMid:    '#16A34A',
+  glow:       'rgba(22,163,74,0.15)',
+  gradHero:   'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
+  gradBtn:    'linear-gradient(135deg, #166534 0%, #16A34A 100%)',
+  shadowCard: '0 1px 3px rgba(22,163,74,0.06), 0 4px 16px rgba(22,163,74,0.07)',
 }
 
 // ── Risk & Status visual helpers ──────────────────────────────────────────────
@@ -217,7 +217,7 @@ function DomainCard({ summary, checks, defaultOpen }: { summary: DataverseDomain
                   {c.recommendation && (
                     <div style={{
                       marginTop: '6px', padding: '6px 10px', borderRadius: '7px',
-                      background: 'rgba(0,86,179,0.05)', border: `1px solid ${T.light200}`,
+                      background: 'rgba(22,163,74,0.05)', border: `1px solid ${T.light200}`,
                       display: 'flex', gap: '6px', alignItems: 'flex-start',
                     }}>
                       <AlertTriangle style={{ width: '11px', height: '11px', color: T.primary, flexShrink: 0, marginTop: '2px' }} />
@@ -297,12 +297,12 @@ function ProgressTerminal({ jobStatus }: { jobStatus: DataverseJobStatusResponse
       }}>
         {jobStatus.progress_message && (
           <p style={{ color: T.accent, margin: 0 }}>
-            <span style={{ color: 'rgba(0,132,212,0.55)' }}>{'> '}</span>
+            <span style={{ color: 'rgba(22,163,74,0.55)' }}>{'> '}</span>
             {jobStatus.progress_message}
             <span style={{ animation: 'blink 1s step-end infinite', color: T.accent }}>▊</span>
           </p>
         )}
-        <p style={{ color: 'rgba(0,132,212,0.45)', margin: '6px 0 0', fontSize: '11px' }}>
+        <p style={{ color: 'rgba(22,163,74,0.45)', margin: '6px 0 0', fontSize: '11px' }}>
           Step {prog}/{total} · Scanning {jobStatus.label || 'environment'}…
         </p>
       </div>
@@ -393,7 +393,7 @@ export default function DataverseSessionDetailPage() {
     <div style={{ minHeight: '100vh', background: T.surface }}>
       {/* Hero */}
       <div style={{ background: T.gradHero, padding: '24px 32px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(0,132,212,0.07)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(22,163,74,0.07)', pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative' }}>
           <button
@@ -413,9 +413,9 @@ export default function DataverseSessionDetailPage() {
               {result ? (
                 <div style={{
                   width: '52px', height: '52px', borderRadius: '50%', flexShrink: 0,
-                  background: `conic-gradient(${scoreColor} ${score * 3.6}deg, #DBEEFF 0deg)`,
+                  background: `conic-gradient(${scoreColor} ${score * 3.6}deg, #DCFCE7 0deg)`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: `0 0 0 3px #EFF6FF`,
+                  boxShadow: `0 0 0 3px #F0FDF4`,
                 }}>
                   <div style={{
                     width: '40px', height: '40px', borderRadius: '50%',
@@ -467,8 +467,8 @@ export default function DataverseSessionDetailPage() {
                   ? 'rgba(5,150,105,0.20)'
                   : jobStatus.status === 'failed'
                   ? 'rgba(220,38,38,0.20)'
-                  : 'rgba(0,132,212,0.20)',
-                border: `1px solid ${jobStatus.status === 'completed' ? 'rgba(5,150,105,0.30)' : jobStatus.status === 'failed' ? 'rgba(220,38,38,0.30)' : 'rgba(0,132,212,0.30)'}`,
+                  : 'rgba(22,163,74,0.20)',
+                border: `1px solid ${jobStatus.status === 'completed' ? 'rgba(5,150,105,0.30)' : jobStatus.status === 'failed' ? 'rgba(220,38,38,0.30)' : 'rgba(22,163,74,0.30)'}`,
               }}>
                 {jobStatus.status === 'completed'
                   ? <CheckCircle style={{ width: '14px', height: '14px', color: '#6ee7b7' }} />
@@ -538,7 +538,7 @@ export default function DataverseSessionDetailPage() {
                   background: activeTab === tab ? T.gradBtn : 'none',
                   color: activeTab === tab ? '#fff' : '#64748b',
                   transition: 'all 160ms',
-                  boxShadow: activeTab === tab ? '0 2px 8px rgba(0,86,179,0.25)' : 'none',
+                  boxShadow: activeTab === tab ? '0 2px 8px rgba(22,163,74,0.25)' : 'none',
                 }}
               >
                 {tab === 'overview' ? 'Overview' : tab === 'domains' ? `Domains (${result.domain_summaries.length})` : `All Checks (${result.total_checks})`}

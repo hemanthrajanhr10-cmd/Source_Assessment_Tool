@@ -74,7 +74,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
                 position: 'absolute',
                 inset: 0,
                 borderRadius: '50%',
-                border: '1.5px solid rgba(0,86,179,0.30)',
+                border: '1.5px solid rgba(22,163,74,0.30)',
                 animation: `l3d-pulse 2.4s ease-out ${i * 1.2}s infinite`,
               }}
               aria-hidden="true"
@@ -87,7 +87,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
               position: 'absolute',
               inset: -16 * scale,
               borderRadius: '50%',
-              border: '1px solid rgba(8,145,178,0.20)',
+              border: '1px solid rgba(22,163,74,0.20)',
               animation: 'l3d-orbit-slow 8s linear infinite',
             }}
             aria-hidden="true"
@@ -95,8 +95,8 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
             <div style={{
               position: 'absolute', top: -3, left: '50%',
               width: 6, height: 6, borderRadius: '50%',
-              background: 'radial-gradient(circle, #7EC8FF, #0056B3)',
-              boxShadow: '0 0 6px #7EC8FF',
+              background: 'radial-gradient(circle, #86EFAC, #166534)',
+              boxShadow: '0 0 6px #86EFAC',
               transform: 'translateX(-50%)',
             }} />
           </div>
@@ -107,7 +107,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
               position: 'absolute',
               inset: -8 * scale,
               borderRadius: '50%',
-              border: '1px solid rgba(8,145,178,0.25)',
+              border: '1px solid rgba(101,163,13,0.25)',
               animation: 'l3d-orbit-counter 6s linear infinite',
             }}
             aria-hidden="true"
@@ -115,8 +115,8 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
             <div style={{
               position: 'absolute', bottom: -3, right: '25%',
               width: 5, height: 5, borderRadius: '50%',
-              background: 'radial-gradient(circle, #A5F3FC, #0891B2)',
-              boxShadow: '0 0 5px #A5F3FC',
+              background: 'radial-gradient(circle, #D9F99D, #65A30D)',
+              boxShadow: '0 0 5px #D9F99D',
             }} />
           </div>
 
@@ -138,7 +138,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
               <div key={i} style={{
                 position: 'absolute', inset: 0,
                 borderRadius: 18 * scale,
-                background: 'linear-gradient(135deg, #0056B3, #0084D4)',
+                background: 'linear-gradient(135deg, #166534, #16A34A)',
                 transform: `translateZ(${z}px)`,
                 opacity: op,
                 filter: `blur(${blur}px)`,
@@ -149,8 +149,8 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
             <div style={{
               position: 'absolute', inset: 0,
               borderRadius: 18 * scale,
-              background: 'linear-gradient(145deg, #38A8F5 0%, #003D82 40%, #0056B3 100%)',
-              boxShadow: '0 8px 24px rgba(0,86,179,0.45), 0 2px 8px rgba(0,86,179,0.3), inset 0 1px 0 rgba(255,255,255,0.25)',
+              background: 'linear-gradient(145deg, #4ADE80 0%, #14532D 40%, #166534 100%)',
+              boxShadow: '0 8px 24px rgba(22,163,74,0.45), 0 2px 8px rgba(22,163,74,0.3), inset 0 1px 0 rgba(255,255,255,0.25)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -196,7 +196,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
                   display: 'inline-block',
                   width: 4, height: 4,
                   borderRadius: '50%',
-                  background: '#38A8F5',
+                  background: '#4ADE80',
                   animation: `l3d-dot-bounce 1.1s ease-in-out ${i * 0.18}s infinite`,
                 }}
               />

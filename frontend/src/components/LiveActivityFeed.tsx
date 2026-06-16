@@ -23,7 +23,7 @@ const KEYFRAMES = `
     50%      { opacity: 0; }
   }
   @keyframes latest-flash {
-    0%   { background: rgba(0,132,212,0.1); }
+    0%   { background: rgba(22,163,74,0.10); }
     100% { background: transparent; }
   }
 `
@@ -49,7 +49,7 @@ function WaitingState() {
               width: 5,
               height: 5,
               borderRadius: '50%',
-              background: '#0084D4',
+              background: '#16A34A',
               display: 'inline-block',
               animation: `dot-wave 1.4s ease-in-out ${i * 0.18}s infinite`,
             }}
@@ -100,7 +100,7 @@ export default function LiveActivityFeed({ events, isRunning }: LiveActivityFeed
           fontSize: 11,
           lineHeight: 1.6,
           scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(0,86,179,0.18) transparent',
+          scrollbarColor: 'rgba(22,163,74,0.18) transparent',
         }}
         aria-label="Activity feed"
         aria-live="polite"
@@ -150,10 +150,10 @@ export default function LiveActivityFeed({ events, isRunning }: LiveActivityFeed
                   background: ev.status === 'error'
                     ? '#F59E0B'
                     : isLatest
-                      ? '#0084D4'
-                      : '#14B8A6',
+                      ? '#16A34A'
+                      : '#10B981',
                   display: 'inline-block',
-                  boxShadow: isLatest ? '0 0 5px rgba(0,132,212,0.5)' : 'none',
+                  boxShadow: isLatest ? '0 0 5px rgba(22,163,74,0.5)' : 'none',
                   transition: 'background 0.3s, box-shadow 0.3s',
                 }}
               />
@@ -171,15 +171,15 @@ export default function LiveActivityFeed({ events, isRunning }: LiveActivityFeed
                     letterSpacing: '0.05em',
                     textTransform: 'uppercase',
                     ...(ev.type === 'model' && {
-                      background: 'rgba(0,86,179,0.09)',
-                      color: '#0056B3',
+                      background: 'rgba(22,163,74,0.09)',
+                      color: '#16A34A',
                     }),
                     ...(ev.type === 'report' && {
-                      background: 'rgba(20,184,166,0.1)',
-                      color: '#0D9488',
+                      background: 'rgba(16,185,129,0.10)',
+                      color: '#059669',
                     }),
                     ...(ev.type !== 'model' && ev.type !== 'report' && {
-                      background: '#EFF6FF',
+                      background: '#F0FDF4',
                       color: '#404555',
                     }),
                   }}

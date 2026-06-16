@@ -76,8 +76,8 @@ export default function MFASetupPage() {
           <div
             className="h-14 w-14 rounded-2xl flex items-center justify-center mb-4"
             style={{
-              background: 'rgba(0,86,179,0.07)',
-              border: '1.5px solid rgba(0,86,179,0.22)',
+              background: 'rgba(22,163,74,0.07)',
+              border: '1.5px solid rgba(22,163,74,0.22)',
             }}
           >
             <Shield className="h-7 w-7 text-earth-700" />

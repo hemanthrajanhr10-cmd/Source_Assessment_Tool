@@ -60,39 +60,39 @@
 
   /* ── Color tokens ─────────────────────────────────────────────────────────── */
 
-  --color-canvas:   #EFF6FF;   /* ocean mist canvas — deep atlantic palette base */
+  --color-canvas:   #F0FDF4;   /* nature mist canvas — forest green palette base */
   --color-base:     #FFFFFF;
-  --color-subtle:   #E8F0FB;
-  --color-muted:    #D8E6F8;
+  --color-subtle:   #ECFDF5;
+  --color-muted:    #D1FAE5;
   --color-overlay:  rgba(255, 255, 255, 0.75);
 
-  --color-border:        #C5D5EC;
-  --color-border-strong: #9AB5D8;
-  --color-border-focus:  #0056B3;   /* ocean-600 */
+  --color-border:        #BBF7D0;
+  --color-border-strong: #86EFAC;
+  --color-border-focus:  #16A34A;   /* nature-600 */
 
   --color-text-primary:   #0D1117;
   --color-text-secondary: #404555;
   --color-text-tertiary:  #767A8C;
 
-  /* ── Brand — Ocean (Deep Atlantic) ───────────────────────────────────────── */
-  --brand-50:       #EFF7FF;
-  --brand-100:      #DBEEFF;
-  --brand-200:      #BAE0FF;
-  --brand-300:      #7EC8FF;
-  --brand-400:      #38A8F5;
-  --brand-500:      #0084D4;
-  --brand-600:      #0056B3;
-  --brand-700:      #003D82;
-  --brand-gradient: linear-gradient(135deg, #0056B3 0%, #0084D4 100%);
-  --brand-gradient-subtle: linear-gradient(135deg, rgba(0,86,179,0.08) 0%, rgba(0,132,212,0.04) 100%);
+  /* ── Brand — Nature (Forest Green) ───────────────────────────────────────── */
+  --brand-50:       #F0FDF4;
+  --brand-100:      #DCFCE7;
+  --brand-200:      #BBF7D0;
+  --brand-300:      #86EFAC;
+  --brand-400:      #4ADE80;
+  --brand-500:      #22C55E;
+  --brand-600:      #16A34A;
+  --brand-700:      #166534;
+  --brand-gradient: linear-gradient(135deg, #166534 0%, #16A34A 100%);
+  --brand-gradient-subtle: linear-gradient(135deg, rgba(22,101,52,0.08) 0%, rgba(22,163,74,0.04) 100%);
 
-  /* ── Tide (Aqua/Cyan) — navigation + connectivity ────────────────────────── */
-  --tide-500:  #06B6D4;
-  --tide-600:  #0891B2;
+  /* ── Tide (Olive/Lime) — navigation + connectivity ────────────────────────── */
+  --tide-500:  #84CC16;
+  --tide-600:  #65A30D;
 
-  /* ── Grove (Seafoam/Teal) — success + completion ─────────────────────────── */
-  --grove-500: #14B8A6;
-  --grove-600: #0D9488;
+  /* ── Grove (Emerald) — success + completion ─────────────────────────────── */
+  --grove-500: #10B981;
+  --grove-600: #059669;
 
   /* ── Motion tokens ────────────────────────────────────────────────────────── */
 
@@ -149,8 +149,8 @@
   }
 
   ::selection {
-    background: rgba(0, 86, 179, 0.14);
-    color: #003D82;
+    background: rgba(22, 163, 74, 0.14);
+    color: #166534;
   }
 
   ::-webkit-scrollbar {
@@ -161,11 +161,11 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(0, 86, 179, 0.18);
+    background: rgba(22, 163, 74, 0.18);
     border-radius: 9999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 86, 179, 0.32);
+    background: rgba(22, 163, 74, 0.32);
   }
 
   input[type="number"]::-webkit-outer-spin-button,
@@ -229,9 +229,9 @@
     box-shadow:
       var(--elevation-4),
       var(--elevation-border-2),
-      0 0 0 1px rgba(0, 86, 179, 0.08);
+      0 0 0 1px rgba(22, 163, 74, 0.08);
     transform: translateY(-2px) translateZ(0);
-    border-color: rgba(56, 168, 245, 0.5);
+    border-color: rgba(74, 222, 128, 0.5);
   }
   .card:active {
     box-shadow: var(--elevation-1), var(--elevation-border-1);
@@ -255,28 +255,28 @@
 
   /* ══ Card — Accent Top Border ═════════════════════════════════════════════ */
 
-  /* Ocean — deep atlantic accent (primary brand) */
+  /* Nature — forest green accent (primary brand) */
   .card-accent-earth::after,
   .card-accent-ember::after {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #0056B3, #38A8F5);
+    background: linear-gradient(90deg, #166534, #4ADE80);
     border-radius: 12px 12px 0 0;
   }
 
-  /* Tide — aqua/cyan accent (navigation, connectivity) */
+  /* Tide — olive/lime accent (navigation, connectivity) */
   .card-accent-tide::after {
     content: '';
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #0891B2, #22D3EE);
+    background: linear-gradient(90deg, #65A30D, #A3E635);
     border-radius: 12px 12px 0 0;
   }
 
-  /* Grove — seafoam/teal accent (success, completion) */
+  /* Grove — emerald accent (success, completion) */
   .card-accent-grove::after,
   .card-accent-emerald::after,
   .card-accent-violet::after {
@@ -284,7 +284,7 @@
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #0D9488, #2DD4BF);
+    background: linear-gradient(90deg, #059669, #34D399);
     border-radius: 12px 12px 0 0;
   }
 
@@ -310,7 +310,7 @@
     box-shadow:
       var(--elevation-3),
       inset 0 1px 0 rgba(255, 255, 255, 0.96),
-      inset 0 0 0 1px rgba(0, 86, 179, 0.04);
+      inset 0 0 0 1px rgba(22, 163, 74, 0.04);
   }
 
   /* Header glass */
@@ -318,8 +318,8 @@
     background: rgba(255, 255, 255, 0.88) !important;
     backdrop-filter: blur(20px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(20px) saturate(200%) !important;
-    border-bottom-color: rgba(197, 213, 236, 0.5) !important;
-    box-shadow: var(--elevation-2), 0 0 0 1px rgba(0,86,179,0.04) !important;
+    border-bottom-color: rgba(187, 247, 208, 0.5) !important;
+    box-shadow: var(--elevation-2), 0 0 0 1px rgba(22,163,74,0.04) !important;
   }
 
   /* ══ Form controls ═══════════════════════════════════════════════════════ */
@@ -336,12 +336,12 @@
       box-shadow var(--duration-fast) var(--easing-standard);
   }
   .form-input:hover:not(:disabled) {
-    border-color: rgba(56, 168, 245, 0.50);
+    border-color: rgba(74, 222, 128, 0.50);
   }
   .form-input:focus {
     border-color: var(--color-border-focus);
     box-shadow:
-      0 0 0 3px rgba(0, 86, 179, 0.10),
+      0 0 0 3px rgba(22, 163, 74, 0.10),
       var(--elevation-1),
       inset 0 1px 0 rgba(255,255,255,0.9);
     outline: 2px solid transparent;
@@ -363,7 +363,7 @@
   .page-header {
     @apply flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 pb-6;
     border-bottom: 1px solid;
-    border-image: linear-gradient(90deg, rgba(0,86,179,0.15) 0%, rgba(197,213,236,0.5) 60%, transparent 100%) 1;
+    border-image: linear-gradient(90deg, rgba(22,163,74,0.15) 0%, rgba(187,247,208,0.5) 60%, transparent 100%) 1;
   }
 
   /* ══ Scrollbar (thin variant for tables) ══════════════════════════════════ */
@@ -376,14 +376,14 @@
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: rgba(0, 86, 179, 0.15);
+    background: rgba(22, 163, 74, 0.15);
     border-radius: 9999px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 86, 179, 0.28);
+    background: rgba(22, 163, 74, 0.28);
   }
 
-  /* ══ Tab underline — ocean gradient ══════════════════════════════════════ */
+  /* ══ Tab underline — nature green gradient ════════════════════════════════ */
 
   .tab-active {
     position: relative;
@@ -395,7 +395,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: linear-gradient(90deg, #0056B3, #38A8F5);
+    background: linear-gradient(90deg, #166534, #4ADE80);
     border-radius: 1px 1px 0 0;
   }
 
@@ -403,21 +403,21 @@
 
   .glow-earth,
   .glow-ember {
-    box-shadow: 0 0 24px rgba(0, 86, 179, 0.22), 0 0 8px rgba(0, 86, 179, 0.10);
+    box-shadow: 0 0 24px rgba(22, 163, 74, 0.22), 0 0 8px rgba(22, 163, 74, 0.10);
   }
   .glow-earth-strong,
   .glow-ember-strong {
-    box-shadow: 0 0 48px rgba(0, 86, 179, 0.34), 0 0 16px rgba(0, 86, 179, 0.18);
+    box-shadow: 0 0 48px rgba(22, 163, 74, 0.34), 0 0 16px rgba(22, 163, 74, 0.18);
   }
   .glow-earth-soft,
   .glow-ember-soft {
-    box-shadow: 0 0 24px rgba(0, 132, 212, 0.20);
+    box-shadow: 0 0 24px rgba(34, 197, 94, 0.20);
   }
   .glow-tide {
-    box-shadow: 0 0 24px rgba(8, 145, 178, 0.22), 0 0 8px rgba(8, 145, 178, 0.10);
+    box-shadow: 0 0 24px rgba(101, 163, 13, 0.22), 0 0 8px rgba(101, 163, 13, 0.10);
   }
   .glow-grove {
-    box-shadow: 0 0 24px rgba(13, 148, 136, 0.22), 0 0 8px rgba(13, 148, 136, 0.10);
+    box-shadow: 0 0 24px rgba(5, 150, 105, 0.22), 0 0 8px rgba(5, 150, 105, 0.10);
   }
 
   /* ══ Button shimmer — primary variant ════════════════════════════════════ */
@@ -473,8 +473,8 @@
   }
   .alert-info {
     @apply rounded-2xl border bg-tide-50/80 text-tide-700;
-    border-color: rgba(8,145,178,0.25);
-    box-shadow: 0 0 0 1px rgba(8,145,178,0.06), var(--elevation-1);
+    border-color: rgba(101,163,13,0.25);
+    box-shadow: 0 0 0 1px rgba(101,163,13,0.06), var(--elevation-1);
   }
 
   /* ══ Page entry animation ═════════════════════════════════════════════════ */
@@ -518,18 +518,18 @@
   }
   .nav-item.active {
     background: var(--brand-gradient-subtle);
-    color: #003D82;
+    color: #166534;
     @apply font-semibold;
-    border: 1px solid rgba(56, 168, 245, 0.30);
-    border-left: 2.5px solid #0056B3;
+    border: 1px solid rgba(74, 222, 128, 0.30);
+    border-left: 2.5px solid #16A34A;
     padding-left: calc(0.75rem - 1.5px);
     box-shadow:
       var(--elevation-1),
       inset 0 1px 0 rgba(255, 255, 255, 0.85),
-      0 0 0 1px rgba(0, 86, 179, 0.04);
+      0 0 0 1px rgba(22, 163, 74, 0.04);
   }
   .nav-item.active .nav-icon {
-    color: #0056B3;
+    color: #16A34A;
   }
 
   /* ══ Surface elevation helpers ════════════════════════════════════════════ */
@@ -560,17 +560,17 @@
     transform: translateY(1px) !important;
   }
 
-  /* ══ Aurora animated background — ocean palette ══════════════════════════ */
+  /* ══ Aurora animated background — nature green palette ═══════════════════ */
 
   .aurora-bg {
     background: linear-gradient(
       -45deg,
-      #EFF7FF,
-      #ECFEFF,
-      #EFF6FF,
-      #F0FDFA,
-      #EFF6FF,
-      #EFF7FF
+      #F0FDF4,
+      #ECFDF5,
+      #F0FDF4,
+      #F7FEE7,
+      #ECFDF5,
+      #F0FDF4
     );
     background-size: 400% 400%;
     animation: aurora 16s ease-in-out infinite;
@@ -608,7 +608,7 @@
     z-index: -1;
     border-radius: inherit;
     margin: -1px;
-    background: linear-gradient(135deg, rgba(0,86,179,0.28), rgba(8,145,178,0.18), rgba(13,148,136,0.22));
+    background: linear-gradient(135deg, rgba(22,163,74,0.28), rgba(101,163,13,0.18), rgba(5,150,105,0.22));
   }
 
   /* ══ Connection topology signal line ══════════════════════════════════════ */
@@ -627,7 +627,7 @@
     position: absolute;
     inset: 0;
     border-radius: 9999px;
-    background: linear-gradient(90deg, transparent 0%, #06B6D4 40%, #0056B3 60%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, #4ADE80 40%, #16A34A 60%, transparent 100%);
     background-size: 200% 100%;
     animation: shimmer 2s linear infinite;
   }
@@ -654,7 +654,7 @@
 
   .divider-gradient {
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(0,86,179,0.18) 30%, rgba(8,145,178,0.18) 70%, transparent);
+    background: linear-gradient(90deg, transparent, rgba(22,163,74,0.18) 30%, rgba(101,163,13,0.18) 70%, transparent);
   }
 }
 
@@ -706,8 +706,8 @@
 }
 
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 20px rgba(0, 86, 179, 0.12); }
-  50%      { box-shadow: 0 0 40px rgba(0, 86, 179, 0.28); }
+  0%, 100% { box-shadow: 0 0 20px rgba(22, 163, 74, 0.12); }
+  50%      { box-shadow: 0 0 40px rgba(22, 163, 74, 0.28); }
 }
 
 @keyframes pulseRing {

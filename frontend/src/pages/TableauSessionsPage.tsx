@@ -13,15 +13,15 @@ import { TableauLogo } from '../components/ui/SourceLogos'
 // ── Design tokens (Ocean / Deep Atlantic) ────────────────────────────────────
 
 const T = {
-  primary: '#0056B3',
-  dark:    '#003D82',
-  accent:  '#0084D4',
-  light50: '#EFF6FF',
-  light100:'#DBEEFF',
-  light200:'#BAE0FF',
-  glow:    'rgba(0,86,179,0.15)',
-  shadow:  '0 2px 4px rgba(0,86,179,0.04), 0 8px 24px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowH: '0 4px 8px rgba(0,86,179,0.06), 0 16px 40px rgba(0,86,179,0.10), 0 2px 4px rgba(0,0,0,0.04)',
+  primary: '#16A34A',
+  dark:    '#166534',
+  accent:  '#22C55E',
+  light50: '#F0FDF4',
+  light100:'#DCFCE7',
+  light200:'#BBF7D0',
+  glow:    'rgba(22,163,74,0.15)',
+  shadow:  '0 2px 4px rgba(22,163,74,0.04), 0 8px 24px rgba(22,163,74,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowH: '0 4px 8px rgba(22,163,74,0.06), 0 16px 40px rgba(22,163,74,0.10), 0 2px 4px rgba(0,0,0,0.04)',
 }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
@@ -244,7 +244,7 @@ export default function TableauSessionsPage() {
         <div className="flex items-center gap-3">
           <div
             className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: `0 2px 8px rgba(0,86,179,0.10)` }}
+            style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', boxShadow: `0 2px 8px rgba(22,163,74,0.10)` }}
           >
             <TableauLogo size={28} />
           </div>
@@ -277,7 +277,7 @@ export default function TableauSessionsPage() {
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-150"
             style={{
               background: `linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%)`,
-              boxShadow: '0 2px 8px rgba(0,86,179,0.35), inset 0 1px 0 rgba(255,255,255,0.16)',
+              boxShadow: '0 2px 8px rgba(22,163,74,0.35), inset 0 1px 0 rgba(255,255,255,0.16)',
             }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-1px)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)' }}
@@ -335,7 +335,7 @@ export default function TableauSessionsPage() {
           <Link
             to="/tableau/new"
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-            style={{ background: `linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%)`, boxShadow: '0 2px 8px rgba(0,86,179,0.35)' }}
+            style={{ background: `linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%)`, boxShadow: '0 2px 8px rgba(22,163,74,0.35)' }}
           >
             <Plus className="h-4 w-4" />
             Start First Assessment

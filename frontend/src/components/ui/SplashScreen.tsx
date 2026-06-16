@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Database } from 'lucide-react'
+import { SourceSATLogo } from './SourceLogos'
 
 interface SplashScreenProps {
   message?: string
@@ -193,41 +193,6 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
               zIndex: 2,
             }}
           >
-            {/* Shadow / depth layer 3 (deepest) */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                borderRadius: 20,
-                background: 'linear-gradient(135deg, #003D82 0%, #0F766E 100%)',
-                transform: 'translateZ(-18px) scale(0.88)',
-                filter: 'blur(4px)',
-                opacity: 0.35,
-              }}
-            />
-            {/* Shadow / depth layer 2 */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                borderRadius: 20,
-                background: 'linear-gradient(135deg, #0056B3 0%, #003D82 100%)',
-                transform: 'translateZ(-10px) scale(0.93)',
-                opacity: 0.55,
-              }}
-            />
-            {/* Shadow / depth layer 1 */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                borderRadius: 20,
-                background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)',
-                transform: 'translateZ(-4px) scale(0.97)',
-                opacity: 0.75,
-              }}
-            />
-
             {/* ── Main logo face ─────────────────────────────────────────── */}
             <div
               style={{
@@ -235,13 +200,10 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
                 width: 72,
                 height: 72,
                 borderRadius: 20,
-                background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)',
                 boxShadow: [
                   '0 20px 60px rgba(0,86,179,0.40)',
                   '0 8px 24px rgba(0,86,179,0.28)',
                   '0 2px 8px rgba(0,0,0,0.12)',
-                  'inset 0 1px 0 rgba(255,255,255,0.28)',
-                  'inset 0 -1px 0 rgba(0,0,0,0.12)',
                 ].join(', '),
                 display: 'flex',
                 alignItems: 'center',
@@ -250,17 +212,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
                 transform: 'translateZ(0)',
               }}
             >
-              {/* Specular highlight */}
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.30) 0%, transparent 55%)',
-                  borderRadius: 'inherit',
-                  pointerEvents: 'none',
-                }}
-              />
-              {/* Shimmer sweep */}
+              {/* Shimmer sweep overlay */}
               <div
                 style={{
                   position: 'absolute',
@@ -269,11 +221,10 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
                   animation: 'splash-shimmer 3.2s ease-in-out infinite',
                   borderRadius: 'inherit',
                   pointerEvents: 'none',
+                  zIndex: 1,
                 }}
               />
-              <Database
-                style={{ width: 34, height: 34, color: '#fff', position: 'relative', zIndex: 1 }}
-              />
+              <SourceSATLogo size={72} />
             </div>
           </div>
         </div>

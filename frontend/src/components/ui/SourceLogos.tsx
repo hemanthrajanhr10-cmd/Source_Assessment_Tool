@@ -1,21 +1,15 @@
-/** Brand logos via Vite asset imports — correct URLs at any base path */
+/** Brand logos — all sourced from src_logos/ via Vite asset imports */
 
-import sqlServerUrl from '../../assets/logos/sqlserver.svg'
-import fabricUrl from '../../assets/logos/fabric.svg'
-import snowflakeUrl from '../../assets/logos/snowflake.svg'
-import tableauUrl from '../../assets/logos/tableau.svg'
-import dataverseUrl from '../../assets/logos/dataverse.svg'
-import sapUrl from '../../assets/logos/sap.svg'
-import sageIntacctUrl from '../../assets/logos/sage-intacct.svg'
-
-// PNG logos — icon-only (sidebar) and full with name (hero banners)
-import snowflakeIconUrl from '../../assets/src_logos/Snowflake_Logo.png'
-import snowflakeFullUrl from '../../assets/src_logos/Snowflake.png'
-import dataverseIconUrl from '../../assets/src_logos/Dataverse_logo.png'
-import dataverseFullUrl from '../../assets/src_logos/Dataverse.png'
-import mysqlFullUrl from '../../assets/src_logos/MySQL.png'
-import oracleFullUrl from '../../assets/src_logos/Oracle.png'
-import postgresqlIconUrl from '../../assets/src_logos/Postgresql.png'
+import sqlServerUrl    from '../../assets/src_logos/SqlServer.svg'
+import sapUrl          from '../../assets/src_logos/SAP.svg'
+import sageIntacctUrl  from '../../assets/src_logos/Sage.svg'
+import fabricUrl       from '../../assets/src_logos/Fabric.png'
+import snowflakeUrl    from '../../assets/src_logos/Snowflake_Logo.png'
+import tableauUrl      from '../../assets/src_logos/Tableau.png'
+import dataverseUrl    from '../../assets/src_logos/Dataverse_logo.png'
+import mysqlUrl        from '../../assets/src_logos/MySQL.png'
+import oracleUrl       from '../../assets/src_logos/Oracle.png'
+import postgresqlUrl   from '../../assets/src_logos/Postgresql.png'
 
 type LogoProps = { size?: number; className?: string }
 
@@ -24,7 +18,9 @@ type LogoProps = { size?: number; className?: string }
  * the image centered inside via object-fit:contain. Every logo occupies the
  * same predictable slot regardless of the source image's aspect ratio.
  */
-function IconSlot({ src, alt, size, className }: { src: string; alt: string; size: number; className?: string }) {
+function IconSlot({
+  src, alt, size, className,
+}: { src: string; alt: string; size: number; className?: string }) {
   return (
     <img
       src={src}
@@ -69,17 +65,32 @@ function WordmarkLogo({
   )
 }
 
-// ── SVG logos (icon-sized via fixed slot) ─────────────────────────────────────
+// ── SVG logos ─────────────────────────────────────────────────────────────────
 
 export function SqlServerLogo({ size = 24, className }: LogoProps) {
   return <IconSlot src={sqlServerUrl} alt="SQL Server" size={size} className={className} />
 }
+
+export function SapLogo({ size = 24, className }: LogoProps) {
+  return <IconSlot src={sapUrl} alt="SAP" size={size} className={className} />
+}
+
+export function SageIntacctLogo({ size = 24, className }: LogoProps) {
+  return <IconSlot src={sageIntacctUrl} alt="Sage Intacct" size={size} className={className} />
+}
+
+// ── PNG logos ─────────────────────────────────────────────────────────────────
 
 export function FabricLogo({ size = 24, className }: LogoProps) {
   return <IconSlot src={fabricUrl} alt="Microsoft Fabric" size={size} className={className} />
 }
 
 export function SnowflakeLogo({ size = 24, className }: LogoProps) {
+  return <IconSlot src={snowflakeUrl} alt="Snowflake" size={size} className={className} />
+}
+
+/** Alias — used in sidebar where only the mark is needed */
+export function SnowflakeIconLogo({ size = 24, className }: LogoProps) {
   return <IconSlot src={snowflakeUrl} alt="Snowflake" size={size} className={className} />
 }
 
@@ -91,73 +102,15 @@ export function DataverseLogo({ size = 24, className }: LogoProps) {
   return <IconSlot src={dataverseUrl} alt="Microsoft Dataverse" size={size} className={className} />
 }
 
-export function SapLogo({ size = 24, className }: LogoProps) {
-  return <IconSlot src={sapUrl} alt="SAP" size={size} className={className} />
-}
-
-export function SageIntacctLogo({ size = 24, className }: LogoProps) {
-  return <IconSlot src={sageIntacctUrl} alt="Sage Intacct" size={size} className={className} />
-}
-
-// ── PNG icon-only logos (sidebar) ─────────────────────────────────────────────
-
-/** Snowflake icon PNG — square snowflake mark, no wordmark. */
-export function SnowflakeIconLogo({ size = 24, className }: LogoProps) {
-  return <IconSlot src={snowflakeIconUrl} alt="Snowflake" size={size} className={className} />
-}
-
-/** Dataverse icon PNG — square green icon mark. */
+/** Alias — used in sidebar where only the mark is needed */
 export function DataverseIconLogo({ size = 24, className }: LogoProps) {
-  return <IconSlot src={dataverseIconUrl} alt="Dataverse" size={size} className={className} />
+  return <IconSlot src={dataverseUrl} alt="Microsoft Dataverse" size={size} className={className} />
 }
 
-/** PostgreSQL elephant icon PNG. */
-export function PostgreSQLIconLogo({ size = 24, className }: LogoProps) {
-  return <IconSlot src={postgresqlIconUrl} alt="PostgreSQL" size={size} className={className} />
-}
-
-// ── PNG full/wordmark logos (hero banners) ────────────────────────────────────
-
-/**
- * Snowflake horizontal wordmark (icon + "snowflake" text).
- * Very wide image (~4:1). Height 28 keeps it compact beside page titles.
- */
-export function SnowflakeFullLogo({ height = 28, className }: { height?: number; className?: string }) {
-  return (
-    <WordmarkLogo
-      src={snowflakeFullUrl}
-      alt="Snowflake"
-      height={height}
-      maxWidth={200}
-      className={className}
-    />
-  )
-}
-
-/**
- * Dataverse horizontal wordmark (icon + "Dataverse" text).
- * Wide image (~3.4:1). Height 32 aligns well with h1 text beside it.
- */
-export function DataverseFullLogo({ height = 32, className }: { height?: number; className?: string }) {
-  return (
-    <WordmarkLogo
-      src={dataverseFullUrl}
-      alt="Dataverse"
-      height={height}
-      maxWidth={220}
-      className={className}
-    />
-  )
-}
-
-/**
- * MySQL stacked logo (dolphin on top, "MySQL" text below).
- * Portrait image (~0.8:1). Height 44 shows full logo without clipping.
- */
 export function MySQLFullLogo({ height = 44, className }: { height?: number; className?: string }) {
   return (
     <WordmarkLogo
-      src={mysqlFullUrl}
+      src={mysqlUrl}
       alt="MySQL"
       height={height}
       maxWidth={80}
@@ -166,14 +119,10 @@ export function MySQLFullLogo({ height = 44, className }: { height?: number; cla
   )
 }
 
-/**
- * Oracle text-only logo (pure wordmark, very wide).
- * Height 22 keeps it proportional beside other hero logos.
- */
 export function OracleFullLogo({ height = 22, className }: { height?: number; className?: string }) {
   return (
     <WordmarkLogo
-      src={oracleFullUrl}
+      src={oracleUrl}
       alt="Oracle"
       height={height}
       maxWidth={160}
@@ -182,26 +131,179 @@ export function OracleFullLogo({ height = 22, className }: { height?: number; cl
   )
 }
 
-// ── Unified / composite logo (SVG) ────────────────────────────────────────────
+export function PostgreSQLIconLogo({ size = 24, className }: LogoProps) {
+  return <IconSlot src={postgresqlUrl} alt="PostgreSQL" size={size} className={className} />
+}
 
-export function UnifiedLogo({ size = 24, className }: LogoProps) {
-  const id = `uni-${Math.random().toString(36).slice(2, 7)}`
+export function SnowflakeFullLogo({ height = 28, className }: { height?: number; className?: string }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <WordmarkLogo
+      src={snowflakeUrl}
+      alt="Snowflake"
+      height={height}
+      maxWidth={200}
+      className={className}
+    />
+  )
+}
+
+export function DataverseFullLogo({ height = 32, className }: { height?: number; className?: string }) {
+  return (
+    <WordmarkLogo
+      src={dataverseUrl}
+      alt="Dataverse"
+      height={height}
+      maxWidth={220}
+      className={className}
+    />
+  )
+}
+
+// ── SourceSAT brand mark (app logo) ──────────────────────────────────────────
+
+/**
+ * The SourceSAT application logo mark.
+ * A precision instrument reticle motif — layered rings with a central data node
+ * and radiating scan lines, suggesting assessment, analysis, and targeting.
+ * Uses OKLCH-safe ink blues with teal accent.
+ */
+export function SourceSATLogo({ size = 24, className }: LogoProps) {
+  const s = size
+  const cx = s / 2
+  const cy = s / 2
+  const id = 'sat-logo'
+
+  return (
+    <svg
+      width={s}
+      height={s}
+      viewBox={`0 0 ${s} ${s}`}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-label="SourceSAT"
+    >
       <defs>
-        <linearGradient id={`${id}1`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#0056B3"/>
-          <stop offset="100%" stopColor="#0084D4"/>
+        <radialGradient id={`${id}-bg`} cx="38%" cy="32%" r="70%">
+          <stop offset="0%"   stopColor="#1A6FD4" />
+          <stop offset="100%" stopColor="#003A8C" />
+        </radialGradient>
+        <radialGradient id={`${id}-node`} cx="35%" cy="30%" r="70%">
+          <stop offset="0%"   stopColor="#7ECDFF" />
+          <stop offset="100%" stopColor="#0091CC" />
+        </radialGradient>
+        <linearGradient id={`${id}-teal`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"   stopColor="#2DD4BF" />
+          <stop offset="100%" stopColor="#0D9488" />
         </linearGradient>
-        <linearGradient id={`${id}2`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#0D9488"/>
-          <stop offset="100%" stopColor="#2DD4BF"/>
+        <filter id={`${id}-glow`} x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation={s * 0.04} result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+
+      {/* Rounded square background */}
+      <rect
+        x="0" y="0" width={s} height={s}
+        rx={s * 0.22}
+        fill={`url(#${id}-bg)`}
+      />
+
+      {/* Specular top-left highlight */}
+      <rect
+        x="0" y="0" width={s} height={s}
+        rx={s * 0.22}
+        fill="url(#sat-spec)"
+        opacity="0.18"
+      />
+      <defs>
+        <linearGradient id="sat-spec" x1="0" y1="0" x2="0.7" y2="0.7">
+          <stop offset="0%"   stopColor="#fff" stopOpacity="1" />
+          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <circle cx="18" cy="24" r="13" fill={`url(#${id}1)`} opacity="0.85"/>
-      <circle cx="30" cy="24" r="13" fill={`url(#${id}2)`} opacity="0.85"/>
-      <circle cx="24" cy="24" r="4" fill="white" opacity="0.9"/>
-      <path d="M22 24 L26 24M24 22 L24 26" stroke="#0056B3" strokeWidth="2" strokeLinecap="round"/>
+
+      {/* Outer reticle ring */}
+      <circle
+        cx={cx} cy={cy}
+        r={s * 0.36}
+        stroke="rgba(255,255,255,0.22)"
+        strokeWidth={s * 0.028}
+        fill="none"
+      />
+
+      {/* Four tick marks on outer ring (N/S/E/W) */}
+      {[0, 90, 180, 270].map((deg) => {
+        const rad = (deg * Math.PI) / 180
+        const r1  = s * 0.36
+        const r2  = s * 0.42
+        return (
+          <line
+            key={deg}
+            x1={cx + Math.cos(rad) * r1}
+            y1={cy + Math.sin(rad) * r1}
+            x2={cx + Math.cos(rad) * r2}
+            y2={cy + Math.sin(rad) * r2}
+            stroke="rgba(255,255,255,0.45)"
+            strokeWidth={s * 0.030}
+            strokeLinecap="round"
+          />
+        )
+      })}
+
+      {/* Inner ring */}
+      <circle
+        cx={cx} cy={cy}
+        r={s * 0.22}
+        stroke="rgba(255,255,255,0.18)"
+        strokeWidth={s * 0.022}
+        fill="none"
+      />
+
+      {/* Cross-hair lines */}
+      <line x1={cx - s * 0.44} y1={cy} x2={cx - s * 0.24} y2={cy}
+        stroke="rgba(255,255,255,0.30)" strokeWidth={s * 0.024} strokeLinecap="round" />
+      <line x1={cx + s * 0.24} y1={cy} x2={cx + s * 0.44} y2={cy}
+        stroke="rgba(255,255,255,0.30)" strokeWidth={s * 0.024} strokeLinecap="round" />
+      <line x1={cx} y1={cy - s * 0.44} x2={cx} y2={cy - s * 0.24}
+        stroke="rgba(255,255,255,0.30)" strokeWidth={s * 0.024} strokeLinecap="round" />
+      <line x1={cx} y1={cy + s * 0.24} x2={cx} y2={cy + s * 0.44}
+        stroke="rgba(255,255,255,0.30)" strokeWidth={s * 0.024} strokeLinecap="round" />
+
+      {/* Teal accent arc — upper-right quadrant */}
+      <path
+        d={`
+          M ${cx + Math.cos(-0.2) * s * 0.36} ${cy + Math.sin(-0.2) * s * 0.36}
+          A ${s * 0.36} ${s * 0.36} 0 0 1
+            ${cx + Math.cos(1.2) * s * 0.36} ${cy + Math.sin(1.2) * s * 0.36}
+        `}
+        stroke={`url(#${id}-teal)`}
+        strokeWidth={s * 0.048}
+        strokeLinecap="round"
+        fill="none"
+      />
+
+      {/* Central data node */}
+      <circle
+        cx={cx} cy={cy}
+        r={s * 0.115}
+        fill={`url(#${id}-node)`}
+        filter={`url(#${id}-glow)`}
+      />
+
+      {/* Centre dot */}
+      <circle
+        cx={cx} cy={cy}
+        r={s * 0.038}
+        fill="white"
+        opacity="0.95"
+      />
     </svg>
   )
+}
+
+// ── Unified / composite logo (kept for backward compat but also improved) ─────
+
+export function UnifiedLogo({ size = 24, className }: LogoProps) {
+  return <SourceSATLogo size={size} className={className} />
 }

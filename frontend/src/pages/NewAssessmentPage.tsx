@@ -926,31 +926,36 @@ function ServerCard({
   )
 }
 
-function DbEngineChip({ dbType }: { dbType: DbType }) {
+function DbEngineIcon({ dbType, size = 'sm' }: { dbType: DbType; size?: 'sm' | 'lg' }) {
+  const dim = size === 'lg' ? { box: 'h-10 w-10', rounded: 'rounded-xl', logo: 28, logoH: 22 } : { box: 'h-7 w-7', rounded: 'rounded-lg', logo: 18, logoH: 14 }
   if (dbType === 'mysql') return (
-    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+    <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden`}
       style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', boxShadow: '0 1px 4px rgba(22,163,74,0.10)' }}>
-      <MySQLFullLogo height={18} />
+      <MySQLFullLogo height={dim.logoH} />
     </div>
   )
   if (dbType === 'oracle') return (
-    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+    <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden`}
       style={{ background: '#FFF7F7', border: '1px solid #FECACA', boxShadow: '0 1px 4px rgba(204,41,54,0.10)' }}>
-      <OracleFullLogo height={14} />
+      <OracleFullLogo height={size === 'lg' ? 20 : dim.logoH} />
     </div>
   )
   if (dbType === 'postgres') return (
-    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+    <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden`}
       style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 1px 4px rgba(70,130,180,0.12)' }}>
-      <PostgreSQLIconLogo size={18} />
+      <PostgreSQLIconLogo size={dim.logo} />
     </div>
   )
   return (
-    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+    <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden`}
       style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 1px 4px rgba(204,41,54,0.10)' }}>
-      <SqlServerLogo size={18} />
+      <SqlServerLogo size={dim.logo} />
     </div>
   )
+}
+
+function DbEngineChip({ dbType }: { dbType: DbType }) {
+  return <DbEngineIcon dbType={dbType} size="sm" />
 }
 
 export default function NewAssessmentPage() {
@@ -1033,10 +1038,7 @@ export default function NewAssessmentPage() {
     <div className="max-w-3xl mx-auto animate-fade-in">
       <div className="page-header">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(204,41,54,0.10)' }}>
-            <SqlServerLogo size={28} />
-          </div>
+          <DbEngineIcon dbType={servers[0]?.db_type ?? 'mssql'} size="lg" />
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-display">DB Assessment</h1>
             <p className="mt-1 text-sm text-slate-500">

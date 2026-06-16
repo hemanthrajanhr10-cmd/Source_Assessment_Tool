@@ -264,22 +264,21 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div
                 className="relative flex items-center justify-center h-9 w-9 rounded-xl overflow-hidden"
                 style={{
-                  background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)',
-                  boxShadow: '0 4px 12px rgba(0,86,179,0.28), inset 0 1px 0 rgba(255,255,255,0.20)',
                   transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 220ms ease',
+                  boxShadow: '0 4px 12px rgba(0,86,179,0.22)',
                 }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLDivElement
                   el.style.transform = 'scale(1.08) rotate(-3deg)'
-                  el.style.boxShadow = '0 6px 20px rgba(0,86,179,0.40), inset 0 1px 0 rgba(255,255,255,0.20)'
+                  el.style.boxShadow = '0 6px 20px rgba(0,86,179,0.38)'
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLDivElement
                   el.style.transform = 'scale(1) rotate(0deg)'
-                  el.style.boxShadow = '0 4px 12px rgba(0,86,179,0.28), inset 0 1px 0 rgba(255,255,255,0.20)'
+                  el.style.boxShadow = '0 4px 12px rgba(0,86,179,0.22)'
                 }}
               >
-                <UnifiedLogo size={20} />
+                <UnifiedLogo size={36} />
               </div>
             </div>
 

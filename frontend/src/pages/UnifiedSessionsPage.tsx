@@ -19,23 +19,23 @@ const STATUS_CONFIG: Record<string, {
 }> = {
   pending:     { label: 'Pending',      textCls: 'text-slate-500',  bgCls: 'bg-[rgba(113,113,122,0.1)]',   borderCls: 'border-[rgba(113,113,122,0.2)]',  icon: Clock },
   running:     { label: 'Running',      textCls: 'text-[#60a5fa]',  bgCls: 'bg-[rgba(96,165,250,0.1)]',    borderCls: 'border-[rgba(96,165,250,0.2)]',   icon: Loader2 },
-  source_done: { label: 'Source done',  textCls: 'text-[#16A34A]',  bgCls: 'bg-[rgba(251,191,36,0.08)]',   borderCls: 'border-[rgba(251,191,36,0.2)]',   icon: Clock },
+  source_done: { label: 'Source done',  textCls: 'text-[#0084D4]',  bgCls: 'bg-[rgba(251,191,36,0.08)]',   borderCls: 'border-[rgba(251,191,36,0.2)]',   icon: Clock },
   completed:   { label: 'Completed',    textCls: 'text-[#34d399]',  bgCls: 'bg-[rgba(52,211,153,0.1)]',    borderCls: 'border-[rgba(52,211,153,0.2)]',   icon: CheckCircle2 },
-  partial:     { label: 'Partial',      textCls: 'text-[#16A34A]',  bgCls: 'bg-[rgba(251,191,36,0.08)]',   borderCls: 'border-[rgba(251,191,36,0.2)]',   icon: AlertTriangle },
+  partial:     { label: 'Partial',      textCls: 'text-[#0084D4]',  bgCls: 'bg-[rgba(251,191,36,0.08)]',   borderCls: 'border-[rgba(251,191,36,0.2)]',   icon: AlertTriangle },
   failed:      { label: 'Failed',       textCls: 'text-[#f87171]',  bgCls: 'bg-[rgba(248,113,113,0.1)]',   borderCls: 'border-[rgba(248,113,113,0.2)]',  icon: XCircle },
   cancelled:   { label: 'Cancelled',    textCls: 'text-[#52525b]',  bgCls: 'bg-[rgba(82,82,91,0.1)]',      borderCls: 'border-[rgba(82,82,91,0.2)]',     icon: XCircle },
 }
 
 const MODE_META: Record<string, { label: string; icon: React.ElementType; gradient: string }> = {
-  source: { label: 'Source DB',       icon: Database, gradient: 'linear-gradient(135deg, rgba(22,163,74,0.25), rgba(22,163,74,0.08))' },
+  source: { label: 'Source DB',       icon: Database, gradient: 'linear-gradient(135deg, rgba(0,86,179,0.25), rgba(0,86,179,0.08))' },
   fabric: { label: 'Fabric',          icon: Zap,      gradient: 'linear-gradient(135deg, rgba(96,165,250,0.2), rgba(96,165,250,0.06))' },
-  both:   { label: 'Full Assessment', icon: Layers3,  gradient: 'linear-gradient(135deg, rgba(22,163,74,0.20), rgba(96,165,250,0.12))' },
+  both:   { label: 'Full Assessment', icon: Layers3,  gradient: 'linear-gradient(135deg, rgba(0,86,179,0.2), rgba(96,165,250,0.12))' },
 }
 
 const MODE_ICON_COLOR: Record<string, string> = {
-  source: 'text-earth-700',
+  source: 'text-ocean-600',
   fabric: 'text-[#60a5fa]',
-  both: 'text-earth-700',
+  both: 'text-ocean-600',
 }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: () => void }) {
   const meta      = MODE_META[session.mode] || MODE_META.both
-  const iconColor = MODE_ICON_COLOR[session.mode] || 'text-earth-700'
+  const iconColor = MODE_ICON_COLOR[session.mode] || 'text-ocean-600'
   const Icon      = meta.icon
   const isLive    = !['completed', 'failed', 'cancelled'].includes(session.status)
 
@@ -64,7 +64,7 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
     <button
       onClick={onClick}
       className="group w-full flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-white
-                 hover:border-[rgba(22,163,74,0.35)] hover:bg-[rgba(22,163,74,0.02)]
+                 hover:border-[rgba(0,86,179,0.35)] hover:bg-[rgba(0,86,179,0.02)]
                  transition-all duration-150 text-left"
       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.03)' }}
     >
@@ -85,7 +85,7 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
             <span className="text-sm font-semibold text-[#52525b] italic">Unlabelled</span>
           )}
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0
-                           bg-[rgba(22,163,74,0.08)] text-earth-700 border border-[rgba(22,163,74,0.2)]">
+                           bg-[rgba(0,86,179,0.08)] text-ocean-600 border border-[rgba(0,86,179,0.2)]">
             {meta.label}
           </span>
           {isLive && (
@@ -112,7 +112,7 @@ function SessionCard({ session, onClick }: { session: UnifiedSession; onClick: (
       </div>
 
       <StatusBadge status={session.status} />
-      <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-earth-700 transition-colors shrink-0" />
+      <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-ocean-600 transition-colors shrink-0" />
     </button>
   )
 }
@@ -134,7 +134,7 @@ export default function UnifiedSessionsPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center gap-4 py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-earth-700" />
+        <Loader2 className="h-8 w-8 animate-spin text-ocean-600" />
         <p className="text-sm text-slate-500">Loading sessions…</p>
       </div>
     )
@@ -159,9 +159,9 @@ export default function UnifiedSessionsPage() {
         <button
           onClick={() => navigate('/unified/new')}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
-                     bg-[#166534] text-white hover:bg-[#16A34A] transition-colors
-                     focus:outline-none focus:ring-2 focus:ring-[rgba(22,163,74,0.4)]"
-          style={{ boxShadow: '0 0 20px rgba(22,163,74,0.2)' }}
+                     bg-[#0056B3] text-white hover:bg-[#0084D4] transition-colors
+                     focus:outline-none focus:ring-2 focus:ring-[rgba(0,86,179,0.4)]"
+          style={{ boxShadow: '0 0 20px rgba(0,86,179,0.2)' }}
         >
           <Plus className="h-4 w-4" />
           New Assessment
@@ -179,8 +179,8 @@ export default function UnifiedSessionsPage() {
       {/* Session list */}
       {sessions.length === 0 ? (
         <div className="flex flex-col items-center gap-4 py-16 rounded-xl border border-dashed border-slate-200">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center bg-[rgba(22,163,74,0.08)] border border-[rgba(22,163,74,0.15)]">
-            <Layers3 className="h-6 w-6 text-earth-700" />
+          <div className="h-12 w-12 rounded-xl flex items-center justify-center bg-[rgba(0,86,179,0.08)] border border-[rgba(0,86,179,0.15)]">
+            <Layers3 className="h-6 w-6 text-ocean-600" />
           </div>
           <div className="text-center">
             <p className="text-sm font-semibold text-slate-400">No assessments yet</p>
@@ -191,7 +191,7 @@ export default function UnifiedSessionsPage() {
           <button
             onClick={() => navigate('/unified/new')}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
-                       bg-[#166534] text-white hover:bg-[#16A34A] transition-colors"
+                       bg-[#0056B3] text-white hover:bg-[#0084D4] transition-colors"
           >
             <Plus className="h-4 w-4" />
             New Assessment

@@ -10,27 +10,27 @@ import { DataverseLogo } from '../components/ui/SourceLogos'
 import type { DataverseSessionRecord } from '../types/api'
 
 const T = {
-  primary:    '#16A34A',
-  mid:        '#22C55E',
-  accent:     '#4ADE80',
-  dark:       '#166534',
-  surface:    '#F0FDF4',
-  light50:    '#F0FDF4',
-  light100:   '#DCFCE7',
-  light200:   '#BBF7D0',
-  text:       '#166534',
-  textMid:    '#16A34A',
-  glow:       'rgba(22,163,74,0.15)',
-  gradHero:   'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
-  gradBtn:    'linear-gradient(135deg, #166534 0%, #16A34A 100%)',
-  shadowCard: '0 1px 3px rgba(22,163,74,0.06), 0 4px 16px rgba(22,163,74,0.07)',
+  primary:    '#0056B3',
+  mid:        '#0084D4',
+  accent:     '#38A8F5',
+  dark:       '#003D82',
+  surface:    '#EFF6FF',
+  light50:    '#EFF6FF',
+  light100:   '#DBEEFF',
+  light200:   '#BAE0FF',
+  text:       '#003D82',
+  textMid:    '#0056B3',
+  glow:       'rgba(0,86,179,0.15)',
+  gradHero:   'linear-gradient(135deg, #EFF6FF 0%, #DBEEFF 100%)',
+  gradBtn:    'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)',
+  shadowCard: '0 1px 3px rgba(0,86,179,0.06), 0 4px 16px rgba(0,86,179,0.07)',
 }
 
 function statusBadge(status: string) {
   const map: Record<string, { icon: React.ElementType; bg: string; color: string; label: string }> = {
     completed: { icon: CheckCircle, bg: 'rgba(5,150,105,0.10)', color: '#065f46', label: 'Completed' },
     failed:    { icon: XCircle,     bg: 'rgba(220,38,38,0.10)',  color: '#991b1b', label: 'Failed' },
-    running:   { icon: Loader2,     bg: 'rgba(22,163,74,0.10)', color: T.primary, label: 'Running' },
+    running:   { icon: Loader2,     bg: 'rgba(0,86,179,0.10)', color: T.primary, label: 'Running' },
     pending:   { icon: Clock,       bg: 'rgba(100,116,139,0.10)', color: '#475569', label: 'Pending' },
   }
   const s = map[status] ?? map.pending
@@ -95,7 +95,7 @@ export default function DataverseSessionsPage() {
     <div style={{ minHeight: '100vh', background: T.surface }}>
       {/* Hero */}
       <div style={{ background: T.gradHero, padding: '28px 32px 24px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '180px', height: '180px', borderRadius: '50%', background: 'rgba(22,163,74,0.06)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '180px', height: '180px', borderRadius: '50%', background: 'rgba(0,86,179,0.06)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{
@@ -132,7 +132,7 @@ export default function DataverseSessionsPage() {
                 padding: '8px 16px', borderRadius: '10px', fontSize: '12.5px', fontWeight: 700,
                 background: T.gradBtn, border: 'none',
                 color: '#fff', cursor: 'pointer',
-                boxShadow: '0 2px 12px rgba(22,163,74,0.30)',
+                boxShadow: '0 2px 12px rgba(0,86,179,0.30)',
               }}
             >
               <PlusCircle style={{ width: '13px', height: '13px' }} /> New Assessment
@@ -208,7 +208,7 @@ export default function DataverseSessionsPage() {
                 padding: '11px 24px', borderRadius: '10px', fontSize: '13.5px', fontWeight: 700,
                 background: T.gradBtn, border: 'none', color: '#fff', cursor: 'pointer',
                 display: 'inline-flex', alignItems: 'center', gap: '8px',
-                boxShadow: '0 2px 12px rgba(22,163,74,0.35)',
+                boxShadow: '0 2px 12px rgba(0,86,179,0.35)',
               }}
             >
               <PlusCircle style={{ width: '15px', height: '15px' }} /> Start First Assessment
@@ -229,7 +229,7 @@ export default function DataverseSessionsPage() {
                   display: 'flex', alignItems: 'center', gap: '16px',
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 20px rgba(22,163,74,0.14), 0 8px 32px rgba(22,163,74,0.08)'
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = '0 4px 20px rgba(0,86,179,0.14), 0 8px 32px rgba(0,86,179,0.08)'
                   ;(e.currentTarget as HTMLDivElement).style.transform = 'translateY(-1px)'
                   ;(e.currentTarget as HTMLDivElement).style.borderColor = T.light200
                 }}

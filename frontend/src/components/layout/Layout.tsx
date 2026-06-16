@@ -33,13 +33,13 @@ export default function Layout({ children }: LayoutProps) {
         {/* Footer — gradient accent line top */}
         <footer
           className="border-t border-slate-200/60 py-4 shrink-0"
-          style={{ background: 'linear-gradient(180deg, #FAFFF6 0%, #ffffff 100%)' }}
+          style={{ background: 'linear-gradient(180deg, #FAFAFE 0%, #ffffff 100%)' }}
         >
           <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div
                 className="h-5 w-5 rounded-md flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #166534, #16A34A)' }}
+                style={{ background: 'linear-gradient(135deg, #0056B3, #0084D4)' }}
                 aria-hidden="true"
               >
                 <Database className="h-3 w-3 text-white" />
@@ -53,9 +53,9 @@ export default function Layout({ children }: LayoutProps) {
             <span
               className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md"
               style={{
-                background: 'linear-gradient(135deg, rgba(22,163,74,0.07), rgba(101,163,13,0.04))',
-                color: '#16A34A',
-                border: '1px solid rgba(22,163,74,0.22)',
+                background: 'linear-gradient(135deg, rgba(0,86,179,0.07), rgba(8,145,178,0.04))',
+                color: '#0056B3',
+                border: '1px solid rgba(0,86,179,0.22)',
               }}
             >
               v2.0

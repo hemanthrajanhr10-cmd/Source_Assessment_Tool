@@ -28,7 +28,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
   return (
     <div
       className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden"
-      style={{ background: '#F0FDF4', zIndex: 9999 }}
+      style={{ background: '#EFF6FF', zIndex: 9999 }}
       role="status"
       aria-label={message}
     >
@@ -36,7 +36,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(-45deg, #F0FDF4, #ECFDF5, #F0FDF4, #F7FEE7, #ECFDF5, #F0FDF4)',
+          background: 'linear-gradient(-45deg, #EFF7FF, #F0FDFA, #ECFEFF, #EFF7FF, #F0FDFA, #ECFEFF)',
           backgroundSize: '400% 400%',
           animation: 'aurora 16s ease-in-out infinite',
           opacity: 0.6,
@@ -48,7 +48,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: 'radial-gradient(circle, rgba(22,163,74,0.30) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, rgba(0,86,179,0.30) 1px, transparent 1px)',
           backgroundSize: '28px 28px',
           opacity: 0.18,
         }}
@@ -71,7 +71,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
           top: '10%', right: '8%',
           width: 220, height: 220,
           borderRadius: '50%',
-          background: 'radial-gradient(circle at 35% 35%, #86EFAC 0%, #166534 55%, transparent 72%)',
+          background: 'radial-gradient(circle at 35% 35%, #7EC8FF 0%, #0056B3 55%, transparent 72%)',
           filter: 'blur(28px)',
           opacity: 0.25,
           animationDuration: '11s',
@@ -84,7 +84,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
           bottom: '12%', left: '6%',
           width: 160, height: 160,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, #6EE7B7 0%, #059669 60%, transparent 80%)',
+          background: 'radial-gradient(circle, #99F6E4 0%, #0D9488 60%, transparent 80%)',
           filter: 'blur(18px)',
           opacity: 0.20,
         }}
@@ -96,7 +96,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
           bottom: '20%', right: '15%',
           width: 100, height: 100,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, #D9F99D 0%, #65A30D 70%, transparent 90%)',
+          background: 'radial-gradient(circle, #A5F3FC 0%, #0891B2 70%, transparent 90%)',
           filter: 'blur(12px)',
           opacity: 0.16,
           animationDuration: '8s',
@@ -124,7 +124,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
             className="absolute rounded-full"
             style={{
               width: 132, height: 132,
-              border: '1.5px solid rgba(22,163,74,0.20)',
+              border: '1.5px solid rgba(0,86,179,0.20)',
               animation: 'splash-orbit-slow 8s linear infinite',
             }}
           >
@@ -136,8 +136,8 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
                 transform: 'translateX(-50%)',
                 width: 6, height: 6,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #86EFAC, #166534)',
-                boxShadow: '0 0 8px rgba(22,163,74,0.55)',
+                background: 'linear-gradient(135deg, #7EC8FF, #0056B3)',
+                boxShadow: '0 0 8px rgba(0,86,179,0.55)',
               }}
             />
           </div>
@@ -147,7 +147,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
             className="absolute rounded-full"
             style={{
               width: 104, height: 104,
-              border: '1px solid rgba(101,163,13,0.18)',
+              border: '1px solid rgba(8,145,178,0.18)',
               animation: 'splash-orbit-counter 6s linear infinite',
             }}
           >
@@ -159,8 +159,8 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
                 transform: 'translateX(-50%)',
                 width: 5, height: 5,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #BEF264, #D9F99D)',
-                boxShadow: '0 0 6px rgba(101,163,13,0.45)',
+                background: 'linear-gradient(135deg, #67E8F9, #A5F3FC)',
+                boxShadow: '0 0 6px rgba(8,145,178,0.45)',
               }}
             />
           </div>
@@ -170,7 +170,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
             className="absolute rounded-full"
             style={{
               width: 80, height: 80,
-              border: '2px solid rgba(22,163,74,0.24)',
+              border: '2px solid rgba(0,86,179,0.24)',
               animation: 'splash-pulse-ring 2.4s ease-out infinite',
             }}
           />
@@ -179,7 +179,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
             className="absolute rounded-full"
             style={{
               width: 80, height: 80,
-              border: '2px solid rgba(22,163,74,0.18)',
+              border: '2px solid rgba(0,86,179,0.18)',
               animation: 'splash-pulse-ring 2.4s ease-out 0.8s infinite',
             }}
           />
@@ -201,8 +201,8 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
                 height: 72,
                 borderRadius: 20,
                 boxShadow: [
-                  '0 20px 60px rgba(22,163,74,0.40)',
-                  '0 8px 24px rgba(22,163,74,0.28)',
+                  '0 20px 60px rgba(0,86,179,0.40)',
+                  '0 8px 24px rgba(0,86,179,0.28)',
                   '0 2px 8px rgba(0,0,0,0.12)',
                 ].join(', '),
                 display: 'flex',
@@ -242,7 +242,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
             }}
           >
             Source
-            <span style={{ color: '#16A34A' }}>
+            <span style={{ color: '#0056B3' }}>
               SAT
             </span>
           </h1>
@@ -270,7 +270,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
                   width: 5,
                   height: 5,
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #166534, #4ADE80)',
+                  background: 'linear-gradient(135deg, #0056B3, #38A8F5)',
                   animation: `splash-dot-bounce 1.1s ease-in-out ${i * 0.18}s infinite`,
                 }}
               />

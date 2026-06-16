@@ -36,8 +36,8 @@ const variantStyles: Record<Variant, string> = {
 /* Inline styles per variant */
 const variantInlineStyle: Record<Variant, React.CSSProperties> = {
   primary: {
-    background: 'linear-gradient(135deg, #166534 0%, #16A34A 100%)',
-    boxShadow: '0 4px 16px rgba(22, 163, 74, 0.28), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
+    background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 100%)',
+    boxShadow: '0 4px 16px rgba(0, 86, 179, 0.28), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
   },
   secondary: {
     boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
@@ -88,7 +88,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {loading ? (
           <Spinner
             size={size === 'sm' ? 'sm' : 'md'}
-            className={variant === 'primary' ? 'text-white/80' : 'text-earth-700'}
+            className={variant === 'primary' ? 'text-white/80' : 'text-earth-600'}
           />
         ) : (
           leftIcon

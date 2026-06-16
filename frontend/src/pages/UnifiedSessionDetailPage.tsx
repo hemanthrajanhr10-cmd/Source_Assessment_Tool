@@ -33,9 +33,9 @@ const STATUS_CONFIG: Record<string, {
 }> = {
   pending:      { label: 'Pending',                      textCls: 'text-slate-400', bgCls: 'bg-[rgba(113,113,122,0.1)]',  borderCls: 'border-[rgba(113,113,122,0.2)]',  icon: Clock },
   running:      { label: 'Running',                      textCls: 'text-[#60a5fa]', bgCls: 'bg-[rgba(96,165,250,0.1)]',   borderCls: 'border-[rgba(96,165,250,0.2)]',   icon: Loader2 },
-  source_done:  { label: 'Source done — awaiting Fabric', textCls: 'text-earth-600', bgCls: 'bg-earth-50',  borderCls: 'border-earth-100',   icon: Clock },
+  source_done:  { label: 'Source done — awaiting Fabric', textCls: 'text-ocean-500', bgCls: 'bg-ocean-50',  borderCls: 'border-ocean-200',   icon: Clock },
   completed:    { label: 'Completed',                    textCls: 'text-[#34d399]', bgCls: 'bg-[rgba(52,211,153,0.1)]',   borderCls: 'border-[rgba(52,211,153,0.2)]',   icon: CheckCircle2 },
-  partial:      { label: 'Partial',                      textCls: 'text-earth-600', bgCls: 'bg-earth-50',  borderCls: 'border-earth-100',   icon: AlertTriangle },
+  partial:      { label: 'Partial',                      textCls: 'text-ocean-500', bgCls: 'bg-ocean-50',  borderCls: 'border-ocean-200',   icon: AlertTriangle },
   failed:       { label: 'Failed',                       textCls: 'text-[#f87171]', bgCls: 'bg-[rgba(248,113,113,0.1)]',  borderCls: 'border-[rgba(248,113,113,0.2)]',  icon: XCircle },
   cancelled:    { label: 'Cancelled',                    textCls: 'text-slate-400', bgCls: 'bg-[rgba(82,82,91,0.1)]',     borderCls: 'border-[rgba(82,82,91,0.2)]',     icon: XCircle },
 }
@@ -189,11 +189,11 @@ function SourceSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
           <button
             onClick={onViewDashboard}
             className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl
-                       bg-earth-50 hover:bg-earth-50
-                       border border-earth-100 transition-colors group"
+                       bg-ocean-50 hover:bg-ocean-50
+                       border border-ocean-200 transition-colors group"
           >
-            <span className="text-sm font-medium text-earth-700">View Full Dashboard</span>
-            <ArrowRight className="h-4 w-4 text-earth-700 group-hover:translate-x-0.5 transition-transform" />
+            <span className="text-sm font-medium text-ocean-600">View Full Dashboard</span>
+            <ArrowRight className="h-4 w-4 text-ocean-600 group-hover:translate-x-0.5 transition-transform" />
           </button>
         ) : (
           <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 opacity-40 cursor-default">
@@ -289,11 +289,11 @@ function FabricSectionBody({ session, onViewDashboard }: { session: UnifiedSessi
           <button
             onClick={onViewDashboard}
             className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl
-                       bg-earth-50 hover:bg-earth-50
-                       border border-earth-100 transition-colors group"
+                       bg-ocean-50 hover:bg-ocean-50
+                       border border-ocean-200 transition-colors group"
           >
-            <span className="text-sm font-medium text-earth-700">View Full Dashboard</span>
-            <ArrowRight className="h-4 w-4 text-earth-700 group-hover:translate-x-0.5 transition-transform" />
+            <span className="text-sm font-medium text-ocean-600">View Full Dashboard</span>
+            <ArrowRight className="h-4 w-4 text-ocean-600 group-hover:translate-x-0.5 transition-transform" />
           </button>
         ) : (
           <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 opacity-40 cursor-default">
@@ -317,16 +317,16 @@ function UnifiedReportsPanel({ session, sessionId }: { session: UnifiedSession; 
 
   return (
     <div
-      className="rounded-xl border border-earth-200 bg-white overflow-hidden"
+      className="rounded-xl border border-ocean-300 bg-white overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, rgba(22,163,74,0.04) 0%, rgba(18,18,27,1) 60%)',
-        boxShadow: '0 0 32px rgba(22,163,74,0.08), 0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
+        background: 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(18,18,27,1) 60%)',
+        boxShadow: '0 0 32px rgba(0,86,179,0.08), 0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
       }}
     >
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-earth-100">
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-ocean-200">
         <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'rgba(22,163,74,0.12)', border: '1px solid rgba(22,163,74,0.25)' }}>
-          <Download className="h-4 w-4 text-earth-700" />
+          style={{ background: 'rgba(0,86,179,0.12)', border: '1px solid rgba(0,86,179,0.25)' }}>
+          <Download className="h-4 w-4 text-ocean-600" />
         </div>
         <div>
           <p className="text-sm font-bold text-slate-900">Unified Assessment Reports</p>
@@ -425,7 +425,7 @@ function ComparisonTable({ session }: { session: UnifiedSession }) {
     >
       <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-200">
         <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, rgba(22,163,74,0.20), rgba(96,165,250,0.15))', border: '1px solid rgba(255,255,255,0.06)' }}>
+          style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.20), rgba(96,165,250,0.15))', border: '1px solid rgba(255,255,255,0.06)' }}>
           <BarChart2 className="h-4 w-4 text-slate-900" />
         </div>
         <span className="text-sm font-bold text-slate-900">Side-by-Side Comparison</span>
@@ -435,7 +435,7 @@ function ComparisonTable({ session }: { session: UnifiedSession }) {
           <thead>
             <tr className="border-b border-slate-200">
               <th className="text-left px-5 py-3 text-[10px] font-semibold text-slate-400 uppercase tracking-widest w-1/3">Metric</th>
-              <th className="text-left px-5 py-3 text-[10px] font-semibold text-earth-700 uppercase tracking-widest w-1/3">
+              <th className="text-left px-5 py-3 text-[10px] font-semibold text-ocean-600 uppercase tracking-widest w-1/3">
                 <span className="flex items-center gap-1.5"><Database className="h-3.5 w-3.5" /> Source DB</span>
               </th>
               <th className="text-left px-5 py-3 text-[10px] font-semibold text-[#60a5fa] uppercase tracking-widest w-1/3">
@@ -482,7 +482,7 @@ export default function UnifiedSessionDetailPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center gap-4 py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-earth-700" />
+        <Loader2 className="h-8 w-8 animate-spin text-ocean-600" />
         <p className="text-sm text-slate-400">Loading assessment report…</p>
       </div>
     )
@@ -532,15 +532,15 @@ export default function UnifiedSessionDetailPage() {
             className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.06)]"
             style={{
               background: session.mode === 'source'
-                ? 'rgba(22,163,74,0.15)'
+                ? 'rgba(0,86,179,0.15)'
                 : session.mode === 'fabric'
                 ? 'rgba(96,165,250,0.15)'
-                : 'linear-gradient(135deg, rgba(22,163,74,0.20), rgba(96,165,250,0.12))',
+                : 'linear-gradient(135deg, rgba(0,86,179,0.20), rgba(96,165,250,0.12))',
             }}
           >
-            {session.mode === 'source' ? <Database className="h-4 w-4 text-earth-700" /> :
+            {session.mode === 'source' ? <Database className="h-4 w-4 text-ocean-600" /> :
              session.mode === 'fabric' ? <Zap className="h-4 w-4 text-[#60a5fa]" /> :
-             <Layers3 className="h-4 w-4 text-earth-700" />}
+             <Layers3 className="h-4 w-4 text-ocean-600" />}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -549,7 +549,7 @@ export default function UnifiedSessionDetailPage() {
                 <span className="text-sm font-bold text-slate-900 truncate">{session.label}</span>
               )}
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md
-                               bg-earth-50 text-earth-700 border border-earth-100">
+                               bg-ocean-50 text-ocean-600 border border-ocean-200">
                 {MODE_LABELS[session.mode]}
               </span>
             </div>
@@ -570,7 +570,7 @@ export default function UnifiedSessionDetailPage() {
           <button
             onClick={() => refetch()}
             disabled={isFetching}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-earth-700 hover:bg-earth-50 transition-colors disabled:opacity-40"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-ocean-600 hover:bg-ocean-50 transition-colors disabled:opacity-40"
             title="Refresh"
           >
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
@@ -593,7 +593,7 @@ export default function UnifiedSessionDetailPage() {
         <CollapsibleSection
           title="Source Database Assessment"
           icon={Database}
-          iconGradient="linear-gradient(135deg, rgba(22,163,74,0.25), rgba(22,163,74,0.08))"
+          iconGradient="linear-gradient(135deg, rgba(0,86,179,0.25), rgba(0,86,179,0.08))"
           badge={
             (session.source?.status || session.source_status)
               ? <StatusBadge status={session.source?.status || session.source_status!} />

@@ -64,14 +64,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
         ${scrolled ? 'glass-nav' : 'bg-white/95'}
       `}
       style={!scrolled ? {
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(247,254,248,0.95) 100%)',
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(250,253,251,0.95) 100%)',
       } : undefined}
     >
       {/* Mobile hamburger */}
       <button
         onClick={onMenuClick}
         className="lg:hidden p-2 rounded-xl text-slate-500 transition-colors mr-3 focus-visible:ring-2"
-        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(240,253,244,0.8)'; el.style.color = '#16A34A' }}
+        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(239,247,255,0.8)'; el.style.color = '#0056B3' }}
         onMouseLeave={(e) => { const el = e.currentTarget; el.style.backgroundColor = ''; el.style.color = '' }}
         aria-label="Open navigation"
       >
@@ -115,7 +115,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         {/* Notification bell */}
         <button
           className="relative p-2 rounded-xl text-slate-400 transition-colors focus-visible:ring-2"
-        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(240,253,244,0.8)'; el.style.color = '#16A34A' }}
+        onMouseEnter={(e) => { const el = e.currentTarget; el.style.backgroundColor = 'rgba(239,247,255,0.8)'; el.style.color = '#0056B3' }}
         onMouseLeave={(e) => { const el = e.currentTarget; el.style.backgroundColor = ''; el.style.color = '' }}
           aria-label="Notifications"
           title="Notifications"
@@ -124,7 +124,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           {notifPulse && (
             <span
               className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: '#16A34A', boxShadow: '0 0 6px rgba(22,163,74,0.55)' }}
+              style={{ backgroundColor: '#0056B3', boxShadow: '0 0 6px rgba(0,86,179,0.55)' }}
               aria-hidden="true"
             />
           )}

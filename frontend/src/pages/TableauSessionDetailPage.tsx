@@ -20,19 +20,19 @@ import { TableauLogo } from '../components/ui/SourceLogos'
 // ── Design tokens (Ocean / Deep Atlantic) ────────────────────────────────────
 
 const T = {
-  primary:  '#16A34A',
-  dark:     '#166534',
-  accent:   '#22C55E',
-  teal:     '#10B981',
-  light50:  '#F0FDF4',
-  light100: '#DCFCE7',
-  light200: '#BBF7D0',
-  glow:     'rgba(22,163,74,0.12)',
-  glowD:    'rgba(22,163,74,0.08)',
-  shadow:   '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(22,163,74,0.06)',
-  shadowH:  '0 4px 8px rgba(22,163,74,0.08), 0 16px 40px rgba(22,163,74,0.12)',
-  shadowBtn:'0 2px 8px rgba(22,163,74,0.32), inset 0 1px 0 rgba(255,255,255,0.18)',
-  card:     '0 1px 2px rgba(0,0,0,0.04), 0 4px 20px rgba(22,163,74,0.05)',
+  primary:  '#0056B3',
+  dark:     '#003D82',
+  accent:   '#0084D4',
+  teal:     '#0D9488',
+  light50:  '#EFF6FF',
+  light100: '#DBEEFF',
+  light200: '#BAE0FF',
+  glow:     'rgba(0,86,179,0.12)',
+  glowD:    'rgba(0,86,179,0.08)',
+  shadow:   '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,86,179,0.06)',
+  shadowH:  '0 4px 8px rgba(0,86,179,0.08), 0 16px 40px rgba(0,86,179,0.12)',
+  shadowBtn:'0 2px 8px rgba(0,86,179,0.32), inset 0 1px 0 rgba(255,255,255,0.18)',
+  card:     '0 1px 2px rgba(0,0,0,0.04), 0 4px 20px rgba(0,86,179,0.05)',
   radius:   '14px',
 }
 

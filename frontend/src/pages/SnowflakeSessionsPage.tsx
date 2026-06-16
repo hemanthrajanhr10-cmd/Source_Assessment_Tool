@@ -12,20 +12,20 @@ import type { SnowflakeSessionRecord } from '../types/api'
 // ── Ocean design tokens ───────────────────────────────────────────────────────
 
 const T = {
-  primary:    '#16A34A',
+  primary:    '#0056B3',
   dark:       '#0D1829',
-  mid:        '#22C55E',
-  accent:     '#4ADE80',
-  surface:    '#F0FDF4',
-  light50:    '#F7FEF8',
-  light100:   '#DCFCE7',
-  ice:        '#BBF7D0',
-  glow:       'rgba(22,163,74,0.10)',
-  shadowCard: '0 2px 4px rgba(22,163,74,0.05), 0 8px 32px rgba(22,163,74,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowHover:'0 4px 12px rgba(22,163,74,0.10), 0 20px 48px rgba(22,163,74,0.10)',
-  gradBtn:    'linear-gradient(135deg, #166534 0%, #16A34A 60%, #4ADE80 100%)',
-  gradHero:   'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
-  gradSurface:'linear-gradient(180deg, #F7FEF8 0%, #F0FDF4 100%)',
+  mid:        '#0084D4',
+  accent:     '#38A8F5',
+  surface:    '#EFF6FF',
+  light50:    '#F8FAFF',
+  light100:   '#DBEEFF',
+  ice:        '#C5D5EC',
+  glow:       'rgba(0,86,179,0.10)',
+  shadowCard: '0 2px 4px rgba(0,86,179,0.05), 0 8px 32px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowHover:'0 4px 12px rgba(0,86,179,0.10), 0 20px 48px rgba(0,86,179,0.10)',
+  gradBtn:    'linear-gradient(135deg, #0056B3 0%, #0084D4 60%, #38A8F5 100%)',
+  gradHero:   'linear-gradient(135deg, #EFF6FF 0%, #DBEEFF 100%)',
+  gradSurface:'linear-gradient(180deg, #F8FAFF 0%, #EFF6FF 100%)',
 }
 
 function statusConfig(status: string) {

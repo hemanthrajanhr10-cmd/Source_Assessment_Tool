@@ -14,29 +14,29 @@ import type {
   SalesforceAssessmentRequest,
 } from '../types/api'
 
-// ── Salesforce brand theme — Cloud Blue ───────────────────────────────────────
+// ── Nature Green Teal theme ───────────────────────────────────────────────────
 const T = {
-  primary:     '#0176D3',
-  mid:         '#0A5FA8',
-  accent:      '#1B96FF',
-  accentLight: '#D9EDFF',
-  dark:        '#032D60',
-  darkMid:     '#0176D3',
-  surface:     '#F3F8FE',
-  light50:     '#F3F8FE',
-  light100:    '#D9EDFF',
-  light200:    '#AACBFF',
-  ice:         '#57A3FD',
-  text:        '#032D60',
-  textMid:     '#0176D3',
-  glow:        'rgba(1,118,211,0.16)',
-  glowDeep:    'rgba(1,118,211,0.28)',
-  shadowCard:  '0 1px 3px rgba(1,118,211,0.06), 0 4px 16px rgba(1,118,211,0.08)',
-  shadowHover: '0 4px 12px rgba(1,118,211,0.14), 0 16px 48px rgba(1,118,211,0.10)',
-  shadowBtn:   '0 2px 12px rgba(1,118,211,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
-  gradHero:    'linear-gradient(135deg, #F3F8FE 0%, #D9EDFF 100%)',
-  gradSurface: 'linear-gradient(180deg, #F3F8FE 0%, #D9EDFF 100%)',
-  gradBtn:     'linear-gradient(135deg, #0176D3 0%, #1B96FF 100%)',
+  primary:     '#4DA8A0',
+  mid:         '#358F87',
+  accent:      '#93CCC6',
+  accentLight: '#CCEFEC',
+  dark:        '#25706A',
+  darkMid:     '#4DA8A0',
+  surface:     '#F0FAF9',
+  light50:     '#F0FAF9',
+  light100:    '#CCEFEC',
+  light200:    '#A8E2DD',
+  ice:         '#6CBDB5',
+  text:        '#25706A',
+  textMid:     '#4DA8A0',
+  glow:        'rgba(77,168,160,0.16)',
+  glowDeep:    'rgba(77,168,160,0.28)',
+  shadowCard:  '0 1px 3px rgba(77,168,160,0.06), 0 4px 16px rgba(77,168,160,0.08)',
+  shadowHover: '0 4px 12px rgba(77,168,160,0.14), 0 16px 48px rgba(77,168,160,0.10)',
+  shadowBtn:   '0 2px 12px rgba(77,168,160,0.35), inset 0 1px 0 rgba(255,255,255,0.15)',
+  gradHero:    'linear-gradient(135deg, #F0FAF9 0%, #CCEFEC 100%)',
+  gradSurface: 'linear-gradient(180deg, #F0FAF9 0%, #CCEFEC 100%)',
+  gradBtn:     'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
 }
 
 type AuthState = 'idle' | 'testing' | 'ok' | 'failed'
@@ -84,7 +84,7 @@ const API_CARDS: ApiCard[] = [
     label: 'REST API',
     tagline: 'sObjects · SOQL · Organisation metadata',
     icon: Globe,
-    color: '#0176D3',
+    color: '#4DA8A0',
     checks: ['Org info', 'sObject inventory', 'Platform events', 'Named credentials'],
   },
   {
@@ -92,7 +92,7 @@ const API_CARDS: ApiCard[] = [
     label: 'Metadata API',
     tagline: 'Custom objects · Fields · Validation rules · Layouts',
     icon: Database,
-    color: '#0A5FA8',
+    color: '#358F87',
     checks: ['Custom objects', 'Custom fields', 'Validation rules', 'Record types', 'Page layouts'],
   },
   {
@@ -100,7 +100,7 @@ const API_CARDS: ApiCard[] = [
     label: 'Tooling API',
     tagline: 'Apex · Flows · Coverage · Debug logs',
     icon: Code2,
-    color: '#1B96FF',
+    color: '#93CCC6',
     checks: ['Apex classes', 'Apex triggers', 'Test coverage', 'Flow inventory', 'Workflow rules'],
   },
   {
@@ -108,7 +108,7 @@ const API_CARDS: ApiCard[] = [
     label: 'Bulk API v2',
     tagline: 'Ingest jobs · Query jobs · Data volume signals',
     icon: Package,
-    color: '#032D60',
+    color: '#25706A',
     checks: ['Ingest job history', 'Query job history', 'Failed job audit'],
   },
   {
@@ -116,7 +116,7 @@ const API_CARDS: ApiCard[] = [
     label: 'Analytics (Connect API)',
     tagline: 'Reports · Dashboards · Einstein Analytics',
     icon: BarChart3,
-    color: '#57A3FD',
+    color: '#6CBDB5',
     checks: ['Report count', 'Dashboard count'],
   },
   {
@@ -124,7 +124,7 @@ const API_CARDS: ApiCard[] = [
     label: 'Security',
     tagline: 'Users · Profiles · Permission sets · Roles',
     icon: Shield,
-    color: '#0A5FA8',
+    color: '#358F87',
     checks: ['Active / inactive users', 'Profile count', 'Permission sets', 'Role hierarchy'],
   },
   {
@@ -132,7 +132,7 @@ const API_CARDS: ApiCard[] = [
     label: 'Automation',
     tagline: 'Flows · Process Builder · Workflow rules',
     icon: Zap,
-    color: '#1B96FF',
+    color: '#93CCC6',
     checks: ['Active flows', 'Inactive Process Builders', 'Legacy workflow rules'],
   },
   {
@@ -140,7 +140,7 @@ const API_CARDS: ApiCard[] = [
     label: 'Integrations',
     tagline: 'Connected apps · Named credentials · Platform events',
     icon: Settings2,
-    color: '#0176D3',
+    color: '#4DA8A0',
     checks: ['Connected apps', 'Named credentials', 'Platform event objects'],
   },
 ]

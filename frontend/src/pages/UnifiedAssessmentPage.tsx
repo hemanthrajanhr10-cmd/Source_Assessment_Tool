@@ -114,21 +114,21 @@ function detectPgPlatform(server: string): { key: PgPlatformKey; label: string }
 // ── Shared style helpers ──────────────────────────────────────────────────────
 
 const cardCls = 'rounded-xl border bg-white overflow-hidden transition-all duration-200'
-const activeBorderCls = 'border-[rgba(0,86,179,0.45)]'
+const activeBorderCls = 'border-[rgba(77,168,160,0.45)]'
 const doneBorderCls = 'border-slate-200'
 const pendingBorderCls = 'border-slate-200 opacity-50 pointer-events-none select-none'
 
 const inputCls = [
   'w-full text-sm border border-slate-200 rounded-lg px-3 py-2',
   'bg-slate-50 text-slate-900 placeholder-[#71717a]',
-  'focus:outline-none focus:border-[rgba(0,86,179,0.6)] focus:ring-1 focus:ring-[rgba(0,86,179,0.15)]',
+  'focus:outline-none focus:border-[rgba(77,168,160,0.6)] focus:ring-1 focus:ring-[rgba(77,168,160,0.15)]',
   'transition-colors',
 ].join(' ')
 
 const selectCls = [
   'text-sm border border-slate-200 rounded-lg px-2 py-2',
   'bg-slate-50 text-slate-900',
-  'focus:outline-none focus:border-[rgba(0,86,179,0.6)] focus:ring-1 focus:ring-[rgba(0,86,179,0.15)]',
+  'focus:outline-none focus:border-[rgba(77,168,160,0.6)] focus:ring-1 focus:ring-[rgba(77,168,160,0.15)]',
 ].join(' ')
 
 // ── Step header ───────────────────────────────────────────────────────────────
@@ -138,13 +138,13 @@ function StepHeader({
 }: { number: number; title: string; done: boolean; active: boolean; count?: string }) {
   return (
     <div className={`flex items-center gap-3 px-5 py-4 border-b ${
-      done ? 'border-slate-200 bg-white' : active ? 'border-[rgba(0,86,179,0.10)] bg-ocean-50' : 'border-slate-200 bg-white'
+      done ? 'border-slate-200 bg-white' : active ? 'border-[rgba(77,168,160,0.10)] bg-earth-50' : 'border-slate-200 bg-white'
     }`}>
       <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold shrink-0 ${
         done
           ? 'bg-[rgba(52,211,153,0.15)] text-[#34d399]'
           : active
-          ? 'bg-[rgba(0,86,179,0.10)] text-ocean-600'
+          ? 'bg-[rgba(77,168,160,0.10)] text-earth-600'
           : 'bg-slate-50 text-slate-500'
       }`}>
         {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : number}
@@ -155,7 +155,7 @@ function StepHeader({
         {title}
       </h2>
       {count && (
-        <span className="text-xs font-medium text-ocean-600">{count}</span>
+        <span className="text-xs font-medium text-earth-600">{count}</span>
       )}
     </div>
   )
@@ -175,11 +175,11 @@ function Toggle({ checked, onChange, label, description }: {
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent
-          transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(0,86,179,0.30)]
-          ${checked ? 'bg-[#0056B3]' : 'bg-slate-200'}`}
+          transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(77,168,160,0.30)]
+          ${checked ? 'bg-[#4DA8A0]' : 'bg-slate-200'}`}
       >
         <span className={`inline-block h-4 w-4 rounded-full shadow-sm transform transition-transform
-          ${checked ? 'translate-x-4 bg-ocean-50' : 'translate-x-0 bg-slate-300'}`} />
+          ${checked ? 'translate-x-4 bg-earth-50' : 'translate-x-0 bg-slate-300'}`} />
       </button>
       <div>
         <span className="text-sm font-medium text-slate-900">{label}</span>
@@ -425,7 +425,7 @@ export default function UnifiedAssessmentPage() {
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(0,86,179,0.10)' }}>
+            style={{ background: '#F0FAF9', border: '1px solid #A8E2DD', boxShadow: '0 2px 8px rgba(77,168,160,0.10)' }}>
             <UnifiedLogo size={24} />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -501,14 +501,14 @@ export default function UnifiedAssessmentPage() {
                         onClick={() => setSourceSelection(opt.value)}
                         className={`flex flex-col items-start gap-2 p-4 rounded-xl border text-left transition-all duration-150 ${
                           selected
-                            ? 'border-[rgba(0,86,179,0.40)] bg-[rgba(0,86,179,0.06)]'
+                            ? 'border-[rgba(77,168,160,0.40)] bg-[rgba(77,168,160,0.06)]'
                             : 'border-slate-200 bg-slate-50 hover:border-slate-300'
                         }`}
                       >
                         <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                          selected ? 'bg-[rgba(0,86,179,0.15)]' : 'bg-slate-200'
+                          selected ? 'bg-[rgba(77,168,160,0.15)]' : 'bg-slate-200'
                         }`}>
-                          <Icon className={`h-4 w-4 ${selected ? 'text-ocean-600' : 'text-slate-500'}`} />
+                          <Icon className={`h-4 w-4 ${selected ? 'text-earth-600' : 'text-slate-500'}`} />
                         </div>
                         <div>
                           <p className={`text-xs font-semibold ${selected ? 'text-slate-900' : 'text-slate-400'}`}>{opt.label}</p>
@@ -516,7 +516,7 @@ export default function UnifiedAssessmentPage() {
                         </div>
                         {selected && (
                           <div className="w-full flex justify-end">
-                            <CheckCircle2 className="h-3.5 w-3.5 text-ocean-600" />
+                            <CheckCircle2 className="h-3.5 w-3.5 text-earth-600" />
                           </div>
                         )}
                       </button>
@@ -526,9 +526,9 @@ export default function UnifiedAssessmentPage() {
                 <button
                   onClick={() => setPhase('source-form')}
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
-                             bg-[#0056B3] text-white hover:bg-[#0084D4] transition-colors
-                             focus:outline-none focus:ring-2 focus:ring-[rgba(0,86,179,0.30)]"
-                  style={{ boxShadow: '0 0 20px rgba(0,86,179,0.10)' }}
+                             bg-[#4DA8A0] text-white hover:bg-[#6CBDB5] transition-colors
+                             focus:outline-none focus:ring-2 focus:ring-[rgba(77,168,160,0.30)]"
+                  style={{ boxShadow: '0 0 20px rgba(77,168,160,0.10)' }}
                 >
                   <Settings2 className="h-4 w-4" />
                   Configure {sourceSelection === 'both' ? 'Source + Fabric' : sourceSelection === 'source_only' ? 'Source DB' : 'Fabric'}
@@ -726,9 +726,9 @@ export default function UnifiedAssessmentPage() {
                 onClick={handleFabricSubmit}
                 disabled={phase === 'fabric-submitting'}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold
-                           bg-[#0056B3] text-white hover:bg-[#0084D4] disabled:opacity-50
-                           transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(0,86,179,0.30)]"
-                style={{ boxShadow: phase !== 'fabric-submitting' ? '0 0 24px rgba(0,86,179,0.12)' : undefined }}
+                           bg-[#4DA8A0] text-white hover:bg-[#6CBDB5] disabled:opacity-50
+                           transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(77,168,160,0.30)]"
+                style={{ boxShadow: phase !== 'fabric-submitting' ? '0 0 24px rgba(77,168,160,0.12)' : undefined }}
               >
                 {phase === 'fabric-submitting'
                   ? <><Loader2 className="h-4 w-4 animate-spin" /> Starting assessment…</>
@@ -792,9 +792,9 @@ function SourceConfigForm({
         onClick={onSubmit}
         disabled={submitting || totalDbs === 0}
         className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold
-                   bg-[#0056B3] text-white hover:bg-[#0084D4] disabled:opacity-40
-                   transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(0,86,179,0.30)]"
-        style={{ boxShadow: (!submitting && totalDbs > 0) ? '0 0 20px rgba(0,86,179,0.10)' : undefined }}
+                   bg-[#4DA8A0] text-white hover:bg-[#6CBDB5] disabled:opacity-40
+                   transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(77,168,160,0.30)]"
+        style={{ boxShadow: (!submitting && totalDbs > 0) ? '0 0 20px rgba(77,168,160,0.10)' : undefined }}
       >
         {submitting
           ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
@@ -854,14 +854,14 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
         <div className="absolute top-full mt-1.5 left-0 z-50 w-72 rounded-xl border border-slate-200 bg-white overflow-hidden"
           style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.6)' }}>
           <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200">
-            <Share2 className="h-3.5 w-3.5 text-ocean-600" />
+            <Share2 className="h-3.5 w-3.5 text-earth-600" />
             <span className="text-xs font-semibold text-slate-900">Hybrid Connections</span>
           </div>
           {loading && <div className="flex items-center justify-center py-6"><RefreshCw className="h-4 w-4 animate-spin text-slate-500" /></div>}
           {error && <div className="px-3 py-3 text-xs text-[#f87171]">{error}</div>}
           {!loading && !error && connections.length === 0 && (
             <div className="px-3 py-4 text-xs text-slate-500 text-center">
-              No saved connections. <a href="/hybrid-connection" className="text-ocean-600 underline underline-offset-2">Create one</a> first.
+              No saved connections. <a href="/hybrid-connection" className="text-earth-600 underline underline-offset-2">Create one</a> first.
             </div>
           )}
           {!loading && connections.map(hc => (
@@ -871,8 +871,8 @@ function HybridConnectionPicker({ onSelect }: { onSelect: (host: string, port: n
               onClick={() => { onSelect(hc.endpoint_host, hc.endpoint_port); setOpen(false) }}
               className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors border-b border-slate-200 last:border-0"
             >
-              <div className="h-7 w-7 rounded-lg bg-[rgba(0,86,179,0.08)] border border-[rgba(0,86,179,0.10)] flex items-center justify-center shrink-0 mt-0.5">
-                <Share2 className="h-3.5 w-3.5 text-ocean-600" />
+              <div className="h-7 w-7 rounded-lg bg-[rgba(77,168,160,0.08)] border border-[rgba(77,168,160,0.10)] flex items-center justify-center shrink-0 mt-0.5">
+                <Share2 className="h-3.5 w-3.5 text-earth-600" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-semibold text-slate-900 truncate">{hc.name}</p>
@@ -907,14 +907,14 @@ function ServerCard({
         onClick={() => updateServer(srv.id, { expanded: !srv.expanded })}
       >
         <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'rgba(0,86,179,0.08)', border: '1px solid rgba(0,86,179,0.10)' }}>
-          <Server className="h-3.5 w-3.5 text-ocean-600" />
+          style={{ background: 'rgba(77,168,160,0.08)', border: '1px solid rgba(77,168,160,0.10)' }}>
+          <Server className="h-3.5 w-3.5 text-earth-600" />
         </div>
         <span className="flex-1 text-sm font-semibold text-slate-900">
           {srv.server || `Server ${index + 1}`}
         </span>
         {srv.selected_dbs.length > 0 && (
-          <span className="text-xs font-mono text-ocean-600">{srv.selected_dbs.length} DB{srv.selected_dbs.length!==1?'s':''}</span>
+          <span className="text-xs font-mono text-earth-600">{srv.selected_dbs.length} DB{srv.selected_dbs.length!==1?'s':''}</span>
         )}
         {srv.connectivity && (
           srv.connectivity.reachable
@@ -1182,7 +1182,7 @@ function ServerCard({
                       })
                     }
                   }}
-                  className="text-[10px] font-semibold text-ocean-600 hover:text-[#0084D4] uppercase tracking-widest transition-colors"
+                  className="text-[10px] font-semibold text-earth-600 hover:text-[#6CBDB5] uppercase tracking-widest transition-colors"
                 >
                   {srv.selected_dbs.length === filteredDbs.length ? 'Unselect All' : 'Select All'}
                 </button>
@@ -1193,7 +1193,7 @@ function ServerCard({
                   return (
                     <label key={db.name}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                        selected ? 'bg-[rgba(0,86,179,0.06)] hover:bg-[rgba(0,86,179,0.08)]' : 'hover:hover:bg-slate-50'
+                        selected ? 'bg-[rgba(77,168,160,0.06)] hover:bg-[rgba(77,168,160,0.08)]' : 'hover:hover:bg-slate-50'
                       }`}>
                       <input
                         type="checkbox"
@@ -1204,7 +1204,7 @@ function ServerCard({
                             : srv.selected_dbs.filter(s => s.name !== db.name)
                           updateServer(srv.id, { selected_dbs: next })
                         }}
-                        className="rounded border-slate-200 accent-[#0056B3]"
+                        className="rounded border-slate-200 accent-[#4DA8A0]"
                       />
                       <span className={`text-sm flex-1 ${selected ? 'text-slate-900' : 'text-slate-400'}`}>{db.name}</span>
                       {db.size_mb != null && (
@@ -1240,7 +1240,7 @@ function FabricAuthPanel({
   if (!userCode) {
     return (
       <div className="flex items-center gap-3 text-sm text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin text-ocean-600" />
+        <Loader2 className="h-4 w-4 animate-spin text-earth-600" />
         Requesting device code from Microsoft…
       </div>
     )
@@ -1255,15 +1255,15 @@ function FabricAuthPanel({
         href={verificationUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center gap-2 text-sm font-medium text-ocean-600 hover:text-[#0084D4] hover:underline transition-colors"
+        className="flex items-center gap-2 text-sm font-medium text-earth-600 hover:text-[#6CBDB5] hover:underline transition-colors"
       >
         <ExternalLink className="h-4 w-4 shrink-0" />
         {verificationUrl}
       </a>
       <div className="flex items-stretch gap-3">
-        <div className="flex-1 rounded-xl border-2 border-[rgba(0,86,179,0.20)] bg-[rgba(0,86,179,0.06)] px-5 py-3 text-center">
+        <div className="flex-1 rounded-xl border-2 border-[rgba(77,168,160,0.20)] bg-[rgba(77,168,160,0.06)] px-5 py-3 text-center">
           <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest mb-1">Your code</p>
-          <p className="text-2xl font-mono font-bold tracking-widest text-ocean-600">{userCode}</p>
+          <p className="text-2xl font-mono font-bold tracking-widest text-earth-600">{userCode}</p>
         </div>
         <button
           onClick={copyCode}
@@ -1275,7 +1275,7 @@ function FabricAuthPanel({
         </button>
       </div>
       <div className="flex items-center gap-2 text-xs text-slate-500">
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-ocean-600" />
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-earth-600" />
         Waiting for you to sign in…
       </div>
     </div>
@@ -1297,7 +1297,7 @@ function FabricWorkspacePicker({
 
   if (loading) return (
     <div className="flex items-center gap-3 text-sm text-slate-500">
-      <Loader2 className="h-4 w-4 animate-spin text-ocean-600" />
+      <Loader2 className="h-4 w-4 animate-spin text-earth-600" />
       Loading accessible workspaces…
     </div>
   )
@@ -1321,7 +1321,7 @@ function FabricWorkspacePicker({
             else filtered.forEach(w => next.add(w.id))
             setSelectedIds(next)
           }}
-          className="shrink-0 text-xs text-ocean-600 hover:text-[#0084D4] font-semibold transition-colors"
+          className="shrink-0 text-xs text-earth-600 hover:text-[#6CBDB5] font-semibold transition-colors"
         >
           {allSelected ? 'Deselect all' : 'Select all'}
         </button>
@@ -1344,7 +1344,7 @@ function FabricWorkspacePicker({
                   e.target.checked ? next.add(ws.id) : next.delete(ws.id)
                   setSelectedIds(next)
                 }}
-                className="h-4 w-4 rounded border-slate-200 accent-[#0056B3]"
+                className="h-4 w-4 rounded border-slate-200 accent-[#4DA8A0]"
               />
               <Building2 className="h-4 w-4 text-slate-500 shrink-0" />
               <div className="flex-1 min-w-0">
@@ -1358,7 +1358,7 @@ function FabricWorkspacePicker({
                   </span>
                 </div>
               </div>
-              {selectedIds.has(ws.id) && <CheckCircle2 className="h-4 w-4 text-ocean-600 shrink-0" />}
+              {selectedIds.has(ws.id) && <CheckCircle2 className="h-4 w-4 text-earth-600 shrink-0" />}
             </label>
           ))}
           {filtered.length === 0 && (
@@ -1371,8 +1371,8 @@ function FabricWorkspacePicker({
         onClick={onNext}
         disabled={selectedIds.size === 0}
         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
-                   bg-[#0056B3] text-white hover:bg-[#0084D4] disabled:opacity-40
-                   transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(0,86,179,0.30)]"
+                   bg-[#4DA8A0] text-white hover:bg-[#6CBDB5] disabled:opacity-40
+                   transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(77,168,160,0.30)]"
       >
         Continue with {selectedIds.size || '…'} workspace{selectedIds.size !== 1 ? 's' : ''}
         <ArrowRight className="h-4 w-4" />
@@ -1414,7 +1414,7 @@ function FabricItemPicker({
 
   if (loading) return (
     <div className="flex items-center gap-3 text-sm text-slate-500">
-      <Loader2 className="h-4 w-4 animate-spin text-ocean-600" />
+      <Loader2 className="h-4 w-4 animate-spin text-earth-600" />
       Loading workspace items…
     </div>
   )
@@ -1433,7 +1433,7 @@ function FabricItemPicker({
         </div>
         <button
           onClick={toggleAll}
-          className="shrink-0 text-xs text-ocean-600 hover:text-[#0084D4] font-semibold transition-colors"
+          className="shrink-0 text-xs text-earth-600 hover:text-[#6CBDB5] font-semibold transition-colors"
         >
           {allSelected ? 'Deselect all' : 'Select all'}
         </button>
@@ -1485,10 +1485,10 @@ function FabricItemPicker({
                 <div className="divide-y divide-slate-100">
                   {filteredDs.length > 0 && (
                     <div>
-                      <div className="flex items-center gap-2 px-5 py-1.5 bg-[rgba(0,86,179,0.03)]">
-                        <Database className="h-3 w-3 text-ocean-600 shrink-0" />
+                      <div className="flex items-center gap-2 px-5 py-1.5 bg-[rgba(77,168,160,0.03)]">
+                        <Database className="h-3 w-3 text-earth-600 shrink-0" />
                         <span className="text-xs font-medium text-slate-400 flex-1">Semantic Models</span>
-                        <button onClick={toggleAllDs} className="text-xs text-ocean-600 hover:text-[#0084D4] transition-colors">
+                        <button onClick={toggleAllDs} className="text-xs text-earth-600 hover:text-[#6CBDB5] transition-colors">
                           {filteredDs.every(d => selectedDatasetIds.has(d.id)) ? 'Deselect' : 'Select'} all
                         </button>
                       </div>
@@ -1496,7 +1496,7 @@ function FabricItemPicker({
                         <label key={ds.id} className="flex items-center gap-3 px-6 py-2 hover:bg-[rgba(255,255,255,0.02)] cursor-pointer transition-colors">
                           <input
                             type="checkbox"
-                            className="h-3.5 w-3.5 rounded border-slate-200 accent-[#0056B3]"
+                            className="h-3.5 w-3.5 rounded border-slate-200 accent-[#4DA8A0]"
                             checked={selectedDatasetIds.has(ds.id)}
                             onChange={() => {
                               const next = new Set(selectedDatasetIds)
@@ -1514,7 +1514,7 @@ function FabricItemPicker({
                       <div className="flex items-center gap-2 px-5 py-1.5 bg-[rgba(96,165,250,0.03)]">
                         <FileText className="h-3 w-3 text-[#60a5fa] shrink-0" />
                         <span className="text-xs font-medium text-slate-400 flex-1">Reports</span>
-                        <button onClick={toggleAllRp} className="text-xs text-ocean-600 hover:text-[#0084D4] transition-colors">
+                        <button onClick={toggleAllRp} className="text-xs text-earth-600 hover:text-[#6CBDB5] transition-colors">
                           {filteredRp.every(r => selectedReportIds.has(r.id)) ? 'Deselect' : 'Select'} all
                         </button>
                       </div>
@@ -1522,7 +1522,7 @@ function FabricItemPicker({
                         <label key={rpt.id} className="flex items-center gap-3 px-6 py-2 hover:bg-[rgba(255,255,255,0.02)] cursor-pointer transition-colors">
                           <input
                             type="checkbox"
-                            className="h-3.5 w-3.5 rounded border-slate-200 accent-[#0056B3]"
+                            className="h-3.5 w-3.5 rounded border-slate-200 accent-[#4DA8A0]"
                             checked={selectedReportIds.has(rpt.id)}
                             onChange={() => {
                               const next = new Set(selectedReportIds)
@@ -1564,8 +1564,8 @@ function FabricItemPicker({
           onClick={onNext}
           disabled={totalSelected === 0}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
-                     bg-[#0056B3] text-white hover:bg-[#0084D4] disabled:opacity-40
-                     transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(0,86,179,0.30)]"
+                     bg-[#4DA8A0] text-white hover:bg-[#6CBDB5] disabled:opacity-40
+                     transition-colors focus:outline-none focus:ring-2 focus:ring-[rgba(77,168,160,0.30)]"
         >
           Continue with {selectedDatasetIds.size} model{selectedDatasetIds.size!==1?'s':''} &amp; {selectedReportIds.size} report{selectedReportIds.size!==1?'s':''}
           <ArrowRight className="h-4 w-4" />

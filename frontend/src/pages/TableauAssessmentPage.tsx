@@ -11,20 +11,20 @@ import type { TableauAssessmentRequest } from '../types/api'
 import Spinner from '../components/ui/Spinner'
 import { TableauLogo } from '../components/ui/SourceLogos'
 
-// ── Design tokens (Ocean / Deep Atlantic) ────────────────────────────────────
+// ── Nature Green Teal design tokens ──────────────────────────────────────────
 
 const T = {
-  primary:    '#0084D4',
-  dark:       '#003D82',
-  mid:        '#0056B3',
-  accent:     '#38A8F5',
-  light50:    '#EFF6FF',
-  light100:   '#DBEEFF',
-  light200:   '#BAE0FF',
-  glow:       'rgba(0,132,212,0.15)',
-  shadowCard: '0 2px 4px rgba(0,86,179,0.04), 0 8px 24px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowHover:'0 4px 8px rgba(0,86,179,0.06), 0 16px 40px rgba(0,86,179,0.10), 0 2px 4px rgba(0,0,0,0.04)',
-  shadowBtn:  '0 2px 8px rgba(0,132,212,0.35), inset 0 1px 0 rgba(255,255,255,0.16)',
+  primary:    '#6CBDB5',
+  dark:       '#358F87',
+  mid:        '#4DA8A0',
+  accent:     '#93CCC6',
+  light50:    '#F0FAF9',
+  light100:   '#CCEFEC',
+  light200:   '#A8E2DD',
+  glow:       'rgba(108,189,181,0.15)',
+  shadowCard: '0 2px 4px rgba(77,168,160,0.04), 0 8px 24px rgba(77,168,160,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowHover:'0 4px 8px rgba(77,168,160,0.06), 0 16px 40px rgba(77,168,160,0.10), 0 2px 4px rgba(0,0,0,0.04)',
+  shadowBtn:  '0 2px 8px rgba(108,189,181,0.35), inset 0 1px 0 rgba(255,255,255,0.16)',
 }
 
 // ── Component helpers ─────────────────────────────────────────────────────────
@@ -174,7 +174,7 @@ function SectionCard({
           className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0"
           style={{
             background: `linear-gradient(135deg, ${T.mid} 0%, ${T.primary} 100%)`,
-            boxShadow: `0 3px 8px rgba(0,86,179,0.3)`,
+            boxShadow: `0 3px 8px rgba(77,168,160,0.3)`,
           }}
         >
           <Icon className="h-4 w-4 text-white" aria-hidden="true" />
@@ -216,7 +216,7 @@ function AuthModeToggle({
           style={{
             background: mode === m ? `linear-gradient(135deg, ${T.mid} 0%, ${T.primary} 100%)` : 'transparent',
             color: mode === m ? 'white' : '#64748B',
-            boxShadow: mode === m ? '0 2px 6px rgba(0,86,179,0.25)' : 'none',
+            boxShadow: mode === m ? '0 2px 6px rgba(77,168,160,0.25)' : 'none',
           }}
         >
           {m === 'password' ? <><Lock className="h-3 w-3" /> Username / Password</> : <><Key className="h-3 w-3" /> Personal Access Token</>}

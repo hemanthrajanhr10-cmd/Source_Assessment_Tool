@@ -927,7 +927,7 @@ function ServerCard({
 }
 
 function DbEngineIcon({ dbType, size = 'sm' }: { dbType: DbType; size?: 'sm' | 'lg' }) {
-  const dim = size === 'lg' ? { box: 'h-10 w-10', rounded: 'rounded-xl', logo: 28, logoH: 22 } : { box: 'h-7 w-7', rounded: 'rounded-lg', logo: 18, logoH: 14 }
+  const dim = size === 'lg' ? { box: 'h-10 w-10', rounded: 'rounded-xl', logo: 28, logoH: 22 } : { box: 'h-9 w-9', rounded: 'rounded-xl', logo: 24, logoH: 19 }
   if (dbType === 'mysql') return (
     <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden`}
       style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', boxShadow: '0 1px 4px rgba(22,163,74,0.10)' }}>
@@ -935,9 +935,9 @@ function DbEngineIcon({ dbType, size = 'sm' }: { dbType: DbType; size?: 'sm' | '
     </div>
   )
   if (dbType === 'oracle') return (
-    <div className={`${size === 'lg' ? 'h-10 w-20' : 'h-7 w-16'} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden px-1.5`}
+    <div className={`${size === 'lg' ? 'h-10 w-20' : 'h-9 w-[88px]'} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden px-2`}
       style={{ background: '#FFF7F7', border: '1px solid #FECACA', boxShadow: '0 1px 4px rgba(204,41,54,0.10)' }}>
-      <OracleFullLogo height={size === 'lg' ? 20 : dim.logoH} />
+      <OracleFullLogo height={size === 'lg' ? 20 : 17} />
     </div>
   )
   if (dbType === 'postgres') return (

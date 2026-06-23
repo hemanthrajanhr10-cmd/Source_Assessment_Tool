@@ -12,7 +12,8 @@ Supports:
   • Integrations – connected apps, named credentials, platform events
 
 Authentication:
-  username_password          → POST to /services/oauth2/token (password grant)
+  username_password (with security_token) → SOAP /services/Soap/u/{version}
+  username_password (with client_id/secret) → OAuth /services/oauth2/token
   oauth_client_credentials   → POST to /services/oauth2/token (client_credentials grant)
   connected_app_token        → caller supplies access_token directly
 """
@@ -20,6 +21,7 @@ Authentication:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -29,6 +31,31 @@ from app.models.salesforce_requests import SalesforceAuthMethod, SalesforceCrede
 logger = logging.getLogger(__name__)
 
 _TIMEOUT = 30
+
+_SOAP_BODY = """<?xml version="1.0" encoding="utf-8" ?>
+<env:Envelope
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:env="http://schemas.xmlsoap.org/soap/envelope/"
+        xmlns:urn="urn:partner.soap.sforce.com">
+    <env:Header>
+        <urn:CallOptions>
+            <urn:client>assessment-tool</urn:client>
+            <urn:defaultNamespace>sf</urn:defaultNamespace>
+        </urn:CallOptions>
+    </env:Header>
+    <env:Body>
+        <n1:login xmlns:n1="urn:partner.soap.sforce.com">
+            <n1:username>{username}</n1:username>
+            <n1:password>{password}</n1:password>
+        </n1:login>
+    </env:Body>
+</env:Envelope>"""
+
+
+def _xml_val(xml: str, tag: str) -> Optional[str]:
+    m = re.search(rf"<{tag}>(.*?)</{tag}>", xml)
+    return m.group(1) if m else None
 
 
 class SalesforceClient:
@@ -48,6 +75,37 @@ class SalesforceClient:
 
     # ── Authentication ────────────────────────────────────────────────────────
 
+    def _soap_login(self, login_base: str) -> None:
+        """SOAP partner API login — works without a Connected App consumer key."""
+        soap_url = f"{login_base}/services/Soap/u/{self.api_version}"
+        c = self._creds
+        body = _SOAP_BODY.format(
+            username=c.username,
+            password=(c.password or "") + (c.security_token or ""),
+        )
+        resp = self._session.post(
+            soap_url,
+            data=body.encode("utf-8"),
+            headers={
+                "Content-Type": "text/xml; charset=utf-8",
+                "SOAPAction":   "login",
+            },
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            exc_msg = _xml_val(resp.text, "sf:exceptionMessage") or resp.text
+            raise RuntimeError(f"Salesforce SOAP login failed: {exc_msg}")
+
+        session_id = _xml_val(resp.text, "sessionId")
+        server_url = _xml_val(resp.text, "serverUrl")
+        if not session_id or not server_url:
+            exc_msg = _xml_val(resp.text, "sf:exceptionMessage") or resp.text[:300]
+            raise RuntimeError(f"Salesforce SOAP login failed: {exc_msg}")
+
+        self._token = session_id
+        # serverUrl: https://<instance>/services/Soap/u/...  → extract base
+        self.instance_url = "https://" + server_url.replace("https://", "").split("/")[0].replace("-api", "")
+
     def _authenticate(self) -> None:
         c = self._creds
         if c.auth_method == SalesforceAuthMethod.CONNECTED_APP_TOKEN:
@@ -61,28 +119,33 @@ class SalesforceClient:
         if c.auth_method == SalesforceAuthMethod.USERNAME_PASSWORD:
             if not c.username or not c.password:
                 raise ValueError("username and password are required.")
-            # Derive the OAuth login server from domain — instance_url is NOT needed;
-            # the real org URL is returned in the OAuth response and used from there on.
+
             domain = (c.domain or "login").strip().lower()
             if domain == "login":
                 login_base = "https://login.salesforce.com"
             elif domain == "test":
                 login_base = "https://test.salesforce.com"
             else:
-                # Custom domain: e.g. "mycompany" → https://mycompany.my.salesforce.com
                 login_base = f"https://{domain}.my.salesforce.com"
+
+            # Prefer SOAP when a security_token is supplied — SOAP works without
+            # a Connected App consumer key, which many orgs don't expose.
+            # Fall back to OAuth only when client_id + client_secret are provided.
+            if c.security_token and not c.client_id:
+                self._soap_login(login_base)
+                return
+
             token_url = f"{login_base}/services/oauth2/token"
             data: Dict = {
                 "grant_type": "password",
                 "username":   c.username,
                 "password":   (c.password or "") + (c.security_token or ""),
             }
-            # Only include client credentials if actually provided — sending empty strings
-            # triggers invalid_client_id errors on orgs that don't require a Connected App.
             if c.client_id:
                 data["client_id"] = c.client_id
             if c.client_secret:
                 data["client_secret"] = c.client_secret
+
         elif c.auth_method == SalesforceAuthMethod.OAUTH_CLIENT_CREDS:
             if not c.client_id or not c.client_secret:
                 raise ValueError("client_id and client_secret are required.")
@@ -97,9 +160,8 @@ class SalesforceClient:
         else:
             raise ValueError(f"Unsupported auth method: {c.auth_method}")
 
-        # The session has Content-Type: application/json set globally for API calls.
-        # The OAuth token endpoint requires application/x-www-form-urlencoded — override it
-        # here explicitly, because requests only auto-sets it if Content-Type is not already set.
+        # OAuth token endpoint requires application/x-www-form-urlencoded — override
+        # the session-level Content-Type: application/json header explicitly.
         resp = self._session.post(
             token_url, data=data,
             headers={"Content-Type": "application/x-www-form-urlencoded"},
@@ -114,7 +176,6 @@ class SalesforceClient:
 
         payload = resp.json()
         self._token = payload.get("access_token")
-        # instance_url returned by OAuth may differ from the one supplied
         if payload.get("instance_url"):
             self.instance_url = payload["instance_url"].rstrip("/")
 

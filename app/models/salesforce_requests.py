@@ -39,8 +39,14 @@ class SalesforceApiScope(str, Enum):
 
 class SalesforceCredentials(BaseModel):
     auth_method:    SalesforceAuthMethod = SalesforceAuthMethod.USERNAME_PASSWORD
-    instance_url:   str                   # e.g. https://myorg.salesforce.com
     api_version:    str = "59.0"
+
+    # For username_password: "login" (production) | "test" (sandbox) | custom domain name
+    # The real instance URL is discovered automatically from the OAuth response.
+    domain:         Optional[str] = "login"
+
+    # Required for oauth_client_credentials and connected_app_token (where we can't auto-discover)
+    instance_url:   Optional[str] = None
 
     # Username + Password + Security Token
     username:       Optional[str] = None

@@ -35,7 +35,7 @@ class SalesforceClient:
     """Thin, multi-surface Salesforce API client."""
 
     def __init__(self, credentials: SalesforceCredentials) -> None:
-        self.instance_url = credentials.instance_url.rstrip("/")
+        self.instance_url = (credentials.instance_url or "").rstrip("/")
         self.api_version  = credentials.api_version or "59.0"
         self._creds       = credentials
         self._token: Optional[str] = None
@@ -53,23 +53,42 @@ class SalesforceClient:
         if c.auth_method == SalesforceAuthMethod.CONNECTED_APP_TOKEN:
             if not c.access_token:
                 raise ValueError("access_token is required for connected_app_token auth.")
+            if not self.instance_url:
+                raise ValueError("instance_url is required for connected_app_token auth.")
             self._token = c.access_token
             return
 
-        token_url = f"{self.instance_url}/services/oauth2/token"
         if c.auth_method == SalesforceAuthMethod.USERNAME_PASSWORD:
             if not c.username or not c.password:
                 raise ValueError("username and password are required.")
-            data = {
+            # Derive the OAuth login server from domain — instance_url is NOT needed;
+            # the real org URL is returned in the OAuth response and used from there on.
+            domain = (c.domain or "login").strip().lower()
+            if domain == "login":
+                login_base = "https://login.salesforce.com"
+            elif domain == "test":
+                login_base = "https://test.salesforce.com"
+            else:
+                # Custom domain: e.g. "mycompany" → https://mycompany.my.salesforce.com
+                login_base = f"https://{domain}.my.salesforce.com"
+            token_url = f"{login_base}/services/oauth2/token"
+            data: Dict = {
                 "grant_type": "password",
-                "client_id":  c.client_id or "",
-                "client_secret": c.client_secret or "",
                 "username":   c.username,
                 "password":   (c.password or "") + (c.security_token or ""),
             }
+            # Only include client credentials if actually provided — sending empty strings
+            # triggers invalid_client_id errors on orgs that don't require a Connected App.
+            if c.client_id:
+                data["client_id"] = c.client_id
+            if c.client_secret:
+                data["client_secret"] = c.client_secret
         elif c.auth_method == SalesforceAuthMethod.OAUTH_CLIENT_CREDS:
             if not c.client_id or not c.client_secret:
                 raise ValueError("client_id and client_secret are required.")
+            if not self.instance_url:
+                raise ValueError("instance_url is required for oauth_client_credentials auth.")
+            token_url = f"{self.instance_url}/services/oauth2/token"
             data = {
                 "grant_type":    "client_credentials",
                 "client_id":     c.client_id,
@@ -78,7 +97,14 @@ class SalesforceClient:
         else:
             raise ValueError(f"Unsupported auth method: {c.auth_method}")
 
-        resp = self._session.post(token_url, data=data, timeout=_TIMEOUT)
+        # The session has Content-Type: application/json set globally for API calls.
+        # The OAuth token endpoint requires application/x-www-form-urlencoded — override it
+        # here explicitly, because requests only auto-sets it if Content-Type is not already set.
+        resp = self._session.post(
+            token_url, data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=_TIMEOUT,
+        )
         if resp.status_code != 200:
             try:
                 detail = resp.json().get("error_description") or resp.json().get("error") or resp.text

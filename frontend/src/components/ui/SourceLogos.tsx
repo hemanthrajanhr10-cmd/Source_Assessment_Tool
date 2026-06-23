@@ -9,7 +9,8 @@ import snowflakeUrl    from '../../assets/src_logos/Snowflake_Logo.png'
 import tableauUrl      from '../../assets/src_logos/Tableau.png'
 import dataverseUrl    from '../../assets/src_logos/Dataverse_logo.png'
 import mysqlUrl        from '../../assets/src_logos/MySQL.png'
-import oracleUrl       from '../../assets/src_logos/Oracle.png'
+import oracleUrl       from '../../assets/src_logos/Oracle.jpg'
+
 import postgresqlUrl   from '../../assets/src_logos/Postgresql.png'
 
 type LogoProps = { size?: number; className?: string }
@@ -129,7 +130,7 @@ export function OracleFullLogo({ height = 22, className }: { height?: number; cl
       style={{
         height,
         width: 'auto',
-        maxWidth: 160,
+        maxWidth: 100,
         objectFit: 'contain',
         objectPosition: 'center center',
         display: 'block',

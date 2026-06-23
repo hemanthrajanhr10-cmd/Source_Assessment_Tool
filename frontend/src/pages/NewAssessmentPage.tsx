@@ -11,6 +11,7 @@ import type { AccessLevel, DatabaseInfo, DbType, HybridConnection } from '../typ
 import { ACCESS_LEVEL_OPTIONS } from '../types/api'
 import Button from '../components/ui/Button'
 import { SqlServerLogo, MySQLFullLogo, OracleFullLogo, PostgreSQLIconLogo } from '../components/ui/SourceLogos'
+import assessmentLogo from '../assets/src_logos/source_assessment_logo.png'
 import Spinner from '../components/ui/Spinner'
 
 const DB_TYPE_OPTIONS: { value: DbType; label: string; defaultPort: number }[] = [
@@ -406,7 +407,7 @@ function ServerCard({
       <div className="flex items-center gap-3 px-5 py-3.5 bg-slate-50 border-b border-slate-200">
         <div className="flex items-center gap-1.5 shrink-0">
           <DbEngineChip dbType={entry.db_type} />
-          <span className="text-xs font-bold text-earth-700 tabular-nums">{index + 1}</span>
+          {/* <span className="text-xs font-bold text-earth-700 tabular-nums">{index + 1}</span> */}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-800 truncate">{serverLabel}</p>
@@ -927,17 +928,17 @@ function ServerCard({
 }
 
 function DbEngineIcon({ dbType, size = 'sm' }: { dbType: DbType; size?: 'sm' | 'lg' }) {
-  const dim = size === 'lg' ? { box: 'h-10 w-10', rounded: 'rounded-xl', logo: 28, logoH: 22 } : { box: 'h-9 w-9', rounded: 'rounded-xl', logo: 24, logoH: 19 }
+  const dim = size === 'lg' ? { box: 'h-10 w-10', rounded: 'rounded-xl', logo: 28, logoH: 22 } : { box: 'h-16 w-16', rounded: 'rounded-xl', logo: 44, logoH: 34 }
   if (dbType === 'mysql') return (
     <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden`}
-      style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', boxShadow: '0 1px 4px rgba(22,163,74,0.10)' }}>
+      style={{ background: '#F8FAFF', border: '1px solid #BBF7D0', boxShadow: '0 1px 4px rgba(22,163,74,0.10)' }}>
       <MySQLFullLogo height={dim.logoH} />
     </div>
   )
   if (dbType === 'oracle') return (
-    <div className={`${size === 'lg' ? 'h-10 w-20' : 'h-9 w-[88px]'} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden px-2`}
-      style={{ background: '#FFF7F7', border: '1px solid #FECACA', boxShadow: '0 1px 4px rgba(204,41,54,0.10)' }}>
-      <OracleFullLogo height={size === 'lg' ? 20 : 17} />
+    <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden px-2`}
+      style={{ background: '#F8FAFF', border: '1px solid #FECACA', boxShadow: '0 1px 4px rgba(22,163,74,0.10)' }}>
+      <OracleFullLogo height={size === 'lg' ? 20 : 44} />
     </div>
   )
   if (dbType === 'postgres') return (
@@ -1037,8 +1038,10 @@ export default function NewAssessmentPage() {
   return (
     <div className="max-w-3xl mx-auto animate-fade-in">
       <div className="page-header">
-        <div className="flex items-center gap-3">
-          <DbEngineIcon dbType={servers[0]?.db_type ?? 'mssql'} size="lg" />
+        <div className="flex items-center gap-4">
+          <div className="h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden p-1.5 bg-earth-50 border-2 border-earth-300 shadow-card">
+            <img src={assessmentLogo} alt="DB Assessment" className="h-full w-full object-contain" />
+          </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-900 font-display">DB Assessment</h1>
             <p className="mt-1 text-sm text-slate-500">

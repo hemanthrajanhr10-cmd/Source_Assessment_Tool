@@ -226,6 +226,10 @@ export default function SalesforceAssessmentPage() {
   const [authMethod, setAuthMethod] = useState<SalesforceAuthMethod>('username_password')
 
   // Credential fields
+  // username_password: only needs domain (login/test/custom) — instance_url auto-discovered via OAuth
+  const [domain,         setDomain]         = useState<'login' | 'test' | 'custom'>('login')
+  const [customDomain,   setCustomDomain]   = useState('')
+  // oauth_client_credentials / connected_app_token: need the org URL directly
   const [instanceUrl,    setInstanceUrl]    = useState('')
   const [apiVersion,     setApiVersion]     = useState('59.0')
   const [username,       setUsername]       = useState('')
@@ -252,18 +256,21 @@ export default function SalesforceAssessmentPage() {
 
   function buildCredentials(): SalesforceCredentials {
     const base: SalesforceCredentials = {
-      auth_method:  authMethod,
-      instance_url: instanceUrl.trim(),
-      api_version:  apiVersion.trim() || '59.0',
+      auth_method: authMethod,
+      api_version: apiVersion.trim() || '59.0',
     }
     if (authMethod === 'username_password') {
+      // instance_url is auto-discovered from OAuth response — only domain is needed
+      base.domain         = domain === 'custom' ? customDomain.trim() : domain
       base.username       = username.trim() || undefined
       base.password       = password || undefined
       base.security_token = securityToken || undefined
     } else if (authMethod === 'oauth_client_credentials') {
+      base.instance_url  = instanceUrl.trim()
       base.client_id     = clientId.trim() || undefined
       base.client_secret = clientSecret || undefined
     } else {
+      base.instance_url = instanceUrl.trim()
       base.access_token = accessToken || undefined
     }
     return base
@@ -278,7 +285,12 @@ export default function SalesforceAssessmentPage() {
   }
 
   async function handleTestConnection() {
-    if (!instanceUrl.trim()) { setAuthError('Instance URL is required.'); return }
+    if (authMethod !== 'username_password' && !instanceUrl.trim()) {
+      setAuthError('Instance URL is required.'); return
+    }
+    if (authMethod === 'username_password' && domain === 'custom' && !customDomain.trim()) {
+      setAuthError('Custom domain is required.'); return
+    }
     setAuthState('testing')
     setAuthError('')
     setOrgInfo(null)
@@ -344,7 +356,7 @@ export default function SalesforceAssessmentPage() {
         <div style={{
           position: 'absolute', width: 700, height: 700, top: -350, right: -200,
           borderRadius: '50%', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(1,118,211,0.06) 0%, transparent 60%)',
+          background: `radial-gradient(circle, ${T.glow} 0%, transparent 60%)`,
         }} />
 
         <div style={{ position: 'relative', maxWidth: 1080, margin: '0 auto', padding: '32px 32px 28px' }}>
@@ -357,7 +369,7 @@ export default function SalesforceAssessmentPage() {
               display: 'inline-flex', alignItems: 'center',
               fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
               textTransform: 'uppercase', padding: '3px 10px', borderRadius: 20,
-              background: 'rgba(1,118,211,0.08)', color: T.dark, border: '1px solid rgba(1,118,211,0.20)',
+              background: T.accentLight, color: T.dark, border: `1px solid ${T.light200}`,
             }}>
               CRM · Cloud Platform
             </span>
@@ -374,7 +386,7 @@ export default function SalesforceAssessmentPage() {
             {['REST API', 'Metadata API', 'Tooling API', 'Bulk API v2', 'Analytics', 'Security', 'Automation', 'Integrations'].map(d => (
               <span key={d} style={{
                 fontSize: 10, fontWeight: 600, padding: '3px 10px', borderRadius: 99,
-                background: 'rgba(255,255,255,0.72)', border: `1px solid rgba(1,118,211,0.18)`,
+                background: 'rgba(255,255,255,0.72)', border: `1px solid ${T.light200}`,
                 color: T.dark, letterSpacing: '0.03em', backdropFilter: 'blur(4px)',
               }}>{d}</span>
             ))}
@@ -413,7 +425,7 @@ export default function SalesforceAssessmentPage() {
                   onClick={() => toggleScope(card.scope)}
                   style={{
                     background: active ? '#fff' : 'rgba(255,255,255,0.55)',
-                    borderRadius: '14px',
+                    borderRadius: '16px',
                     padding: '16px',
                     border: active
                       ? `2px solid ${card.color}`
@@ -527,13 +539,17 @@ export default function SalesforceAssessmentPage() {
                 Connection Details
               </p>
 
-              <InputField
-                label="Instance URL" required
-                value={instanceUrl} onChange={setInstanceUrl}
-                placeholder="https://myorg.salesforce.com"
-                icon={Globe}
-                hint="Your Salesforce org URL (no trailing slash)"
-              />
+              {/* Instance URL — only needed when we can't auto-discover it from OAuth */}
+              {authMethod !== 'username_password' && (
+                <InputField
+                  label="Instance URL" required
+                  value={instanceUrl} onChange={setInstanceUrl}
+                  placeholder="https://myorg.salesforce.com"
+                  icon={Globe}
+                  hint="Your Salesforce org URL — auto-discovered for username/password"
+                />
+              )}
+
               <InputField
                 label="API Version"
                 value={apiVersion} onChange={setApiVersion}
@@ -543,6 +559,45 @@ export default function SalesforceAssessmentPage() {
 
               {authMethod === 'username_password' && (
                 <>
+                  {/* Login server — replaces instance URL for password grant */}
+                  <div style={{ marginBottom: '14px' }}>
+                    <p style={{ fontSize: '11px', fontWeight: 700, color: T.textMid, marginBottom: '6px', letterSpacing: '0.04em' }}>
+                      Login Server <span style={{ color: '#e11d48' }}>*</span>
+                    </p>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {([
+                        { value: 'login', label: 'Production', sub: 'login.salesforce.com' },
+                        { value: 'test',  label: 'Sandbox',    sub: 'test.salesforce.com'  },
+                        { value: 'custom', label: 'Custom Domain', sub: 'e.g. mycompany' },
+                      ] as const).map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setDomain(opt.value)}
+                          style={{
+                            flex: 1, minWidth: '120px', padding: '8px 12px', borderRadius: '10px',
+                            border: domain === opt.value ? `2px solid ${T.primary}` : `1.5px solid ${T.light200}`,
+                            background: domain === opt.value ? T.accentLight : '#fff',
+                            cursor: 'pointer', textAlign: 'left', transition: 'all 150ms',
+                          }}
+                        >
+                          <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: domain === opt.value ? T.dark : '#374151' }}>{opt.label}</p>
+                          <p style={{ margin: 0, fontSize: '10px', color: domain === opt.value ? T.primary : '#9ca3af', fontFamily: 'monospace' }}>{opt.sub}</p>
+                        </button>
+                      ))}
+                    </div>
+                    {domain === 'custom' && (
+                      <div style={{ marginTop: '8px' }}>
+                        <InputField
+                          label="Domain Name" required
+                          value={customDomain} onChange={setCustomDomain}
+                          placeholder="mycompany"
+                          icon={Globe}
+                          hint="Your custom domain prefix — becomes mycompany.my.salesforce.com"
+                        />
+                      </div>
+                    )}
+                  </div>
                   <InputField label="Username" required value={username} onChange={setUsername} placeholder="user@company.com" icon={User} />
                   <InputField label="Password" required value={password} onChange={setPassword} icon={Key} showToggle />
                   <InputField
@@ -550,7 +605,7 @@ export default function SalesforceAssessmentPage() {
                     value={securityToken} onChange={setSecurityToken}
                     icon={Shield}
                     showToggle
-                    hint="Append to password if your org enforces IP restrictions"
+                    hint="Append to password if your org enforces IP restrictions (leave blank if not required)"
                   />
                 </>
               )}

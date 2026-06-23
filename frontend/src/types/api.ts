@@ -2063,8 +2063,11 @@ export type SalesforceApiScope =
 
 export interface SalesforceCredentials {
   auth_method: SalesforceAuthMethod
-  instance_url: string
   api_version?: string
+  /** username_password only: "login" | "test" | custom domain name */
+  domain?: string
+  /** Required for oauth_client_credentials and connected_app_token */
+  instance_url?: string
   username?: string
   password?: string
   security_token?: string

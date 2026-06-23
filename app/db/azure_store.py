@@ -284,7 +284,7 @@ def sf_upsert_session(job: dict) -> None:
             """,
             # WHEN MATCHED params (17)
             job.get("label"),
-            job.get("instance_url", ""),
+            job.get("instance_url") or "",
             result.get("org_name") if result else None,
             result.get("org_id") if result else None,
             result.get("org_type") if result else None,
@@ -303,7 +303,7 @@ def sf_upsert_session(job: dict) -> None:
             # WHEN NOT MATCHED params (19)
             job["job_id"],
             job.get("label"),
-            job.get("instance_url", ""),
+            job.get("instance_url") or "",
             result.get("org_name") if result else None,
             result.get("org_id") if result else None,
             result.get("org_type") if result else None,

@@ -67,11 +67,15 @@ STEPS = [
 
 def create_job(request: SalesforceAssessmentRequest) -> str:
     job_id = str(uuid.uuid4())
+    creds = request.credentials
+    # For username_password the real instance_url is unknown until OAuth completes;
+    # use domain as a placeholder so the label and NOT NULL column are never empty.
+    initial_url = creds.instance_url or creds.domain or "pending-auth"
     job: Dict = {
         "job_id":           job_id,
         "status":           "pending",
-        "label":            request.label or f"Salesforce – {request.credentials.instance_url}",
-        "instance_url":     request.credentials.instance_url,
+        "label":            request.label or f"Salesforce – {initial_url}",
+        "instance_url":     initial_url,
         "progress_message": "Queued",
         "checks_completed": 0,
         "total_checks":     len(STEPS),
@@ -199,6 +203,9 @@ def run_assessment(job_id: str, request: SalesforceAssessmentRequest) -> None:
     try:
         step(STEPS[0], 0)
         client = SalesforceClient(request.credentials)
+        # After OAuth the client has the real instance_url — update the job row now
+        # so the DB reflects the actual org URL instead of the domain placeholder.
+        _update(job_id, instance_url=client.instance_url)
 
         # ── Step 1: Org info ──────────────────────────────────────────────────
         step(STEPS[1], 1)

@@ -246,86 +246,36 @@ def init_schema() -> None:
 
 def sf_upsert_session(job: dict) -> None:
     """Insert or update a Salesforce assessment session row."""
-    import json as _json
     result = job.get("result")
-    results_json = _json.dumps(result, default=str) if result else None
 
-    conn = _get_conn()
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            MERGE dbo.salesforce_sessions AS target
-            USING (SELECT ? AS job_id) AS src ON target.job_id = src.job_id
-            WHEN MATCHED THEN UPDATE SET
-                label            = ?,
-                instance_url     = ?,
-                org_name         = ?,
-                org_id           = ?,
-                org_type         = ?,
-                status           = ?,
-                progress_message = ?,
-                checks_completed = ?,
-                total_checks     = ?,
-                overall_score    = ?,
-                critical_findings = ?,
-                high_findings    = ?,
-                total_checks_run = ?,
-                duration_seconds = ?,
-                error            = ?,
-                results_json     = ?,
-                completed_at     = ?
-            WHEN NOT MATCHED THEN INSERT (
-                job_id, label, instance_url, org_name, org_id, org_type,
-                status, progress_message, checks_completed, total_checks,
-                overall_score, critical_findings, high_findings, total_checks_run,
-                duration_seconds, error, results_json, created_at, completed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-            """,
-            # WHEN MATCHED params (17)
-            job.get("label"),
-            job.get("instance_url") or "",
-            result.get("org_name") if result else None,
-            result.get("org_id") if result else None,
-            result.get("org_type") if result else None,
-            job.get("status", "pending"),
-            job.get("progress_message"),
-            job.get("checks_completed", 0),
-            job.get("total_checks", 0),
-            result.get("overall_score") if result else None,
-            result.get("critical_findings") if result else None,
-            result.get("high_findings") if result else None,
-            result.get("total_checks") if result else None,
-            job.get("duration_seconds"),
-            job.get("error"),
-            results_json,
-            job.get("completed_at"),
-            # WHEN NOT MATCHED params (19)
-            job["job_id"],
-            job.get("label"),
-            job.get("instance_url") or "",
-            result.get("org_name") if result else None,
-            result.get("org_id") if result else None,
-            result.get("org_type") if result else None,
-            job.get("status", "pending"),
-            job.get("progress_message"),
-            job.get("checks_completed", 0),
-            job.get("total_checks", 0),
-            result.get("overall_score") if result else None,
-            result.get("critical_findings") if result else None,
-            result.get("high_findings") if result else None,
-            result.get("total_checks") if result else None,
-            job.get("duration_seconds"),
-            job.get("error"),
-            results_json,
-            job.get("created_at"),
-            job.get("completed_at"),
-        )
-        conn.commit()
-    except Exception as exc:
-        logger.warning("sf_upsert_session failed (non-fatal): %s", exc)
-    finally:
-        conn.close()
+    def _g(key, default=None):
+        if result is None:
+            return default
+        return result.get(key, default) if isinstance(result, dict) else getattr(result, key, default)
+
+    _upsert(
+        table="salesforce_sessions", pk_col="job_id", pk_val=job["job_id"],
+        scalars={
+            "label":             job.get("label"),
+            "instance_url":      job.get("instance_url") or "",
+            "org_name":          _g("org_name"),
+            "org_id":            _g("org_id"),
+            "org_type":          _g("org_type"),
+            "status":            job.get("status", "pending"),
+            "progress_message":  job.get("progress_message"),
+            "checks_completed":  job.get("checks_completed", 0),
+            "total_checks":      job.get("total_checks", 0),
+            "overall_score":     _g("overall_score"),
+            "critical_findings": _g("critical_findings"),
+            "high_findings":     _g("high_findings"),
+            "total_checks_run":  _g("total_checks"),
+            "duration_seconds":  job.get("duration_seconds"),
+            "error":             job.get("error"),
+            "created_at":        job.get("created_at"),
+            "completed_at":      job.get("completed_at"),
+        },
+        results_obj=result,
+    )
 
 
 def sf_list_sessions() -> list[dict]:

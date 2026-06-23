@@ -508,7 +508,7 @@ def run_assessment(job_id: str, request: SalesforceAssessmentRequest) -> None:
         result = SalesforceAssessmentResult(
             job_id=job_id,
             status="completed",
-            instance_url=request.credentials.instance_url,
+            instance_url=client.instance_url or request.credentials.instance_url or "",
             org_name=org_name,
             org_id=org.get("Id"),
             org_type=org_type,

@@ -12,7 +12,7 @@ import mysqlUrl        from '../../assets/src_logos/MySQL.png'
 import oracleUrl       from '../../assets/src_logos/Oracle.jpg'
 
 import postgresqlUrl   from '../../assets/src_logos/Postgresql.png'
-import ibmDb2Url      from '../../assets/src_logos/IBM_Db2.svg'
+import ibmDb2Url      from '../../assets/src_logos/IBM_Db2.png'
 
 type LogoProps = { size?: number; className?: string }
 

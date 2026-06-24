@@ -37,22 +37,53 @@ GROUP BY s.name
 ORDER BY s.name
 """
 
+# TABLES = """
+# SELECT
+#     s.name                                                          AS schema_name,
+#     t.name                                                          AS table_name,
+#     COUNT(c.column_id)                                              AS column_count,
+#     CAST(p.rows AS BIGINT)                                          AS row_count,
+#     CAST(SUM(a.total_pages) * 8 / 1024.0 AS DECIMAL(18,2))        AS size_mb,
+#     t.create_date,
+#     t.modify_date
+# FROM sys.tables t
+# JOIN sys.schemas          s  ON s.schema_id = t.schema_id
+# JOIN sys.indexes          i  ON i.object_id = t.object_id AND i.index_id IN (0,1)
+# JOIN sys.partitions       p  ON p.object_id = t.object_id AND p.index_id = i.index_id
+# JOIN sys.allocation_units a  ON a.container_id = p.partition_id
+# JOIN sys.columns          c  ON c.object_id = t.object_id
+# GROUP BY s.name, t.name, p.rows, t.create_date, t.modify_date
+# ORDER BY s.name, t.name
+# """
+
 TABLES = """
 SELECT
-    s.name                                                          AS schema_name,
-    t.name                                                          AS table_name,
-    COUNT(c.column_id)                                              AS column_count,
-    CAST(p.rows AS BIGINT)                                          AS row_count,
-    CAST(SUM(a.total_pages) * 8 / 1024.0 AS DECIMAL(18,2))        AS size_mb,
+    s.name                                              AS schema_name,
+    t.name                                               AS table_name,
+    cols.column_count,
+    rowinfo.row_count,
+    CAST(ISNULL(sizeinfo.total_pages, 0) * 8 / 1024.0 AS DECIMAL(18,2)) AS size_mb,
     t.create_date,
     t.modify_date
 FROM sys.tables t
-JOIN sys.schemas          s  ON s.schema_id = t.schema_id
-JOIN sys.indexes          i  ON i.object_id = t.object_id AND i.index_id IN (0,1)
-JOIN sys.partitions       p  ON p.object_id = t.object_id AND p.index_id = i.index_id
-JOIN sys.allocation_units a  ON a.container_id = p.partition_id
-JOIN sys.columns          c  ON c.object_id = t.object_id
-GROUP BY s.name, t.name, p.rows, t.create_date, t.modify_date
+JOIN sys.schemas s ON s.schema_id = t.schema_id
+CROSS APPLY (
+    SELECT SUM(p.rows) AS row_count
+    FROM sys.partitions p
+    JOIN sys.indexes i ON i.object_id = p.object_id AND i.index_id = p.index_id
+    WHERE p.object_id = t.object_id AND i.index_id IN (0,1)
+) rowinfo
+CROSS APPLY (
+    SELECT SUM(a.total_pages) AS total_pages
+    FROM sys.partitions p
+    JOIN sys.allocation_units a ON a.container_id = p.partition_id
+    WHERE p.object_id = t.object_id
+) sizeinfo
+CROSS APPLY (
+    SELECT COUNT(*) AS column_count
+    FROM sys.columns c
+    WHERE c.object_id = t.object_id
+) cols
 ORDER BY s.name, t.name
 """
 

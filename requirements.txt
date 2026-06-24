@@ -84,6 +84,9 @@ tableauserverclient>=0.30
 # Snowflake connector (externalbrowser OAuth + queries)
 snowflake-connector-python>=3.10.0
 
+# IBM Db2 driver (ibm_db_dbi is bundled inside ibm_db)
+ibm_db>=3.2.0
+
 # Misc
 annotated-doc==0.0.4
 annotated-types==0.7.0

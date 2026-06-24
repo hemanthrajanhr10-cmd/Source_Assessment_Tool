@@ -42,6 +42,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gnupg2 \
         apt-transport-https \
         unixodbc \
+        libxml2 \
+        libpam0g \
+        libstdc++6 \
     && curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor \
         -o /usr/share/keyrings/microsoft-prod.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] \

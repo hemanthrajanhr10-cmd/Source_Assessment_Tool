@@ -34,6 +34,9 @@ const DataverseSessionDetailPage   = lazy(() => import('./pages/DataverseSession
 const SalesforceAssessmentPage     = lazy(() => import('./pages/SalesforceAssessmentPage'))
 const SalesforceSessionsPage       = lazy(() => import('./pages/SalesforceSessionsPage'))
 const SalesforceSessionDetailPage  = lazy(() => import('./pages/SalesforceSessionDetailPage'))
+const Db2AssessmentPage            = lazy(() => import('./pages/Db2AssessmentPage'))
+const Db2SessionsPage              = lazy(() => import('./pages/Db2SessionsPage'))
+const Db2SessionDetailPage         = lazy(() => import('./pages/Db2SessionDetailPage'))
 const LoginPage                    = lazy(() => import('./pages/LoginPage'))
 const RegisterPage               = lazy(() => import('./pages/RegisterPage'))
 const MFASetupPage               = lazy(() => import('./pages/MFASetupPage'))
@@ -114,6 +117,9 @@ function AppRoutes() {
                     <Route path="/salesforce/new" element={<SalesforceAssessmentPage />} />
                     <Route path="/salesforce/sessions" element={<SalesforceSessionsPage />} />
                     <Route path="/salesforce/sessions/:jobId" element={<SalesforceSessionDetailPage />} />
+                    <Route path="/db2/new" element={<Db2AssessmentPage />} />
+                    <Route path="/db2/sessions" element={<Db2SessionsPage />} />
+                    <Route path="/db2/sessions/:jobId" element={<Db2SessionDetailPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

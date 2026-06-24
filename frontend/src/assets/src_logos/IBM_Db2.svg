@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 48" role="img" aria-label="IBM Db2">
+  <!-- IBM blue background strip -->
+  <rect width="120" height="48" rx="6" fill="#1F70C1"/>
+
+  <!-- IBM stripes (classic 8-bar IBM logo simplified) -->
+  <!-- I -->
+  <rect x="8"  y="11" width="14" height="4" fill="white" rx="1"/>
+  <rect x="12" y="17" width="6"  height="4" fill="white" rx="1"/>
+  <rect x="12" y="23" width="6"  height="4" fill="white" rx="1"/>
+  <rect x="8"  y="29" width="14" height="4" fill="white" rx="1"/>
+
+  <!-- B -->
+  <rect x="26" y="11" width="6"  height="4"  fill="white" rx="1"/>
+  <rect x="32" y="11" width="8"  height="4"  fill="white" rx="1" rx="1"/>
+  <rect x="26" y="17" width="6"  height="4"  fill="white" rx="1"/>
+  <rect x="32" y="19" width="8"  height="2"  fill="white" rx="1"/>
+  <rect x="26" y="23" width="6"  height="4"  fill="white" rx="1"/>
+  <rect x="32" y="23" width="8"  height="4"  fill="white" rx="1"/>
+  <rect x="26" y="29" width="6"  height="4"  fill="white" rx="1"/>
+  <rect x="32" y="29" width="8"  height="4"  fill="white" rx="1"/>
+
+  <!-- M -->
+  <rect x="44" y="11" width="6"  height="22" fill="white" rx="1"/>
+  <rect x="50" y="15" width="4"  height="6"  fill="white" rx="1"/>
+  <rect x="54" y="15" width="4"  height="6"  fill="white" rx="1"/>
+  <rect x="58" y="11" width="6"  height="22" fill="white" rx="1"/>
+
+  <!-- Db2 text -->
+  <text x="72" y="34" font-family="'IBM Plex Mono', 'Courier New', monospace" font-size="20" font-weight="700" fill="white" letter-spacing="-1">Db2</text>
+</svg>

@@ -47,6 +47,11 @@ import type {
   TokenResponse,
   UnifiedSession,
   VerifyMFARequest,
+  Db2ConnectionParams,
+  Db2AssessmentResult,
+  Db2JobResponse,
+  Db2JobStatusResponse,
+  Db2SessionRecord,
 } from '../types/api'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''
@@ -463,6 +468,36 @@ export const api = {
     const a = document.createElement('a')
     a.href = url
     a.download = `snowflake_assessment_${jobId.slice(0, 8)}.docx`
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  // ── IBM Db2 Assessments ───────────────────────────────────────────────────
+  db2TestConnection: (data: Db2ConnectionParams) =>
+    http.post<{ success: boolean; message: string; service_level?: string; host_name?: string }>(
+      '/api/v1/db2/test-connection',
+      data,
+    ),
+
+  db2Assess: (data: Db2ConnectionParams) =>
+    http.post<Db2JobResponse>('/api/v1/db2/assess', data),
+
+  db2JobStatus: (jobId: string) =>
+    http.get<Db2JobStatusResponse>(`/api/v1/db2/jobs/${jobId}/status`),
+
+  db2JobResults: (jobId: string) =>
+    http.get<Db2AssessmentResult>(`/api/v1/db2/jobs/${jobId}/results`),
+
+  db2ListSessions: () =>
+    http.get<Db2SessionRecord[]>('/api/v1/db2/sessions'),
+
+  db2DownloadExcel: async (jobId: string, label?: string) => {
+    const res = await http.get(`/api/v1/db2/jobs/${jobId}/report`, { responseType: 'blob' })
+    const filename = `${(label || 'ibm_db2_assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.xlsx`
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
   },

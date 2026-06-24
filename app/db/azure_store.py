@@ -190,6 +190,36 @@ BEGIN
 END;
 """
 
+_DB2_SESSIONS_DDL = """
+IF OBJECT_ID('dbo.db2_sessions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.db2_sessions (
+        job_id           VARCHAR(36)    NOT NULL,
+        label            NVARCHAR(200)  NULL,
+        hostname         NVARCHAR(500)  NULL,
+        database_name    NVARCHAR(128)  NULL,
+        port             INT            NULL,
+        db2_version      NVARCHAR(200)  NULL,
+        instance_name    NVARCHAR(128)  NULL,
+        schema_count     INT            NULL,
+        table_count      INT            NULL,
+        view_count       INT            NULL,
+        procedure_count  INT            NULL,
+        tablespace_count INT            NULL,
+        blu_enabled      BIT            NULL,
+        is_dpf           BIT            NULL,
+        status           VARCHAR(20)    NOT NULL DEFAULT 'pending',
+        progress_message NVARCHAR(500)  NULL,
+        error            NVARCHAR(MAX)  NULL,
+        results_json     NVARCHAR(MAX)  NULL,
+        created_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at     DATETIME2      NULL,
+        CONSTRAINT PK_db2_sessions PRIMARY KEY (job_id)
+    );
+    CREATE INDEX IX_db2_sessions_created ON dbo.db2_sessions (created_at DESC);
+END;
+"""
+
 _TABLEAU_SESSIONS_DDL = """
 IF OBJECT_ID('dbo.tableau_sessions', 'U') IS NULL
 BEGIN
@@ -231,6 +261,7 @@ def init_schema() -> None:
             (_SAGE_SESSIONS_DDL,       "sage_intacct_sessions"),
             (_SNOWFLAKE_SESSIONS_DDL,  "snowflake_sessions"),
             (_TABLEAU_SESSIONS_DDL,    "tableau_sessions"),
+            (_DB2_SESSIONS_DDL,        "db2_sessions"),
         ]:
             cur.execute(ddl_str)
             conn.commit()
@@ -2091,3 +2122,66 @@ def tableau_list_sessions() -> list[dict]:
 
 def tableau_get_session(job_id: str) -> Optional[dict]:
     return _get_session("tableau_sessions", "job_id", job_id)
+
+
+# ── IBM Db2 ───────────────────────────────────────────────────────────────────
+
+_DB2_LIST_COLS = [
+    "job_id", "label", "hostname", "database_name", "port",
+    "db2_version", "instance_name",
+    "schema_count", "table_count", "view_count", "procedure_count",
+    "tablespace_count", "blu_enabled", "is_dpf",
+    "status", "created_at", "completed_at", "error",
+]
+
+
+def db2_upsert_session(job: dict) -> None:
+    r = job.get("results")
+
+    def _g(key, default=None):
+        if r is None:
+            return default
+        return getattr(r, key, None) if not isinstance(r, dict) else r.get(key, default)
+
+    # Pull nested object fields
+    inv       = _g("object_inventory") or {}
+    inst_info = _g("instance_info")    or {}
+    db_info   = _g("database_info")    or {}
+
+    def _nested(obj, key, default=None):
+        if obj is None:
+            return default
+        return getattr(obj, key, None) if not isinstance(obj, dict) else obj.get(key, default)
+
+    _upsert(
+        table="db2_sessions", pk_col="job_id", pk_val=job["job_id"],
+        scalars={
+            "label":            job.get("label"),
+            "hostname":         job.get("hostname"),
+            "database_name":    job.get("database"),
+            "port":             job.get("port"),
+            "db2_version":      _nested(inst_info, "db2_version"),
+            "instance_name":    _nested(inst_info, "instance_name"),
+            "schema_count":     _nested(inv, "schema_count"),
+            "table_count":      _nested(inv, "table_count"),
+            "view_count":       _nested(inv, "view_count"),
+            "procedure_count":  _nested(inv, "procedure_count"),
+            "tablespace_count": _nested(inv, "tablespace_count"),
+            "blu_enabled":      1 if _nested(db_info, "blu_enabled") else 0,
+            "is_dpf":           1 if _nested(inst_info, "is_dpf") else 0,
+            "status":           job.get("status", "pending"),
+            "progress_message": job.get("progress_message"),
+            "error":            job.get("error"),
+            "created_at":       job.get("created_at"),
+            "completed_at":     job.get("completed_at"),
+        },
+        results_obj=r.model_dump() if hasattr(r, "model_dump") else r,
+    )
+
+
+def db2_list_sessions() -> list[dict]:
+    return _list_sessions("db2_sessions", _DB2_LIST_COLS)
+
+
+def db2_get_session(job_id: str) -> Optional[dict]:
+    return _get_session("db2_sessions", "job_id", job_id)

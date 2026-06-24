@@ -12,6 +12,7 @@ import mysqlUrl        from '../../assets/src_logos/MySQL.png'
 import oracleUrl       from '../../assets/src_logos/Oracle.jpg'
 
 import postgresqlUrl   from '../../assets/src_logos/Postgresql.png'
+import ibmDb2Url      from '../../assets/src_logos/IBM_Db2.svg'
 
 type LogoProps = { size?: number; className?: string }
 
@@ -336,4 +337,20 @@ export function SourceSATLogo({ size = 24, className }: LogoProps) {
 
 export function UnifiedLogo({ size = 24, className }: LogoProps) {
   return <SourceSATLogo size={size} className={className} />
+}
+
+export function IbmDb2Logo({ size = 24, className }: LogoProps) {
+  return <IconSlot src={ibmDb2Url} alt="IBM Db2" size={size} className={className} />
+}
+
+export function IbmDb2FullLogo({ height = 32, className }: { height?: number; className?: string }) {
+  return (
+    <WordmarkLogo
+      src={ibmDb2Url}
+      alt="IBM Db2"
+      height={height}
+      maxWidth={140}
+      className={className}
+    />
+  )
 }

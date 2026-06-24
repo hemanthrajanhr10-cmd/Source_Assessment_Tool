@@ -2181,3 +2181,418 @@ export interface SalesforceSessionRecord {
   completed_at?: string
   duration_seconds?: number
 }
+
+// ── IBM Db2 ───────────────────────────────────────────────────────────────────
+
+// ── IBM Db2 for LUW ───────────────────────────────────────────────────────────
+
+export interface Db2ConnectionParams {
+  hostname: string
+  port: number
+  database: string
+  username: string
+  password: string
+  ssl_enabled?: boolean
+  ssl_server_certificate?: string
+  // Azure Hybrid Connection Manager
+  use_hcm?: boolean
+  hcm_local_host?: string
+  hcm_local_port?: number
+  hcm_relay_namespace?: string
+  hcm_connection_name?: string
+  schema_filter?: string
+  label?: string
+}
+
+export interface Db2InstanceInfo {
+  db2_version?: string
+  instance_name?: string
+  host_name?: string
+  service_level?: string
+  fix_pack_num?: number
+  platform?: string
+  bit_width?: string
+  num_db_partitions: number
+  is_dpf: boolean
+  is_puresale: boolean
+}
+
+export interface Db2DatabaseInfo {
+  db_name: string
+  territory?: string
+  codeset?: string
+  collation_sequence?: string
+  blu_enabled: boolean
+}
+
+export interface Db2Schema {
+  schema_name: string
+  owner?: string
+  create_time?: string
+  table_count: number
+  view_count: number
+  proc_count: number
+}
+
+export interface Db2Table {
+  schema_name: string
+  table_name: string
+  table_type?: string
+  org_type?: string
+  row_count?: number
+  data_pages?: number
+  overflow_pages?: number
+  tablespace_name?: string
+  create_time?: string
+  alter_time?: string
+  is_column_org: boolean
+}
+
+export interface Db2View {
+  schema_name: string
+  view_name: string
+  readonly?: string
+  create_time?: string
+}
+
+export interface Db2Index {
+  schema_name: string
+  table_name: string
+  index_name: string
+  uniquerule?: string
+  index_type?: string
+  clustered?: string
+  nleaf?: number
+  nlevels?: number
+  clusterratio?: number
+  density?: number
+  index_columns?: string
+  num_key_cols?: number
+}
+
+export interface Db2StoredProcedure {
+  schema_name: string
+  proc_name: string
+  language?: string
+  parm_count?: number
+  create_time?: string
+  alter_time?: string
+}
+
+export interface Db2Function {
+  schema_name: string
+  func_name: string
+  func_type?: string
+  language?: string
+  create_time?: string
+}
+
+export interface Db2Trigger {
+  schema_name: string
+  trigger_name: string
+  table_schema?: string
+  table_name?: string
+  trigger_type?: string
+  trigger_time?: string
+  enabled?: string
+  create_time?: string
+}
+
+export interface Db2Sequence {
+  schema_name: string
+  seq_name: string
+  seq_type?: string
+  data_type?: string
+  start?: string
+  increment?: string
+  min_val?: string
+  max_val?: string
+  cycle?: string
+  create_time?: string
+}
+
+export interface Db2UserDefinedType {
+  schema_name: string
+  type_name: string
+  metatype?: string
+  source_name?: string
+  create_time?: string
+}
+
+export interface Db2Package {
+  pkg_schema: string
+  pkg_name: string
+  pkg_version?: string
+  language?: string
+  owner?: string
+  create_time?: string
+}
+
+export interface Db2EventMonitor {
+  evmonname: string
+  target_type?: string
+  enabled?: string
+  event_mon_group?: string
+}
+
+export interface Db2Tablespace {
+  tbspace: string
+  tbspace_type?: string
+  data_tag?: string
+  page_size?: number
+  extent_size?: number
+  prefetch_size?: number
+  total_pages?: number
+  usable_pages?: number
+  used_pages?: number
+  free_pages?: number
+  overhead?: number
+  bufferpool_name?: string
+  utilization_pct?: number
+}
+
+export interface Db2Bufferpool {
+  bpname: string
+  npages?: number
+  automatic?: string
+  pagesize?: number
+  numblockpages?: number
+  hit_ratio?: number
+  logical_reads?: number
+  physical_reads?: number
+}
+
+export interface Db2StorageGroup {
+  sgname: string
+  owner?: string
+  create_time?: string
+  default_tbspace?: string
+}
+
+export interface Db2DbConfigParam {
+  name: string
+  value?: string
+  default?: string
+  flags?: string
+}
+
+export interface Db2DbmConfigParam {
+  name: string
+  value?: string
+  default?: string
+  flags?: string
+}
+
+export interface Db2ObjectInventory {
+  schema_count: number
+  table_count: number
+  column_count: number
+  view_count: number
+  index_count: number
+  procedure_count: number
+  function_count: number
+  trigger_count: number
+  sequence_count: number
+  alias_count: number
+  mqt_count: number
+  udt_count: number
+  package_count: number
+  event_monitor_count: number
+  tablespace_count: number
+  bufferpool_count: number
+  storage_group_count: number
+  nickname_count: number
+  wrapper_count: number
+}
+
+export interface Db2SecuritySummary {
+  total_users: number
+  users_with_dbadm: number
+  users_with_secadm: number
+  users_with_dataaccess: number
+  users_with_bindadd: number
+  users_with_connect: number
+  total_roles: number
+  role_member_count: number
+  rcac_row_permissions: number
+  rcac_col_masks: number
+  schemas_with_rcac: number
+  trusted_contexts_count: number
+  audit_policies_count: number
+  table_grants_count: number
+  column_grants_count: number
+  schema_grants_count: number
+  package_grants_count: number
+}
+
+export interface Db2PerformanceSummary {
+  db_status?: string
+  catalog_node_name?: string
+  total_cons?: number
+  appls_cur_cons?: number
+  lock_waits?: number
+  lock_timeouts?: number
+  lock_escals?: number
+  deadlocks?: number
+  sort_overflows?: number
+  rows_read?: number
+  rows_written?: number
+  pkg_cache_hit_ratio?: number
+  bp_hit_ratio?: number
+  log_utilization_pct?: number
+  total_log_used?: number
+  total_log_available?: number
+  db_heap_top?: number
+  direct_reads?: number
+  direct_writes?: number
+}
+
+export interface Db2ActiveConnection {
+  agent_id?: number
+  appl_name?: string
+  appl_status?: string
+  authid?: string
+  client_platform?: string
+  workload_name?: string
+  num_locks_held?: number
+  status_change_time?: string
+}
+
+export interface Db2TopSql {
+  stmt_text: string
+  exec_count?: number
+  total_exec_time?: number
+  avg_exec_time?: number
+  rows_read?: number
+  rows_returned?: number
+  total_sorts?: number
+  sort_overflows?: number
+}
+
+export interface Db2SpecificFeatures {
+  column_org_tables: number
+  row_org_tables: number
+  rcac_row_permissions: number
+  rcac_col_masks: number
+  federation_enabled: boolean
+  wrapper_count: number
+  server_count: number
+  nickname_count: number
+  wlm_service_classes: number
+  wlm_workloads: number
+  wlm_thresholds: number
+  sequence_count: number
+  alias_count: number
+  mqt_count: number
+  typed_table_count: number
+  udt_count: number
+  event_monitor_count: number
+  package_count: number
+  xsr_count: number
+  storage_group_count: number
+}
+
+export interface Db2FederationWrapper {
+  wrapname: string
+  library?: string
+  create_time?: string
+}
+
+export interface Db2FederationServer {
+  servername: string
+  servertype?: string
+  wrapname?: string
+  create_time?: string
+  nickname_count: number
+}
+
+export interface Db2WlmServiceClass {
+  serviceclassname: string
+  parentserviceclassname?: string
+  enabled?: string
+  create_time?: string
+}
+
+export interface Db2WlmWorkload {
+  workloadname: string
+  enabled?: string
+  create_time?: string
+}
+
+export interface Db2AssessmentResult {
+  job_id: string
+  label?: string
+  assessed_at: string
+  status: 'completed' | 'failed'
+  error?: string
+  hostname?: string
+  database?: string
+  port?: number
+  via_hcm: boolean
+  hcm_relay_namespace?: string
+  hcm_connection_name?: string
+  // Core metadata
+  instance_info?: Db2InstanceInfo
+  database_info?: Db2DatabaseInfo
+  object_inventory?: Db2ObjectInventory
+  security_summary?: Db2SecuritySummary
+  performance?: Db2PerformanceSummary
+  db2_features?: Db2SpecificFeatures
+  // Schema objects
+  schemas?: Db2Schema[]
+  tables?: Db2Table[]
+  views?: Db2View[]
+  indexes?: Db2Index[]
+  procedures?: Db2StoredProcedure[]
+  functions?: Db2Function[]
+  triggers?: Db2Trigger[]
+  sequences?: Db2Sequence[]
+  user_defined_types?: Db2UserDefinedType[]
+  packages?: Db2Package[]
+  event_monitors?: Db2EventMonitor[]
+  // Storage
+  tablespaces?: Db2Tablespace[]
+  bufferpools?: Db2Bufferpool[]
+  storage_groups?: Db2StorageGroup[]
+  // Configuration
+  db_config?: Db2DbConfigParam[]
+  dbm_config?: Db2DbmConfigParam[]
+  // Performance
+  active_connections?: Db2ActiveConnection[]
+  top_sql?: Db2TopSql[]
+  // Federation
+  federation_wrappers?: Db2FederationWrapper[]
+  federation_servers?: Db2FederationServer[]
+  // WLM
+  wlm_service_classes?: Db2WlmServiceClass[]
+  wlm_workloads?: Db2WlmWorkload[]
+}
+
+export interface Db2JobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface Db2JobStatusResponse {
+  job_id: string
+  status: string
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+  via_hcm: boolean
+}
+
+export interface Db2SessionRecord {
+  job_id: string
+  label?: string
+  status: string
+  hostname?: string
+  database?: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: Db2AssessmentResult
+}

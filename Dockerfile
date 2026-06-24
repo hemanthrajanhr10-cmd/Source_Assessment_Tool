@@ -28,6 +28,17 @@ FROM python:3.11-slim AS py-deps
 
 WORKDIR /deps
 
+# Build tools needed by packages that compile C extensions:
+#   libpq-dev  → psycopg2 (required by cloud-sql-python-connector[psycopg2])
+#   libxml2-dev / libpam0g-dev → ibm_db native extension
+#   gcc / g++ / python3-dev → any C/C++ extension compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ python3-dev \
+    libpq-dev \
+    libxml2-dev \
+    libpam0g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir -r requirements.txt

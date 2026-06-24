@@ -14,17 +14,17 @@ import Loader3D from '../components/ui/Loader3D'
 // ── Design tokens (Ocean theme) ───────────────────────────────────────────────
 
 const SAGE = {
-  primary:    '#0056B3',
-  mid:        '#0084D4',
-  light:      '#38A8F5',
-  accent:     '#38A8F5',
-  light50:    '#EFF7FF',
-  light100:   '#DBEEFF',
-  light200:   '#BAE0FF',
-  glow:       'rgba(0,86,179,0.15)',
-  shadow:     '0 2px 4px rgba(0,86,179,0.04), 0 8px 24px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowH:    '0 4px 8px rgba(0,86,179,0.06), 0 16px 40px rgba(0,86,179,0.10)',
-  shadowBtn:  '0 2px 8px rgba(0,86,179,0.30), inset 0 1px 0 rgba(255,255,255,0.16)',
+  primary:    '#4DA8A0',
+  mid:        '#6CBDB5',
+  light:      '#93CCC6',
+  accent:     '#93CCC6',
+  light50:    '#F0FAF9',
+  light100:   '#CCEFEC',
+  light200:   '#A8E2DD',
+  glow:       'rgba(77,168,160,0.15)',
+  shadow:     '0 2px 4px rgba(77,168,160,0.04), 0 8px 24px rgba(77,168,160,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowH:    '0 4px 8px rgba(77,168,160,0.06), 0 16px 40px rgba(77,168,160,0.10)',
+  shadowBtn:  '0 2px 8px rgba(77,168,160,0.30), inset 0 1px 0 rgba(255,255,255,0.16)',
 }
 
 // ── Assessment steps (terminal progress) ──────────────────────────────────────

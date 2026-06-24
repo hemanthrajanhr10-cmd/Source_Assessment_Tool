@@ -13,15 +13,15 @@ import { TableauLogo } from '../components/ui/SourceLogos'
 // ── Design tokens (Ocean / Deep Atlantic) ────────────────────────────────────
 
 const T = {
-  primary: '#0056B3',
-  dark:    '#003D82',
-  accent:  '#0084D4',
-  light50: '#EFF6FF',
-  light100:'#DBEEFF',
-  light200:'#BAE0FF',
-  glow:    'rgba(0,86,179,0.15)',
-  shadow:  '0 2px 4px rgba(0,86,179,0.04), 0 8px 24px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowH: '0 4px 8px rgba(0,86,179,0.06), 0 16px 40px rgba(0,86,179,0.10), 0 2px 4px rgba(0,0,0,0.04)',
+  primary: '#4DA8A0',
+  dark:    '#25706A',
+  accent:  '#6CBDB5',
+  light50: '#F0FAF9',
+  light100:'#CCEFEC',
+  light200:'#A8E2DD',
+  glow:    'rgba(77,168,160,0.15)',
+  shadow:  '0 2px 4px rgba(77,168,160,0.04), 0 8px 24px rgba(77,168,160,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowH: '0 4px 8px rgba(77,168,160,0.06), 0 16px 40px rgba(77,168,160,0.10), 0 2px 4px rgba(0,0,0,0.04)',
 }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
@@ -107,7 +107,7 @@ function SessionCard({ session, index }: { session: TableauSessionRecord; index:
           <div className="flex items-center gap-3 min-w-0">
             <div
               className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-              style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: `0 2px 8px ${T.glow}` }}
+              style={{ background: T.light50, border: `1px solid ${T.light200}`, boxShadow: `0 2px 8px ${T.glow}` }}
             >
               <TableauLogo size={28} />
             </div>
@@ -244,7 +244,7 @@ export default function TableauSessionsPage() {
         <div className="flex items-center gap-3">
           <div
             className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: `0 2px 8px rgba(0,86,179,0.10)` }}
+            style={{ background: T.light50, border: `1px solid ${T.light200}`, boxShadow: `0 2px 8px ${T.glow}` }}
           >
             <TableauLogo size={28} />
           </div>
@@ -277,7 +277,7 @@ export default function TableauSessionsPage() {
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-150"
             style={{
               background: `linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%)`,
-              boxShadow: '0 2px 8px rgba(0,86,179,0.35), inset 0 1px 0 rgba(255,255,255,0.16)',
+              boxShadow: '0 2px 8px rgba(77,168,160,0.35), inset 0 1px 0 rgba(255,255,255,0.16)',
             }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-1px)' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)' }}
@@ -293,7 +293,7 @@ export default function TableauSessionsPage() {
         <div className="grid grid-cols-3 gap-3">
           {[
             { label: 'Completed', count: statusCounts.completed, color: T.primary, bg: T.light100 },
-            { label: 'Running / Pending', count: statusCounts.running, color: '#1E40AF', bg: '#EFF6FF' },
+            { label: 'Running / Pending', count: statusCounts.running, color: T.dark, bg: T.light100 },
             { label: 'Failed', count: statusCounts.failed, color: '#991B1B', bg: '#FFF5F5' },
           ].map(({ label, count, color, bg }) => (
             <div key={label} className="rounded-xl px-4 py-3 text-center"
@@ -324,7 +324,7 @@ export default function TableauSessionsPage() {
         >
           <div
             className="h-16 w-16 rounded-2xl flex items-center justify-center mb-4 overflow-hidden"
-            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: `0 6px 20px ${T.glow}` }}
+            style={{ background: T.light50, border: `1px solid ${T.light200}`, boxShadow: `0 6px 20px ${T.glow}` }}
           >
             <TableauLogo size={48} />
           </div>
@@ -335,7 +335,7 @@ export default function TableauSessionsPage() {
           <Link
             to="/tableau/new"
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
-            style={{ background: `linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%)`, boxShadow: '0 2px 8px rgba(0,86,179,0.35)' }}
+            style={{ background: `linear-gradient(135deg, ${T.primary} 0%, ${T.accent} 100%)`, boxShadow: '0 2px 8px rgba(77,168,160,0.35)' }}
           >
             <Plus className="h-4 w-4" />
             Start First Assessment

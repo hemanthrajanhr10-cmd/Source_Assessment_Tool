@@ -487,7 +487,7 @@ export default function SapAssessmentPage() {
       <div className="page-header">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(0,155,215,0.12)' }}>
+            style={{ background: '#F0FAF9', border: '1px solid #A8E2DD', boxShadow: '0 2px 8px rgba(77,168,160,0.12)' }}>
             <SapLogo size={28} />
           </div>
           <div>

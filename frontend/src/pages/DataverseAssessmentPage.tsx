@@ -252,12 +252,12 @@ export default function DataverseAssessmentPage() {
   return (
     <div style={{ minHeight: '100vh', background: T.gradSurface }}>
       {/* Hero header */}
-      <div style={{ background: T.gradHero, borderBottom: '1px solid #DBEEFF', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: T.gradHero, borderBottom: `1px solid ${T.light100}`, position: 'relative', overflow: 'hidden' }}>
         {/* Decorative orb */}
         <div style={{
           position: 'absolute', width: 700, height: 700, top: -350, right: -200,
           borderRadius: '50%', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(0,132,212,0.06) 0%, transparent 60%)',
+          background: 'radial-gradient(circle, rgba(77,168,160,0.06) 0%, transparent 60%)',
         }} />
 
         <div style={{ position: 'relative', maxWidth: 1000, margin: '0 auto', padding: '32px 32px 28px' }}>

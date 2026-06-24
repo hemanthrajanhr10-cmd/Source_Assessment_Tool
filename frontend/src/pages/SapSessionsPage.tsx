@@ -129,7 +129,7 @@ export default function SapSessionsPage() {
         <div className="card flex flex-col items-center justify-center py-16 text-center gap-4">
           <div
             className="h-12 w-12 rounded-2xl flex items-center justify-center overflow-hidden"
-            style={{ background: '#F8FAFF', border: '1px solid #C5D5EC' }}
+            style={{ background: '#F0FAF9', border: '1px solid #A8E2DD' }}
           >
             <SapLogo size={36} />
           </div>

@@ -359,8 +359,8 @@ export default function LoginPage() {
                           <button
                             type="button" onClick={() => setShowPassword(!showPassword)}
                             className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 rounded-lg p-0.5"
-                            style={{ ['--tw-ring-color' as string]: 'rgba(0,86,179,0.35)' }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#0056B3' }}
+                            style={{ ['--tw-ring-color' as string]: 'rgba(77,168,160,0.35)' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#4DA8A0' }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '' }}
                             aria-label={showPassword ? 'Hide password' : 'Show password'}
                           >

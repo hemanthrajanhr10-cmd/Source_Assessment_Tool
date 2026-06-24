@@ -319,13 +319,13 @@ function UnifiedReportsPanel({ session, sessionId }: { session: UnifiedSession; 
     <div
       className="rounded-xl border border-ocean-300 bg-white overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(18,18,27,1) 60%)',
-        boxShadow: '0 0 32px rgba(0,86,179,0.08), 0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
+        background: 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(18,18,27,1) 60%)',
+        boxShadow: '0 0 32px rgba(77,168,160,0.08), 0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.5)',
       }}
     >
       <div className="flex items-center gap-3 px-5 py-4 border-b border-ocean-200">
         <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'rgba(0,86,179,0.12)', border: '1px solid rgba(0,86,179,0.25)' }}>
+          style={{ background: 'rgba(77,168,160,0.12)', border: '1px solid rgba(77,168,160,0.25)' }}>
           <Download className="h-4 w-4 text-ocean-600" />
         </div>
         <div>
@@ -425,7 +425,7 @@ function ComparisonTable({ session }: { session: UnifiedSession }) {
     >
       <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-200">
         <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.20), rgba(96,165,250,0.15))', border: '1px solid rgba(255,255,255,0.06)' }}>
+          style={{ background: 'linear-gradient(135deg, rgba(77,168,160,0.20), rgba(96,165,250,0.15))', border: '1px solid rgba(255,255,255,0.06)' }}>
           <BarChart2 className="h-4 w-4 text-slate-900" />
         </div>
         <span className="text-sm font-bold text-slate-900">Side-by-Side Comparison</span>
@@ -532,10 +532,10 @@ export default function UnifiedSessionDetailPage() {
             className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border border-[rgba(255,255,255,0.06)]"
             style={{
               background: session.mode === 'source'
-                ? 'rgba(0,86,179,0.15)'
+                ? 'rgba(77,168,160,0.15)'
                 : session.mode === 'fabric'
                 ? 'rgba(96,165,250,0.15)'
-                : 'linear-gradient(135deg, rgba(0,86,179,0.20), rgba(96,165,250,0.12))',
+                : 'linear-gradient(135deg, rgba(77,168,160,0.20), rgba(96,165,250,0.12))',
             }}
           >
             {session.mode === 'source' ? <Database className="h-4 w-4 text-ocean-600" /> :
@@ -593,7 +593,7 @@ export default function UnifiedSessionDetailPage() {
         <CollapsibleSection
           title="Source Database Assessment"
           icon={Database}
-          iconGradient="linear-gradient(135deg, rgba(0,86,179,0.25), rgba(0,86,179,0.08))"
+          iconGradient="linear-gradient(135deg, rgba(77,168,160,0.25), rgba(77,168,160,0.08))"
           badge={
             (session.source?.status || session.source_status)
               ? <StatusBadge status={session.source?.status || session.source_status!} />

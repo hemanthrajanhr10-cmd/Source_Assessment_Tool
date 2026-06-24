@@ -55,7 +55,7 @@ export default function FabricSessionsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-              style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 2px 8px rgba(0,120,212,0.10)' }}>
+              style={{ background: '#F0FAF9', border: '1px solid #A8E2DD', boxShadow: '0 2px 8px rgba(77,168,160,0.10)' }}>
               <FabricLogo size={26} />
             </div>
             Fabric Assessments

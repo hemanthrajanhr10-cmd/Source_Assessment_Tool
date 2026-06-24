@@ -931,25 +931,25 @@ function DbEngineIcon({ dbType, size = 'sm' }: { dbType: DbType; size?: 'sm' | '
   const dim = size === 'lg' ? { box: 'h-10 w-10', rounded: 'rounded-xl', logo: 28, logoH: 22 } : { box: 'h-16 w-16', rounded: 'rounded-xl', logo: 44, logoH: 34 }
   if (dbType === 'mysql') return (
     <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden`}
-      style={{ background: '#F8FAFF', border: '1px solid #BBF7D0', boxShadow: '0 1px 4px rgba(22,163,74,0.10)' }}>
+      style={{ background: '#F0FAF9', border: '1px solid #BBF7D0', boxShadow: '0 1px 4px rgba(22,163,74,0.10)' }}>
       <MySQLFullLogo height={dim.logoH} />
     </div>
   )
   if (dbType === 'oracle') return (
     <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden px-2`}
-      style={{ background: '#F8FAFF', border: '1px solid #FECACA', boxShadow: '0 1px 4px rgba(22,163,74,0.10)' }}>
+      style={{ background: '#F0FAF9', border: '1px solid #FECACA', boxShadow: '0 1px 4px rgba(22,163,74,0.10)' }}>
       <OracleFullLogo height={size === 'lg' ? 20 : 44} />
     </div>
   )
   if (dbType === 'postgres') return (
     <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden`}
-      style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 1px 4px rgba(70,130,180,0.12)' }}>
+      style={{ background: '#F0FAF9', border: '1px solid #A8E2DD', boxShadow: '0 1px 4px rgba(70,130,180,0.12)' }}>
       <PostgreSQLIconLogo size={dim.logo} />
     </div>
   )
   return (
     <div className={`${dim.box} ${dim.rounded} flex items-center justify-center shrink-0 overflow-hidden`}
-      style={{ background: '#F8FAFF', border: '1px solid #C5D5EC', boxShadow: '0 1px 4px rgba(204,41,54,0.10)' }}>
+      style={{ background: '#F0FAF9', border: '1px solid #A8E2DD', boxShadow: '0 1px 4px rgba(204,41,54,0.10)' }}>
       <SqlServerLogo size={dim.logo} />
     </div>
   )

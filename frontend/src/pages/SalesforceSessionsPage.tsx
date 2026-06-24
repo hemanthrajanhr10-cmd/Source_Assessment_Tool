@@ -9,27 +9,27 @@ import { SalesforceLogo } from '../components/ui/SourceLogos'
 import type { SalesforceSessionRecord } from '../types/api'
 
 const T = {
-  primary:    '#0176D3',
-  mid:        '#0A5FA8',
-  accent:     '#1B96FF',
-  dark:       '#032D60',
-  surface:    '#F3F8FE',
-  light50:    '#F3F8FE',
-  light100:   '#D9EDFF',
-  light200:   '#AACBFF',
-  text:       '#032D60',
-  textMid:    '#0176D3',
-  glow:       'rgba(1,118,211,0.15)',
-  gradHero:   'linear-gradient(135deg, #F3F8FE 0%, #D9EDFF 100%)',
-  gradBtn:    'linear-gradient(135deg, #0176D3 0%, #1B96FF 100%)',
-  shadowCard: '0 1px 3px rgba(1,118,211,0.06), 0 4px 16px rgba(1,118,211,0.07)',
+  primary:    '#4DA8A0',
+  mid:        '#6CBDB5',
+  accent:     '#93CCC6',
+  dark:       '#25706A',
+  surface:    '#F0FAF9',
+  light50:    '#F0FAF9',
+  light100:   '#CCEFEC',
+  light200:   '#A8E2DD',
+  text:       '#25706A',
+  textMid:    '#4DA8A0',
+  glow:       'rgba(77,168,160,0.15)',
+  gradHero:   'linear-gradient(135deg, #F0FAF9 0%, #CCEFEC 100%)',
+  gradBtn:    'linear-gradient(135deg, #4DA8A0 0%, #6CBDB5 100%)',
+  shadowCard: '0 1px 3px rgba(77,168,160,0.06), 0 4px 16px rgba(77,168,160,0.07)',
 }
 
 function statusBadge(status: string) {
   const map: Record<string, { icon: React.ElementType; bg: string; color: string; label: string }> = {
     completed: { icon: CheckCircle,   bg: 'rgba(5,150,105,0.10)',   color: '#065f46', label: 'Completed' },
     failed:    { icon: XCircle,       bg: 'rgba(220,38,38,0.10)',   color: '#991b1b', label: 'Failed'    },
-    running:   { icon: Loader2,       bg: 'rgba(1,118,211,0.10)',   color: T.primary, label: 'Running'   },
+    running:   { icon: Loader2,       bg: 'rgba(77,168,160,0.10)',  color: T.primary, label: 'Running'   },
     pending:   { icon: Clock,         bg: 'rgba(100,116,139,0.10)', color: '#475569', label: 'Pending'   },
   }
   const s = map[status] ?? map.pending
@@ -72,9 +72,9 @@ function orgTypeBadge(orgType?: string) {
   return (
     <span style={{
       fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: 99,
-      background: isSandbox ? 'rgba(217,119,6,0.10)' : 'rgba(1,118,211,0.08)',
+      background: isSandbox ? 'rgba(217,119,6,0.10)' : T.glow,
       color: isSandbox ? '#92400e' : T.primary,
-      border: isSandbox ? '1px solid rgba(217,119,6,0.22)' : `1px solid rgba(1,118,211,0.18)`,
+      border: isSandbox ? '1px solid rgba(217,119,6,0.22)' : `1px solid ${T.light200}`,
     }}>
       {orgType}
     </span>
@@ -109,12 +109,12 @@ export default function SalesforceSessionsPage() {
     <div style={{ minHeight: '100vh', background: T.surface }}>
       {/* Hero */}
       <div style={{ background: T.gradHero, padding: '28px 32px 24px', position: 'relative', overflow: 'hidden', borderBottom: `1px solid ${T.light100}` }}>
-        <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '180px', height: '180px', borderRadius: '50%', background: 'rgba(1,118,211,0.06)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '180px', height: '180px', borderRadius: '50%', background: T.glow, pointerEvents: 'none' }} />
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{
               width: '40px', height: '40px', borderRadius: '12px',
-              background: '#F8FAFF', border: `1px solid ${T.light200}`,
+              background: T.light50, border: `1px solid ${T.light200}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden',
             }}>
@@ -233,7 +233,7 @@ export default function SalesforceSessionsPage() {
                   gap: '16px',
                 }}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(1,118,211,0.12), 0 1px 3px rgba(1,118,211,0.08)'
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(77,168,160,0.12), 0 1px 3px rgba(77,168,160,0.08)'
                   ;(e.currentTarget as HTMLElement).style.borderColor = T.light200
                 }}
                 onMouseLeave={e => {

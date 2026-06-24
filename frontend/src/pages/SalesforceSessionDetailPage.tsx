@@ -16,20 +16,20 @@ import type {
 } from '../types/api'
 
 const T = {
-  primary:    '#0176D3',
-  mid:        '#0A5FA8',
-  accent:     '#1B96FF',
-  dark:       '#032D60',
-  surface:    '#F3F8FE',
-  light50:    '#F3F8FE',
-  light100:   '#D9EDFF',
-  light200:   '#AACBFF',
-  text:       '#032D60',
-  textMid:    '#0176D3',
-  glow:       'rgba(1,118,211,0.15)',
-  gradHero:   'linear-gradient(135deg, #F3F8FE 0%, #D9EDFF 100%)',
-  gradBtn:    'linear-gradient(135deg, #0176D3 0%, #1B96FF 100%)',
-  shadowCard: '0 1px 3px rgba(1,118,211,0.06), 0 4px 16px rgba(1,118,211,0.07)',
+  primary:    '#4DA8A0',
+  mid:        '#6CBDB5',
+  accent:     '#93CCC6',
+  dark:       '#25706A',
+  surface:    '#F0FAF9',
+  light50:    '#F0FAF9',
+  light100:   '#CCEFEC',
+  light200:   '#A8E2DD',
+  text:       '#25706A',
+  textMid:    '#4DA8A0',
+  glow:       'rgba(77,168,160,0.15)',
+  gradHero:   'linear-gradient(135deg, #F0FAF9 0%, #CCEFEC 100%)',
+  gradBtn:    'linear-gradient(135deg, #4DA8A0 0%, #6CBDB5 100%)',
+  shadowCard: '0 1px 3px rgba(77,168,160,0.06), 0 4px 16px rgba(77,168,160,0.07)',
 }
 
 const RISK_COLOR: Record<string, string> = {
@@ -467,11 +467,11 @@ export default function SalesforceSessionDetailPage() {
                 {[
                   { icon: Database, label: 'Custom Objects',   value: result.custom_object_count,   color: T.primary },
                   { icon: Database, label: 'Standard Objects', value: result.standard_object_count, color: T.mid },
-                  { icon: Database, label: 'Custom Fields',    value: result.total_field_count,     color: '#0A5FA8' },
-                  { icon: Code2,    label: 'Apex Classes',     value: result.apex_class_count,      color: '#1B96FF' },
-                  { icon: Zap,      label: 'Flows',            value: result.flow_count,            color: '#57A3FD' },
-                  { icon: Users,    label: 'Active Users',     value: result.active_user_count,     color: '#032D60' },
-                  { icon: Shield,   label: 'Profiles',         value: result.profile_count,         color: '#0A5FA8' },
+                  { icon: Database, label: 'Custom Fields',    value: result.total_field_count,     color: T.mid },
+                  { icon: Code2,    label: 'Apex Classes',     value: result.apex_class_count,      color: T.accent },
+                  { icon: Zap,      label: 'Flows',            value: result.flow_count,            color: T.primary },
+                  { icon: Users,    label: 'Active Users',     value: result.active_user_count,     color: T.dark },
+                  { icon: Shield,   label: 'Profiles',         value: result.profile_count,         color: T.mid },
                   { icon: Shield,   label: 'Permission Sets',  value: result.permission_set_count,  color: T.primary },
                 ].map(item => (
                   <div key={item.label} style={{

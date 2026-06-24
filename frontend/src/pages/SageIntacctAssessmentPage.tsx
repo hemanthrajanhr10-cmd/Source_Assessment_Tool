@@ -456,8 +456,8 @@ export default function SageIntacctAssessmentPage() {
         <div
           className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden"
           style={{
-            background: '#F8FAFF',
-            border: '1px solid #C5D5EC',
+            background: '#F0FAF9',
+            border: '1px solid #A8E2DD',
             boxShadow: `0 6px 20px ${SAGE.glow}`,
           }}
         >

@@ -20,19 +20,19 @@ import { TableauLogo } from '../components/ui/SourceLogos'
 // ── Design tokens (Ocean / Deep Atlantic) ────────────────────────────────────
 
 const T = {
-  primary:  '#0056B3',
-  dark:     '#003D82',
-  accent:   '#0084D4',
-  teal:     '#0D9488',
-  light50:  '#EFF6FF',
-  light100: '#DBEEFF',
-  light200: '#BAE0FF',
-  glow:     'rgba(0,86,179,0.12)',
-  glowD:    'rgba(0,86,179,0.08)',
-  shadow:   '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,86,179,0.06)',
-  shadowH:  '0 4px 8px rgba(0,86,179,0.08), 0 16px 40px rgba(0,86,179,0.12)',
-  shadowBtn:'0 2px 8px rgba(0,86,179,0.32), inset 0 1px 0 rgba(255,255,255,0.18)',
-  card:     '0 1px 2px rgba(0,0,0,0.04), 0 4px 20px rgba(0,86,179,0.05)',
+  primary:  '#4DA8A0',
+  dark:     '#25706A',
+  accent:   '#6CBDB5',
+  teal:     '#4DA8A0',
+  light50:  '#F0FAF9',
+  light100: '#CCEFEC',
+  light200: '#A8E2DD',
+  glow:     'rgba(77,168,160,0.12)',
+  glowD:    'rgba(77,168,160,0.08)',
+  shadow:   '0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(77,168,160,0.06)',
+  shadowH:  '0 4px 8px rgba(77,168,160,0.08), 0 16px 40px rgba(77,168,160,0.12)',
+  shadowBtn:'0 2px 8px rgba(77,168,160,0.32), inset 0 1px 0 rgba(255,255,255,0.18)',
+  card:     '0 1px 2px rgba(0,0,0,0.04), 0 4px 20px rgba(77,168,160,0.05)',
   radius:   '14px',
 }
 
@@ -979,8 +979,8 @@ export default function TableauSessionDetailPage() {
             </button>
             <div className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
               style={{
-                background: '#F8FAFF',
-                border: '1px solid #C5D5EC',
+                background: T.light50,
+                border: `1px solid ${T.light200}`,
                 boxShadow: `0 4px 14px ${T.glow}`,
               }}>
               <TableauLogo size={32} />

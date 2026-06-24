@@ -12,20 +12,20 @@ import type { SnowflakeSessionRecord } from '../types/api'
 // ── Ocean design tokens ───────────────────────────────────────────────────────
 
 const T = {
-  primary:    '#0056B3',
-  dark:       '#0D1829',
-  mid:        '#0084D4',
-  accent:     '#38A8F5',
-  surface:    '#EFF6FF',
-  light50:    '#F8FAFF',
-  light100:   '#DBEEFF',
-  ice:        '#C5D5EC',
-  glow:       'rgba(0,86,179,0.10)',
-  shadowCard: '0 2px 4px rgba(0,86,179,0.05), 0 8px 32px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowHover:'0 4px 12px rgba(0,86,179,0.10), 0 20px 48px rgba(0,86,179,0.10)',
-  gradBtn:    'linear-gradient(135deg, #0056B3 0%, #0084D4 60%, #38A8F5 100%)',
-  gradHero:   'linear-gradient(135deg, #EFF6FF 0%, #DBEEFF 100%)',
-  gradSurface:'linear-gradient(180deg, #F8FAFF 0%, #EFF6FF 100%)',
+  primary:    '#4DA8A0',
+  dark:       '#25706A',
+  mid:        '#6CBDB5',
+  accent:     '#93CCC6',
+  surface:    '#F0FAF9',
+  light50:    '#F0FAF9',
+  light100:   '#CCEFEC',
+  ice:        '#A8E2DD',
+  glow:       'rgba(77,168,160,0.10)',
+  shadowCard: '0 2px 4px rgba(77,168,160,0.05), 0 8px 32px rgba(77,168,160,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowHover:'0 4px 12px rgba(77,168,160,0.10), 0 20px 48px rgba(77,168,160,0.10)',
+  gradBtn:    'linear-gradient(135deg, #4DA8A0 0%, #6CBDB5 60%, #93CCC6 100%)',
+  gradHero:   'linear-gradient(135deg, #F0FAF9 0%, #CCEFEC 100%)',
+  gradSurface:'linear-gradient(180deg, #F0FAF9 0%, #CCEFEC 100%)',
 }
 
 function statusConfig(status: string) {
@@ -72,7 +72,7 @@ export default function SnowflakeSessionsPage() {
             className="absolute rounded-full"
             style={{
               width: '500px', height: '500px', top: '-180px', right: '-80px',
-              background: 'radial-gradient(circle, rgba(0,184,230,0.07) 0%, transparent 70%)',
+              background: `radial-gradient(circle, ${T.glow} 0%, transparent 70%)`,
             }}
           />
         </div>
@@ -81,9 +81,9 @@ export default function SnowflakeSessionsPage() {
             <div
               className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
               style={{
-                background: '#F8FAFF',
-                border: '1px solid #C5D5EC',
-                boxShadow: '0 2px 8px rgba(41,181,232,0.12)',
+                background: T.light50,
+                border: `1px solid ${T.ice}`,
+                boxShadow: `0 2px 8px ${T.glow}`,
               }}
             >
               <SnowflakeLogo size={30} />
@@ -99,11 +99,11 @@ export default function SnowflakeSessionsPage() {
             onClick={() => navigate('/snowflake/new')}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all duration-200"
             style={{
-              background: 'linear-gradient(135deg, #0099CC 0%, #00B8E6 100%)',
-              boxShadow: '0 2px 12px rgba(0,184,230,0.40)',
+              background: T.gradBtn,
+              boxShadow: '0 2px 12px rgba(77,168,160,0.35)',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,184,230,0.55)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,184,230,0.40)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(77,168,160,0.50)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(77,168,160,0.35)' }}
           >
             <PlusCircle className="h-4 w-4" />
             New Assessment
@@ -147,7 +147,7 @@ export default function SnowflakeSessionsPage() {
             <button
               onClick={() => navigate('/snowflake/new')}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
-              style={{ background: T.gradBtn, boxShadow: '0 2px 12px rgba(0,184,230,0.40)' }}
+              style={{ background: T.gradBtn, boxShadow: '0 2px 12px rgba(77,168,160,0.35)' }}
             >
               <PlusCircle className="h-4 w-4" />
               Start First Assessment
@@ -186,7 +186,7 @@ export default function SnowflakeSessionsPage() {
                     <div className="flex items-center gap-4 min-w-0">
                       <div
                         className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-                        style={{ background: '#F8FAFF', border: '1px solid #C5D5EC' }}
+                        style={{ background: T.light50, border: `1px solid ${T.ice}` }}
                       >
                         <SnowflakeLogo size={28} />
                       </div>

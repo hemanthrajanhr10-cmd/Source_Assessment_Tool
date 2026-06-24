@@ -765,7 +765,7 @@ export default function SalesforceAssessmentPage() {
             {/* Info callout */}
             <div style={{
               padding: '14px 16px', borderRadius: '12px',
-              background: 'rgba(1,118,211,0.06)', border: `1px solid rgba(1,118,211,0.18)`,
+              background: 'rgba(77,168,160,0.06)', border: `1px solid rgba(77,168,160,0.18)`,
               display: 'flex', gap: '10px',
             }}>
               <Info style={{ width: '14px', height: '14px', color: T.primary, flexShrink: 0, marginTop: '1px' }} />

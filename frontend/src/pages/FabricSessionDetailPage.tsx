@@ -183,9 +183,9 @@ function CopyButton({ text }: { text: string }) {
       onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
       className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all shrink-0"
       style={{
-        background: copied ? 'rgba(13,148,136,0.10)' : 'rgba(0,86,179,0.07)',
-        color: copied ? '#0F766E' : '#0056B3',
-        border: `1px solid ${copied ? 'rgba(13,148,136,0.25)' : 'rgba(0,86,179,0.18)'}`,
+        background: copied ? 'rgba(13,148,136,0.10)' : 'rgba(77,168,160,0.07)',
+        color: copied ? '#0F766E' : '#4DA8A0',
+        border: `1px solid ${copied ? 'rgba(13,148,136,0.25)' : 'rgba(77,168,160,0.18)'}`,
       }}
       title="Copy DAX expression"
     >
@@ -198,10 +198,10 @@ function CopyButton({ text }: { text: string }) {
 function MeasureRow({ m }: { m: FabricMeasure }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="rounded-xl overflow-hidden transition-all" style={{ border: '1px solid rgba(197,213,236,0.8)', boxShadow: open ? '0 2px 12px rgba(0,86,179,0.08)' : undefined }}>
+    <div className="rounded-xl overflow-hidden transition-all" style={{ border: '1px solid rgba(168,226,221,0.8)', boxShadow: open ? '0 2px 12px rgba(77,168,160,0.08)' : undefined }}>
       <button onClick={() => setOpen(o => !o)}
         className="w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors"
-        style={{ background: open ? 'linear-gradient(135deg, rgba(0,86,179,0.05) 0%, rgba(0,132,212,0.02) 100%)' : 'rgba(248,250,253,0.8)' }}>
+        style={{ background: open ? 'linear-gradient(135deg, rgba(77,168,160,0.05) 0%, rgba(108,189,181,0.02) 100%)' : 'rgba(240,250,249,0.8)' }}>
         <Hash className="h-3.5 w-3.5 text-brand-600 shrink-0" />
         <span className="flex-1 text-xs font-mono font-semibold text-slate-800 truncate">{m.name}</span>
         {m.table && <span className="text-xs text-slate-400 shrink-0 mr-1 bg-slate-100 px-1.5 py-0.5 rounded">{m.table}</span>}
@@ -210,7 +210,7 @@ function MeasureRow({ m }: { m: FabricMeasure }) {
                : <ChevronDown className="h-3 w-3 text-slate-400 ml-1 shrink-0" />}
       </button>
       {open && (
-        <div className="border-t p-3 space-y-2.5" style={{ borderColor: 'rgba(197,213,236,0.5)', background: 'rgba(248,250,253,0.6)' }}>
+        <div className="border-t p-3 space-y-2.5" style={{ borderColor: 'rgba(168,226,221,0.5)', background: 'rgba(240,250,249,0.6)' }}>
           {m.expression && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
@@ -220,7 +220,7 @@ function MeasureRow({ m }: { m: FabricMeasure }) {
                 <CopyButton text={m.expression} />
               </div>
               <pre className="text-xs font-mono rounded-lg px-3 py-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-32 border"
-                style={{ background: 'rgba(0,86,179,0.03)', borderColor: 'rgba(0,86,179,0.10)' }}>
+                style={{ background: 'rgba(77,168,160,0.03)', borderColor: 'rgba(77,168,160,0.10)' }}>
                 {m.expression}
               </pre>
             </div>
@@ -262,10 +262,10 @@ function CalcItemRow({ item, type }: { item: FabricCalculatedColumn | FabricCalc
   const cx = item.complexity
   const hasExpr = !!item.expression
   return (
-    <div className="rounded-xl overflow-hidden transition-all" style={{ border: '1px solid rgba(197,213,236,0.8)', boxShadow: open ? '0 2px 12px rgba(0,86,179,0.08)' : undefined }}>
+    <div className="rounded-xl overflow-hidden transition-all" style={{ border: '1px solid rgba(168,226,221,0.8)', boxShadow: open ? '0 2px 12px rgba(77,168,160,0.08)' : undefined }}>
       <button onClick={() => hasExpr && setOpen(o => !o)}
         className={`w-full flex items-center gap-2 px-3 py-2.5 text-left ${hasExpr ? 'cursor-pointer' : ''} transition-colors`}
-        style={{ background: open ? 'linear-gradient(135deg, rgba(217,119,6,0.05) 0%, rgba(251,191,36,0.02) 100%)' : 'rgba(248,250,253,0.8)' }}>
+        style={{ background: open ? 'linear-gradient(135deg, rgba(217,119,6,0.05) 0%, rgba(251,191,36,0.02) 100%)' : 'rgba(240,250,249,0.8)' }}>
         {type === 'col'
           ? <Calculator className="h-3.5 w-3.5 text-amber-600 shrink-0" />
           : <Table2 className="h-3.5 w-3.5 text-orange-600 shrink-0" />}
@@ -285,7 +285,7 @@ function CalcItemRow({ item, type }: { item: FabricCalculatedColumn | FabricCalc
         )}
       </button>
       {open && hasExpr && (
-        <div className="border-t p-3" style={{ borderColor: 'rgba(197,213,236,0.5)', background: 'rgba(248,250,253,0.6)' }}>
+        <div className="border-t p-3" style={{ borderColor: 'rgba(168,226,221,0.5)', background: 'rgba(240,250,249,0.6)' }}>
           <div className="flex items-center justify-between mb-1.5">
             <p className="text-xs font-semibold text-slate-500 flex items-center gap-1">
               <Code2 className="h-3 w-3" /> DAX Expression
@@ -293,7 +293,7 @@ function CalcItemRow({ item, type }: { item: FabricCalculatedColumn | FabricCalc
             <CopyButton text={item.expression!} />
           </div>
           <pre className="text-xs font-mono rounded-lg px-3 py-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-28 border"
-            style={{ background: 'rgba(0,86,179,0.03)', borderColor: 'rgba(0,86,179,0.10)' }}>
+            style={{ background: 'rgba(77,168,160,0.03)', borderColor: 'rgba(77,168,160,0.10)' }}>
             {item.expression}
           </pre>
           {cx && cx.score > 0 && (
@@ -403,7 +403,7 @@ function ColumnRow({ col }: { col: FabricTableColumn }) {
             <CopyButton text={col.expression} />
           </div>
           <pre className="rounded-lg font-mono text-xs p-2 overflow-x-auto border text-slate-700"
-            style={{ background: 'rgba(0,86,179,0.03)', borderColor: 'rgba(0,86,179,0.10)' }}>
+            style={{ background: 'rgba(77,168,160,0.03)', borderColor: 'rgba(77,168,160,0.10)' }}>
             {col.expression}
           </pre>
         </div>
@@ -898,17 +898,17 @@ function DatasetSection({ ds, defaultOpen }: { ds: FabricDataset; defaultOpen?: 
           </div>
 
           {/* Sub-tab nav */}
-          <div className="flex px-4 overflow-x-auto" style={{ borderBottom: '1px solid rgba(197,213,236,0.6)', background: 'rgba(248,250,253,0.6)' }}>
+          <div className="flex px-4 overflow-x-auto" style={{ borderBottom: '1px solid rgba(168,226,221,0.6)', background: 'rgba(240,250,249,0.6)' }}>
             {SUB_TABS.map(t => (
               <button key={t.id}
                 onClick={() => setSubTab(t.id)}
                 className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap"
                 style={{
                   borderBottomColor: subTab === t.id
-                    ? (t.id === 'source_feeds' ? '#0F766E' : '#0056B3')
+                    ? (t.id === 'source_feeds' ? '#0F766E' : '#4DA8A0')
                     : 'transparent',
                   color: subTab === t.id
-                    ? (t.id === 'source_feeds' ? '#0F766E' : '#003D82')
+                    ? (t.id === 'source_feeds' ? '#0F766E' : '#25706A')
                     : '#64748B',
                 }}>
                 {t.icon && <span>{t.icon}</span>}
@@ -916,10 +916,10 @@ function DatasetSection({ ds, defaultOpen }: { ds: FabricDataset; defaultOpen?: 
                 <span className="rounded-full px-1.5 py-0.5 text-xs font-semibold"
                   style={{
                     background: subTab === t.id
-                      ? (t.id === 'source_feeds' ? 'rgba(13,148,136,0.12)' : 'rgba(0,86,179,0.10)')
+                      ? (t.id === 'source_feeds' ? 'rgba(13,148,136,0.12)' : 'rgba(77,168,160,0.10)')
                       : 'rgba(148,163,184,0.12)',
                     color: subTab === t.id
-                      ? (t.id === 'source_feeds' ? '#0F766E' : '#003D82')
+                      ? (t.id === 'source_feeds' ? '#0F766E' : '#25706A')
                       : '#64748B',
                   }}>{t.count}</span>
               </button>
@@ -1023,12 +1023,12 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
   }))
 
   const KPI_ITEMS = [
-    { label: 'Workspaces',      value: summary.workspace_count,          iconBg: 'linear-gradient(135deg,#0056B3,#0084D4)',  glow: 'rgba(0,86,179,0.20)',   icon: <Zap className="h-4 w-4 text-white" />,        numColor: '#003D82' },
+    { label: 'Workspaces',      value: summary.workspace_count,          iconBg: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)',  glow: 'rgba(77,168,160,0.20)',   icon: <Zap className="h-4 w-4 text-white" />,        numColor: '#25706A' },
     { label: 'Semantic Models', value: summary.dataset_count,            iconBg: 'linear-gradient(135deg,#0891B2,#22D3EE)',  glow: 'rgba(8,145,178,0.20)',  icon: <Database className="h-4 w-4 text-white" />,   numColor: '#0E7490' },
     { label: 'Reports',         value: summary.report_count,             iconBg: 'linear-gradient(135deg,#0D9488,#2DD4BF)',  glow: 'rgba(13,148,136,0.20)', icon: <FileText className="h-4 w-4 text-white" />,   numColor: '#0F766E' },
     { label: 'Paginated',       value: summary.paginated_report_count,   iconBg: 'linear-gradient(135deg,#D97706,#FBBF24)',  glow: 'rgba(217,119,6,0.20)',  icon: <BookOpen className="h-4 w-4 text-white" />,   numColor: '#92400E' },
-    { label: 'Total Visuals',   value: summary.total_visuals ?? 0,       iconBg: 'linear-gradient(135deg,#38A8F5,#7EC8FF)',  glow: 'rgba(56,168,245,0.20)', icon: <Eye className="h-4 w-4 text-white" />,        numColor: '#0056B3' },
-    { label: 'Measures',        value: summary.total_measures,           iconBg: 'linear-gradient(135deg,#0056B3,#38A8F5)',  glow: 'rgba(0,86,179,0.20)',   icon: <Hash className="h-4 w-4 text-white" />,       numColor: '#003D82' },
+    { label: 'Total Visuals',   value: summary.total_visuals ?? 0,       iconBg: 'linear-gradient(135deg,#93CCC6,#A8E2DD)',  glow: 'rgba(77,168,160,0.20)', icon: <Eye className="h-4 w-4 text-white" />,        numColor: '#4DA8A0' },
+    { label: 'Measures',        value: summary.total_measures,           iconBg: 'linear-gradient(135deg,#4DA8A0,#93CCC6)',  glow: 'rgba(77,168,160,0.20)',   icon: <Hash className="h-4 w-4 text-white" />,       numColor: '#25706A' },
     { label: 'Calc. Tables',    value: summary.total_calculated_tables,  iconBg: 'linear-gradient(135deg,#F59E0B,#FCD34D)',  glow: 'rgba(245,158,11,0.20)', icon: <Table2 className="h-4 w-4 text-white" />,     numColor: '#92400E' },
     { label: 'Calc. Columns',   value: summary.total_calculated_columns, iconBg: 'linear-gradient(135deg,#F97316,#FB923C)',  glow: 'rgba(249,115,22,0.20)', icon: <Calculator className="h-4 w-4 text-white" />, numColor: '#9A3412' },
     { label: 'Relationships',   value: summary.total_relationships ?? 0, iconBg: 'linear-gradient(135deg,#8B5CF6,#A78BFA)',  glow: 'rgba(139,92,246,0.20)', icon: <GitMerge className="h-4 w-4 text-white" />,   numColor: '#5B21B6' },
@@ -1040,14 +1040,14 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
       {/* ── Hero banner ──────────────────────────────────────────────────────── */}
       <div className="relative rounded-2xl overflow-hidden px-6 py-5"
         style={{
-          background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 50%, #0891B2 100%)',
-          boxShadow: '0 8px 32px rgba(0,86,179,0.28), 0 2px 8px rgba(0,0,0,0.08)',
+          background: 'linear-gradient(135deg, #4DA8A0 0%, #6CBDB5 50%, #0891B2 100%)',
+          boxShadow: '0 8px 32px rgba(77,168,160,0.28), 0 2px 8px rgba(0,0,0,0.08)',
         }}>
         {/* Decorative orbs */}
         <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-10 -translate-y-12 translate-x-12"
           style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }} />
         <div className="absolute bottom-0 left-16 w-32 h-32 rounded-full opacity-10 translate-y-8"
-          style={{ background: 'radial-gradient(circle, #38A8F5 0%, transparent 70%)' }} />
+          style={{ background: 'radial-gradient(circle, #93CCC6 0%, transparent 70%)' }} />
 
         <div className="relative flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -1082,7 +1082,7 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
             className="rounded-xl p-3 flex flex-col items-center text-center group cursor-default transition-all duration-200"
             style={{
               background: '#ffffff',
-              border: '1px solid rgba(197,213,236,0.8)',
+              border: '1px solid rgba(168,226,221,0.8)',
               boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
             }}
             onMouseEnter={e => {
@@ -1095,7 +1095,7 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
               const el = e.currentTarget
               el.style.transform = ''
               el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
-              el.style.borderColor = 'rgba(197,213,236,0.8)'
+              el.style.borderColor = 'rgba(168,226,221,0.8)'
             }}
           >
             <div className="mb-1.5 flex items-center justify-center h-8 w-8 rounded-xl"
@@ -1110,10 +1110,10 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
 
       {/* ── Charts row ────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(197,213,236,0.8)', boxShadow: '0 2px 8px rgba(0,86,179,0.04)' }}>
+        <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(168,226,221,0.8)', boxShadow: '0 2px 8px rgba(77,168,160,0.04)' }}>
           <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
             <span className="flex items-center justify-center h-6 w-6 rounded-lg"
-              style={{ background: 'linear-gradient(135deg,#0056B3,#0084D4)' }}>
+              style={{ background: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)' }}>
               <TrendingUp className="h-3.5 w-3.5 text-white" />
             </span>
             DAX Complexity Distribution
@@ -1132,7 +1132,7 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
           </div>
         </div>
 
-        <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(197,213,236,0.8)', boxShadow: '0 2px 8px rgba(0,86,179,0.04)' }}>
+        <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(168,226,221,0.8)', boxShadow: '0 2px 8px rgba(77,168,160,0.04)' }}>
           <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
             <span className="flex items-center justify-center h-6 w-6 rounded-lg"
               style={{ background: 'linear-gradient(135deg,#0891B2,#22D3EE)' }}>
@@ -1147,11 +1147,11 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
       </div>
 
       {/* ── Workspace table ───────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'rgba(197,213,236,0.8)', boxShadow: '0 2px 8px rgba(0,86,179,0.04)' }}>
+      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'rgba(168,226,221,0.8)', boxShadow: '0 2px 8px rgba(77,168,160,0.04)' }}>
         <div className="px-5 py-3.5 flex items-center gap-3"
-          style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.06) 0%, rgba(0,132,212,0.03) 100%)', borderBottom: '1px solid rgba(197,213,236,0.6)' }}>
+          style={{ background: 'linear-gradient(135deg, rgba(77,168,160,0.06) 0%, rgba(108,189,181,0.03) 100%)', borderBottom: '1px solid rgba(168,226,221,0.6)' }}>
           <span className="flex items-center justify-center h-6 w-6 rounded-lg"
-            style={{ background: 'linear-gradient(135deg,#0056B3,#0084D4)', boxShadow: '0 2px 6px rgba(0,86,179,0.25)' }}>
+            style={{ background: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)', boxShadow: '0 2px 6px rgba(77,168,160,0.25)' }}>
             <Zap className="h-3.5 w-3.5 text-white" />
           </span>
           <h3 className="text-sm font-bold text-slate-800">Workspaces</h3>
@@ -1160,7 +1160,7 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr style={{ background: 'rgba(239,246,255,0.7)', borderBottom: '1px solid rgba(197,213,236,0.6)' }}>
+              <tr style={{ background: 'rgba(239,246,255,0.7)', borderBottom: '1px solid rgba(168,226,221,0.6)' }}>
                 {['Workspace', 'Type', 'Models', 'Reports', 'Paginated', 'Visuals', 'Measures'].map((h, hi) => (
                   <th key={h} className={`px-4 py-2.5 font-semibold text-slate-500 ${hi === 0 ? 'text-left' : 'text-center'}`}>{h}</th>
                 ))}
@@ -1170,8 +1170,8 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
               {workspaces.map((ws) => (
                 <tr key={ws.id}
                   className="transition-colors"
-                  style={{ borderBottom: '1px solid rgba(197,213,236,0.4)' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(0,86,179,0.03)' }}
+                  style={{ borderBottom: '1px solid rgba(168,226,221,0.4)' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(77,168,160,0.03)' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = '' }}
                 >
                   <td className="px-4 py-2.5 font-semibold text-slate-800">{ws.name}</td>
@@ -1181,7 +1181,7 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
                   <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#0891B2' }}>{ws.dataset_count}</td>
                   <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#0D9488' }}>{ws.report_count}</td>
                   <td className="px-4 py-2.5 text-center font-bold text-amber-600">{ws.paginated_report_count}</td>
-                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#0056B3' }}>{ws.reports.reduce((s, r) => s + (r.visual_count ?? 0), 0)}</td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#4DA8A0' }}>{ws.reports.reduce((s, r) => s + (r.visual_count ?? 0), 0)}</td>
                   <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#5B21B6' }}>{ws.datasets.reduce((s, d) => s + d.measure_count, 0)}</td>
                 </tr>
               ))}
@@ -1276,26 +1276,26 @@ function ModelsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                 onClick={() => handleSelectWorkspace(ws)}
                 className="group rounded-2xl border text-left transition-all duration-200 overflow-hidden"
                 style={{
-                  border: '1.5px solid rgba(197,213,236,0.8)',
+                  border: '1.5px solid rgba(168,226,221,0.8)',
                   background: 'white',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.border = '1.5px solid rgba(0,86,179,0.42)'
-                  e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,86,179,0.11), 0 2px 8px rgba(0,86,179,0.07)'
+                  e.currentTarget.style.border = '1.5px solid rgba(77,168,160,0.42)'
+                  e.currentTarget.style.boxShadow = '0 8px 28px rgba(77,168,160,0.11), 0 2px 8px rgba(77,168,160,0.07)'
                   e.currentTarget.style.transform = 'translateY(-3px)'
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.border = '1.5px solid rgba(197,213,236,0.8)'
+                  e.currentTarget.style.border = '1.5px solid rgba(168,226,221,0.8)'
                   e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
                   e.currentTarget.style.transform = 'translateY(0)'
                 }}
               >
                 {/* Card header */}
                 <div className="flex items-center gap-3 px-4 py-3.5"
-                  style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(0,132,212,0.02) 100%)', borderBottom: '1px solid rgba(197,213,236,0.5)' }}>
+                  style={{ background: 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(108,189,181,0.02) 100%)', borderBottom: '1px solid rgba(168,226,221,0.5)' }}>
                   <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: 'linear-gradient(135deg,#0056B3,#0084D4)', boxShadow: '0 2px 8px rgba(0,86,179,0.28)' }}>
+                    style={{ background: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)', boxShadow: '0 2px 8px rgba(77,168,160,0.28)' }}>
                     <Zap className="h-4 w-4 text-white" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -1353,7 +1353,7 @@ function ModelsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
 
         {/* Workspace summary banner */}
         <div className="rounded-2xl overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #0056B3 0%, #0084D4 50%, #0891B2 100%)', boxShadow: '0 4px 20px rgba(0,86,179,0.22)' }}>
+          style={{ background: 'linear-gradient(135deg, #4DA8A0 0%, #6CBDB5 50%, #0891B2 100%)', boxShadow: '0 4px 20px rgba(77,168,160,0.22)' }}>
           <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-white/60 text-xs font-medium uppercase tracking-widest mb-0.5">Workspace</p>
@@ -1394,18 +1394,18 @@ function ModelsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ type: 'spring', duration: 0.38, bounce: 0, delay: gi * 0.04 }}
                   className="rounded-2xl border overflow-hidden"
-                  style={{ borderColor: 'rgba(197,213,236,0.8)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+                  style={{ borderColor: 'rgba(168,226,221,0.8)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
                 >
                   {/* Model header — clickable */}
                   <button
                     onClick={() => handleSelectModel(ds)}
                     className="w-full group flex items-center gap-3 px-4 py-3.5 text-left transition-all"
-                    style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(0,132,212,0.02) 100%)' }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(0,86,179,0.08) 0%, rgba(0,132,212,0.04) 100%)' }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(0,132,212,0.02) 100%)' }}
+                    style={{ background: 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(108,189,181,0.02) 100%)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(77,168,160,0.08) 0%, rgba(108,189,181,0.04) 100%)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(108,189,181,0.02) 100%)' }}
                   >
                     <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
-                      style={{ background: 'linear-gradient(135deg,#0056B3,#0084D4)', boxShadow: '0 2px 8px rgba(0,86,179,0.25)' }}>
+                      style={{ background: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)', boxShadow: '0 2px 8px rgba(77,168,160,0.25)' }}>
                       <Database className="h-4 w-4 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1753,8 +1753,8 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                 className="rounded-2xl border text-left transition-all duration-200 overflow-hidden"
                 style={{
                   border: isEmpty
-                    ? '1.5px solid rgba(197,213,236,0.5)'
-                    : '1.5px solid rgba(197,213,236,0.8)',
+                    ? '1.5px solid rgba(168,226,221,0.5)'
+                    : '1.5px solid rgba(168,226,221,0.8)',
                   background: isEmpty ? 'rgba(248,250,252,0.7)' : 'white',
                   boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                   opacity: isEmpty ? 0.65 : 1,
@@ -1763,17 +1763,17 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                 onMouseEnter={e => {
                   e.currentTarget.style.border = isEmpty
                     ? '1.5px solid rgba(148,163,184,0.5)'
-                    : '1.5px solid rgba(0,86,179,0.42)'
+                    : '1.5px solid rgba(77,168,160,0.42)'
                   e.currentTarget.style.boxShadow = isEmpty
                     ? '0 4px 14px rgba(148,163,184,0.15)'
-                    : '0 8px 28px rgba(0,86,179,0.11), 0 2px 8px rgba(0,86,179,0.07)'
+                    : '0 8px 28px rgba(77,168,160,0.11), 0 2px 8px rgba(77,168,160,0.07)'
                   e.currentTarget.style.transform = 'translateY(-2px)'
                   e.currentTarget.style.opacity = '1'
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.border = isEmpty
-                    ? '1.5px solid rgba(197,213,236,0.5)'
-                    : '1.5px solid rgba(197,213,236,0.8)'
+                    ? '1.5px solid rgba(168,226,221,0.5)'
+                    : '1.5px solid rgba(168,226,221,0.8)'
                   e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
                   e.currentTarget.style.transform = 'translateY(0)'
                   e.currentTarget.style.opacity = isEmpty ? '0.65' : '1'
@@ -1783,15 +1783,15 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                   style={{
                     background: isEmpty
                       ? 'rgba(248,250,252,0.8)'
-                      : 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(0,132,212,0.02) 100%)',
-                    borderBottom: '1px solid rgba(197,213,236,0.5)',
+                      : 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(108,189,181,0.02) 100%)',
+                    borderBottom: '1px solid rgba(168,226,221,0.5)',
                   }}>
                   <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
                     style={{
                       background: isEmpty
                         ? 'rgba(148,163,184,0.15)'
-                        : 'linear-gradient(135deg,#0056B3,#0084D4)',
-                      boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(0,86,179,0.28)',
+                        : 'linear-gradient(135deg,#4DA8A0,#6CBDB5)',
+                      boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(77,168,160,0.28)',
                     }}>
                     <TrendingUp className={`h-4 w-4 ${isEmpty ? 'text-slate-400' : 'text-white'}`} />
                   </div>
@@ -1821,7 +1821,7 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                     </div>
                     <div className="px-4 py-2.5 flex items-center justify-between">
                       <span className="text-xs text-slate-400">{wsItems.length} total DAX items</span>
-                      <span className="text-xs font-semibold" style={{ color: '#0056B3' }}>{wsFiltered.length} matching</span>
+                      <span className="text-xs font-semibold" style={{ color: '#4DA8A0' }}>{wsFiltered.length} matching</span>
                     </div>
                   </>
                 )}
@@ -1881,7 +1881,7 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                 onClick={() => handleSelectModel(ds)}
                 className="w-full rounded-2xl border text-left transition-all overflow-hidden"
                 style={{
-                  border: isEmpty ? '1.5px solid rgba(197,213,236,0.5)' : '1.5px solid rgba(197,213,236,0.8)',
+                  border: isEmpty ? '1.5px solid rgba(168,226,221,0.5)' : '1.5px solid rgba(168,226,221,0.8)',
                   background: isEmpty ? 'rgba(248,250,252,0.7)' : 'white',
                   opacity: isEmpty ? 0.65 : 1,
                   boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
@@ -1890,15 +1890,15 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                 onMouseEnter={e => {
                   e.currentTarget.style.border = isEmpty
                     ? '1.5px solid rgba(148,163,184,0.5)'
-                    : '1.5px solid rgba(0,86,179,0.42)'
+                    : '1.5px solid rgba(77,168,160,0.42)'
                   e.currentTarget.style.opacity = '1'
                   e.currentTarget.style.transform = 'translateY(-2px)'
-                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,86,179,0.10)'
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(77,168,160,0.10)'
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.border = isEmpty
-                    ? '1.5px solid rgba(197,213,236,0.5)'
-                    : '1.5px solid rgba(197,213,236,0.8)'
+                    ? '1.5px solid rgba(168,226,221,0.5)'
+                    : '1.5px solid rgba(168,226,221,0.8)'
                   e.currentTarget.style.opacity = isEmpty ? '0.65' : '1'
                   e.currentTarget.style.transform = 'translateY(0)'
                   e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
@@ -1908,13 +1908,13 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                   style={{
                     background: isEmpty
                       ? 'rgba(248,250,252,0.8)'
-                      : 'linear-gradient(135deg, rgba(0,86,179,0.04) 0%, rgba(0,132,212,0.02) 100%)',
-                    borderBottom: '1px solid rgba(197,213,236,0.5)',
+                      : 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(108,189,181,0.02) 100%)',
+                    borderBottom: '1px solid rgba(168,226,221,0.5)',
                   }}>
                   <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
                     style={{
-                      background: isEmpty ? 'rgba(148,163,184,0.15)' : 'linear-gradient(135deg,#0056B3,#0084D4)',
-                      boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(0,86,179,0.25)',
+                      background: isEmpty ? 'rgba(148,163,184,0.15)' : 'linear-gradient(135deg,#4DA8A0,#6CBDB5)',
+                      boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(77,168,160,0.25)',
                     }}>
                     <Database className={`h-4 w-4 ${isEmpty ? 'text-slate-400' : 'text-white'}`} />
                   </div>
@@ -1948,7 +1948,7 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                           {count} {level}
                         </span>
                       ))}
-                    <span className="ml-auto text-xs font-semibold" style={{ color: '#0056B3' }}>
+                    <span className="ml-auto text-xs font-semibold" style={{ color: '#4DA8A0' }}>
                       {dsFiltered.length} matching
                     </span>
                   </div>
@@ -2001,7 +2001,7 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
             </p>
           </div>
         ) : (
-          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'rgba(197,213,236,0.8)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'rgba(168,226,221,0.8)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
             <div className="divide-y divide-slate-50">
               {modelItems.map((item, idx) => {
                 const clr = COMPLEXITY_COLORS[item.level] ?? COMPLEXITY_COLORS['None']
@@ -2280,22 +2280,22 @@ function FabricSessionDetailPageInner() {
         <>
           {/* Tab bar — animated underline pill */}
           <div className="flex items-center gap-0.5 overflow-x-auto pb-0"
-            style={{ borderBottom: '1px solid rgba(197,213,236,0.7)', position: 'relative' }}>
+            style={{ borderBottom: '1px solid rgba(168,226,221,0.7)', position: 'relative' }}>
             {TABS.map(tab => (
               <button key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap"
                 style={{
                   position: 'relative',
-                  color: activeTab === tab.id ? '#003D82' : '#64748B',
-                  background: activeTab === tab.id ? 'rgba(0,86,179,0.05)' : 'transparent',
+                  color: activeTab === tab.id ? '#25706A' : '#64748B',
+                  background: activeTab === tab.id ? 'rgba(77,168,160,0.05)' : 'transparent',
                   border: 'none', cursor: 'pointer', outline: 'none',
                   transition: 'color 150ms cubic-bezier(0.4,0,0.2,1), background 150ms cubic-bezier(0.4,0,0.2,1)',
                 }}
                 onMouseEnter={e => {
                   if (activeTab !== tab.id) {
-                    (e.currentTarget as HTMLButtonElement).style.color = '#0056B3'
-                    ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(0,86,179,0.04)'
+                    (e.currentTarget as HTMLButtonElement).style.color = '#4DA8A0'
+                    ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(77,168,160,0.04)'
                   }
                 }}
                 onMouseLeave={e => {
@@ -2313,7 +2313,7 @@ function FabricSessionDetailPageInner() {
                     layoutId="tab-underline"
                     style={{
                       position: 'absolute', bottom: -1, left: 0, right: 0, height: 2,
-                      background: 'linear-gradient(90deg, #0056B3, #0084D4)',
+                      background: 'linear-gradient(90deg, #4DA8A0, #6CBDB5)',
                       borderRadius: '2px 2px 0 0',
                     }}
                     transition={{ type: 'spring', duration: 0.38, bounce: 0.2 }}

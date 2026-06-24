@@ -14,16 +14,16 @@ import type { SnowflakeJobStatusResponse, SnowflakeAssessmentResult } from '../t
 // ── Ocean design tokens ───────────────────────────────────────────────────────
 
 const D = {
-  bg:          '#EFF6FF',
+  bg:          '#F0FAF9',
   surface:     '#FFFFFF',
-  surface2:    '#F8FAFF',
-  surface3:    '#EFF6FF',
-  border:      '#C5D5EC',
-  borderFaint: '#DDE8F5',
-  amber:       '#29B5E8',
-  amberDim:    '#0099CC',
-  amberGlow:   'rgba(41,181,232,0.12)',
-  amberFaint:  'rgba(41,181,232,0.07)',
+  surface2:    '#F0FAF9',
+  surface3:    '#F0FAF9',
+  border:      '#A8E2DD',
+  borderFaint: '#CCEFEC',
+  amber:       '#4DA8A0',
+  amberDim:    '#6CBDB5',
+  amberGlow:   'rgba(77,168,160,0.12)',
+  amberFaint:  'rgba(77,168,160,0.07)',
   textPrimary: '#0D1117',
   textSecond:  '#404555',
   textMuted:   '#767A8C',
@@ -31,16 +31,16 @@ const D = {
   greenDim:    'rgba(5,150,105,0.10)',
   red:         '#DC2626',
   redDim:      'rgba(220,38,38,0.08)',
-  blue:        '#0056B3',
-  blueDim:     'rgba(0,86,179,0.10)',
+  blue:        '#4DA8A0',
+  blueDim:     'rgba(77,168,160,0.10)',
   purple:      '#7C3AED',
   purpleDim:   'rgba(124,58,237,0.10)',
   orange:      '#EA580C',
   orangeDim:   'rgba(234,88,12,0.10)',
-  teal:        '#0D9488',
-  tealDim:     'rgba(13,148,136,0.10)',
-  shadowCard:  '0 1px 3px rgba(0,86,179,0.04), 0 4px 16px rgba(0,86,179,0.06)',
-  shadowHover: '0 4px 12px rgba(0,86,179,0.08), 0 16px 40px rgba(0,86,179,0.10)',
+  teal:        '#4DA8A0',
+  tealDim:     'rgba(77,168,160,0.10)',
+  shadowCard:  '0 1px 3px rgba(77,168,160,0.04), 0 4px 16px rgba(77,168,160,0.06)',
+  shadowHover: '0 4px 12px rgba(77,168,160,0.08), 0 16px 40px rgba(77,168,160,0.10)',
   fontSyne:    'inherit',
   fontDM:      'inherit',
   fontMono:    '"JetBrains Mono", "Fira Code", monospace',
@@ -477,7 +477,7 @@ function OverviewTab({ result }: { result: SnowflakeAssessmentResult }) {
                 label="total"
                 data={Object.entries(wm.warehouses_by_size).map(([size, cnt], i) => ({
                   label: size, value: cnt,
-                  color: ['#0056B3','#0084D4','#38A8F5','#29B5E8','#10b981','#6366f1'][i % 6],
+                  color: ['#4DA8A0','#6CBDB5','#93CCC6','#A8E2DD','#10b981','#6366f1'][i % 6],
                 }))}
               />
               <div style={{ flex: 1 }}>
@@ -485,7 +485,7 @@ function OverviewTab({ result }: { result: SnowflakeAssessmentResult }) {
                   <div key={size} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <div style={{
                       width: 8, height: 8, borderRadius: '50%',
-                      background: ['#0056B3','#0084D4','#38A8F5','#29B5E8','#10b981','#6366f1'][i % 6],
+                      background: ['#4DA8A0','#6CBDB5','#93CCC6','#A8E2DD','#10b981','#6366f1'][i % 6],
                     }} />
                     <span style={{ fontSize: 11, fontFamily: D.fontDM, color: D.textSecond, flex: 1 }}>{size}</span>
                     <span style={{ fontSize: 12, fontFamily: D.fontMono, fontWeight: 700, color: D.textPrimary }}>{cnt}</span>
@@ -1345,14 +1345,14 @@ export default function SnowflakeSessionDetailPage() {
       {/* hero header */}
       <div style={{
         position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEEFF 100%)',
+        background: `linear-gradient(135deg, ${D.bg} 0%, ${D.borderFaint} 100%)`,
         borderBottom: `1px solid ${D.border}`,
       }}>
         {/* ambient glow */}
         <div style={{
           position: 'absolute', width: 600, height: 600,
           top: -300, right: -150, borderRadius: '50%', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(41,181,232,0.06) 0%, transparent 65%)',
+          background: 'radial-gradient(circle, rgba(77,168,160,0.06) 0%, transparent 65%)',
         }} />
 
         <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 32px' }}>
@@ -1375,7 +1375,7 @@ export default function SnowflakeSessionDetailPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{
                 width: 48, height: 48, borderRadius: 12, flexShrink: 0,
-                background: 'linear-gradient(135deg, #29B5E8 0%, #0099CC 100%)',
+                background: `linear-gradient(135deg, ${D.amberDim} 0%, ${D.amber} 100%)`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: D.shadowCard,
               }}>

@@ -2,7 +2,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Building2, Plus, RefreshCw, CheckCircle2, XCircle,
-  Clock, Loader2, ChevronRight, Calendar, BarChart3,
+  Clock, Loader2, ChevronRight, Calendar,
   AlertTriangle,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
@@ -13,22 +13,22 @@ import { SageIntacctLogo } from '../components/ui/SourceLogos'
 // ── Design tokens (Ocean theme) ───────────────────────────────────────────────
 
 const SAGE = {
-  primary: '#0056B3',
-  mid:     '#0084D4',
-  accent:  '#38A8F5',
-  light50: '#EFF7FF',
-  light100:'#DBEEFF',
-  light200:'#BAE0FF',
-  glow:    'rgba(0,86,179,0.15)',
-  shadow:  '0 2px 4px rgba(0,86,179,0.04), 0 8px 24px rgba(0,86,179,0.06), 0 1px 2px rgba(0,0,0,0.04)',
-  shadowH: '0 4px 8px rgba(0,86,179,0.06), 0 16px 40px rgba(0,86,179,0.10), 0 2px 4px rgba(0,0,0,0.04)',
+  primary: '#4DA8A0',
+  mid:     '#6CBDB5',
+  accent:  '#93CCC6',
+  light50: '#F0FAF9',
+  light100:'#CCEFEC',
+  light200:'#A8E2DD',
+  glow:    'rgba(77,168,160,0.15)',
+  shadow:  '0 2px 4px rgba(77,168,160,0.04), 0 8px 24px rgba(77,168,160,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+  shadowH: '0 4px 8px rgba(77,168,160,0.06), 0 16px 40px rgba(77,168,160,0.10), 0 2px 4px rgba(0,0,0,0.04)',
 }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, { bg: string; text: string; icon: React.ElementType; dot?: string }> = {
-    completed: { bg: '#EFF7FF', text: '#003D82', icon: CheckCircle2, dot: '#38A8F5' },
+    completed: { bg: '#F0FAF9', text: '#25706A', icon: CheckCircle2, dot: '#4DA8A0' },
     running:   { bg: '#EFF6FF', text: '#1E40AF', icon: Loader2,      dot: '#3B82F6' },
     pending:   { bg: '#FFFBEB', text: '#92400E', icon: Clock,         dot: '#F59E0B' },
     failed:    { bg: '#FFF5F5', text: '#991B1B', icon: XCircle,       dot: '#EF4444' },
@@ -129,8 +129,8 @@ function SessionCard({ session, index }: { session: SageIntacctSessionRecord; in
             <div
               className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
               style={{
-                background: '#F8FAFF',
-                border: '1px solid #C5D5EC',
+                background: SAGE.light50,
+                border: `1px solid ${SAGE.light200}`,
                 boxShadow: `0 4px 12px ${SAGE.glow}`,
               }}
             >
@@ -283,13 +283,14 @@ export default function SageIntacctSessionsPage() {
       <div ref={headerRef} className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div
-            className="h-10 w-10 rounded-xl flex items-center justify-center"
+            className="h-10 w-10 rounded-xl flex items-center justify-center overflow-hidden"
             style={{
-              background: `linear-gradient(135deg, ${SAGE.primary} 0%, ${SAGE.mid} 100%)`,
+              background: SAGE.light50,
+              border: `1px solid ${SAGE.light200}`,
               boxShadow: `0 4px 14px ${SAGE.glow}`,
             }}
           >
-            <BarChart3 className="h-5 w-5 text-white" />
+            <SageIntacctLogo size={28} />
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">Sage Intacct Assessments</h1>
@@ -304,7 +305,7 @@ export default function SageIntacctSessionsPage() {
             disabled={refreshing}
             className="p-2 rounded-xl border border-slate-200 text-slate-500 transition-all duration-150
                        disabled:opacity-40"
-            style={{ background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+            style={{ background: 'white', boxShadow: 'var(--elevation-1)' }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.borderColor = SAGE.light200
               ;(e.currentTarget as HTMLButtonElement).style.color = SAGE.primary

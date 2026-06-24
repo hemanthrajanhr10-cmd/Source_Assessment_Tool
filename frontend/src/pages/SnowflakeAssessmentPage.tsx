@@ -24,8 +24,8 @@ const D = {
   surface:     '#FFFFFF',
   surface2:    '#F0FAF9',
   surface3:    '#F0FAF9',
-  border:      '#A8E2DD',
-  borderFaint: '#CCEFEC',
+  border:      'var(--brand-200)',
+  borderFaint: 'var(--brand-100)',
   amber:       '#6CBDB5',
   amberDim:    '#4DA8A0',
   amberGlow:   'rgba(108,189,181,0.15)',
@@ -617,13 +617,13 @@ export default function SnowflakeAssessmentPage() {
       {/* ── Hero header ──────────────────────────────────────────────────── */}
       <div style={{
         position: 'relative', overflow: 'hidden',
-        background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEEFF 100%)',
+        background: 'linear-gradient(135deg, var(--brand-50) 0%, var(--brand-100) 100%)',
         borderBottom: `1px solid ${D.border}`,
       }}>
         <div style={{
           position: 'absolute', width: 700, height: 700, top: -350, right: -200,
           borderRadius: '50%', pointerEvents: 'none',
-          background: 'radial-gradient(circle, rgba(41,181,232,0.06) 0%, transparent 60%)',
+          background: `radial-gradient(circle, ${D.amberFaint} 0%, transparent 60%)`,
         }} />
 
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 32px 28px' }}>

@@ -1,14 +1,16 @@
 """
 Salesforce Assessment API routes.
 
-POST /salesforce/test-connection     — validate credentials, return org info
-POST /salesforce/assess              — start async assessment job (202)
-GET  /salesforce/jobs/{id}/status    — poll job status
-GET  /salesforce/jobs/{id}/results   — fetch full result JSON
-GET  /salesforce/sessions            — list all Salesforce assessment sessions
+POST /salesforce/test-connection          — validate credentials, return org info
+POST /salesforce/assess                   — start async assessment job (202)
+GET  /salesforce/jobs/{id}/status         — poll job status
+GET  /salesforce/jobs/{id}/results        — fetch full result JSON
+GET  /salesforce/jobs/{id}/export/excel   — download 15-sheet Excel workbook
+GET  /salesforce/sessions                 — list all Salesforce assessment sessions
 """
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Depends
+from fastapi.responses import Response
 
 from app.api.v1.routes.auth import get_current_user
 from app.models.salesforce_requests import (
@@ -55,8 +57,9 @@ async def start_assessment(
         job_id=job_id,
         status="pending",
         message=(
-            "Salesforce assessment queued — 8 API surfaces, 10 domains, 20+ checks. "
-            "REST · Metadata · Tooling · Bulk · Analytics · Security · Automation · Integrations."
+            "Salesforce assessment queued — 8+ API surfaces, 20 domains, 100+ checks, 35 steps, 15-sheet Excel. "
+            "REST · Metadata · Tooling · Bulk · Analytics · Security · Automation · Integrations · "
+            "Org Limits · Packages · Operations · UI Components · Field Schema · Experience Cloud · Business Objects."
         ),
     )
 
@@ -113,3 +116,33 @@ async def get_job_results(job_id: str, _user=AuthDep) -> SalesforceAssessmentRes
 )
 async def list_sessions(_user=AuthDep) -> list[SalesforceSessionRecord]:
     return svc.list_jobs()
+
+
+# ── Excel export ──────────────────────────────────────────────────────────────
+
+@router.get(
+    "/jobs/{job_id}/export/excel",
+    summary="Export Salesforce assessment as 15-sheet Excel workbook",
+)
+async def export_excel(job_id: str, _user=AuthDep) -> Response:
+    job = svc.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Salesforce job {job_id!r} not found.")
+    if job["status"] != "completed":
+        raise HTTPException(status_code=425, detail="Assessment not yet complete.")
+    result = job.get("result")
+    if not result:
+        raise HTTPException(status_code=500, detail="Result data unavailable.")
+
+    label = job.get("label") or job_id
+    try:
+        xlsx = svc.build_excel_report(result, label)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+    filename = f"salesforce_assessment_{job_id[:8]}.xlsx"
+    return Response(
+        content=xlsx,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

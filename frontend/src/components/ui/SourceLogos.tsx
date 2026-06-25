@@ -354,3 +354,152 @@ export function IbmDb2FullLogo({ height = 32, className }: { height?: number; cl
     />
   )
 }
+
+/**
+ * Infor logo mark — geometric diamond motif in Infor's navy/blue palette.
+ * The four-quadrant diamond reflects Infor's brand identity and CloudSuite's
+ * multi-engine (M3/LN/CSI) architecture.
+ */
+export function InforLogo({ size = 24, className }: LogoProps) {
+  const s = size
+  const cx = s / 2
+  const cy = s / 2
+  const r = s * 0.44
+
+  // Diamond points
+  const top   = { x: cx,       y: cy - r }
+  const right = { x: cx + r,   y: cy     }
+  const bot   = { x: cx,       y: cy + r }
+  const left  = { x: cx - r,   y: cy     }
+
+  return (
+    <svg
+      width={s}
+      height={s}
+      viewBox={`0 0 ${s} ${s}`}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-label="Infor"
+    >
+      <defs>
+        <linearGradient id="infor-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"   stopColor="#1E4D8C" />
+          <stop offset="100%" stopColor="#0083BE" />
+        </linearGradient>
+        <linearGradient id="infor-q1" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.95" />
+          <stop offset="100%" stopColor="#B3D4F0" stopOpacity="0.80" />
+        </linearGradient>
+        <linearGradient id="infor-q2" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.70" />
+          <stop offset="100%" stopColor="#6BAED6" stopOpacity="0.55" />
+        </linearGradient>
+        <linearGradient id="infor-q3" x1="1" y1="1" x2="0" y2="0">
+          <stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#B3D4F0" stopOpacity="0.70" />
+        </linearGradient>
+        <linearGradient id="infor-q4" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0%"   stopColor="#FFFFFF" stopOpacity="0.60" />
+          <stop offset="100%" stopColor="#6BAED6" stopOpacity="0.45" />
+        </linearGradient>
+      </defs>
+
+      {/* Background square */}
+      <rect x="0" y="0" width={s} height={s} rx={s * 0.18} fill="url(#infor-bg)" />
+
+      {/* Top quadrant (brightest) */}
+      <polygon
+        points={`${cx},${cy} ${top.x},${top.y} ${right.x},${right.y}`}
+        fill="url(#infor-q1)"
+      />
+      {/* Right quadrant */}
+      <polygon
+        points={`${cx},${cy} ${right.x},${right.y} ${bot.x},${bot.y}`}
+        fill="url(#infor-q2)"
+      />
+      {/* Bottom quadrant */}
+      <polygon
+        points={`${cx},${cy} ${bot.x},${bot.y} ${left.x},${left.y}`}
+        fill="url(#infor-q3)"
+      />
+      {/* Left quadrant */}
+      <polygon
+        points={`${cx},${cy} ${left.x},${left.y} ${top.x},${top.y}`}
+        fill="url(#infor-q4)"
+      />
+
+      {/* Thin dividing lines */}
+      {[[top, bot], [left, right]].map(([a, b], i) => (
+        <line
+          key={i}
+          x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+          stroke="rgba(255,255,255,0.25)"
+          strokeWidth={s * 0.018}
+        />
+      ))}
+
+      {/* Centre dot */}
+      <circle cx={cx} cy={cy} r={s * 0.055} fill="white" opacity="0.90" />
+    </svg>
+  )
+}
+
+export function InforIconLogo({ size = 24, className }: LogoProps) {
+  return <InforLogo size={size} className={className} />
+}
+
+/**
+ * Databricks logo mark — spark bolt on brand red (#FF3621).
+ * The upward-pointing spark/lightning bolt motif mirrors Databricks' identity.
+ */
+export function DatabricksIconLogo({ size = 24, className }: LogoProps) {
+  const s = size
+  return (
+    <svg
+      width={s}
+      height={s}
+      viewBox="0 0 32 32"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-label="Databricks"
+    >
+      <defs>
+        <linearGradient id="db-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#FF3621" />
+          <stop offset="100%" stopColor="#E0280E" />
+        </linearGradient>
+        <linearGradient id="db-bolt" x1="0.3" y1="0" x2="0.7" y2="1">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="1" />
+          <stop offset="100%" stopColor="#FFD6CE" stopOpacity="0.95" />
+        </linearGradient>
+        <filter id="db-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="0.6" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+
+      {/* Rounded square background */}
+      <rect x="0" y="0" width="32" height="32" rx="7" fill="url(#db-bg)" />
+
+      {/* Specular highlight */}
+      <rect x="0" y="0" width="32" height="32" rx="7"
+        fill="url(#db-spec)" opacity="0.14" />
+      <defs>
+        <linearGradient id="db-spec" x1="0" y1="0" x2="0.6" y2="0.6">
+          <stop offset="0%" stopColor="#fff" stopOpacity="1" />
+          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {/* Spark / lightning bolt — Databricks icon */}
+      <path
+        d="M18.5 4L9 17.5H15.5L13.5 28L23 14.5H16.5L18.5 4Z"
+        fill="url(#db-bolt)"
+        filter="url(#db-glow)"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}

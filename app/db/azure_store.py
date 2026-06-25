@@ -220,6 +220,32 @@ BEGIN
 END;
 """
 
+_INFOR_SESSIONS_DDL = """
+IF OBJECT_ID('dbo.infor_sessions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.infor_sessions (
+        job_id           VARCHAR(36)    NOT NULL,
+        label            NVARCHAR(200)  NULL,
+        engine           NVARCHAR(20)   NULL,
+        tenant_id        NVARCHAR(200)  NULL,
+        total_checks     INT            NULL,
+        passed_checks    INT            NULL,
+        critical_findings INT           NULL,
+        high_findings    INT            NULL,
+        overall_score    FLOAT          NULL,
+        status           VARCHAR(20)    NOT NULL DEFAULT 'pending',
+        progress_message NVARCHAR(500)  NULL,
+        duration_seconds FLOAT          NULL,
+        error            NVARCHAR(MAX)  NULL,
+        results_json     NVARCHAR(MAX)  NULL,
+        created_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at     DATETIME2      NULL,
+        CONSTRAINT PK_infor_sessions PRIMARY KEY (job_id)
+    );
+    CREATE INDEX IX_infor_sessions_created ON dbo.infor_sessions (created_at DESC);
+END;
+"""
+
 _TABLEAU_SESSIONS_DDL = """
 IF OBJECT_ID('dbo.tableau_sessions', 'U') IS NULL
 BEGIN
@@ -238,6 +264,37 @@ BEGIN
         CONSTRAINT PK_tableau_sessions PRIMARY KEY (job_id)
     );
     CREATE INDEX IX_tab_sessions_created ON dbo.tableau_sessions (created_at DESC);
+END;
+"""
+
+_DATABRICKS_SESSIONS_DDL = """
+IF OBJECT_ID('dbo.databricks_sessions', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.databricks_sessions (
+        job_id           VARCHAR(36)    NOT NULL,
+        label            NVARCHAR(200)  NULL,
+        workspace_url    NVARCHAR(500)  NULL,
+        workspace_name   NVARCHAR(200)  NULL,
+        cloud            NVARCHAR(20)   NULL,
+        cluster_count    INT            NULL,
+        warehouse_count  INT            NULL,
+        catalog_count    INT            NULL,
+        job_count        INT            NULL,
+        total_checks     INT            NULL,
+        passed_checks    INT            NULL,
+        critical_findings INT           NULL,
+        high_findings    INT            NULL,
+        overall_score    FLOAT          NULL,
+        status           VARCHAR(20)    NOT NULL DEFAULT 'pending',
+        progress_message NVARCHAR(500)  NULL,
+        duration_seconds FLOAT          NULL,
+        error            NVARCHAR(MAX)  NULL,
+        results_json     NVARCHAR(MAX)  NULL,
+        created_at       DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at     DATETIME2      NULL,
+        CONSTRAINT PK_databricks_sessions PRIMARY KEY (job_id)
+    );
+    CREATE INDEX IX_databricks_sessions_created ON dbo.databricks_sessions (created_at DESC);
 END;
 """
 
@@ -260,8 +317,10 @@ def init_schema() -> None:
             (_SAP_SESSIONS_DDL,        "sap_sessions"),
             (_SAGE_SESSIONS_DDL,       "sage_intacct_sessions"),
             (_SNOWFLAKE_SESSIONS_DDL,  "snowflake_sessions"),
-            (_TABLEAU_SESSIONS_DDL,    "tableau_sessions"),
-            (_DB2_SESSIONS_DDL,        "db2_sessions"),
+            (_TABLEAU_SESSIONS_DDL,      "tableau_sessions"),
+            (_DB2_SESSIONS_DDL,          "db2_sessions"),
+            (_INFOR_SESSIONS_DDL,        "infor_sessions"),
+            (_DATABRICKS_SESSIONS_DDL,   "databricks_sessions"),
         ]:
             cur.execute(ddl_str)
             conn.commit()
@@ -2185,3 +2244,108 @@ def db2_list_sessions() -> list[dict]:
 
 def db2_get_session(job_id: str) -> Optional[dict]:
     return _get_session("db2_sessions", "job_id", job_id)
+
+
+# ── Infor CloudSuite ──────────────────────────────────────────────────────────
+
+_INFOR_LIST_COLS = [
+    "job_id", "label", "engine", "tenant_id",
+    "total_checks", "passed_checks", "critical_findings", "high_findings",
+    "overall_score", "status", "created_at", "completed_at", "error",
+]
+
+
+def infor_upsert_session(job: dict) -> None:
+    r = job.get("results")
+
+    def _g(key, default=None):
+        if r is None:
+            return default
+        return r.get(key, default) if isinstance(r, dict) else getattr(r, key, default)
+
+    _upsert(
+        table="infor_sessions", pk_col="job_id", pk_val=job["job_id"],
+        scalars={
+            "label":             job.get("label"),
+            "engine":            job.get("engine"),
+            "tenant_id":         job.get("tenant_id"),
+            "total_checks":      _g("total_checks"),
+            "passed_checks":     _g("passed_checks"),
+            "critical_findings": _g("critical_findings"),
+            "high_findings":     _g("high_findings"),
+            "overall_score":     _g("overall_score"),
+            "status":            job.get("status", "pending"),
+            "progress_message":  job.get("progress_message"),
+            "duration_seconds":  job.get("duration_seconds"),
+            "error":             job.get("error"),
+            "completed_at":      job.get("completed_at"),
+        },
+        results_obj=r,
+    )
+
+
+def infor_list_sessions() -> list[dict]:
+    return _list_sessions("infor_sessions", _INFOR_LIST_COLS)
+
+
+def infor_get_session(job_id: str) -> Optional[dict]:
+    return _get_session("infor_sessions", "job_id", job_id)
+
+
+# ── Databricks ────────────────────────────────────────────────────────────────
+
+_DATABRICKS_LIST_COLS = [
+    "job_id", "label", "workspace_url", "workspace_name", "cloud",
+    "cluster_count", "warehouse_count", "catalog_count", "job_count",
+    "total_checks", "passed_checks", "critical_findings", "high_findings",
+    "overall_score", "status", "created_at", "completed_at", "error",
+]
+
+
+def databricks_upsert_session(job: dict) -> None:
+    r = job.get("results")
+
+    def _g(key, default=None):
+        if r is None:
+            return default
+        return r.get(key, default) if isinstance(r, dict) else getattr(r, key, default)
+
+    def _nested(obj, key, default=None):
+        if obj is None:
+            return default
+        return obj.get(key, default) if isinstance(obj, dict) else getattr(obj, key, default)
+
+    ws_info = _g("workspace_info") or {}
+
+    _upsert(
+        table="databricks_sessions", pk_col="job_id", pk_val=job["job_id"],
+        scalars={
+            "label":             job.get("label"),
+            "workspace_url":     job.get("workspace_url"),
+            "workspace_name":    _nested(ws_info, "workspace_name"),
+            "cloud":             _nested(ws_info, "cloud"),
+            "cluster_count":     job.get("cluster_count"),
+            "warehouse_count":   job.get("warehouse_count"),
+            "catalog_count":     job.get("catalog_count"),
+            "job_count":         job.get("job_count"),
+            "total_checks":      job.get("total_checks"),
+            "passed_checks":     job.get("passed_checks"),
+            "critical_findings": job.get("critical_findings"),
+            "high_findings":     job.get("high_findings"),
+            "overall_score":     job.get("overall_score"),
+            "status":            job.get("status", "pending"),
+            "progress_message":  job.get("progress_message"),
+            "duration_seconds":  job.get("duration_seconds"),
+            "error":             job.get("error"),
+            "completed_at":      job.get("completed_at"),
+        },
+        results_obj=r,
+    )
+
+
+def databricks_list_sessions() -> list[dict]:
+    return _list_sessions("databricks_sessions", _DATABRICKS_LIST_COLS)
+
+
+def databricks_get_session(job_id: str) -> Optional[dict]:
+    return _get_session("databricks_sessions", "job_id", job_id)

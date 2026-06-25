@@ -52,6 +52,17 @@ import type {
   Db2JobResponse,
   Db2JobStatusResponse,
   Db2SessionRecord,
+  InforEngine,
+  InforAssessmentRequest,
+  InforAssessmentResult,
+  InforJobResponse,
+  InforJobStatusResponse,
+  InforSessionRecord,
+  DatabricksAssessmentRequest,
+  DatabricksAssessmentResult,
+  DatabricksJobResponse,
+  DatabricksJobStatusResponse,
+  DatabricksSessionRecord,
 } from '../types/api'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''
@@ -494,6 +505,66 @@ export const api = {
   db2DownloadExcel: async (jobId: string, label?: string) => {
     const res = await http.get(`/api/v1/db2/jobs/${jobId}/report`, { responseType: 'blob' })
     const filename = `${(label || 'ibm_db2_assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.xlsx`
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  // ── Infor CloudSuite Assessments ──────────────────────────────────────────
+  inforTestConnection: (data: InforAssessmentRequest) =>
+    http.post<{ ok: boolean; tenant_id?: string; tenant_name?: string; detected_engine?: InforEngine; engine_label?: string; ion_api_version?: string; error?: string }>(
+      '/api/v1/infor/test-connection',
+      data,
+    ),
+
+  inforStartAssessment: (data: InforAssessmentRequest) =>
+    http.post<InforJobResponse>('/api/v1/infor/assess', data),
+
+  inforGetJobStatus: (jobId: string) =>
+    http.get<InforJobStatusResponse>(`/api/v1/infor/jobs/${jobId}/status`),
+
+  inforGetJobResults: (jobId: string) =>
+    http.get<InforAssessmentResult>(`/api/v1/infor/jobs/${jobId}/results`),
+
+  inforListSessions: () =>
+    http.get<InforSessionRecord[]>('/api/v1/infor/sessions'),
+
+  inforDownloadExcel: async (jobId: string, engine?: string, label?: string) => {
+    const res = await http.get(`/api/v1/infor/jobs/${jobId}/report`, { responseType: 'blob' })
+    const filename = `infor_${engine || 'assessment'}_${(label || '').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.xlsx`
+    const url = URL.createObjectURL(res.data as Blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
+  // ── Databricks Assessments ────────────────────────────────────────────────
+  databricksTestConnection: (data: DatabricksAssessmentRequest) =>
+    http.post<{ ok: boolean; user_name?: string; workspace_url?: string; error?: string }>(
+      '/api/v1/databricks/test-connection',
+      data,
+    ),
+
+  databricksStartAssessment: (data: DatabricksAssessmentRequest) =>
+    http.post<DatabricksJobResponse>('/api/v1/databricks/assess', data),
+
+  databricksGetJobStatus: (jobId: string) =>
+    http.get<DatabricksJobStatusResponse>(`/api/v1/databricks/jobs/${jobId}/status`),
+
+  databricksGetJobResults: (jobId: string) =>
+    http.get<DatabricksAssessmentResult>(`/api/v1/databricks/jobs/${jobId}/results`),
+
+  databricksListSessions: () =>
+    http.get<DatabricksSessionRecord[]>('/api/v1/databricks/sessions'),
+
+  databricksDownloadExcel: async (jobId: string, label?: string) => {
+    const res = await http.get(`/api/v1/databricks/jobs/${jobId}/report`, { responseType: 'blob' })
+    const filename = `databricks_${(label || 'assessment').replace(/\s+/g, '_')}_${jobId.slice(0, 8)}.xlsx`
     const url = URL.createObjectURL(res.data as Blob)
     const a = document.createElement('a')
     a.href = url

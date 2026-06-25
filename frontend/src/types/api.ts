@@ -2596,3 +2596,513 @@ export interface Db2SessionRecord {
   error?: string
   results?: Db2AssessmentResult
 }
+
+// ── Infor CloudSuite ──────────────────────────────────────────────────────────
+
+export type InforEngine = 'm3' | 'ln' | 'csi'
+
+export interface InforEngineMeta {
+  value: InforEngine
+  label: string
+  shortLabel: string
+  description: string
+  apiSurface: string
+  deploymentNote: string
+}
+
+export const INFOR_ENGINES: InforEngineMeta[] = [
+  {
+    value: 'm3',
+    label: 'Infor M3',
+    shortLabel: 'M3',
+    description: 'CloudSuite Fashion / Food & Beverage / Distribution — MRS001/002/003 + MDBREADMI API repository',
+    apiSurface: 'MRS001 / MRS002 / MRS003 / MDBREADMI',
+    deploymentNote: 'On-prem or cloud; on-prem requires Hybrid Connection relay',
+  },
+  {
+    value: 'ln',
+    label: 'Infor LN',
+    shortLabel: 'LN',
+    description: 'CloudSuite Automotive / Aerospace & Defense — BOD catalog, VRC customisations, ION integration bus',
+    apiSurface: 'ION BOD API / VRC / LN BSP Tools',
+    deploymentNote: 'Typically on-prem; requires Hybrid Connection relay for direct API access',
+  },
+  {
+    value: 'csi',
+    label: 'Infor CSI / SyteLine',
+    shortLabel: 'CSI',
+    description: 'CloudSuite Industrial — SyteLine data model, SaaS on AWS; no Hybrid Connection needed',
+    apiSurface: 'ION Grid REST / SyteLine ODBC',
+    deploymentNote: 'SaaS on AWS — direct connectivity via ION Grid REST API',
+  },
+]
+
+/** Edition → engine mapping for the edition-selection dropdown */
+export const INFOR_EDITION_OPTIONS: { label: string; edition: string; engine: InforEngine }[] = [
+  { label: 'CloudSuite Fashion',          edition: 'cloudsuite_fashion',          engine: 'm3' },
+  { label: 'CloudSuite Food & Beverage',  edition: 'cloudsuite_food_beverage',    engine: 'm3' },
+  { label: 'CloudSuite Distribution',     edition: 'cloudsuite_distribution',      engine: 'm3' },
+  { label: 'CloudSuite Retail',           edition: 'cloudsuite_retail',            engine: 'm3' },
+  { label: 'CloudSuite Rental',           edition: 'cloudsuite_rental',            engine: 'm3' },
+  { label: 'CloudSuite Equipment',        edition: 'cloudsuite_equipment',         engine: 'm3' },
+  { label: 'CloudSuite Automotive',       edition: 'cloudsuite_automotive',        engine: 'ln' },
+  { label: 'CloudSuite Aerospace & Defense', edition: 'cloudsuite_aerospace',     engine: 'ln' },
+  { label: 'CloudSuite Industrial Enterprise (LN)', edition: 'cloudsuite_industrial_enterprise', engine: 'ln' },
+  { label: 'CloudSuite Industrial (SyteLine)', edition: 'cloudsuite_industrial',  engine: 'csi' },
+  { label: 'SyteLine (standalone)',       edition: 'syteline',                    engine: 'csi' },
+]
+
+export interface InforIonCredentials {
+  tenant_id: string
+  ion_api_url: string
+  client_id: string
+  client_secret: string
+  username?: string
+  password?: string
+  use_hcm: boolean
+  hcm_local_host?: string
+  hcm_local_port?: number
+}
+
+export interface InforAssessmentRequest {
+  engine?: InforEngine
+  edition?: string
+  label?: string
+  credentials: InforIonCredentials
+}
+
+// ── Infor result sub-models ───────────────────────────────────────────────────
+
+export interface InforCheckResult {
+  domain: string
+  check: string
+  status: 'pass' | 'warn' | 'fail' | 'info' | 'n/a'
+  risk: 'critical' | 'high' | 'medium' | 'low' | 'none'
+  count?: number
+  details?: string
+  recommendation?: string
+}
+
+export interface InforEngineInfo {
+  engine: InforEngine
+  edition?: string
+  version?: string
+  tenant_id: string
+  deployment: 'cloud' | 'on_prem' | 'hybrid'
+  ion_api_version?: string
+  detection_method: 'explicit' | 'edition_map' | 'auto_probe'
+}
+
+export interface InforM3ApiRepository {
+  program_count: number
+  table_count: number
+  field_count: number
+  custom_program_count: number
+  custom_table_count: number
+  mrs001_accessible: boolean
+  mrs002_accessible: boolean
+  mrs003_accessible: boolean
+  mdbreadmi_accessible: boolean
+  api_completeness_pct: number
+}
+
+export interface InforM3CustomizationFootprint {
+  custom_program_count: number
+  custom_table_count: number
+  custom_field_count: number
+  modification_count: number
+  third_party_addon_count: number
+}
+
+export interface InforM3MultiSite {
+  company_count: number
+  division_count: number
+  facility_count: number
+  warehouse_count: number
+  multi_currency: boolean
+  multi_language: boolean
+}
+
+export interface InforLnBodCatalog {
+  total_bods: number
+  bod_verb_counts: Record<string, number>
+  ion_integration_count: number
+  connection_point_count: number
+  data_flow_count: number
+}
+
+export interface InforLnVrc {
+  vrc_package_count: number
+  custom_component_count: number
+  customization_layers: number
+  vrc_packages: string[]
+}
+
+export interface InforLnMultiSite {
+  company_count: number
+  financial_company_count: number
+  logistical_company_count: number
+  warehouse_count: number
+  multi_currency: boolean
+  multi_language: boolean
+}
+
+export interface InforLnPackages {
+  installed_packages: string[]
+  module_count: number
+  active_module_count: number
+}
+
+export interface InforCsiSchema {
+  table_count: number
+  custom_table_count: number
+  view_count: number
+  stored_procedure_count: number
+  trigger_count: number
+  site_count: number
+  user_defined_field_count: number
+  event_handler_count: number
+  custom_form_count: number
+}
+
+export interface InforOsPlatformHealth {
+  ion_api_accessible: boolean
+  mingle_accessible: boolean
+  data_fabric_catalog_present: boolean
+  birst_active: boolean
+  coleman_ai_active: boolean
+  ion_message_volume_daily?: number
+  mfa_enabled: boolean
+  grc_configured: boolean
+  ion_api_version?: string
+  mingle_tenant_count: number
+  ion_connection_point_count: number
+}
+
+export interface InforUserProfile {
+  total_users: number
+  active_users: number
+  role_count: number
+  mfa_enabled_users: number
+  security_role_count: number
+  admin_user_count: number
+}
+
+export interface InforIntegrationFootprint {
+  ion_api_endpoint_count: number
+  active_connection_points: number
+  external_system_count: number
+  middleware_types: string[]
+  webhook_count: number
+}
+
+export interface InforAssessmentResult {
+  job_id: string
+  engine: InforEngine
+  engine_info?: InforEngineInfo
+  label?: string
+  m3_api_repository?: InforM3ApiRepository
+  m3_customization?: InforM3CustomizationFootprint
+  m3_multi_site?: InforM3MultiSite
+  ln_bod_catalog?: InforLnBodCatalog
+  ln_vrc?: InforLnVrc
+  ln_multi_site?: InforLnMultiSite
+  ln_packages?: InforLnPackages
+  csi_schema?: InforCsiSchema
+  platform_health?: InforOsPlatformHealth
+  user_profile?: InforUserProfile
+  integration_footprint?: InforIntegrationFootprint
+  checks: InforCheckResult[]
+  total_checks: number
+  passed_checks: number
+  warnings: number
+  critical_findings: number
+  high_findings: number
+  overall_score?: number
+  assessment_timestamp: string
+  duration_seconds?: number
+  error?: string
+}
+
+export interface InforJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface InforJobStatusResponse {
+  job_id: string
+  status: string
+  engine?: InforEngine
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+}
+
+export interface InforSessionRecord {
+  job_id: string
+  engine?: InforEngine
+  label?: string
+  tenant_id?: string
+  status: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: InforAssessmentResult
+}
+
+// ── Databricks ────────────────────────────────────────────────────────────────
+
+export interface DatabricksCredentials {
+  workspace_url: string
+  access_token: string
+  cloud?: 'azure' | 'aws' | 'gcp'
+}
+
+export interface DatabricksAssessmentRequest {
+  credentials: DatabricksCredentials
+  label?: string
+  include_clusters?: boolean
+  include_warehouses?: boolean
+  include_unity_catalog?: boolean
+  include_jobs?: boolean
+  include_security?: boolean
+  include_integrations?: boolean
+  include_mlflow?: boolean
+  include_cost_signals?: boolean
+}
+
+export interface DatabricksWorkspaceInfo {
+  workspace_id?: string
+  workspace_name?: string
+  deployment_name?: string
+  cloud?: string
+  region?: string
+  metastore_id?: string
+}
+
+export interface DatabricksClusterSummary {
+  total_clusters: number
+  running_clusters: number
+  terminated_clusters: number
+  all_purpose_clusters: number
+  job_clusters: number
+  clusters_without_autoterminate: number
+  photon_enabled_clusters: number
+  legacy_runtime_clusters: number
+  policy_compliant_clusters: number
+  single_node_clusters: number
+}
+
+export interface DatabricksCluster {
+  cluster_id: string
+  cluster_name?: string
+  cluster_source?: string
+  state?: string
+  spark_version?: string
+  node_type_id?: string
+  autotermination_minutes?: number
+  runtime_engine?: string
+  num_workers?: number
+  autoscale_min?: number
+  autoscale_max?: number
+  policy_id?: string
+  creator_user_name?: string
+}
+
+export interface DatabricksWarehouseSummary {
+  total_warehouses: number
+  running_warehouses: number
+  stopped_warehouses: number
+  serverless_warehouses: number
+  classic_warehouses: number
+  warehouses_without_auto_stop: number
+}
+
+export interface DatabricksWarehouse {
+  id: string
+  name?: string
+  cluster_size?: string
+  min_num_clusters?: number
+  max_num_clusters?: number
+  auto_stop_mins?: number
+  state?: string
+  warehouse_type?: string
+  enable_photon?: boolean
+  channel_name?: string
+  creator_name?: string
+  num_active_sessions?: number
+}
+
+export interface DatabricksUnityCatalogSummary {
+  metastore_name?: string
+  metastore_id?: string
+  storage_root?: string
+  catalog_count: number
+  schema_count: number
+  table_count: number
+  view_count: number
+  external_location_count: number
+  storage_credential_count: number
+  volume_count: number
+  delta_sharing_enabled: boolean
+  data_sharing_recipient_count: number
+}
+
+export interface DatabricksCatalog {
+  name: string
+  catalog_type?: string
+  comment?: string
+  owner?: string
+  metastore_id?: string
+  storage_location?: string
+  schema_count: number
+  table_count: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface DatabricksJobSummary {
+  total_jobs: number
+  continuous_jobs: number
+  scheduled_jobs: number
+  multi_task_jobs: number
+  jobs_with_failures_last_7d: number
+  jobs_using_all_purpose_compute: number
+  dlt_pipelines: number
+}
+
+export interface DatabricksJob {
+  job_id: number
+  name?: string
+  creator_user_name?: string
+  schedule?: string
+  job_cluster_count: number
+  task_count: number
+  uses_all_purpose_compute: boolean
+  last_run_status?: string
+  created_time?: string
+}
+
+export interface DatabricksSecuritySummary {
+  total_users: number
+  active_users: number
+  admin_users: number
+  service_principal_count: number
+  group_count: number
+  workspace_admins: number
+  ip_access_list_count: number
+  secrets_scope_count: number
+  pat_count: number
+  token_lifetime_configured: boolean
+  unity_catalog_enabled: boolean
+  audit_log_configured: boolean
+}
+
+export interface DatabricksUser {
+  id?: string
+  user_name?: string
+  display_name?: string
+  active?: boolean
+  is_admin: boolean
+}
+
+export interface DatabricksIntegrationSummary {
+  external_location_count: number
+  storage_credential_count: number
+  git_credential_count: number
+  secret_scope_count: number
+  network_policy_count: number
+  dbfs_mount_count: number
+  delta_sharing_enabled: boolean
+  lakehouse_monitor_count: number
+}
+
+export interface DatabricksMLflowSummary {
+  experiment_count: number
+  registered_model_count: number
+  model_serving_endpoint_count: number
+  running_endpoints: number
+  vector_search_index_count: number
+  dlt_pipeline_count: number
+}
+
+export interface DatabricksCheckResult {
+  domain: string
+  check: string
+  status: 'pass' | 'warn' | 'fail' | 'info' | 'n/a'
+  risk: 'critical' | 'high' | 'medium' | 'low' | 'none'
+  count?: number
+  details?: string
+  recommendation?: string
+}
+
+export interface DatabricksAssessmentResult {
+  job_id: string
+  label?: string
+  workspace_url?: string
+  workspace_info?: DatabricksWorkspaceInfo
+  cluster_summary?: DatabricksClusterSummary
+  warehouse_summary?: DatabricksWarehouseSummary
+  unity_catalog?: DatabricksUnityCatalogSummary
+  job_summary?: DatabricksJobSummary
+  security_summary?: DatabricksSecuritySummary
+  integration_summary?: DatabricksIntegrationSummary
+  mlflow_summary?: DatabricksMLflowSummary
+  clusters: DatabricksCluster[]
+  warehouses: DatabricksWarehouse[]
+  catalogs: DatabricksCatalog[]
+  jobs: DatabricksJob[]
+  users: DatabricksUser[]
+  checks: DatabricksCheckResult[]
+  total_checks: number
+  passed_checks: number
+  warnings: number
+  critical_findings: number
+  high_findings: number
+  overall_score?: number
+  assessment_timestamp: string
+  duration_seconds?: number
+  error?: string
+}
+
+export interface DatabricksJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface DatabricksJobStatusResponse {
+  job_id: string
+  status: string
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+  workspace_url?: string
+}
+
+export interface DatabricksSessionRecord {
+  job_id: string
+  label?: string
+  workspace_url?: string
+  workspace_name?: string
+  cloud?: string
+  cluster_count?: number
+  warehouse_count?: number
+  catalog_count?: number
+  job_count?: number
+  total_checks?: number
+  passed_checks?: number
+  critical_findings?: number
+  high_findings?: number
+  overall_score?: number
+  status: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: DatabricksAssessmentResult
+}

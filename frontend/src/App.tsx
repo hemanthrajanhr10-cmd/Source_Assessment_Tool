@@ -37,6 +37,12 @@ const SalesforceSessionDetailPage  = lazy(() => import('./pages/SalesforceSessio
 const Db2AssessmentPage            = lazy(() => import('./pages/Db2AssessmentPage'))
 const Db2SessionsPage              = lazy(() => import('./pages/Db2SessionsPage'))
 const Db2SessionDetailPage         = lazy(() => import('./pages/Db2SessionDetailPage'))
+const InforAssessmentPage          = lazy(() => import('./pages/InforAssessmentPage'))
+const InforSessionsPage            = lazy(() => import('./pages/InforSessionsPage'))
+const InforSessionDetailPage       = lazy(() => import('./pages/InforSessionDetailPage'))
+const DatabricksAssessmentPage     = lazy(() => import('./pages/DatabricksAssessmentPage'))
+const DatabricksSessionsPage       = lazy(() => import('./pages/DatabricksSessionsPage'))
+const DatabricksSessionDetailPage  = lazy(() => import('./pages/DatabricksSessionDetailPage'))
 const LoginPage                    = lazy(() => import('./pages/LoginPage'))
 const RegisterPage               = lazy(() => import('./pages/RegisterPage'))
 const MFASetupPage               = lazy(() => import('./pages/MFASetupPage'))
@@ -120,6 +126,12 @@ function AppRoutes() {
                     <Route path="/db2/new" element={<Db2AssessmentPage />} />
                     <Route path="/db2/sessions" element={<Db2SessionsPage />} />
                     <Route path="/db2/sessions/:jobId" element={<Db2SessionDetailPage />} />
+                    <Route path="/infor/new" element={<InforAssessmentPage />} />
+                    <Route path="/infor/sessions" element={<InforSessionsPage />} />
+                    <Route path="/infor/sessions/:jobId" element={<InforSessionDetailPage />} />
+                    <Route path="/databricks/new" element={<DatabricksAssessmentPage />} />
+                    <Route path="/databricks/sessions" element={<DatabricksSessionsPage />} />
+                    <Route path="/databricks/sessions/:jobId" element={<DatabricksSessionDetailPage />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

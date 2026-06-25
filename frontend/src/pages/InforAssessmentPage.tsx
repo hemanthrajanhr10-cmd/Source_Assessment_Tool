@@ -4,7 +4,7 @@ import {
   Globe, User, Lock, Tag, ArrowRight,
   CheckCircle2, AlertCircle, Loader2,
   Eye, EyeOff, Network, ChevronRight,
-  Cpu, Layers, Database, Info, Zap,
+  Cpu, Layers, Info, Zap,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import { InforLogo } from '../components/ui/SourceLogos'

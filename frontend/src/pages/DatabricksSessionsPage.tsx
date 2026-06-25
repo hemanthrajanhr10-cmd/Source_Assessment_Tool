@@ -10,7 +10,6 @@ import { DatabricksIconLogo } from '../components/ui/SourceLogos'
 
 const BRAND = '#FF3621'
 const BRAND_DIM = 'rgba(255,54,33,0.10)'
-const BRAND_BORDER = 'rgba(255,54,33,0.22)'
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { icon: React.ReactNode; cls: string; label: string }> = {

@@ -24,16 +24,30 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-try:
-    import ibm_db
-    import ibm_db_dbi
-    _IBM_DB_AVAILABLE = True
-except ImportError:
-    _IBM_DB_AVAILABLE = False
-    logger.warning(
-        "ibm_db not installed — IBM Db2 assessments will fail at runtime. "
-        "Install with: pip install ibm_db"
-    )
+_ibm_db = None
+_ibm_db_dbi = None
+_IBM_DB_AVAILABLE: bool | None = None  # None = not yet probed
+
+
+def _ensure_ibm_db() -> bool:
+    """Lazy-load ibm_db on first use so the IBM CLI Driver (~200 MB native lib)
+    is not loaded at server startup — that would add 10-30 s to cold-start time
+    and risk hitting the Azure App Service 230 s container-start timeout."""
+    global _ibm_db, _ibm_db_dbi, _IBM_DB_AVAILABLE
+    if _IBM_DB_AVAILABLE is None:
+        try:
+            import ibm_db as _mod
+            import ibm_db_dbi as _dbi
+            _ibm_db = _mod
+            _ibm_db_dbi = _dbi
+            _IBM_DB_AVAILABLE = True
+        except ImportError:
+            _IBM_DB_AVAILABLE = False
+            logger.warning(
+                "ibm_db not installed — IBM Db2 assessments will fail at runtime. "
+                "Install with: pip install ibm_db"
+            )
+    return _IBM_DB_AVAILABLE
 
 _SYS_SCHEMAS = (
     "NULLID", "SQLJ", "SYSCAT", "SYSIBM", "SYSIBMADM",
@@ -138,7 +152,7 @@ def test_connection(
     use_hcm: bool = False, hcm_local_host: str = "127.0.0.1",
     hcm_local_port: Optional[int] = None,
 ) -> dict:
-    if not _IBM_DB_AVAILABLE:
+    if not _ensure_ibm_db():
         raise RuntimeError("ibm_db Python driver is not installed. Run: pip install ibm_db")
     conn_str = _build_conn_string(
         hostname, port, database, username, password,
@@ -146,8 +160,8 @@ def test_connection(
         use_hcm, hcm_local_host, hcm_local_port,
     )
     try:
-        raw  = ibm_db.connect(conn_str, "", "")
-        conn = ibm_db_dbi.Connection(raw)
+        raw  = _ibm_db.connect(conn_str, "", "")
+        conn = _ibm_db_dbi.Connection(raw)
         row  = _fetch_one(conn, "SELECT SERVICE_LEVEL, HOST_NAME FROM SYSIBMADM.ENV_INST_INFO")
         conn.close()
         effective_host = (hcm_local_host if use_hcm and hcm_local_port else hostname)
@@ -168,7 +182,7 @@ def open_connection(
     use_hcm: bool = False, hcm_local_host: str = "127.0.0.1",
     hcm_local_port: Optional[int] = None,
 ):
-    if not _IBM_DB_AVAILABLE:
+    if not _ensure_ibm_db():
         raise RuntimeError("ibm_db not installed. Run: pip install ibm_db")
     conn_str = _build_conn_string(
         hostname, port, database, username, password,
@@ -176,8 +190,8 @@ def open_connection(
         use_hcm, hcm_local_host, hcm_local_port,
     )
     try:
-        raw = ibm_db.connect(conn_str, "", "")
-        return ibm_db_dbi.Connection(raw)
+        raw = _ibm_db.connect(conn_str, "", "")
+        return _ibm_db_dbi.Connection(raw)
     except Exception as exc:
         raise RuntimeError(_classify_error(exc)) from exc
 

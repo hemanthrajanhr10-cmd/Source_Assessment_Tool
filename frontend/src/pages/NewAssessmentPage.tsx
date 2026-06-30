@@ -1,5 +1,5 @@
 ﻿import { useState, useCallback, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Server, Database, User, Lock, Eye, EyeOff,
   Plus, Trash2, ChevronDown, ChevronUp, Wifi, WifiOff,
@@ -267,12 +267,13 @@ function HybridConnectionPicker({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeServer(): ServerEntry {
+function makeServer(dbType: DbType = 'mssql'): ServerEntry {
+  const portMap: Record<DbType, number> = { mssql: 1433, postgres: 5432, mysql: 3306, oracle: 1521 }
   return {
     id: crypto.randomUUID(),
-    db_type: 'mssql',
+    db_type: dbType,
+    port: portMap[dbType] ?? 1433,
     server: '',
-    port: 1433,
     service_name: '',
     username: '',
     password: '',
@@ -959,10 +960,19 @@ function DbEngineChip({ dbType }: { dbType: DbType }) {
   return <DbEngineIcon dbType={dbType} size="sm" />
 }
 
+const VALID_ENGINES = new Set<DbType>(['mssql', 'postgres', 'mysql', 'oracle'])
+
 export default function NewAssessmentPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  const initialEngine = (): DbType => {
+    const e = searchParams.get('engine') as DbType | null
+    return e && VALID_ENGINES.has(e) ? e : 'mssql'
+  }
+
   const [label, setLabel] = useState('')
-  const [servers, setServers] = useState<ServerEntry[]>([makeServer()])
+  const [servers, setServers] = useState<ServerEntry[]>([makeServer(initialEngine())])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

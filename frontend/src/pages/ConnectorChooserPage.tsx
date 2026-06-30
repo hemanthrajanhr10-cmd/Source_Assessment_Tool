@@ -5,7 +5,7 @@ import {
   SqlServerLogo, FabricLogo, SapLogo, SageIntacctLogo,
   TableauLogo, SnowflakeLogo, DataverseLogo, SalesforceLogo,
   IbmDb2Logo, DatabricksLogo, InforPNGLogo, SourceSATLogo,
-  PostgreSQLIconLogo,
+  PostgreSQLIconLogo, MySQLFullLogo, OracleFullLogo,
 } from '../components/ui/SourceLogos'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -47,12 +47,20 @@ interface Connector {
   checks: number
 }
 
+// Wrappers so MySQL/Oracle accept the same size prop as other connectors
+function MySQLLogo({ size = 36 }: { size?: number }) {
+  return <MySQLFullLogo height={Math.round(size * 0.7)} />
+}
+function OracleLogo({ size = 36 }: { size?: number }) {
+  return <OracleFullLogo height={Math.round(size * 0.55)} />
+}
+
 const CONNECTORS: Connector[] = [
   {
     id: 'sql-server',
     name: 'SQL Server',
     tagline: 'On-prem & Azure SQL — schema, performance, security',
-    route: '/',
+    route: '/?engine=mssql',
     Logo: SqlServerLogo,
     category: 'Database',
     tags: ['Microsoft', 'MSSQL', 'Azure', 'On-Prem'],
@@ -173,12 +181,34 @@ const CONNECTORS: Connector[] = [
     id: 'postgresql',
     name: 'PostgreSQL',
     tagline: 'Open-source RDBMS — extensions, vacuums, replication',
-    route: '/',
+    route: '/?engine=postgres',
     Logo: PostgreSQLIconLogo,
     category: 'Database',
     tags: ['Open Source', 'Extensions', 'AWS RDS', 'Azure', 'GCP'],
     accent: '#336791',
     checks: 130,
+  },
+  {
+    id: 'mysql',
+    name: 'MySQL',
+    tagline: 'World\'s most popular open-source RDBMS — schema, indexes, replication',
+    route: '/?engine=mysql',
+    Logo: MySQLLogo,
+    category: 'Database',
+    tags: ['Open Source', 'InnoDB', 'AWS RDS', 'Azure', 'GCP'],
+    accent: '#F29111',
+    checks: 120,
+  },
+  {
+    id: 'oracle',
+    name: 'Oracle Database',
+    tagline: 'Enterprise RDBMS — schemas, packages, tablespaces, partitioning',
+    route: '/?engine=oracle',
+    Logo: OracleLogo,
+    category: 'Database',
+    tags: ['Enterprise', 'PL/SQL', 'RAC', 'Exadata', 'OCI'],
+    accent: '#FF0000',
+    checks: 160,
   },
 ]
 
@@ -539,7 +569,7 @@ export default function ConnectorChooserPage() {
               Choose a Connector
             </h1>
             <p style={{ fontSize: 13, color: D.inkMute, margin: '4px 0 0', lineHeight: 1.5 }}>
-              Select a source system to begin an assessment — {CONNECTORS.length} connectors available
+              Select a source system to begin an assessment &mdash; {CONNECTORS.length} connectors available
             </p>
           </div>
         </div>
@@ -626,7 +656,11 @@ export default function ConnectorChooserPage() {
                 key={connector.id}
                 connector={connector}
                 index={i}
-                onClick={() => navigate(connector.route)}
+                onClick={() => {
+                  // Routes like '/?engine=mssql' need to be split into path + search
+                  const [path, qs] = connector.route.split('?')
+                  navigate({ pathname: path || '/', search: qs ? `?${qs}` : '' })
+                }}
               />
             ))}
           </div>

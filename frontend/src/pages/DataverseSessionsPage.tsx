@@ -8,6 +8,8 @@ import {
 import axios from 'axios'
 import { DataverseLogo } from '../components/ui/SourceLogos'
 import type { DataverseSessionRecord } from '../types/api'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 const T = {
   primary:    '#4DA8A0',
@@ -73,8 +75,12 @@ export default function DataverseSessionsPage() {
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState('')
   const [refresh,  setRefresh]  = useState(0)
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as DataverseSessionRecord[]
 
   const token = () => localStorage.getItem('sat_token') || ''
+
+  const load = () => setRefresh(r => r + 1)
 
   useEffect(() => {
     setLoading(true)
@@ -96,49 +102,81 @@ export default function DataverseSessionsPage() {
       {/* Hero */}
       <div style={{ background: T.gradHero, padding: '28px 32px 24px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '180px', height: '180px', borderRadius: '50%', background: T.glow, pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '12px',
-              background: T.light50, border: `1px solid ${T.light200}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              overflow: 'hidden',
-            }}>
-              <DataverseLogo size={26} />
-            </div>
-            <div>
-              <h1 style={{ color: T.dark, fontSize: '20px', fontWeight: 700, margin: 0 }}>Dataverse Assessments</h1>
-              <p style={{ color: T.textMid, fontSize: '12.5px', margin: 0, marginTop: '2px' }}>
-                {sessions.length} session{sessions.length !== 1 ? 's' : ''} · History and results
-              </p>
-            </div>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '12px',
+            background: T.light50, border: `1px solid ${T.light200}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden',
+          }}>
+            <DataverseLogo size={26} />
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={() => setRefresh(r => r + 1)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '8px 14px', borderRadius: '10px', fontSize: '12.5px', fontWeight: 600,
-                background: 'white', border: `1px solid ${T.light200}`,
-                color: T.primary, cursor: 'pointer',
-              }}
-            >
-              <RefreshCw style={{ width: '13px', height: '13px' }} /> Refresh
-            </button>
-            <button
-              onClick={() => navigate('/dataverse/new')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '8px 16px', borderRadius: '10px', fontSize: '12.5px', fontWeight: 700,
-                background: T.gradBtn, border: 'none',
-                color: '#fff', cursor: 'pointer',
-                boxShadow: '0 2px 12px rgba(77,168,160,0.30)',
-              }}
-            >
-              <PlusCircle style={{ width: '13px', height: '13px' }} /> New Assessment
-            </button>
+          <div>
+            <h1 style={{ color: T.dark, fontSize: '20px', fontWeight: 700, margin: 0 }}>Dataverse Assessments</h1>
+            <p style={{ color: T.textMid, fontSize: '12.5px', margin: 0, marginTop: '2px' }}>
+              {sessions.length} session{sessions.length !== 1 ? 's' : ''} · History and results
+            </p>
           </div>
         </div>
+      </div>
+
+      {/* ── Filter bar ── */}
+      <div style={{ maxWidth: '960px', margin: '0 auto', padding: '16px 24px 0' }}>
+        <SessionFilterBar
+          filter={filter}
+          onField={setField}
+          onReset={reset}
+          isActive={isActive}
+          totalCount={sessions.length}
+          filteredCount={filtered.length}
+          actions={
+            <>
+              <button
+                onClick={load}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                  background: '#FFFFFF', border: `1.5px solid ${T.light200}`, color: '#404555',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = T.primary
+                  ;(e.currentTarget as HTMLButtonElement).style.color = T.primary
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = T.light200
+                  ;(e.currentTarget as HTMLButtonElement).style.color = '#404555'
+                }}
+              >
+                <RefreshCw style={{ width: 12, height: 12 }} />
+                Refresh
+              </button>
+              <button
+                onClick={() => navigate('/dataverse/new')}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                  background: T.gradBtn,
+                  color: '#fff', border: 'none', cursor: 'pointer',
+                  boxShadow: `0 4px 16px ${T.glow}`,
+                  transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                  letterSpacing: '-0.01em',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'
+                  ;(e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 24px ${T.glow}`
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'
+                  ;(e.currentTarget as HTMLButtonElement).style.boxShadow = `0 4px 16px ${T.glow}`
+                }}
+              >
+                <PlusCircle style={{ width: 13, height: 13 }} />
+                New Assessment
+              </button>
+            </>
+          }
+        />
       </div>
 
       {/* Stats */}
@@ -216,9 +254,20 @@ export default function DataverseSessionsPage() {
           </div>
         )}
 
-        {!loading && sessions.length > 0 && (
+        {!loading && sessions.length > 0 && filtered.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', textAlign: 'center' }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0D1117', margin: '0 0 8px' }}>No sessions match your filters</h3>
+            <p style={{ fontSize: 12, color: '#767A8C', margin: '0 0 16px' }}>Try adjusting your search or filter criteria.</p>
+            <button onClick={reset} style={{
+              padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+              background: T.gradBtn,
+              color: '#fff', border: 'none', cursor: 'pointer',
+            }}>Clear filters</button>
+          </div>
+        )}
+        {!loading && filtered.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {sessions.map(s => (
+            {filtered.map(s => (
               <div
                 key={s.job_id}
                 onClick={() => navigate(`/dataverse/sessions/${s.job_id}`)}

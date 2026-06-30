@@ -9,6 +9,8 @@ import { api, getApiErrorMessage } from '../api/client'
 import type { SageIntacctSessionRecord } from '../types/api'
 import Loader3D from '../components/ui/Loader3D'
 import { SageIntacctLogo } from '../components/ui/SourceLogos'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 // ── Design tokens (Ocean theme) ───────────────────────────────────────────────
 
@@ -230,11 +232,14 @@ function EmptyState() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function SageIntacctSessionsPage() {
+  const navigate = useNavigate()
   const [sessions, setSessions] = useState<SageIntacctSessionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const headerRef = useRef<HTMLDivElement>(null)
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as SageIntacctSessionRecord[]
 
   useEffect(() => {
     const el = headerRef.current
@@ -280,65 +285,82 @@ export default function SageIntacctSessionsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div ref={headerRef} className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className="h-10 w-10 rounded-xl flex items-center justify-center overflow-hidden"
-            style={{
-              background: SAGE.light50,
-              border: `1px solid ${SAGE.light200}`,
-              boxShadow: `0 4px 14px ${SAGE.glow}`,
-            }}
-          >
-            <SageIntacctLogo size={28} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Sage Intacct Assessments</h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {sessions.length} total · {completed} completed · {running} running · {failed} failed
-            </p>
-          </div>
+      <div ref={headerRef} className="flex items-center gap-3">
+        <div
+          className="h-10 w-10 rounded-xl flex items-center justify-center overflow-hidden"
+          style={{
+            background: SAGE.light50,
+            border: `1px solid ${SAGE.light200}`,
+            boxShadow: `0 4px 14px ${SAGE.glow}`,
+          }}
+        >
+          <SageIntacctLogo size={28} />
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => load(false)}
-            disabled={refreshing}
-            className="p-2 rounded-xl border border-slate-200 text-slate-500 transition-all duration-150
-                       disabled:opacity-40"
-            style={{ background: 'white', boxShadow: 'var(--elevation-1)' }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = SAGE.light200
-              ;(e.currentTarget as HTMLButtonElement).style.color = SAGE.primary
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = ''
-              ;(e.currentTarget as HTMLButtonElement).style.color = ''
-            }}
-            aria-label="Refresh"
-          >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-          <Link
-            to="/sage-intacct/new"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-150"
-            style={{
-              background: `linear-gradient(135deg, ${SAGE.primary} 0%, ${SAGE.mid} 100%)`,
-              boxShadow: `0 2px 8px ${SAGE.glow}`,
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-1px)'
-              ;(e.currentTarget as HTMLAnchorElement).style.boxShadow = `0 6px 20px ${SAGE.glow}`
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(0)'
-              ;(e.currentTarget as HTMLAnchorElement).style.boxShadow = `0 2px 8px ${SAGE.glow}`
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            New Assessment
-          </Link>
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Sage Intacct Assessments</h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {sessions.length} total · {completed} completed · {running} running · {failed} failed
+          </p>
         </div>
       </div>
+
+      {/* ── Filter bar ── */}
+      <SessionFilterBar
+        filter={filter}
+        onField={setField}
+        onReset={reset}
+        isActive={isActive}
+        totalCount={sessions.length}
+        filteredCount={filtered.length}
+        actions={
+          <>
+            <button
+              onClick={() => load(false)}
+              disabled={refreshing}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                background: '#FFFFFF', border: `1.5px solid ${SAGE.light200}`, color: '#404555',
+                cursor: 'pointer', transition: 'all 0.15s', opacity: refreshing ? 0.4 : 1,
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = SAGE.primary
+                ;(e.currentTarget as HTMLButtonElement).style.color = SAGE.primary
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = SAGE.light200
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#404555'
+              }}
+            >
+              <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              onClick={() => navigate('/sage-intacct/new')}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                background: `linear-gradient(135deg, ${SAGE.primary}, ${SAGE.mid})`,
+                color: '#fff', border: 'none', cursor: 'pointer',
+                boxShadow: `0 4px 16px ${SAGE.glow}`,
+                transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                letterSpacing: '-0.01em',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'
+                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 24px ${SAGE.glow}`
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'
+                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = `0 4px 16px ${SAGE.glow}`
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              New Assessment
+            </button>
+          </>
+        }
+      />
 
       {/* Error */}
       {error && (
@@ -353,9 +375,20 @@ export default function SageIntacctSessionsPage() {
 
       {/* Sessions grid */}
       {!loading && sessions.length === 0 && <EmptyState />}
-      {!loading && sessions.length > 0 && (
+      {!loading && sessions.length > 0 && filtered.length === 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', textAlign: 'center' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0D1117', margin: '0 0 8px' }}>No sessions match your filters</h3>
+          <p style={{ fontSize: 12, color: '#767A8C', margin: '0 0 16px' }}>Try adjusting your search or filter criteria.</p>
+          <button onClick={reset} style={{
+            padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+            background: `linear-gradient(135deg, ${SAGE.primary}, ${SAGE.mid})`,
+            color: '#fff', border: 'none', cursor: 'pointer',
+          }}>Clear filters</button>
+        </div>
+      )}
+      {!loading && filtered.length > 0 && (
         <div className="grid grid-cols-1 gap-4">
-          {sessions.map((session, i) => (
+          {filtered.map((session, i) => (
             <SessionCard key={session.job_id} session={session} index={i} />
           ))}
         </div>

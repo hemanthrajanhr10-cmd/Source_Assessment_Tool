@@ -9,6 +9,8 @@ import Button from '../components/ui/Button'
 import Loader3D from '../components/ui/Loader3D'
 import type { SessionStatus } from '../types/api'
 import { formatDateTime, elapsed } from '../utils/dateTime'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 function SessionStatusBadge({ status }: { status: SessionStatus }) {
   const map: Record<SessionStatus, { icon: React.ReactNode; label: string; cls: string }> = {
@@ -49,9 +51,12 @@ export default function SessionsPage() {
     },
   })
 
-  const sorted = [...(sessions ?? [])].sort(
+  const allSessions = [...(sessions ?? [])].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   )
+
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(allSessions)
+  const sorted = filteredRaw as typeof allSessions
 
   return (
     <div className="animate-fade-in">
@@ -59,29 +64,40 @@ export default function SessionsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-display">Assessment Sessions</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {sorted.length > 0
-              ? `${sorted.length} session${sorted.length !== 1 ? 's' : ''} total`
+            {allSessions.length > 0
+              ? `${allSessions.length} session${allSessions.length !== 1 ? 's' : ''} total`
               : 'No sessions yet'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />}
-            onClick={() => refetch()}
-          >
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
-            onClick={() => navigate('/')}
-          >
-            New Assessment
-          </Button>
-        </div>
       </div>
+
+      <SessionFilterBar
+        filter={filter}
+        onField={setField}
+        onReset={reset}
+        isActive={isActive}
+        totalCount={allSessions.length}
+        filteredCount={sorted.length}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />}
+              onClick={() => refetch()}
+            >
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
+              onClick={() => navigate('/')}
+            >
+              New Assessment
+            </Button>
+          </div>
+        }
+      />
 
       {isLoading && <Loader3D message="Loading sessions" />}
 
@@ -94,7 +110,7 @@ export default function SessionsPage() {
         </div>
       )}
 
-      {!isLoading && !isError && sorted.length === 0 && (
+      {!isLoading && !isError && allSessions.length === 0 && (
         <div className="card flex flex-col items-center justify-center py-20 gap-4 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 border border-slate-200">
             <Layers className="h-7 w-7 text-slate-400" />
@@ -109,7 +125,16 @@ export default function SessionsPage() {
         </div>
       )}
 
-      {!isLoading && sorted.length > 0 && (
+      {!isLoading && !isError && allSessions.length > 0 && sorted.length === 0 && (
+        <div className="card flex flex-col items-center justify-center py-12 gap-3 text-center">
+          <p className="font-semibold text-slate-500">No sessions match your filters</p>
+          <button onClick={reset} className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#4DA8A0]">
+            Clear filters
+          </button>
+        </div>
+      )}
+
+      {!isLoading && sorted.length > 0 && allSessions.length > 0 && (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto scrollbar-thin">
             <table className="min-w-full divide-y divide-slate-100 text-sm">

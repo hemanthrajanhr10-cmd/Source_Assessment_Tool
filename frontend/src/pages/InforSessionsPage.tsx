@@ -8,6 +8,8 @@ import { api, getApiErrorMessage } from '../api/client'
 import type { InforSessionRecord, InforEngine } from '../types/api'
 import { INFOR_ENGINES } from '../types/api'
 import { InforPNGLogo } from '../components/ui/SourceLogos'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 function engineLabel(e: InforEngine | undefined): string {
   return INFOR_ENGINES.find(m => m.value === e)?.label ?? (e?.toUpperCase() ?? '—')
@@ -65,6 +67,8 @@ export default function InforSessionsPage() {
   const [sessions, setSessions] = useState<InforSessionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as InforSessionRecord[]
 
   const load = async () => {
     setLoading(true)
@@ -86,36 +90,73 @@ export default function InforSessionsPage() {
       <div className="max-w-5xl mx-auto">
 
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl overflow-hidden"
-              style={{ background: '#FFFFFF', border: '1.5px solid #D4EFEC', boxShadow: '0 1px 3px rgba(77,168,160,0.06), 0 4px 16px rgba(77,168,160,0.08)' }}>
-              <InforPNGLogo size={28} />
-            </div>
-            <div>
-              <h1 className="text-lg font-extrabold text-slate-900 leading-tight">Infor CloudSuite Assessments</h1>
-              <p className="text-xs text-slate-400 mt-0.5">M3 · LN · CSI/SyteLine — all engines</p>
-            </div>
+        <div className="flex items-center gap-4 mb-5">
+          <div className="flex items-center justify-center w-11 h-11 rounded-xl overflow-hidden"
+            style={{ background: '#FFFFFF', border: '1.5px solid #D4EFEC', boxShadow: '0 1px 3px rgba(77,168,160,0.06), 0 4px 16px rgba(77,168,160,0.08)' }}>
+            <InforPNGLogo size={28} />
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={load}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-slate-600
-                         bg-white border border-slate-200 hover:border-teal-300 hover:text-teal-700 transition-colors"
-            >
-              <RefreshCw className="h-3 w-3" />
-              Refresh
-            </button>
-            <button
-              onClick={() => navigate('/infor/new')}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white transition-all"
-              style={{ background: 'linear-gradient(135deg, #4DA8A0, #6CBDB5)', boxShadow: '0 4px 16px rgba(108,189,181,0.28)' }}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              New Assessment
-            </button>
+          <div>
+            <h1 className="text-lg font-extrabold text-slate-900 leading-tight">Infor CloudSuite Assessments</h1>
+            <p className="text-xs text-slate-400 mt-0.5">M3 · LN · CSI/SyteLine — all engines</p>
           </div>
         </div>
+
+        {/* ── Filter bar ── */}
+        <SessionFilterBar
+          filter={filter}
+          onField={setField}
+          onReset={reset}
+          isActive={isActive}
+          totalCount={sessions.length}
+          filteredCount={filtered.length}
+          actions={
+            <>
+              <button
+                onClick={load}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                  background: '#FFFFFF', border: '1.5px solid #B2DDD9', color: '#404555',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = '#6CBDB5'
+                  ;(e.currentTarget as HTMLButtonElement).style.color = '#4DA8A0'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = '#B2DDD9'
+                  ;(e.currentTarget as HTMLButtonElement).style.color = '#404555'
+                }}
+              >
+                <RefreshCw className="h-3 w-3" />
+                Refresh
+              </button>
+              <button
+                onClick={() => navigate('/infor/new')}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                  background: 'linear-gradient(135deg, #4DA8A0, #6CBDB5)',
+                  color: '#fff', border: 'none', cursor: 'pointer',
+                  boxShadow: '0 4px 16px rgba(108,189,181,0.18)',
+                  transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                  letterSpacing: '-0.01em',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'
+                  ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px rgba(108,189,181,0.18)'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'
+                  ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px rgba(108,189,181,0.18)'
+                }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                New Assessment
+              </button>
+            </>
+          }
+        />
 
         {/* Content */}
         {loading ? (
@@ -146,9 +187,19 @@ export default function InforSessionsPage() {
               New Assessment
             </button>
           </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', textAlign: 'center' }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0D1117', margin: '0 0 8px' }}>No sessions match your filters</h3>
+            <p style={{ fontSize: 12, color: '#767A8C', margin: '0 0 16px' }}>Try adjusting your search or filter criteria.</p>
+            <button onClick={reset} style={{
+              padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+              background: 'linear-gradient(135deg, #4DA8A0, #6CBDB5)',
+              color: '#fff', border: 'none', cursor: 'pointer',
+            }}>Clear filters</button>
+          </div>
         ) : (
           <div className="space-y-3">
-            {sessions.map((s) => (
+            {filtered.map((s) => (
               <button
                 key={s.job_id}
                 onClick={() => navigate(`/infor/sessions/${s.job_id}`)}

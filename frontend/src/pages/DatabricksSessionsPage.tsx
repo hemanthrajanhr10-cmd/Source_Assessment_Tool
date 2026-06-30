@@ -7,6 +7,8 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { DatabricksSessionRecord } from '../types/api'
 import { DatabricksLogo } from '../components/ui/SourceLogos'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const D = {
@@ -243,6 +245,8 @@ export default function DatabricksSessionsPage() {
   const [sessions, setSessions] = useState<DatabricksSessionRecord[]>([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as DatabricksSessionRecord[]
 
   const load = async () => {
     setLoading(true)
@@ -264,72 +268,81 @@ export default function DatabricksSessionsPage() {
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
 
         {/* ── Header ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 13, overflow: 'hidden',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: D.surface, border: `1.5px solid ${D.borderFaint}`,
-              boxShadow: D.shadow1, flexShrink: 0,
-            }}>
-              <DatabricksLogo size={30} />
-            </div>
-            <div>
-              <h1 style={{ fontSize: 18, fontWeight: 800, color: '#0D1117', margin: 0, letterSpacing: '-0.03em', lineHeight: 1.2 }}>
-                Databricks Assessments
-              </h1>
-              <p style={{ fontSize: 11, color: '#767A8C', margin: '3px 0 0', letterSpacing: '0.01em' }}>
-                Workspace · Unity Catalog · Compute · Security · MLflow
-              </p>
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 13, overflow: 'hidden',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: D.surface, border: `1.5px solid ${D.borderFaint}`,
+            boxShadow: D.shadow1, flexShrink: 0,
+          }}>
+            <DatabricksLogo size={30} />
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button
-              onClick={load}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600,
-                background: D.surface, border: `1.5px solid ${D.border}`, color: '#404555',
-                cursor: 'pointer', transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = D.teal
-                ;(e.currentTarget as HTMLButtonElement).style.color = D.tealDark
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLButtonElement).style.borderColor = D.border
-                ;(e.currentTarget as HTMLButtonElement).style.color = '#404555'
-              }}
-            >
-              <RefreshCw style={{ width: 12, height: 12 }} />
-              Refresh
-            </button>
-            <button
-              onClick={() => navigate('/databricks/new')}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                background: `linear-gradient(135deg, ${D.tealDark}, ${D.teal})`,
-                color: '#fff', border: 'none', cursor: 'pointer',
-                boxShadow: `0 4px 16px ${D.tealGlow}`,
-                transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
-                letterSpacing: '-0.01em',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'
-                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 24px ${D.tealGlow}`
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'
-                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = `0 4px 16px ${D.tealGlow}`
-              }}
-            >
-              <Plus style={{ width: 13, height: 13 }} />
-              New Assessment
-            </button>
+          <div>
+            <h1 style={{ fontSize: 18, fontWeight: 800, color: '#0D1117', margin: 0, letterSpacing: '-0.03em', lineHeight: 1.2 }}>
+              Databricks Assessments
+            </h1>
+            <p style={{ fontSize: 11, color: '#767A8C', margin: '3px 0 0', letterSpacing: '0.01em' }}>
+              Workspace · Unity Catalog · Compute · Security · MLflow
+            </p>
           </div>
         </div>
+
+        {/* ── Filter bar ── */}
+        <SessionFilterBar
+          filter={filter}
+          onField={setField}
+          onReset={reset}
+          isActive={isActive}
+          totalCount={sessions.length}
+          filteredCount={filtered.length}
+          actions={
+            <>
+              <button
+                onClick={load}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                  background: D.surface, border: `1.5px solid ${D.border}`, color: '#404555',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = D.teal
+                  ;(e.currentTarget as HTMLButtonElement).style.color = D.tealDark
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = D.border
+                  ;(e.currentTarget as HTMLButtonElement).style.color = '#404555'
+                }}
+              >
+                <RefreshCw style={{ width: 12, height: 12 }} />
+                Refresh
+              </button>
+              <button
+                onClick={() => navigate('/databricks/new')}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                  background: `linear-gradient(135deg, ${D.tealDark}, ${D.teal})`,
+                  color: '#fff', border: 'none', cursor: 'pointer',
+                  boxShadow: `0 4px 16px ${D.tealGlow}`,
+                  transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                  letterSpacing: '-0.01em',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'
+                  ;(e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 24px ${D.tealGlow}`
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'
+                  ;(e.currentTarget as HTMLButtonElement).style.boxShadow = `0 4px 16px ${D.tealGlow}`
+                }}
+              >
+                <Plus style={{ width: 13, height: 13 }} />
+                New Assessment
+              </button>
+            </>
+          }
+        />
 
         {/* ── Content ── */}
         {loading ? (
@@ -379,9 +392,19 @@ export default function DatabricksSessionsPage() {
               New Assessment
             </button>
           </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', textAlign: 'center' }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0D1117', margin: '0 0 8px' }}>No sessions match your filters</h3>
+            <p style={{ fontSize: 12, color: '#767A8C', margin: '0 0 16px' }}>Try adjusting your search or filter criteria.</p>
+            <button onClick={reset} style={{
+              padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+              background: `linear-gradient(135deg, ${D.tealDark}, ${D.teal})`,
+              color: '#fff', border: 'none', cursor: 'pointer',
+            }}>Clear filters</button>
+          </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {sessions.map(s => (
+            {filtered.map(s => (
               <SessionCard
                 key={s.job_id}
                 s={s}

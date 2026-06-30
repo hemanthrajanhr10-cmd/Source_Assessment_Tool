@@ -7,6 +7,8 @@ import {
 import axios from 'axios'
 import { SalesforceLogo } from '../components/ui/SourceLogos'
 import type { SalesforceSessionRecord } from '../types/api'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 const T = {
   primary:    '#4DA8A0',
@@ -87,8 +89,12 @@ export default function SalesforceSessionsPage() {
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState('')
   const [refresh,  setRefresh]  = useState(0)
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as SalesforceSessionRecord[]
 
   const token = () => localStorage.getItem('sat_token') || ''
+
+  const load = () => setRefresh(r => r + 1)
 
   useEffect(() => {
     setLoading(true)
@@ -183,8 +189,48 @@ export default function SalesforceSessionsPage() {
         </div>
       )}
 
+      {/* Filter bar */}
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '20px 24px 0' }}>
+        <SessionFilterBar
+          filter={filter}
+          onField={setField}
+          onReset={reset}
+          isActive={isActive}
+          totalCount={sessions.length}
+          filteredCount={filtered.length}
+          actions={
+            <>
+              <button
+                onClick={load}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 14px', borderRadius: '10px',
+                  border: `1.5px solid ${T.light200}`, background: '#fff',
+                  color: T.primary, fontSize: '12.5px', fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                <RefreshCw style={{ width: '13px', height: '13px' }} />
+                Refresh
+              </button>
+              <button
+                onClick={() => navigate('/salesforce/new')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 16px', borderRadius: '10px', border: 'none',
+                  background: T.gradBtn, color: '#fff',
+                  fontSize: '12.5px', fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                <PlusCircle style={{ width: '13px', height: '13px' }} />
+                New Assessment
+              </button>
+            </>
+          }
+        />
+      </div>
+
       {/* Content */}
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '24px 24px 48px' }}>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '16px 24px 48px' }}>
         {loading && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px', gap: '12px' }}>
             <Loader2 style={{ width: '20px', height: '20px', color: T.primary, animation: 'spin 1s linear infinite' }} />
@@ -217,9 +263,19 @@ export default function SalesforceSessionsPage() {
           </div>
         )}
 
-        {!loading && sessions.length > 0 && (
+        {!loading && !error && sessions.length > 0 && filtered.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+            <p style={{ color: T.dark, fontSize: '15px', fontWeight: 700, margin: '0 0 8px' }}>No sessions match your filters</p>
+            <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 16px' }}>Try adjusting your search or filter criteria.</p>
+            <button onClick={reset} style={{ padding: '8px 18px', borderRadius: '10px', border: 'none', background: T.gradBtn, color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+              Clear filters
+            </button>
+          </div>
+        )}
+
+        {!loading && sessions.length > 0 && filtered.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {sessions.map(s => (
+            {filtered.map(s => (
               <div
                 key={s.job_id}
                 onClick={() => navigate(`/salesforce/sessions/${s.job_id}`)}

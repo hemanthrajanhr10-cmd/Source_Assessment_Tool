@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Layers, List, Network,
   LogOut, Shield, ChevronDown,
-  X, BarChart3, Sparkles, LayoutDashboard, Combine, PlusCircle,
+  X, BarChart3, Sparkles, LayoutDashboard, Combine, PlusCircle, LayoutGrid,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
@@ -299,6 +299,54 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           className="flex-1 overflow-y-auto py-5 px-3 space-y-7"
           aria-label="Main navigation"
         >
+          {/* Connector Hub — top-level quick access */}
+          <div>
+            <NavLink
+              to="/connectors"
+              onClick={() => onClose()}
+              className={({ isActive }) =>
+                `relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm w-full
+                 focus-visible:ring-2 focus-visible:outline-none transition-all duration-150
+                 ${isActive
+                   ? 'font-semibold border'
+                   : 'font-medium text-slate-600 hover:text-slate-900 border border-transparent'
+                 }`
+              }
+              style={({ isActive }) => ({
+                ...(isActive ? {
+                  background: 'rgba(108,189,181,0.10)',
+                  color: '#25706A',
+                  borderColor: 'rgba(108,189,181,0.40)',
+                } : {}),
+                boxShadow: isActive ? 'var(--elevation-1)' : undefined,
+              })}
+            >
+              {({ isActive }) => (
+                <>
+                  <LayoutGrid
+                    className="h-4 w-4 shrink-0 transition-colors duration-120 text-slate-400"
+                    style={isActive ? { color: '#4DA8A0' } : {}}
+                    aria-hidden="true"
+                  />
+                  <span className="flex-1 font-bold tracking-tight" style={{ letterSpacing: '-0.01em' }}>
+                    Connector Hub
+                  </span>
+                  {isActive && (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full shrink-0"
+                      style={{
+                        background: 'linear-gradient(135deg, #6CBDB5, #93CCC6)',
+                        boxShadow: '0 0 6px rgba(108,189,181,0.50)',
+                      }}
+                      aria-hidden="true"
+                    />
+                  )}
+                </>
+              )}
+            </NavLink>
+            <div className="my-4 border-t border-slate-100" />
+          </div>
+
           {NAV_GROUPS.map((group) => {
             const Logo = group.LogoComponent
             return (

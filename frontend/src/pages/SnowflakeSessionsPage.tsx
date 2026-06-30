@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import {
   PlusCircle, CheckCircle2, XCircle,
   Loader2, Clock, ChevronRight,
-  AlertTriangle,
+  AlertTriangle, RefreshCw,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import { SnowflakeLogo } from '../components/ui/SourceLogos'
 import type { SnowflakeSessionRecord } from '../types/api'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 // ── Ocean design tokens ───────────────────────────────────────────────────────
 
@@ -55,13 +57,19 @@ export default function SnowflakeSessionsPage() {
   const [sessions, setSessions] = useState<SnowflakeSessionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as SnowflakeSessionRecord[]
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
+    setError(null)
     api.snowflakeListSessions()
       .then((r) => setSessions(r.data))
       .catch((e: unknown) => setError(getApiErrorMessage(e)))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
 
   return (
     <div className="min-h-screen" style={{ background: T.gradSurface }}>
@@ -76,38 +84,23 @@ export default function SnowflakeSessionsPage() {
             }}
           />
         </div>
-        <div className="relative max-w-5xl mx-auto px-6 py-8 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div
-              className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-              style={{
-                background: T.light50,
-                border: `1px solid ${T.ice}`,
-                boxShadow: `0 2px 8px ${T.glow}`,
-              }}
-            >
-              <SnowflakeLogo size={30} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold" style={{ color: T.dark }}>Snowflake Assessments</h1>
-              <p className="text-sm" style={{ color: '#64748B' }}>
-                {loading ? 'Loading…' : `${sessions.length} assessment${sessions.length !== 1 ? 's' : ''}`}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/snowflake/new')}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all duration-200"
+        <div className="relative max-w-5xl mx-auto px-6 py-8 flex items-center gap-4">
+          <div
+            className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
             style={{
-              background: T.gradBtn,
-              boxShadow: '0 2px 12px rgba(77,168,160,0.35)',
+              background: T.light50,
+              border: `1px solid ${T.ice}`,
+              boxShadow: `0 2px 8px ${T.glow}`,
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(77,168,160,0.50)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(77,168,160,0.35)' }}
           >
-            <PlusCircle className="h-4 w-4" />
-            New Assessment
-          </button>
+            <SnowflakeLogo size={30} />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold" style={{ color: T.dark }}>Snowflake Assessments</h1>
+            <p className="text-sm" style={{ color: '#64748B' }}>
+              {loading ? 'Loading…' : `${sessions.length} assessment${sessions.length !== 1 ? 's' : ''}`}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -115,6 +108,62 @@ export default function SnowflakeSessionsPage() {
       <div className="h-px" style={{ background: T.ice }} />
 
       <div className="max-w-5xl mx-auto px-6 py-8">
+        {/* ── Filter bar ── */}
+        <SessionFilterBar
+          filter={filter}
+          onField={setField}
+          onReset={reset}
+          isActive={isActive}
+          totalCount={sessions.length}
+          filteredCount={filtered.length}
+          actions={
+            <>
+              <button
+                onClick={load}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                  background: '#FFFFFF', border: `1.5px solid ${T.ice}`, color: '#404555',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = T.primary
+                  ;(e.currentTarget as HTMLButtonElement).style.color = T.dark
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = T.ice
+                  ;(e.currentTarget as HTMLButtonElement).style.color = '#404555'
+                }}
+              >
+                <RefreshCw style={{ width: 12, height: 12 }} />
+                Refresh
+              </button>
+              <button
+                onClick={() => navigate('/snowflake/new')}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                  background: T.gradBtn,
+                  color: '#fff', border: 'none', cursor: 'pointer',
+                  boxShadow: `0 4px 16px ${T.glow}`,
+                  transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                  letterSpacing: '-0.01em',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'
+                  ;(e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 24px ${T.glow}`
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'
+                  ;(e.currentTarget as HTMLButtonElement).style.boxShadow = `0 4px 16px ${T.glow}`
+                }}
+              >
+                <PlusCircle className="h-3 w-3" />
+                New Assessment
+              </button>
+            </>
+          }
+        />
         {loading && (
           <div className="flex items-center justify-center py-20 gap-3">
             <Loader2 className="h-5 w-5 animate-spin" style={{ color: T.primary }} />
@@ -155,9 +204,20 @@ export default function SnowflakeSessionsPage() {
           </div>
         )}
 
-        {!loading && sessions.length > 0 && (
+        {!loading && sessions.length > 0 && filtered.length === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', textAlign: 'center' }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0D1117', margin: '0 0 8px' }}>No sessions match your filters</h3>
+            <p style={{ fontSize: 12, color: '#767A8C', margin: '0 0 16px' }}>Try adjusting your search or filter criteria.</p>
+            <button onClick={reset} style={{
+              padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+              background: T.gradBtn,
+              color: '#fff', border: 'none', cursor: 'pointer',
+            }}>Clear filters</button>
+          </div>
+        )}
+        {!loading && filtered.length > 0 && (
           <div className="space-y-3">
-            {sessions.map((session) => {
+            {filtered.map((session) => {
               const sc = statusConfig(session.status)
               const StatusIcon = sc.icon
               const res = session.results

@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import {
   PlusCircle, CheckCircle2, XCircle,
   Loader2, Clock, ChevronRight, AlertTriangle,
-  Database, Server,
+  Database, Server, RefreshCw,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import { IbmDb2Logo } from '../components/ui/SourceLogos'
 import type { Db2SessionRecord } from '../types/api'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 const T = {
   primary:    '#4DA8A0',
@@ -52,13 +54,19 @@ export default function Db2SessionsPage() {
   const [sessions, setSessions] = useState<Db2SessionRecord[]>([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as Db2SessionRecord[]
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
+    setError(null)
     api.db2ListSessions()
       .then((r) => setSessions(r.data))
       .catch((e: unknown) => setError(getApiErrorMessage(e)))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
 
   return (
     <div className="min-h-screen" style={{ background: T.gradSurface }}>
@@ -94,8 +102,42 @@ export default function Db2SessionsPage() {
         </div>
       </div>
 
+      {/* Filter bar */}
+      <div className="max-w-5xl mx-auto px-6 pt-6">
+        <SessionFilterBar
+          filter={filter}
+          onField={setField}
+          onReset={reset}
+          isActive={isActive}
+          totalCount={sessions.length}
+          filteredCount={filtered.length}
+          actions={
+            <>
+              <button
+                onClick={load}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                style={{ background: '#fff', border: `1px solid ${T.ice}`, color: T.dark }}
+                onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.borderColor = T.primary}
+                onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.borderColor = T.ice}
+              >
+                <RefreshCw className="h-3 w-3" />
+                Refresh
+              </button>
+              <button
+                onClick={() => navigate('/db2/new')}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white"
+                style={{ background: T.gradBtn, boxShadow: '0 4px 12px rgba(77,168,160,0.30)' }}
+              >
+                <PlusCircle className="h-3.5 w-3.5" />
+                New Assessment
+              </button>
+            </>
+          }
+        />
+      </div>
+
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-6 py-4">
         {loading && (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-8 w-8 animate-spin" style={{ color: T.primary }} />
@@ -133,9 +175,18 @@ export default function Db2SessionsPage() {
           </div>
         )}
 
-        {!loading && !error && sessions.length > 0 && (
+        {!loading && !error && sessions.length > 0 && filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+            <p className="text-sm font-semibold" style={{ color: T.dark }}>No sessions match your filters</p>
+            <p className="text-xs" style={{ color: T.primary }}>Try adjusting your search or filter criteria.</p>
+            <button onClick={reset} className="px-4 py-2 rounded-xl text-xs font-semibold text-white"
+              style={{ background: T.gradBtn }}>Clear filters</button>
+          </div>
+        )}
+
+        {!loading && !error && sessions.length > 0 && filtered.length > 0 && (
           <div className="flex flex-col gap-3">
-            {sessions.map((s) => {
+            {filtered.map((s) => {
               const cfg = statusConfig(s.status)
               const StatusIcon = cfg.icon
               const inv = s.results?.object_inventory

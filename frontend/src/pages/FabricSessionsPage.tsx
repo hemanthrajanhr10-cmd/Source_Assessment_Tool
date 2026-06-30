@@ -7,6 +7,8 @@ import { formatDateTime } from '../utils/dateTime'
 import Button from '../components/ui/Button'
 import Loader3D from '../components/ui/Loader3D'
 import { FabricLogo } from '../components/ui/SourceLogos'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 function FabricStatusBadge({ status }: { status: string }) {
   if (status === 'completed')
@@ -49,6 +51,9 @@ export default function FabricSessionsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fabric-sessions'] }),
   })
 
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as FabricSessionRecord[]
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
@@ -70,6 +75,23 @@ export default function FabricSessionsPage() {
         </Button>
       </div>
 
+      <SessionFilterBar
+        filter={filter}
+        onField={setField}
+        onReset={reset}
+        isActive={isActive}
+        totalCount={sessions.length}
+        filteredCount={filtered.length}
+        actions={
+          <Button
+            leftIcon={<PlusCircle className="h-4 w-4" />}
+            onClick={() => navigate('/fabric/new')}
+          >
+            New Fabric Assessment
+          </Button>
+        }
+      />
+
       {isLoading ? (
         <Loader3D message="Loading sessions" />
       ) : sessions.length === 0 ? (
@@ -81,6 +103,14 @@ export default function FabricSessionsPage() {
           <p className="text-sm text-slate-500 mt-1">
             Click "New Fabric Assessment" to get started.
           </p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="card p-12 text-center">
+          <p className="text-slate-700 font-semibold">No sessions match your filters</p>
+          <p className="text-sm text-slate-500 mt-1">Try adjusting your search or filter criteria.</p>
+          <button onClick={reset} className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#4DA8A0]">
+            Clear filters
+          </button>
         </div>
       ) : (
         <div className="card overflow-hidden">
@@ -95,7 +125,7 @@ export default function FabricSessionsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {sessions.map((s: FabricSessionRecord, idx: number) => (
+              {filtered.map((s: FabricSessionRecord, idx: number) => (
                 <tr
                   key={s.fabric_session_id}
                   onClick={() => navigate(`/fabric/sessions/${s.fabric_session_id}`)}

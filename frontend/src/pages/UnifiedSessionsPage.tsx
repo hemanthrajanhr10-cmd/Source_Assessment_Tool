@@ -7,6 +7,8 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { UnifiedSession } from '../types/api'
 import { formatDateTime, elapsed } from '../utils/dateTime'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
@@ -131,6 +133,9 @@ export default function UnifiedSessionsPage() {
     refetchInterval: 10000,
   })
 
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as UnifiedSession[]
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center gap-4 py-24">
@@ -140,9 +145,9 @@ export default function UnifiedSessionsPage() {
     )
   }
 
-  const active    = sessions.filter(s => !['completed', 'failed', 'cancelled'].includes(s.status))
-  const completed = sessions.filter(s => s.status === 'completed')
-  const rest      = sessions.filter(s => s.status !== 'completed' && ['completed', 'failed', 'cancelled'].includes(s.status))
+  const active    = filtered.filter(s => !['completed', 'failed', 'cancelled'].includes(s.status))
+  const completed = filtered.filter(s => s.status === 'completed')
+  const rest      = filtered.filter(s => s.status !== 'completed' && ['completed', 'failed', 'cancelled'].includes(s.status))
 
   return (
     <div className="space-y-6">
@@ -168,6 +173,27 @@ export default function UnifiedSessionsPage() {
         </button>
       </div>
 
+      {/* Filter bar */}
+      <SessionFilterBar
+        filter={filter}
+        onField={setField}
+        onReset={reset}
+        isActive={isActive}
+        totalCount={sessions.length}
+        filteredCount={filtered.length}
+        actions={
+          <button
+            onClick={() => navigate('/unified/new')}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
+                       bg-[#4DA8A0] text-white hover:bg-[#6CBDB5] transition-colors"
+            style={{ boxShadow: '0 0 20px rgba(77,168,160,0.2)' }}
+          >
+            <Plus className="h-4 w-4" />
+            New Assessment
+          </button>
+        }
+      />
+
       {/* Error */}
       {error && (
         <div className="flex items-start gap-3 p-4 rounded-xl bg-[rgba(248,113,113,0.08)] border border-[rgba(248,113,113,0.2)] text-[#f87171] text-sm">
@@ -177,7 +203,14 @@ export default function UnifiedSessionsPage() {
       )}
 
       {/* Session list */}
-      {sessions.length === 0 ? (
+      {sessions.length > 0 && filtered.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-12 rounded-xl border border-dashed border-slate-200 text-center">
+          <p className="text-sm font-semibold text-slate-500">No sessions match your filters</p>
+          <button onClick={reset} className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#4DA8A0]">
+            Clear filters
+          </button>
+        </div>
+      ) : sessions.length === 0 ? (
         <div className="flex flex-col items-center gap-4 py-16 rounded-xl border border-dashed border-slate-200">
           <div className="h-12 w-12 rounded-xl flex items-center justify-center bg-[rgba(77,168,160,0.08)] border border-[rgba(77,168,160,0.15)]">
             <Layers3 className="h-6 w-6 text-ocean-600" />

@@ -9,6 +9,8 @@ import type { SapSessionRecord, SapVariant } from '../types/api'
 import { SAP_VARIANTS } from '../types/api'
 import Button from '../components/ui/Button'
 import { SapLogo } from '../components/ui/SourceLogos'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 function variantLabel(v: SapVariant): string {
   return SAP_VARIANTS.find((m) => m.value === v)?.label ?? v
@@ -69,6 +71,8 @@ export default function SapSessionsPage() {
   const [sessions, setSessions] = useState<SapSessionRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as SapSessionRecord[]
 
   const load = async () => {
     setLoading(true)
@@ -87,31 +91,70 @@ export default function SapSessionsPage() {
 
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
-      <div className="page-header flex items-start justify-between">
+      <div className="page-header flex items-start">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-display">SAP Assessments</h1>
           <p className="mt-1 text-sm text-slate-500">All SAP system assessment runs across all variants.</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <Button
-            size="sm"
-            onClick={() => navigate('/sap/new')}
-            rightIcon={<Plus className="h-3.5 w-3.5" />}
-          >
-            New Assessment
-          </Button>
-        </div>
       </div>
+
+      <SessionFilterBar
+        filter={filter}
+        onField={setField}
+        onReset={reset}
+        isActive={isActive}
+        totalCount={sessions.length}
+        filteredCount={filtered.length}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                background: '#FFFFFF', border: '1.5px solid #B2DDD9', color: '#404555',
+                cursor: 'pointer', transition: 'all 0.15s', opacity: loading ? 0.4 : 1,
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = '#6CBDB5'
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#4DA8A0'
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = '#B2DDD9'
+                ;(e.currentTarget as HTMLButtonElement).style.color = '#404555'
+              }}
+            >
+              <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            <button
+              onClick={() => navigate('/sap/new')}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                background: 'linear-gradient(135deg, #4DA8A0, #6CBDB5)',
+                color: '#fff', border: 'none', cursor: 'pointer',
+                boxShadow: '0 4px 16px rgba(108,189,181,0.18)',
+                transition: 'all 0.18s cubic-bezier(0.34,1.56,0.64,1)',
+                letterSpacing: '-0.01em',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'
+                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 24px rgba(108,189,181,0.18)'
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'
+                ;(e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px rgba(108,189,181,0.18)'
+              }}
+            >
+              <Plus className="h-3 w-3" />
+              New Assessment
+            </button>
+          </>
+        }
+      />
 
       {error && (
         <div className="flex items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-5">
@@ -141,6 +184,16 @@ export default function SapSessionsPage() {
             New Assessment
           </Button>
         </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 24px', textAlign: 'center' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: '#0D1117', margin: '0 0 8px' }}>No sessions match your filters</h3>
+          <p style={{ fontSize: 12, color: '#767A8C', margin: '0 0 16px' }}>Try adjusting your search or filter criteria.</p>
+          <button onClick={reset} style={{
+            padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+            background: 'linear-gradient(135deg, #4DA8A0, #6CBDB5)',
+            color: '#fff', border: 'none', cursor: 'pointer',
+          }}>Clear filters</button>
+        </div>
       ) : (
         <div className="card overflow-hidden">
           <table className="w-full text-sm">
@@ -154,7 +207,7 @@ export default function SapSessionsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {sessions.map((s) => (
+              {filtered.map((s) => (
                 <tr
                   key={s.job_id}
                   className="hover:bg-slate-50/60 transition-colors cursor-pointer"

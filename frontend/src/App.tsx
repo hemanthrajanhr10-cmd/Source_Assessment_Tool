@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Layout from './components/layout/Layout'
 import SplashScreen from './components/ui/SplashScreen'
 
+const ConnectorChooserPage       = lazy(() => import('./pages/ConnectorChooserPage'))
 const NewAssessmentPage          = lazy(() => import('./pages/NewAssessmentPage'))
 const JobsPage                   = lazy(() => import('./pages/JobsPage'))
 const JobDetailPage              = lazy(() => import('./pages/JobDetailPage'))
@@ -92,6 +93,7 @@ function AppRoutes() {
               <Layout>
                 <Suspense fallback={<SplashScreen />}>
                   <Routes>
+                    <Route path="/connectors" element={<ConnectorChooserPage />} />
                     <Route path="/" element={<NewAssessmentPage />} />
                     <Route path="/sessions" element={<SessionsPage />} />
                     <Route path="/sessions/:sessionId" element={<SessionDetailPage />} />

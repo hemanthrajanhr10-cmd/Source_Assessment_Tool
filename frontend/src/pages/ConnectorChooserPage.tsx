@@ -1,10 +1,10 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, X, ArrowRight, Zap, Database, BarChart3, Cloud, Server } from 'lucide-react'
+import { Search, X, ArrowRight, Zap, Database as DatabaseIcon, BarChart3, Cloud, Server } from 'lucide-react'
 import {
   SqlServerLogo, FabricLogo, SapLogo, SageIntacctLogo,
   TableauLogo, SnowflakeLogo, DataverseLogo, SalesforceLogo,
-  IbmDb2Logo, DatabricksLogo, InforPNGLogo, SourceSATLogo,
+  IbmDb2Logo, DatabricksLogo, InforPNGLogo,
   PostgreSQLIconLogo, MySQLFullLogo, OracleFullLogo,
 } from '../components/ui/SourceLogos'
 
@@ -215,7 +215,7 @@ const CONNECTORS: Connector[] = [
 const CATEGORIES: Category[] = ['Database', 'Analytics', 'Cloud ERP', 'CRM', 'Platform']
 
 const CATEGORY_ICONS: Record<Category, React.ReactNode> = {
-  Database:   <Database style={{ width: 13, height: 13 }} />,
+  Database:   <DatabaseIcon style={{ width: 13, height: 13 }} />,
   Analytics:  <BarChart3 style={{ width: 13, height: 13 }} />,
   'Cloud ERP':<Cloud style={{ width: 13, height: 13 }} />,
   CRM:        <Zap style={{ width: 13, height: 13 }} />,
@@ -555,11 +555,11 @@ export default function ConnectorChooserPage() {
           <div style={{
             width: 48, height: 48, borderRadius: 14,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: `linear-gradient(135deg, ${D.tealDark}, ${D.teal})`,
-            boxShadow: `0 6px 20px ${D.tealGlow}`,
+            background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
+            boxShadow: '0 8px 24px rgba(108,189,181,0.38), inset 0 1px 0 rgba(255,255,255,0.20)',
             flexShrink: 0,
           }}>
-            <SourceSATLogo size={30} />
+            <DatabaseIcon style={{ width: 24, height: 24, color: '#fff' }} aria-hidden="true" />
           </div>
           <div>
             <h1 style={{

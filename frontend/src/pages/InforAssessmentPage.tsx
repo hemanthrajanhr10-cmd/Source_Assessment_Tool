@@ -7,21 +7,21 @@ import {
   Cpu, Layers, Info, Zap,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
-import { InforLogo } from '../components/ui/SourceLogos'
+import { InforPNGLogo } from '../components/ui/SourceLogos'
 import type { InforEngine, InforAssessmentRequest } from '../types/api'
 import { INFOR_ENGINES, INFOR_EDITION_OPTIONS } from '../types/api'
 
 // ── Design tokens (matches Db2AssessmentPage) ─────────────────────────────────
 
 const D = {
-  bg:          '#F0FAF9',
+  bg:          '#F6FFFE',
   surface:     '#FFFFFF',
-  surface2:    '#F0FAF9',
-  border:      '#A8E2DD',
-  borderFaint: '#CCEFEC',
+  surface2:    '#F0FAFA',
+  border:      '#B2DDD9',
+  borderFaint: '#D4EFEC',
   teal:        '#6CBDB5',
   tealDim:     '#4DA8A0',
-  tealGlow:    'rgba(108,189,181,0.15)',
+  tealGlow:    'rgba(108,189,181,0.18)',
   tealFaint:   'rgba(108,189,181,0.07)',
   textPrimary: '#0D1117',
   textSecond:  '#404555',
@@ -33,7 +33,7 @@ const D = {
   navy:        '#1E4D8C',
   blue:        '#0083BE',
   blueDim:     'rgba(0,131,190,0.10)',
-  shadowCard:  '0 1px 3px rgba(77,168,160,0.04), 0 4px 16px rgba(77,168,160,0.06)',
+  shadowCard:  '0 1px 3px rgba(77,168,160,0.06), 0 4px 16px rgba(77,168,160,0.08)',
   fontMono:    '"JetBrains Mono", "Fira Code", monospace',
 }
 
@@ -291,20 +291,20 @@ export default function InforAssessmentPage() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: D.bg, padding: '28px 24px 48px',
-      fontFamily: "'Inter', system-ui, sans-serif",
+      minHeight: '100vh', background: D.bg, padding: '32px 24px 56px',
+      fontFamily: "'Inter Variable','Inter', system-ui, sans-serif",
     }}>
       <div style={{ maxWidth: 780, margin: '0 auto' }}>
 
         {/* ── Header ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
           <div style={{
-            width: 48, height: 48, borderRadius: 14,
-            background: `linear-gradient(135deg, ${D.navy}, ${D.blue})`,
+            width: 56, height: 56, borderRadius: 16, overflow: 'hidden',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(30,77,140,0.28)',
+            background: D.surface, border: `1.5px solid ${D.borderFaint}`,
+            boxShadow: D.shadowCard, flexShrink: 0,
           }}>
-            <InforLogo size={32} />
+            <InforPNGLogo size={38} />
           </div>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: D.textPrimary, margin: 0, lineHeight: 1.2 }}>
@@ -415,10 +415,10 @@ export default function InforAssessmentPage() {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '11px 24px', borderRadius: 10, fontSize: 14, fontWeight: 700,
-                  background: engine ? `linear-gradient(135deg, ${D.navy}, ${D.blue})` : D.borderFaint,
+                  background: engine ? `linear-gradient(135deg, ${D.tealDim}, ${D.teal})` : D.borderFaint,
                   color: engine ? '#fff' : D.textMuted,
                   border: 'none', cursor: engine ? 'pointer' : 'not-allowed',
-                  boxShadow: engine ? '0 2px 12px rgba(30,77,140,0.30)' : 'none',
+                  boxShadow: engine ? `0 2px 12px ${D.tealGlow}` : 'none',
                   transition: 'all 0.15s',
                 }}
               >
@@ -631,11 +631,11 @@ export default function InforAssessmentPage() {
                   display: 'flex', alignItems: 'center', gap: 8,
                   padding: '12px 28px', borderRadius: 11, fontSize: 14, fontWeight: 700,
                   background: credentialsComplete && !launching
-                    ? `linear-gradient(135deg, ${D.navy}, ${D.blue})`
+                    ? `linear-gradient(135deg, ${D.tealDim}, ${D.teal})`
                     : D.borderFaint,
                   color: credentialsComplete && !launching ? '#fff' : D.textMuted,
                   border: 'none', cursor: credentialsComplete && !launching ? 'pointer' : 'not-allowed',
-                  boxShadow: credentialsComplete ? '0 2px 16px rgba(30,77,140,0.30)' : 'none',
+                  boxShadow: credentialsComplete ? `0 2px 16px ${D.tealGlow}` : 'none',
                   transition: 'all 0.15s',
                 }}
               >

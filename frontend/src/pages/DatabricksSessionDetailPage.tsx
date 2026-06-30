@@ -11,7 +11,7 @@ import {
   ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
-import { DatabricksIconLogo } from '../components/ui/SourceLogos'
+import { DatabricksLogo } from '../components/ui/SourceLogos'
 import type {
   DatabricksAssessmentResult,
   DatabricksCluster,
@@ -515,11 +515,11 @@ export default function DatabricksSessionDetailPage() {
 
           <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:16, flexWrap:'wrap' }}>
             <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-              <div style={{ width:54, height:54, borderRadius:15, flexShrink:0,
+              <div style={{ width:56, height:56, borderRadius:16, flexShrink:0, overflow:'hidden',
                 display:'flex', alignItems:'center', justifyContent:'center',
-                background:`linear-gradient(135deg,${D.brand},${D.brandMid})`,
-                boxShadow:`0 6px 20px ${D.brandGlow}` }}>
-                <DatabricksIconLogo size={32} />
+                background:'#FFFFFF', border:`1.5px solid ${D.borderFaint}`,
+                boxShadow:D.shadow }}>
+                <DatabricksLogo size={38} />
               </div>
               <div>
                 <h1 style={{ fontSize:21, fontWeight:800, color:D.textPrimary, margin:0 }}>

@@ -7,7 +7,7 @@ import {
 import { api, getApiErrorMessage } from '../api/client'
 import type { InforSessionRecord, InforEngine } from '../types/api'
 import { INFOR_ENGINES } from '../types/api'
-import { InforLogo } from '../components/ui/SourceLogos'
+import { InforPNGLogo } from '../components/ui/SourceLogos'
 
 function engineLabel(e: InforEngine | undefined): string {
   return INFOR_ENGINES.find(m => m.value === e)?.label ?? (e?.toUpperCase() ?? '—')
@@ -82,15 +82,15 @@ export default function InforSessionsPage() {
   useEffect(() => { load() }, [])
 
   return (
-    <div className="min-h-screen p-6" style={{ background: '#F0FAF9', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div className="min-h-screen p-6" style={{ background: '#F6FFFE', fontFamily: "'Inter Variable','Inter', system-ui, sans-serif" }}>
       <div className="max-w-5xl mx-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center w-11 h-11 rounded-xl"
-              style={{ background: 'linear-gradient(135deg, #1E4D8C, #0083BE)', boxShadow: '0 4px 14px rgba(30,77,140,0.28)' }}>
-              <InforLogo size={28} />
+            <div className="flex items-center justify-center w-11 h-11 rounded-xl overflow-hidden"
+              style={{ background: '#FFFFFF', border: '1.5px solid #D4EFEC', boxShadow: '0 1px 3px rgba(77,168,160,0.06), 0 4px 16px rgba(77,168,160,0.08)' }}>
+              <InforPNGLogo size={28} />
             </div>
             <div>
               <h1 className="text-lg font-extrabold text-slate-900 leading-tight">Infor CloudSuite Assessments</h1>
@@ -109,7 +109,7 @@ export default function InforSessionsPage() {
             <button
               onClick={() => navigate('/infor/new')}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold text-white transition-all"
-              style={{ background: 'linear-gradient(135deg, #1E4D8C, #0083BE)', boxShadow: '0 2px 10px rgba(30,77,140,0.28)' }}
+              style={{ background: 'linear-gradient(135deg, #4DA8A0, #6CBDB5)', boxShadow: '0 4px 16px rgba(108,189,181,0.28)' }}
             >
               <Plus className="h-3.5 w-3.5" />
               New Assessment
@@ -120,7 +120,7 @@ export default function InforSessionsPage() {
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin" style={{ color: '#0083BE' }} />
+            <Loader2 className="h-6 w-6 animate-spin" style={{ color: '#6CBDB5' }} />
           </div>
         ) : error ? (
           <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
@@ -129,9 +129,9 @@ export default function InforSessionsPage() {
           </div>
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-              style={{ background: 'linear-gradient(135deg, #1E4D8C, #0083BE)' }}>
-              <InforLogo size={36} />
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 overflow-hidden"
+              style={{ background: '#FFFFFF', border: '1.5px solid #D4EFEC', boxShadow: '0 1px 3px rgba(77,168,160,0.06), 0 4px 16px rgba(77,168,160,0.08)' }}>
+              <InforPNGLogo size={44} />
             </div>
             <h3 className="text-base font-bold text-slate-800 mb-1">No assessments yet</h3>
             <p className="text-sm text-slate-400 mb-5 max-w-xs">
@@ -140,7 +140,7 @@ export default function InforSessionsPage() {
             <button
               onClick={() => navigate('/infor/new')}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white"
-              style={{ background: 'linear-gradient(135deg, #1E4D8C, #0083BE)' }}
+              style={{ background: 'linear-gradient(135deg, #4DA8A0, #6CBDB5)', boxShadow: '0 4px 16px rgba(108,189,181,0.28)' }}
             >
               <Plus className="h-4 w-4" />
               New Assessment
@@ -158,9 +158,9 @@ export default function InforSessionsPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                      style={{ background: 'linear-gradient(135deg, #1E4D8C, #0083BE)' }}>
-                      <InforLogo size={22} />
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 overflow-hidden"
+                      style={{ background: '#FFFFFF', border: '1.5px solid #D4EFEC', boxShadow: '0 2px 8px rgba(77,168,160,0.08)' }}>
+                      <InforPNGLogo size={22} />
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">

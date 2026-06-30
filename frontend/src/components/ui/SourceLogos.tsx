@@ -10,6 +10,8 @@ import tableauUrl      from '../../assets/src_logos/Tableau.png'
 import dataverseUrl    from '../../assets/src_logos/Dataverse_logo.png'
 import mysqlUrl        from '../../assets/src_logos/MySQL.png'
 import oracleUrl       from '../../assets/src_logos/Oracle.jpg'
+import databricksUrl   from '../../assets/src_logos/Databricks.png'
+import inforUrl        from '../../assets/src_logos/infor.png'
 
 import postgresqlUrl   from '../../assets/src_logos/Postgresql.png'
 import ibmDb2Url      from '../../assets/src_logos/IBM_Db2.png'
@@ -353,6 +355,16 @@ export function IbmDb2FullLogo({ height = 32, className }: { height?: number; cl
       className={className}
     />
   )
+}
+
+/** Databricks brand logo from official PNG asset */
+export function DatabricksLogo({ size = 24, className }: LogoProps) {
+  return <IconSlot src={databricksUrl} alt="Databricks" size={size} className={className} />
+}
+
+/** Infor brand logo from official PNG asset */
+export function InforPNGLogo({ size = 24, className }: LogoProps) {
+  return <IconSlot src={inforUrl} alt="Infor" size={size} className={className} />
 }
 
 /**

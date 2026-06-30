@@ -6,7 +6,7 @@ import {
   Server, Shield, Database, Layers, Globe, BarChart3, Cpu,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
-import { InforLogo } from '../components/ui/SourceLogos'
+import { InforPNGLogo } from '../components/ui/SourceLogos'
 import type {
   InforAssessmentResult, InforCheckResult, InforEngine,
   InforJobStatusResponse,
@@ -20,15 +20,15 @@ const D = {
   blue:       '#0083BE',
   teal:       '#6CBDB5',
   tealFaint:  'rgba(108,189,181,0.07)',
-  border:     '#CCEFEC',
+  border:     '#B2DDD9',
   surface:    '#FFFFFF',
-  bg:         '#F0FAF9',
+  bg:         '#F6FFFE',
   textPrim:   '#0D1117',
   textMuted:  '#767A8C',
   green:      '#059669',
   amber:      '#D97706',
   red:        '#DC2626',
-  shadow:     '0 1px 3px rgba(77,168,160,0.04), 0 4px 16px rgba(77,168,160,0.06)',
+  shadow:     '0 1px 3px rgba(77,168,160,0.06), 0 4px 16px rgba(77,168,160,0.08)',
 }
 
 function engineLabel(e?: InforEngine) {
@@ -251,7 +251,7 @@ export default function InforSessionDetailPage() {
   const isRunning = status?.status === 'running' || status?.status === 'pending'
 
   return (
-    <div style={{ minHeight: '100vh', background: D.bg, padding: '24px 20px 48px', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: D.bg, padding: '24px 20px 56px', fontFamily: "'Inter Variable','Inter', system-ui, sans-serif" }}>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
 
         {/* ── Back button ── */}
@@ -275,10 +275,11 @@ export default function InforSessionDetailPage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{
-              width: 48, height: 48, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'linear-gradient(135deg, #1E4D8C, #0083BE)', boxShadow: '0 4px 14px rgba(30,77,140,0.25)',
+              width: 52, height: 52, borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden', background: D.surface, border: `1.5px solid ${D.border}`,
+              boxShadow: D.shadow,
             }}>
-              <InforLogo size={30} />
+              <InforPNGLogo size={34} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -320,9 +321,9 @@ export default function InforSessionDetailPage() {
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                   padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-                  background: downloading ? D.border : 'linear-gradient(135deg, #1E4D8C, #0083BE)',
+                  background: downloading ? D.border : `linear-gradient(135deg, ${D.teal}, #4DA8A0)`,
                   color: downloading ? D.textMuted : '#fff', border: 'none', cursor: 'pointer',
-                  boxShadow: downloading ? 'none' : '0 2px 10px rgba(30,77,140,0.28)',
+                  boxShadow: downloading ? 'none' : '0 4px 18px rgba(108,189,181,0.30)',
                 }}
               >
                 {downloading ? <Loader2 style={{ width: 13, height: 13, animation: 'spin 1s linear infinite' }} /> : <Download style={{ width: 13, height: 13 }} />}
@@ -376,7 +377,7 @@ export default function InforSessionDetailPage() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6,
                       padding: '8px 14px', borderRadius: 9, fontSize: 12, fontWeight: active ? 700 : 500,
-                      background: active ? 'linear-gradient(135deg, #1E4D8C, #0083BE)' : 'transparent',
+                      background: active ? `linear-gradient(135deg, ${D.teal}, #4DA8A0)` : 'transparent',
                       color: active ? '#fff' : D.textMuted,
                       border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
                       transition: 'all 0.15s',

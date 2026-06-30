@@ -848,8 +848,9 @@ def _run_platform_checks(client, checks, _step, _add):
         security_role_count=0,
         admin_user_count=len(admin_users),
     )
+    ion_ok = ion_status == "healthy"
     platform = InforOsPlatformHealth(
-        ion_api_accessible=ion_ok := (ion_status == "healthy"),
+        ion_api_accessible=ion_ok,
         mingle_accessible=bool(users),
         data_fabric_catalog_present=df_present,
         birst_active=bool(birst),

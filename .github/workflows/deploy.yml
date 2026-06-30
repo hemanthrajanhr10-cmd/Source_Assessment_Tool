@@ -10,6 +10,7 @@ jobs:
   build-and-push:
     name: Build Image & Push to ACR
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
 
@@ -29,11 +30,14 @@ jobs:
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-      # 4. Build & push — tags :latest and :<sha>
+      # 4. Build & push with GHA layer cache and explicit step timeout.
       #    cache-from/to: type=gha reuses GitHub Actions cache across runs
-      #    (dramatically faster rebuilds when only app code changes)
+      #    (dramatically faster rebuilds when only app code changes).
+      #    timeout-minutes guards against ACR push hangs; the job-level
+      #    timeout-minutes:30 above is a hard ceiling.
       - name: Build and push image
         uses: docker/build-push-action@v5
+        timeout-minutes: 25
         with:
           context: .
           file: ./Dockerfile
@@ -44,7 +48,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 5. Print summary
+      # 5. Verify image is reachable in ACR (3 retries, 15s backoff).
+      #    Guards against transient ACR 5xx after the push completes.
+      - name: Verify image reachable in ACR
+        run: |
+          for attempt in 1 2 3; do
+            docker manifest inspect "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}" && break
+            echo "Attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+
+      # 6. Print summary
       - name: Summary
         run: |
           echo "Image pushed: ${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}"

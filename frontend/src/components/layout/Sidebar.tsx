@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   UnifiedLogo, SqlServerLogo, FabricLogo, SapLogo,
   SageIntacctLogo, TableauLogo, SnowflakeIconLogo, DataverseIconLogo,
-  SalesforceIconLogo, IbmDb2Logo, InforIconLogo, DatabricksIconLogo,
+  SalesforceIconLogo, IbmDb2Logo, InforPNGLogo, DatabricksLogo,
 } from '../ui/SourceLogos'
 import type { LucideIcon } from 'lucide-react'
 
@@ -150,7 +150,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Infor CloudSuite',
     element: 'infor',
-    LogoComponent: InforIconLogo,
+    LogoComponent: InforPNGLogo,
     ...TEAL_THEME,
     items: [
       { to: '/infor/new',      label: 'New Assessment', icon: PlusCircle },
@@ -160,7 +160,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Databricks',
     element: 'databricks',
-    LogoComponent: DatabricksIconLogo,
+    LogoComponent: DatabricksLogo,
     ...TEAL_THEME,
     items: [
       { to: '/databricks/new',      label: 'New Assessment', icon: PlusCircle },

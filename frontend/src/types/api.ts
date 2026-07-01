@@ -858,6 +858,57 @@ export interface FabricReport {
   pages: ReportPage[]
 }
 
+export interface FabricDataflow {
+  id: string
+  name: string
+  generation: string
+  description: string
+  configured_by: string
+  modified_at: string
+  refresh_schedule: string
+  entity_count: number
+  datasource_count: number
+  upstream_dataflow_count: number
+  entities: FabricDataflowEntity[]
+  datasources: FabricDataflowDatasource[]
+  upstream_dataflows: FabricDataflowUpstream[]
+  transactions: FabricDataflowTransaction[]
+  complexity: { score: number; level: string; function_count: number; step_count: number; nesting_depth: number; complex_functions: string[] }
+  has_refresh_errors: boolean
+  _error?: string
+}
+
+export interface FabricDataflowEntity {
+  name: string
+  query_name: string
+  m_expression: string
+  column_count: number
+  columns: { name: string; type: string }[]
+  complexity: { score: number; level: string }
+  datasource_types: string[]
+}
+
+export interface FabricDataflowDatasource {
+  kind: string
+  datasource_type: string
+  path: string
+  connection_string?: string
+}
+
+export interface FabricDataflowUpstream {
+  source_dataflow_id: string
+  source_dataflow_name: string
+  entity_name: string
+}
+
+export interface FabricDataflowTransaction {
+  id: string
+  status: string
+  start_time: string
+  end_time: string
+  type: string
+}
+
 export interface FabricWorkspace {
   id: string
   name: string
@@ -866,8 +917,10 @@ export interface FabricWorkspace {
   dataset_count: number
   report_count: number
   paginated_report_count: number
+  dataflow_count: number
   datasets: FabricDataset[]
   reports: FabricReport[]
+  dataflows: FabricDataflow[]
 }
 
 export interface FabricSummary {
@@ -875,11 +928,14 @@ export interface FabricSummary {
   dataset_count: number
   report_count: number
   paginated_report_count: number
+  dataflow_count: number
   total_measures: number
   total_calculated_tables: number
   total_calculated_columns: number
   total_relationships: number
   total_visuals: number
+  total_dataflow_entities: number
+  total_dataflow_datasources: number
 }
 
 export interface FabricResults {
@@ -908,7 +964,7 @@ export interface ActivityEvent {
 export interface AssessmentProgressState {
   assessment_id: string
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
-  phase: 'discovery' | 'semantic_models' | 'reports' | 'crosslinking' | 'saving'
+  phase: 'discovery' | 'semantic_models' | 'reports' | 'dataflows' | 'crosslinking' | 'saving'
   total_items: number
   processed_items: number
   failed_items: number
@@ -918,6 +974,7 @@ export interface AssessmentProgressState {
     discovery: PhaseProgress
     semantic_models: PhaseProgress
     reports: PhaseProgress
+    dataflows: PhaseProgress
     crosslinking: PhaseProgress
     saving: PhaseProgress
   }

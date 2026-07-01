@@ -4,6 +4,7 @@ const PHASES: { key: keyof AssessmentProgressState['phase_progress']; label: str
   { key: 'discovery',      label: 'Discovery' },
   { key: 'semantic_models', label: 'Semantic Models' },
   { key: 'reports',        label: 'Reports' },
+  { key: 'dataflows',      label: 'Dataflows' },
   { key: 'crosslinking',   label: 'Cross-linking' },
   { key: 'saving',         label: 'Saving' },
 ]
@@ -174,7 +175,7 @@ export default function PhaseStepperBar({ currentPhase, phaseProgress, status }:
                 </span>
 
                 {/* Sub-count */}
-                {(key === 'semantic_models' || key === 'reports') &&
+                {(key === 'semantic_models' || key === 'reports' || key === 'dataflows') &&
                   (pp[key]?.total ?? 0) > 0 && (
                   <span
                     style={{

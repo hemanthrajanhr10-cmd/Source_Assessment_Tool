@@ -9,6 +9,7 @@ import {
   ArrowLeft, ArrowRight, Code2, StopCircle, Download, TrendingUp,
   Activity, GitMerge, BookOpen, Filter, Copy, Check, Network,
   Layers, ArrowUpRight, Info, ShieldCheck, ShieldAlert, ShieldX,
+  Search, X,
 } from 'lucide-react'
 import LineageTab from '../components/fabric/LineageTab'
 import { api } from '../api/client'
@@ -18,6 +19,7 @@ import type {
   FabricCalculatedColumn, FabricCalculatedTable, FabricRelationship,
   FabricTable, FabricTableColumn,
   ModelStorageRecommendation, TableSourceFeed,
+  FabricDataflow,
 } from '../types/api'
 import { formatDateTime } from '../utils/dateTime'
 import Loader3D from '../components/ui/Loader3D'
@@ -164,7 +166,7 @@ function getComplexityDistribution(ds: FabricDataset) {
 
 // ── Tab navigation ────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'models' | 'reports' | 'complexity' | 'lineage'
+type Tab = 'overview' | 'models' | 'reports' | 'complexity' | 'lineage' | 'dataflows'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview',   label: 'Overview',            icon: <Activity className="h-4 w-4" /> },
@@ -172,6 +174,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'reports',    label: 'Reports & Visuals',   icon: <FileText className="h-4 w-4" /> },
   { id: 'complexity', label: 'Complexity Analysis', icon: <TrendingUp className="h-4 w-4" /> },
   { id: 'lineage',    label: 'Measure Lineage',     icon: <Network className="h-4 w-4" /> },
+  { id: 'dataflows',  label: 'Dataflows',           icon: <Zap className="h-4 w-4" /> },
 ]
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -1023,15 +1026,16 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
   }))
 
   const KPI_ITEMS = [
-    { label: 'Workspaces',      value: summary.workspace_count,          iconBg: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)',  glow: 'rgba(77,168,160,0.20)',   icon: <Zap className="h-4 w-4 text-white" />,        numColor: '#25706A' },
-    { label: 'Semantic Models', value: summary.dataset_count,            iconBg: 'linear-gradient(135deg,#0891B2,#22D3EE)',  glow: 'rgba(8,145,178,0.20)',  icon: <Database className="h-4 w-4 text-white" />,   numColor: '#0E7490' },
-    { label: 'Reports',         value: summary.report_count,             iconBg: 'linear-gradient(135deg,#0D9488,#2DD4BF)',  glow: 'rgba(13,148,136,0.20)', icon: <FileText className="h-4 w-4 text-white" />,   numColor: '#0F766E' },
-    { label: 'Paginated',       value: summary.paginated_report_count,   iconBg: 'linear-gradient(135deg,#D97706,#FBBF24)',  glow: 'rgba(217,119,6,0.20)',  icon: <BookOpen className="h-4 w-4 text-white" />,   numColor: '#92400E' },
-    { label: 'Total Visuals',   value: summary.total_visuals ?? 0,       iconBg: 'linear-gradient(135deg,#93CCC6,#A8E2DD)',  glow: 'rgba(77,168,160,0.20)', icon: <Eye className="h-4 w-4 text-white" />,        numColor: '#4DA8A0' },
-    { label: 'Measures',        value: summary.total_measures,           iconBg: 'linear-gradient(135deg,#4DA8A0,#93CCC6)',  glow: 'rgba(77,168,160,0.20)',   icon: <Hash className="h-4 w-4 text-white" />,       numColor: '#25706A' },
-    { label: 'Calc. Tables',    value: summary.total_calculated_tables,  iconBg: 'linear-gradient(135deg,#F59E0B,#FCD34D)',  glow: 'rgba(245,158,11,0.20)', icon: <Table2 className="h-4 w-4 text-white" />,     numColor: '#92400E' },
-    { label: 'Calc. Columns',   value: summary.total_calculated_columns, iconBg: 'linear-gradient(135deg,#F97316,#FB923C)',  glow: 'rgba(249,115,22,0.20)', icon: <Calculator className="h-4 w-4 text-white" />, numColor: '#9A3412' },
-    { label: 'Relationships',   value: summary.total_relationships ?? 0, iconBg: 'linear-gradient(135deg,#8B5CF6,#A78BFA)',  glow: 'rgba(139,92,246,0.20)', icon: <GitMerge className="h-4 w-4 text-white" />,   numColor: '#5B21B6' },
+    { label: 'Workspaces',      value: summary.workspace_count,              iconBg: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)',  glow: 'rgba(77,168,160,0.20)',   icon: <Zap className="h-4 w-4 text-white" />,        numColor: '#25706A' },
+    { label: 'Semantic Models', value: summary.dataset_count,                iconBg: 'linear-gradient(135deg,#0891B2,#22D3EE)',  glow: 'rgba(8,145,178,0.20)',  icon: <Database className="h-4 w-4 text-white" />,   numColor: '#0E7490' },
+    { label: 'Reports',         value: summary.report_count,                 iconBg: 'linear-gradient(135deg,#0D9488,#2DD4BF)',  glow: 'rgba(13,148,136,0.20)', icon: <FileText className="h-4 w-4 text-white" />,   numColor: '#0F766E' },
+    { label: 'Dataflows',       value: summary.dataflow_count ?? 0,          iconBg: 'linear-gradient(135deg,#F59E0B,#FCD34D)',  glow: 'rgba(245,158,11,0.20)', icon: <Layers className="h-4 w-4 text-white" />,     numColor: '#92400E' },
+    { label: 'Paginated',       value: summary.paginated_report_count,       iconBg: 'linear-gradient(135deg,#D97706,#FBBF24)',  glow: 'rgba(217,119,6,0.20)',  icon: <BookOpen className="h-4 w-4 text-white" />,   numColor: '#92400E' },
+    { label: 'Total Visuals',   value: summary.total_visuals ?? 0,           iconBg: 'linear-gradient(135deg,#93CCC6,#A8E2DD)',  glow: 'rgba(77,168,160,0.20)', icon: <Eye className="h-4 w-4 text-white" />,        numColor: '#4DA8A0' },
+    { label: 'Measures',        value: summary.total_measures,               iconBg: 'linear-gradient(135deg,#4DA8A0,#93CCC6)',  glow: 'rgba(77,168,160,0.20)',   icon: <Hash className="h-4 w-4 text-white" />,       numColor: '#25706A' },
+    { label: 'Calc. Tables',    value: summary.total_calculated_tables,      iconBg: 'linear-gradient(135deg,#F59E0B,#FCD34D)',  glow: 'rgba(245,158,11,0.20)', icon: <Table2 className="h-4 w-4 text-white" />,     numColor: '#92400E' },
+    { label: 'Calc. Columns',   value: summary.total_calculated_columns,     iconBg: 'linear-gradient(135deg,#F97316,#FB923C)',  glow: 'rgba(249,115,22,0.20)', icon: <Calculator className="h-4 w-4 text-white" />, numColor: '#9A3412' },
+    { label: 'Relationships',   value: summary.total_relationships ?? 0,     iconBg: 'linear-gradient(135deg,#8B5CF6,#A78BFA)',  glow: 'rgba(139,92,246,0.20)', icon: <GitMerge className="h-4 w-4 text-white" />,   numColor: '#5B21B6' },
   ]
 
   return (
@@ -1161,7 +1165,7 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
           <table className="w-full text-xs">
             <thead>
               <tr style={{ background: 'rgba(239,246,255,0.7)', borderBottom: '1px solid rgba(168,226,221,0.6)' }}>
-                {['Workspace', 'Type', 'Models', 'Reports', 'Paginated', 'Visuals', 'Measures'].map((h, hi) => (
+                {['Workspace', 'Type', 'Models', 'Reports', 'Paginated', 'Dataflows', 'Visuals', 'Measures'].map((h, hi) => (
                   <th key={h} className={`px-4 py-2.5 font-semibold text-slate-500 ${hi === 0 ? 'text-left' : 'text-center'}`}>{h}</th>
                 ))}
               </tr>
@@ -1181,6 +1185,7 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
                   <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#0891B2' }}>{ws.dataset_count}</td>
                   <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#0D9488' }}>{ws.report_count}</td>
                   <td className="px-4 py-2.5 text-center font-bold text-amber-600">{ws.paginated_report_count}</td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#D97706' }}>{ws.dataflow_count ?? (ws.dataflows || []).length}</td>
                   <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#4DA8A0' }}>{ws.reports.reduce((s, r) => s + (r.visual_count ?? 0), 0)}</td>
                   <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#5B21B6' }}>{ws.datasets.reduce((s, d) => s + d.measure_count, 0)}</td>
                 </tr>
@@ -2104,6 +2109,249 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
   }
 }
 
+// ── Dataflows Tab ─────────────────────────────────────────────────────────────
+
+const COMPLEXITY_LEVEL_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  'None':         { bg: 'bg-slate-100',   text: 'text-slate-500',   border: 'border-slate-200' },
+  'Simple':       { bg: 'bg-teal-50',     text: 'text-teal-700',    border: 'border-teal-200' },
+  'Moderate':     { bg: 'bg-amber-50',    text: 'text-amber-700',   border: 'border-amber-200' },
+  'Complex':      { bg: 'bg-orange-50',   text: 'text-orange-700',  border: 'border-orange-200' },
+  'Very Complex': { bg: 'bg-red-50',      text: 'text-red-700',     border: 'border-red-200' },
+}
+
+function DfComplexityBadge({ level }: { level: string }) {
+  const c = COMPLEXITY_LEVEL_COLORS[level] ?? COMPLEXITY_LEVEL_COLORS['None']
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${c.bg} ${c.text} ${c.border}`}>
+      <BarChart2 className="h-3 w-3" />
+      {level || 'None'}
+    </span>
+  )
+}
+
+function DataflowCard({ df, wsName }: { df: FabricDataflow; wsName: string }) {
+  const [open, setOpen] = useState(false)
+  const cx = df.complexity ?? { score: 0, level: 'None' }
+
+  return (
+    <div className="rounded-xl border border-slate-200 overflow-hidden hover:border-teal-200 transition-colors">
+      {/* Header */}
+      <button
+        className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-slate-50/60 transition-colors"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="flex items-center justify-center h-7 w-7 rounded-lg shrink-0 mt-0.5"
+          style={{ background: 'linear-gradient(135deg,#F59E0B,#FCD34D)', boxShadow: '0 2px 6px rgba(245,158,11,0.25)' }}>
+          <Zap className="h-3.5 w-3.5 text-white" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-slate-800 truncate">{df.name}</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+              df.generation === 'Gen2' ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-slate-100 text-slate-600 border-slate-200'
+            }`}>{df.generation}</span>
+            <DfComplexityBadge level={cx.level} />
+            {df._error && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-600 border border-red-200">
+                Extraction failed
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-1 text-xs text-slate-400 flex-wrap">
+            <span className="flex items-center gap-1"><Layers className="h-3 w-3" />{df.entity_count} entit{df.entity_count !== 1 ? 'ies' : 'y'}</span>
+            <span className="flex items-center gap-1"><Link2 className="h-3 w-3" />{df.datasource_count} source{df.datasource_count !== 1 ? 's' : ''}</span>
+            {df.refresh_schedule && df.refresh_schedule !== '—' && (
+              <span className="flex items-center gap-1"><Activity className="h-3 w-3" />{df.refresh_schedule}</span>
+            )}
+            {df.configured_by && <span className="text-slate-400 truncate">by {df.configured_by}</span>}
+            <span className="ml-auto text-slate-300">{wsName}</span>
+          </div>
+        </div>
+        {open ? <ChevronUp className="h-4 w-4 text-slate-400 shrink-0 mt-1" /> : <ChevronDown className="h-4 w-4 text-slate-400 shrink-0 mt-1" />}
+      </button>
+
+      {/* Expanded detail */}
+      {open && (
+        <div className="border-t border-slate-100 divide-y divide-slate-100">
+          {/* Entities */}
+          {(df.entities || []).length > 0 && (
+            <div className="px-4 py-3">
+              <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
+                <Table2 className="h-3 w-3" /> Entities ({df.entities.length})
+              </p>
+              <div className="space-y-1.5">
+                {df.entities.map((ent, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 text-xs">
+                    <span className="font-semibold text-slate-700 flex-1 truncate">{ent.name}</span>
+                    <DfComplexityBadge level={ent.complexity?.level ?? 'None'} />
+                    <span className="text-slate-400 shrink-0">{ent.column_count} col{ent.column_count !== 1 ? 's' : ''}</span>
+                    {(ent.datasource_types || []).length > 0 && (
+                      <span className="text-slate-400 shrink-0 truncate max-w-[120px]">{ent.datasource_types.join(', ')}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Data Sources */}
+          {(df.datasources || []).length > 0 && (
+            <div className="px-4 py-3">
+              <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
+                <ExternalLink className="h-3 w-3" /> Data Sources ({df.datasources.length})
+              </p>
+              <div className="space-y-1.5">
+                {df.datasources.map((ds, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 text-xs">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                      {ds.datasource_type || ds.kind || 'Unknown'}
+                    </span>
+                    {ds.path && <span className="text-slate-500 truncate font-mono">{ds.path}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upstream Dataflows */}
+          {(df.upstream_dataflows || []).length > 0 && (
+            <div className="px-4 py-3">
+              <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
+                <ArrowUpRight className="h-3 w-3" /> Upstream Dataflows ({df.upstream_dataflows.length})
+              </p>
+              <div className="space-y-1.5">
+                {df.upstream_dataflows.map((up, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 text-xs">
+                    <Zap className="h-3 w-3 text-amber-500 shrink-0" />
+                    <span className="font-semibold text-slate-700">{up.source_dataflow_name}</span>
+                    {up.entity_name && <><ArrowRight className="h-3 w-3 text-slate-300 shrink-0" /><span className="text-slate-500">{up.entity_name}</span></>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Transactions */}
+          {(df.transactions || []).length > 0 && (
+            <div className="px-4 py-3">
+              <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
+                <Activity className="h-3 w-3" /> Recent Refreshes ({df.transactions.length})
+              </p>
+              <div className="space-y-1.5">
+                {df.transactions.slice(0, 5).map((txn, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 text-xs">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0 ${
+                      txn.status === 'Success' ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-red-50 text-red-600 border-red-200'
+                    }`}>{txn.status}</span>
+                    <span className="text-slate-500 font-mono">{txn.start_time ? txn.start_time.slice(0, 19).replace('T', ' ') : '—'}</span>
+                    <span className="text-slate-400 shrink-0">{txn.type}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Error notice */}
+          {df._error && (
+            <div className="px-4 py-3">
+              <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-600">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>{df._error}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DataflowsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
+  const [filter, setFilter] = useState('')
+  const allDataflows: { df: FabricDataflow; wsName: string }[] = workspaces.flatMap(ws =>
+    (ws.dataflows || []).map(df => ({ df, wsName: ws.name }))
+  )
+  const filtered = filter
+    ? allDataflows.filter(({ df, wsName }) =>
+        df.name.toLowerCase().includes(filter.toLowerCase()) ||
+        wsName.toLowerCase().includes(filter.toLowerCase())
+      )
+    : allDataflows
+
+  const totalEntities = allDataflows.reduce((s, { df }) => s + (df.entity_count ?? 0), 0)
+  const totalSources  = allDataflows.reduce((s, { df }) => s + (df.datasource_count ?? 0), 0)
+  const gen1Count = allDataflows.filter(({ df }) => df.generation === 'Gen1').length
+  const gen2Count = allDataflows.filter(({ df }) => df.generation === 'Gen2').length
+
+  if (allDataflows.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+        <span className="flex items-center justify-center h-14 w-14 rounded-2xl"
+          style={{ background: 'linear-gradient(135deg,#F59E0B,#FCD34D)', boxShadow: '0 4px 16px rgba(245,158,11,0.20)' }}>
+          <Zap className="h-7 w-7 text-white" />
+        </span>
+        <p className="text-slate-700 font-semibold">No dataflows assessed</p>
+        <p className="text-xs text-slate-400 max-w-xs">
+          No dataflows were selected or found in the assessed workspaces. Select dataflows in Step 3 when creating a new assessment.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5 pt-4">
+      {/* Summary KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Dataflows', value: allDataflows.length, color: '#F59E0B', icon: <Zap className="h-4 w-4 text-white" /> },
+          { label: 'Total Entities',  value: totalEntities,        color: '#0891B2', icon: <Table2 className="h-4 w-4 text-white" /> },
+          { label: 'Data Sources',    value: totalSources,         color: '#0D9488', icon: <ExternalLink className="h-4 w-4 text-white" /> },
+          { label: 'Gen1 / Gen2',     value: `${gen1Count} / ${gen2Count}`, color: '#8B5CF6', icon: <Layers className="h-4 w-4 text-white" /> },
+        ].map(({ label, value, color, icon }) => (
+          <div key={label} className="rounded-xl border border-slate-100 bg-white p-3.5 shadow-sm flex items-center gap-3">
+            <span className="flex items-center justify-center h-8 w-8 rounded-lg shrink-0"
+              style={{ background: color, boxShadow: `0 2px 8px ${color}33` }}>
+              {icon}
+            </span>
+            <div>
+              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">{label}</p>
+              <p className="text-lg font-black leading-tight" style={{ color }}>{value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+        <input
+          type="text"
+          className="form-input pl-9 py-1.5 text-sm w-full"
+          placeholder="Filter dataflows or workspaces…"
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+        />
+        {filter && (
+          <button onClick={() => setFilter('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {/* Dataflow cards */}
+      {filtered.length === 0 ? (
+        <p className="text-center text-sm text-slate-400 py-10">No dataflows match "{filter}"</p>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(({ df, wsName }) => (
+            <DataflowCard key={df.id} df={df} wsName={wsName} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 function FabricSessionDetailPageInner() {
@@ -2383,6 +2631,18 @@ function FabricSessionDetailPageInner() {
                   transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
                 >
                   <LineageTab workspaces={workspaces} />
+                </motion.div>
+              )}
+
+              {activeTab === 'dataflows' && (
+                <motion.div
+                  key="dataflows"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <DataflowsTab workspaces={workspaces} />
                 </motion.div>
               )}
             </AnimatePresence>

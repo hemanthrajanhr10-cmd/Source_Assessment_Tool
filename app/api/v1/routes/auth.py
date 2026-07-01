@@ -47,18 +47,31 @@ router = APIRouter()
 
 # ── IP / location helpers ─────────────────────────────────────────────────────
 
+def _strip_port(raw: str) -> str:
+    """Remove port from 'host:port' or '[::1]:port' style strings."""
+    raw = raw.strip()
+    if raw.startswith("["):
+        # IPv6 with port: [::1]:port
+        return raw[1:raw.index("]")]
+    if raw.count(":") == 1:
+        # IPv4 with port: 1.2.3.4:56789
+        return raw.split(":")[0]
+    return raw
+
+
 def _get_client_ip(request: Request) -> str:
     """Extract the real client IP, honouring X-Forwarded-For if present."""
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        return _strip_port(forwarded.split(",")[0])
     if request.client:
-        return request.client.host
+        return _strip_port(request.client.host)
     return "unknown"
 
 
 def _resolve_location(ip: str) -> str:
     """Return 'City, Region, Country' for an IP via ip-api.com (free, no key)."""
+    ip = _strip_port(ip)
     if not ip or ip in ("unknown", "127.0.0.1", "::1"):
         return "localhost"
     try:

@@ -27,6 +27,19 @@ IF NOT EXISTS (
 )
     ALTER TABLE dbo.users ADD relay_namespace NVARCHAR(50) NULL;
 
+-- Migration: add last_login_ip and last_login_location columns
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.users') AND name = 'last_login_ip'
+)
+    ALTER TABLE dbo.users ADD last_login_ip NVARCHAR(45) NULL;
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.users') AND name = 'last_login_location'
+)
+    ALTER TABLE dbo.users ADD last_login_location NVARCHAR(200) NULL;
+
 -- ─── Migration: remove old JSON-blob table (one-time) ────────────────────────
 IF OBJECT_ID('dbo.assessment_sections', 'U') IS NOT NULL
     DROP TABLE dbo.assessment_sections;

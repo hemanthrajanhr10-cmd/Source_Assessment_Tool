@@ -24,7 +24,7 @@ from typing import Optional
 
 import qrcode
 import requests as http_requests
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 
@@ -43,6 +43,37 @@ from app.core.dependencies import get_current_user
 from app.db import azure_store
 
 router = APIRouter()
+
+
+# ── IP / location helpers ─────────────────────────────────────────────────────
+
+def _get_client_ip(request: Request) -> str:
+    """Extract the real client IP, honouring X-Forwarded-For if present."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "unknown"
+
+
+def _resolve_location(ip: str) -> str:
+    """Return 'City, Region, Country' for an IP via ip-api.com (free, no key)."""
+    if not ip or ip in ("unknown", "127.0.0.1", "::1"):
+        return "localhost"
+    try:
+        resp = http_requests.get(
+            f"http://ip-api.com/json/{ip}?fields=status,city,regionName,country",
+            timeout=4,
+        )
+        if resp.ok:
+            data = resp.json()
+            if data.get("status") == "success":
+                parts = [data.get("city"), data.get("regionName"), data.get("country")]
+                return ", ".join(p for p in parts if p) or ip
+    except Exception:
+        pass
+    return ip
 
 
 # ── Request / Response models ─────────────────────────────────────────────────
@@ -90,7 +121,7 @@ async def register(body: RegisterRequest):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest):
+async def login(body: LoginRequest, request: Request):
     user = azure_store.get_user_by_email(body.email)
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
@@ -98,22 +129,28 @@ async def login(body: LoginRequest):
     if not user.get("is_active"):
         raise HTTPException(status_code=403, detail="Account is disabled.")
 
-    # If MFA is enabled, return a challenge — no token yet
+    # If MFA is enabled, return a challenge — no token yet (login info updated after MFA)
     if user.get("mfa_enabled"):
         return TokenResponse(access_token="", mfa_required=True)
+
+    ip = _get_client_ip(request)
+    azure_store.update_user_login_info(user["user_id"], ip, _resolve_location(ip))
 
     token = create_access_token(user["user_id"], user["email"])
     return TokenResponse(access_token=token)
 
 
 @router.post("/verify-mfa", response_model=TokenResponse)
-async def verify_mfa(body: VerifyMFARequest):
+async def verify_mfa(body: VerifyMFARequest, request: Request):
     user = azure_store.get_user_by_email(body.email)
     if not user or not user.get("mfa_enabled") or not user.get("mfa_secret"):
         raise HTTPException(status_code=400, detail="MFA not set up for this account.")
 
     if not verify_totp(user["mfa_secret"], body.code):
         raise HTTPException(status_code=401, detail="Invalid MFA code. Please try again.")
+
+    ip = _get_client_ip(request)
+    azure_store.update_user_login_info(user["user_id"], ip, _resolve_location(ip))
 
     token = create_access_token(user["user_id"], user["email"])
     return TokenResponse(access_token=token)
@@ -163,6 +200,8 @@ async def me(current_user: dict = Depends(get_current_user)):
         "full_name": current_user.get("full_name"),
         "mfa_enabled": bool(current_user.get("mfa_enabled")),
         "created_at": str(current_user.get("created_at", "")),
+        "last_login_ip": current_user.get("last_login_ip"),
+        "last_login_location": current_user.get("last_login_location"),
     }
 
 
@@ -224,6 +263,7 @@ async def oauth_microsoft_start():
 
 @router.get("/oauth/microsoft/callback", include_in_schema=False)
 async def oauth_microsoft_callback(
+    request: Request,
     code: Optional[str] = Query(default=None),
     error: Optional[str] = Query(default=None),
 ):
@@ -269,6 +309,9 @@ async def oauth_microsoft_callback(
     if not user or not user.get("is_active"):
         return _oauth_error_redirect("account_inactive")
 
+    ip = _get_client_ip(request)
+    azure_store.update_user_login_info(user["user_id"], ip, _resolve_location(ip))
+
     jwt_token = create_access_token(user["user_id"], user["email"])
     fe = settings.frontend_url.rstrip("/")
     return RedirectResponse(f"{fe}/auth/callback?token={jwt_token}")
@@ -295,6 +338,7 @@ async def oauth_google_start():
 
 @router.get("/oauth/google/callback", include_in_schema=False)
 async def oauth_google_callback(
+    request: Request,
     code: Optional[str] = Query(default=None),
     error: Optional[str] = Query(default=None),
 ):
@@ -338,6 +382,9 @@ async def oauth_google_callback(
     user = _oauth_upsert_user(email, full_name)
     if not user or not user.get("is_active"):
         return _oauth_error_redirect("account_inactive")
+
+    ip = _get_client_ip(request)
+    azure_store.update_user_login_info(user["user_id"], ip, _resolve_location(ip))
 
     jwt_token = create_access_token(user["user_id"], user["email"])
     fe = settings.frontend_url.rstrip("/")
@@ -383,6 +430,7 @@ async def oauth_apple_start():
 
 @router.post("/oauth/apple/callback", include_in_schema=False)
 async def oauth_apple_callback(
+    request: Request,
     code: Optional[str] = Form(default=None),
     id_token: Optional[str] = Form(default=None),
     error: Optional[str] = Form(default=None),
@@ -423,6 +471,9 @@ async def oauth_apple_callback(
     sat_user = _oauth_upsert_user(email, full_name)
     if not sat_user or not sat_user.get("is_active"):
         return _oauth_error_redirect("account_inactive")
+
+    ip = _get_client_ip(request)
+    azure_store.update_user_login_info(sat_user["user_id"], ip, _resolve_location(ip))
 
     jwt_token = create_access_token(sat_user["user_id"], sat_user["email"])
     fe = settings.frontend_url.rstrip("/")

@@ -1086,7 +1086,7 @@ def get_user_by_email(email: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at "
+            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at, last_login_ip, last_login_location "
             "FROM dbo.users WHERE email = ?",
             (email,),
         )
@@ -1104,7 +1104,7 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at "
+            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at, last_login_ip, last_login_location "
             "FROM dbo.users WHERE user_id = ?",
             (user_id,),
         )
@@ -1113,6 +1113,20 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
             return None
         cols = [d[0] for d in cur.description]
         return dict(zip(cols, row))
+    finally:
+        conn.close()
+
+
+def update_user_login_info(user_id: str, ip: str, location: str) -> None:
+    """Update last_login_ip and last_login_location on every successful login."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.users SET last_login_ip = ?, last_login_location = ? WHERE user_id = ?",
+            (ip, location, user_id),
+        )
+        conn.commit()
     finally:
         conn.close()
 

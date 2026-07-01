@@ -399,6 +399,7 @@ export default function UnifiedAssessmentPage() {
         workspace_ids: Array.from(selectedWsIds),
         dataset_ids: Array.from(selectedDatasetIds),
         report_ids: Array.from(selectedReportIds),
+        dataflow_ids: [],
         unified_session_id: sessionId,
       })
       navigate(`/unified/sessions/${sessionId}`)

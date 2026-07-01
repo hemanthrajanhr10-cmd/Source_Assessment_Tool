@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   MonitorSmartphone, CheckCircle2, AlertCircle,
   Loader2, ExternalLink, Tag, ArrowRight, Copy,
-  Building2, Database, FileText, Search, ChevronDown, ChevronRight, X,
+  Building2, Database, FileText, Search, ChevronDown, ChevronRight, X, Zap,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { FabricWorkspaceInfo, FabricWorkspaceItems } from '../types/api'
@@ -40,13 +40,18 @@ export default function FabricAssessmentPage() {
   const [selectedWsIds, setSelectedWsIds]         = useState<Set<string>>(new Set())
   const [wsFilter, setWsFilter]                   = useState('')
 
-  // Model & Report selection state
+  // Model, Report & Dataflow selection state
   const [workspaceItems, setWorkspaceItems]             = useState<FabricWorkspaceItems[]>([])
   const [itemsLoading, setItemsLoading]                 = useState(false)
   const [selectedDatasetIds, setSelectedDatasetIds]     = useState<Set<string>>(new Set())
   const [selectedReportIds, setSelectedReportIds]       = useState<Set<string>>(new Set())
+  const [selectedDataflowIds, setSelectedDataflowIds]   = useState<Set<string>>(new Set())
   const [itemFilter, setItemFilter]                     = useState('')
   const [expandedWorkspaces, setExpandedWorkspaces]     = useState<Set<string>>(new Set())
+  // Per-workspace section expand state (independent of workspace expand)
+  const [expandedReports, setExpandedReports]           = useState<Set<string>>(new Set())
+  const [expandedModels, setExpandedModels]             = useState<Set<string>>(new Set())
+  const [expandedDataflows, setExpandedDataflows]       = useState<Set<string>>(new Set())
 
   /** Clears all in-flight timers and resets auth state to 'start'. */
   const resetToStart = useCallback((message?: string) => {
@@ -156,12 +161,18 @@ export default function FabricAssessmentPage() {
       const { data } = await api.fabricListWorkspaceItems(authId, Array.from(selectedWsIds))
       setWorkspaceItems(data)
       // Auto-select all items
-      const allDatasets = new Set(data.flatMap(w => w.datasets.map(d => d.id)))
-      const allReports  = new Set(data.flatMap(w => w.reports.map(r => r.id)))
+      const allDatasets  = new Set(data.flatMap(w => w.datasets.map(d => d.id)))
+      const allReports   = new Set(data.flatMap(w => w.reports.map(r => r.id)))
+      const allDataflows = new Set(data.flatMap(w => (w.dataflows || []).map(df => df.id)))
       setSelectedDatasetIds(allDatasets)
       setSelectedReportIds(allReports)
-      // Expand all workspaces by default
-      setExpandedWorkspaces(new Set(data.map(w => w.workspace_id)))
+      setSelectedDataflowIds(allDataflows)
+      // Expand all workspaces + sections by default
+      const wsIds = new Set(data.map(w => w.workspace_id))
+      setExpandedWorkspaces(wsIds)
+      setExpandedReports(new Set(wsIds))
+      setExpandedModels(new Set(wsIds))
+      setExpandedDataflows(new Set(wsIds))
     } catch (err) {
       setError(getApiErrorMessage(err))
       setStep('picking')
@@ -228,7 +239,10 @@ export default function FabricAssessmentPage() {
     reports: ws.reports.filter(
       r => !itemFilter || r.name.toLowerCase().includes(itemFilter.toLowerCase())
     ),
-  })).filter(ws => ws.datasets.length > 0 || ws.reports.length > 0)
+    dataflows: (ws.dataflows || []).filter(
+      df => !itemFilter || df.name.toLowerCase().includes(itemFilter.toLowerCase())
+    ),
+  })).filter(ws => ws.datasets.length > 0 || ws.reports.length > 0 || ws.dataflows.length > 0)
 
   const toggleDataset = (id: string) => {
     setSelectedDatasetIds(prev => {
@@ -268,18 +282,52 @@ export default function FabricAssessmentPage() {
     })
   }
 
+  const toggleDataflow = (id: string) => {
+    setSelectedDataflowIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleWorkspaceDataflows = (ws: FabricWorkspaceItems) => {
+    const ids = (ws.dataflows || []).map(df => df.id)
+    const allSelected = ids.every(id => selectedDataflowIds.has(id))
+    setSelectedDataflowIds(prev => {
+      const next = new Set(prev)
+      if (allSelected) ids.forEach(id => next.delete(id))
+      else ids.forEach(id => next.add(id))
+      return next
+    })
+  }
+
+  const toggleSectionExpand = (
+    wsId: string,
+    setter: React.Dispatch<React.SetStateAction<Set<string>>>
+  ) => {
+    setter(prev => {
+      const next = new Set(prev)
+      next.has(wsId) ? next.delete(wsId) : next.add(wsId)
+      return next
+    })
+  }
+
   const toggleAllItems = () => {
     const allDs  = workspaceItems.flatMap(w => w.datasets.map(d => d.id))
     const allRpt = workspaceItems.flatMap(w => w.reports.map(r => r.id))
+    const allDf  = workspaceItems.flatMap(w => (w.dataflows || []).map(df => df.id))
     const allSelected =
       allDs.every(id => selectedDatasetIds.has(id)) &&
-      allRpt.every(id => selectedReportIds.has(id))
+      allRpt.every(id => selectedReportIds.has(id)) &&
+      allDf.every(id => selectedDataflowIds.has(id))
     if (allSelected) {
       setSelectedDatasetIds(new Set())
       setSelectedReportIds(new Set())
+      setSelectedDataflowIds(new Set())
     } else {
       setSelectedDatasetIds(new Set(allDs))
       setSelectedReportIds(new Set(allRpt))
+      setSelectedDataflowIds(new Set(allDf))
     }
   }
 
@@ -292,15 +340,17 @@ export default function FabricAssessmentPage() {
   }
 
   const totalItems = workspaceItems.reduce(
-    (acc, ws) => acc + ws.datasets.length + ws.reports.length, 0
+    (acc, ws) => acc + ws.datasets.length + ws.reports.length + (ws.dataflows || []).length, 0
   )
   const totalAllDs  = workspaceItems.flatMap(w => w.datasets.map(d => d.id))
   const totalAllRpt = workspaceItems.flatMap(w => w.reports.map(r => r.id))
+  const totalAllDf  = workspaceItems.flatMap(w => (w.dataflows || []).map(df => df.id))
   const allItemsSelected =
     totalAllDs.every(id => selectedDatasetIds.has(id)) &&
-    totalAllRpt.every(id => selectedReportIds.has(id))
+    totalAllRpt.every(id => selectedReportIds.has(id)) &&
+    totalAllDf.every(id => selectedDataflowIds.has(id))
 
-  const selectedItemCount = selectedDatasetIds.size + selectedReportIds.size
+  const selectedItemCount = selectedDatasetIds.size + selectedReportIds.size + selectedDataflowIds.size
 
   const handleStartSession = async () => {
     if (!authId || selectedWsIds.size === 0) return
@@ -308,11 +358,12 @@ export default function FabricAssessmentPage() {
     setStep('submitting')
     try {
       const { data } = await api.createFabricSession({
-        auth_id:      authId,
-        label:        label.trim() || undefined,
+        auth_id:       authId,
+        label:         label.trim() || undefined,
         workspace_ids: Array.from(selectedWsIds),
         dataset_ids:   Array.from(selectedDatasetIds),
         report_ids:    Array.from(selectedReportIds),
+        dataflow_ids:  Array.from(selectedDataflowIds),
       })
       navigate(`/fabric/sessions/${data.fabric_session_id}`)
     } catch (err) {
@@ -587,11 +638,12 @@ export default function FabricAssessmentPage() {
                 ${itemsDone ? 'bg-earth-500 text-white' : 'bg-earth-600 text-white'}`}>
                 {itemsDone ? <CheckCircle2 className="h-4 w-4" /> : '3'}
               </span>
-              <h2 className="text-sm font-semibold text-slate-900">Select Models &amp; Reports</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Select Reports, Models &amp; Dataflows</h2>
               {selectedItemCount > 0 && (
                 <span className="ml-auto text-xs text-earth-700 font-medium">
+                  {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''},{' '}
                   {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''},{' '}
-                  {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}
+                  {selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''}
                 </span>
               )}
             </div>
@@ -600,18 +652,19 @@ export default function FabricAssessmentPage() {
               {itemsLoading ? (
                 <div className="flex items-center gap-3 text-sm text-slate-500">
                   <Loader2 className="h-5 w-5 animate-spin text-earth-600" />
-                  Loading models and reports…
+                  Loading reports, models and dataflows…
                 </div>
               ) : itemsDone ? (
                 <div className="flex items-center gap-2 text-sm text-earth-700">
                   <CheckCircle2 className="h-4 w-4 text-earth-500" />
-                  {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''} and{' '}
-                  {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''} selected
+                  {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''},{' '}
+                  {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''},{' '}
+                  {selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''} selected
                 </div>
               ) : (
                 <>
                   {totalItems === 0 ? (
-                    <p className="text-sm text-slate-500">No models or reports found in the selected workspaces.</p>
+                    <p className="text-sm text-slate-500">No reports, models or dataflows found in the selected workspaces.</p>
                   ) : (
                     <>
                       {/* Search + global toggle */}
@@ -621,7 +674,7 @@ export default function FabricAssessmentPage() {
                           <input
                             type="text"
                             className="form-input pl-9 py-1.5 text-sm"
-                            placeholder="Filter models and reports…"
+                            placeholder="Filter reports, models and dataflows…"
                             value={itemFilter}
                             onChange={e => setItemFilter(e.target.value)}
                           />
@@ -638,9 +691,13 @@ export default function FabricAssessmentPage() {
                       <div className="max-h-96 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-50">
                         {filteredItems.map(ws => {
                           const wsName      = wsNameMap[ws.workspace_id] || ws.workspace_id
-                          const expanded    = expandedWorkspaces.has(ws.workspace_id)
+                          const wsExpanded  = expandedWorkspaces.has(ws.workspace_id)
+                          const rptExpanded = expandedReports.has(ws.workspace_id)
+                          const mdlExpanded = expandedModels.has(ws.workspace_id)
+                          const dfExpanded  = expandedDataflows.has(ws.workspace_id)
                           const dsSelected  = ws.datasets.filter(d => selectedDatasetIds.has(d.id)).length
                           const rptSelected = ws.reports.filter(r => selectedReportIds.has(r.id)).length
+                          const dfSelected  = (ws.dataflows || []).filter(df => selectedDataflowIds.has(df.id)).length
 
                           return (
                             <div key={ws.workspace_id}>
@@ -649,70 +706,51 @@ export default function FabricAssessmentPage() {
                                 className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-100/60 hover:bg-slate-100 transition-colors text-left"
                                 onClick={() => toggleWsExpand(ws.workspace_id)}
                               >
-                                {expanded
+                                {wsExpanded
                                   ? <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                                   : <ChevronRight className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                                 }
                                 <Building2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
                                 <span className="flex-1 text-xs font-semibold text-slate-700 truncate">{wsName}</span>
                                 <span className="text-xs text-slate-400">
-                                  {dsSelected}/{ws.datasets.length} models · {rptSelected}/{ws.reports.length} reports
+                                  {rptSelected}/{ws.reports.length} reports · {dsSelected}/{ws.datasets.length} models · {dfSelected}/{(ws.dataflows || []).length} dataflows
                                 </span>
                               </button>
 
-                              {expanded && (
+                              {wsExpanded && (
                                 <div className="divide-y divide-slate-200">
-                                  {/* Models sub-section */}
-                                  {ws.datasets.length > 0 && (
-                                    <div>
-                                      <div className="flex items-center gap-2 px-5 py-1.5 bg-slate-50/40">
-                                        <Database className="h-3 w-3 text-earth-500 shrink-0" />
-                                        <span className="text-xs font-medium text-slate-500 flex-1">Semantic Models</span>
-                                        <button
-                                          onClick={() => toggleWorkspaceDatasets(ws)}
-                                          className="text-xs text-earth-700 hover:text-earth-800 hover:underline transition-colors"
-                                        >
-                                          {ws.datasets.every(d => selectedDatasetIds.has(d.id)) ? 'Deselect' : 'Select'} all
-                                        </button>
-                                      </div>
-                                      {ws.datasets.filter(d =>
-                                        !itemFilter || d.name.toLowerCase().includes(itemFilter.toLowerCase())
-                                      ).map(ds => (
-                                        <label
-                                          key={ds.id}
-                                          className="flex items-center gap-3 px-6 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white"
-                                            checked={selectedDatasetIds.has(ds.id)}
-                                            onChange={() => toggleDataset(ds.id)}
-                                          />
-                                          <span className="text-sm text-slate-700 truncate">{ds.name}</span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                  )}
 
-                                  {/* Reports sub-section */}
+                                  {/* ── Reports sub-section ── */}
                                   {ws.reports.length > 0 && (
                                     <div>
-                                      <div className="flex items-center gap-2 px-5 py-1.5 bg-slate-50/40">
+                                      <button
+                                        className="w-full flex items-center gap-2 px-5 py-1.5 bg-slate-50/40 hover:bg-slate-50 transition-colors text-left"
+                                        onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedReports)}
+                                      >
+                                        {rptExpanded
+                                          ? <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />
+                                          : <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
+                                        }
                                         <FileText className="h-3 w-3 text-earth-500/70 shrink-0" />
-                                        <span className="text-xs font-medium text-slate-500 flex-1">Reports</span>
-                                        <button
-                                          onClick={() => toggleWorkspaceReports(ws)}
-                                          className="text-xs text-earth-700 hover:text-earth-800 hover:underline transition-colors"
+                                        <span className="text-xs font-medium text-slate-500 flex-1">
+                                          Reports <span className="text-slate-400 font-normal">({rptSelected}/{ws.reports.length})</span>
+                                        </span>
+                                        <span
+                                          role="button"
+                                          tabIndex={0}
+                                          onClick={e => { e.stopPropagation(); toggleWorkspaceReports(ws) }}
+                                          onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceReports(ws))}
+                                          className="text-xs text-earth-700 hover:text-earth-800 hover:underline transition-colors cursor-pointer"
                                         >
                                           {ws.reports.every(r => selectedReportIds.has(r.id)) ? 'Deselect' : 'Select'} all
-                                        </button>
-                                      </div>
-                                      {ws.reports.filter(r =>
+                                        </span>
+                                      </button>
+                                      {rptExpanded && ws.reports.filter(r =>
                                         !itemFilter || r.name.toLowerCase().includes(itemFilter.toLowerCase())
                                       ).map(rpt => (
                                         <label
                                           key={rpt.id}
-                                          className="flex items-center gap-3 px-6 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
+                                          className="flex items-center gap-3 px-7 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
                                         >
                                           <input
                                             type="checkbox"
@@ -728,6 +766,96 @@ export default function FabricAssessmentPage() {
                                       ))}
                                     </div>
                                   )}
+
+                                  {/* ── Semantic Models sub-section ── */}
+                                  {ws.datasets.length > 0 && (
+                                    <div>
+                                      <button
+                                        className="w-full flex items-center gap-2 px-5 py-1.5 bg-slate-50/40 hover:bg-slate-50 transition-colors text-left"
+                                        onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedModels)}
+                                      >
+                                        {mdlExpanded
+                                          ? <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />
+                                          : <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
+                                        }
+                                        <Database className="h-3 w-3 text-earth-500 shrink-0" />
+                                        <span className="text-xs font-medium text-slate-500 flex-1">
+                                          Semantic Models <span className="text-slate-400 font-normal">({dsSelected}/{ws.datasets.length})</span>
+                                        </span>
+                                        <span
+                                          role="button"
+                                          tabIndex={0}
+                                          onClick={e => { e.stopPropagation(); toggleWorkspaceDatasets(ws) }}
+                                          onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceDatasets(ws))}
+                                          className="text-xs text-earth-700 hover:text-earth-800 hover:underline transition-colors cursor-pointer"
+                                        >
+                                          {ws.datasets.every(d => selectedDatasetIds.has(d.id)) ? 'Deselect' : 'Select'} all
+                                        </span>
+                                      </button>
+                                      {mdlExpanded && ws.datasets.filter(d =>
+                                        !itemFilter || d.name.toLowerCase().includes(itemFilter.toLowerCase())
+                                      ).map(ds => (
+                                        <label
+                                          key={ds.id}
+                                          className="flex items-center gap-3 px-7 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white"
+                                            checked={selectedDatasetIds.has(ds.id)}
+                                            onChange={() => toggleDataset(ds.id)}
+                                          />
+                                          <span className="text-sm text-slate-700 truncate">{ds.name}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* ── Dataflows sub-section ── */}
+                                  {(ws.dataflows || []).length > 0 && (
+                                    <div>
+                                      <button
+                                        className="w-full flex items-center gap-2 px-5 py-1.5 bg-slate-50/40 hover:bg-slate-50 transition-colors text-left"
+                                        onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedDataflows)}
+                                      >
+                                        {dfExpanded
+                                          ? <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />
+                                          : <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
+                                        }
+                                        <Zap className="h-3 w-3 text-amber-500 shrink-0" />
+                                        <span className="text-xs font-medium text-slate-500 flex-1">
+                                          Dataflows <span className="text-slate-400 font-normal">({dfSelected}/{(ws.dataflows || []).length})</span>
+                                        </span>
+                                        <span
+                                          role="button"
+                                          tabIndex={0}
+                                          onClick={e => { e.stopPropagation(); toggleWorkspaceDataflows(ws) }}
+                                          onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceDataflows(ws))}
+                                          className="text-xs text-earth-700 hover:text-earth-800 hover:underline transition-colors cursor-pointer"
+                                        >
+                                          {(ws.dataflows || []).every(df => selectedDataflowIds.has(df.id)) ? 'Deselect' : 'Select'} all
+                                        </span>
+                                      </button>
+                                      {dfExpanded && (ws.dataflows || []).filter(df =>
+                                        !itemFilter || df.name.toLowerCase().includes(itemFilter.toLowerCase())
+                                      ).map(df => (
+                                        <label
+                                          key={df.id}
+                                          className="flex items-center gap-3 px-7 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white"
+                                            checked={selectedDataflowIds.has(df.id)}
+                                            onChange={() => toggleDataflow(df.id)}
+                                          />
+                                          <span className="flex-1 text-sm text-slate-700 truncate">{df.name}</span>
+                                          <span className="text-xs text-slate-400 shrink-0">{df.generation}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+
                                 </div>
                               )}
                             </div>
@@ -746,8 +874,9 @@ export default function FabricAssessmentPage() {
                         rightIcon={<ArrowRight className="h-4 w-4" />}
                         onClick={() => setStep('naming')}
                       >
-                        Continue with {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''}{' '}
-                        &amp; {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}
+                        Continue with {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''},{' '}
+                        {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''}{' '}
+                        &amp; {selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''}
                       </Button>
                     </>
                   )}
@@ -785,9 +914,10 @@ export default function FabricAssessmentPage() {
               </div>
               <p className="text-sm text-slate-500">
                 Will assess{' '}
+                <strong className="text-slate-800">{selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}</strong>,{' '}
                 <strong className="text-slate-800">{selectedDatasetIds.size} semantic model{selectedDatasetIds.size !== 1 ? 's' : ''}</strong>{' '}
                 and{' '}
-                <strong className="text-slate-800">{selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}</strong>{' '}
+                <strong className="text-slate-800">{selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''}</strong>{' '}
                 across <strong className="text-slate-800">{selectedWsIds.size} workspace{selectedWsIds.size !== 1 ? 's' : ''}</strong>.
               </p>
               <Button

@@ -254,6 +254,7 @@ export const api = {
     workspace_ids: string[]
     dataset_ids: string[]
     report_ids: string[]
+    dataflow_ids: string[]
     unified_session_id?: string
   }) =>
     http.post<{ fabric_session_id: string; status: string }>('/api/v1/fabric/sessions', data),

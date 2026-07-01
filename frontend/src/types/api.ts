@@ -659,10 +659,17 @@ export interface FabricWorkspaceReportEntry {
   report_type: string
 }
 
+export interface FabricWorkspaceDataflowEntry {
+  id: string
+  name: string
+  generation: string
+}
+
 export interface FabricWorkspaceItems {
   workspace_id: string
   datasets: FabricWorkspaceItemEntry[]
   reports: FabricWorkspaceReportEntry[]
+  dataflows: FabricWorkspaceDataflowEntry[]
 }
 
 export interface FabricAuthStartResponse {

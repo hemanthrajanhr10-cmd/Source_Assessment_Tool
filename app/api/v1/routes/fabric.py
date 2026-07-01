@@ -42,7 +42,7 @@ from app.config import settings
 from app.core.dependencies import get_current_user
 from app.core.logging import get_logger
 from app.db import azure_store
-from app.fabric_assessment import report_parser, tmdl_parser
+from app.fabric_assessment import dataflow_parser, report_parser, tmdl_parser
 from app.services import fabric_client
 
 logger = get_logger(__name__)
@@ -72,6 +72,7 @@ class CreateSessionRequest(BaseModel):
     workspace_ids: list[str] = []
     dataset_ids: list[str] = []
     report_ids: list[str] = []
+    dataflow_ids: list[str] = []
     unified_session_id: str | None = None
 
 
@@ -205,9 +206,10 @@ async def fabric_workspace_items(
     results = []
     try:
         for ws_id in body.workspace_ids:
-            models, reports = await asyncio.gather(
+            models, reports, dataflows = await asyncio.gather(
                 fabric_client.list_workspace_semantic_models(token, ws_id),
                 fabric_client.list_workspace_reports(token, ws_id),
+                fabric_client.list_workspace_dataflows(token, ws_id),
             )
             results.append({
                 "workspace_id": ws_id,
@@ -222,6 +224,16 @@ async def fabric_workspace_items(
                         "report_type": r.get("type", "PowerBIReport"),
                     }
                     for r in reports
+                ],
+                "dataflows": [
+                    {
+                        "id": df.get("id", ""),
+                        "name": df.get("name", ""),
+                        "generation": df.get("generation", "Gen2"),
+                        "modified_at": df.get("modified_at", ""),
+                        "configured_by": df.get("created_by", ""),
+                    }
+                    for df in dataflows
                 ],
             })
     except Exception as exc:
@@ -257,6 +269,7 @@ async def create_fabric_session(
         workspace_ids=body.workspace_ids,
         dataset_ids=set(body.dataset_ids),
         report_ids=set(body.report_ids),
+        dataflow_ids=set(body.dataflow_ids),
     )
 
     return {"fabric_session_id": session_id, "status": "running"}
@@ -478,6 +491,7 @@ async def _run_fabric_assessment(
     workspace_ids: list[str],
     dataset_ids: set[str],
     report_ids: set[str],
+    dataflow_ids: set[str] | None = None,
 ) -> None:
     """
     Concurrent Fabric assessment orchestrator.
@@ -526,6 +540,9 @@ async def _run_fabric_assessment(
         payload = json.dumps({"msg": msg, "md": md, "mt": mt, "rd": rd, "rt": rt})
         _loop.run_in_executor(None, _write_db_progress, payload)
 
+    if dataflow_ids is None:
+        dataflow_ids = set()
+
     tracker = await _progress_store.create(session_id)
     await tracker.set_status("running")
 
@@ -537,15 +554,16 @@ async def _run_fabric_assessment(
         # Collections populated concurrently; safe under asyncio single-thread.
         ws_datasets: dict[str, list[dict]] = {}
         ws_reports: dict[str, list[dict]] = {}
+        ws_dataflows: dict[str, list[dict]] = {}
 
         async def _discover_workspace(ws_id: str) -> None:
-            """List models + reports for one workspace concurrently."""
+            """List models + reports + dataflows for one workspace concurrently."""
             async with _sem:
-                # Each workspace listing is two concurrent GET calls
-                await fabric_rate_limiter.acquire(2)
-                models, reports = await asyncio.gather(
+                await fabric_rate_limiter.acquire(3)
+                models, reports, dataflows = await asyncio.gather(
                     fabric_client.list_workspace_semantic_models(token, ws_id),
                     fabric_client.list_workspace_reports(token, ws_id),
+                    fabric_client.list_workspace_dataflows(token, ws_id),
                 )
             ws_datasets[ws_id] = [
                 m for m in models
@@ -555,14 +573,19 @@ async def _run_fabric_assessment(
                 r for r in reports
                 if not report_ids or r.get("id", "") in report_ids
             ]
+            ws_dataflows[ws_id] = [
+                df for df in dataflows
+                if not dataflow_ids or df.get("id", "") in dataflow_ids
+            ]
 
         # Discover all workspaces concurrently
         await asyncio.gather(*[_discover_workspace(ws_id) for ws_id in workspace_ids])
 
         total_models = sum(len(v) for v in ws_datasets.values())
         total_reports = sum(len(v) for v in ws_reports.values())
+        total_dataflows = sum(len(v) for v in ws_dataflows.values())
 
-        await tracker.set_totals(total_models, total_reports)
+        await tracker.set_totals(total_models, total_reports, total_dataflows)
         _db_progress("Extraction starting…", md=0, mt=total_models, rd=0, rt=total_reports)
         logger.info(
             "Fabric session %s: discovered %d models, %d reports across %d workspaces",
@@ -700,6 +723,86 @@ async def _run_fabric_assessment(
         ])
         await tracker.phase_done("reports")
 
+        # ── Phase 3b: Dataflows (concurrent) ─────────────────────────────────
+        await tracker.set_phase("dataflows")
+
+        dataflows_by_ws: dict[str, list[dict]] = {ws_id: [] for ws_id in workspace_ids}
+
+        async def _process_dataflow(ws_id: str, df: dict) -> None:
+            """Extract + parse one dataflow. Failures are non-fatal."""
+            df_id   = df.get("id", "")
+            df_name = df.get("name", df_id)
+            generation = df.get("generation", "Gen2")
+            await tracker.item_started(f"Dataflow: {df_name}")
+
+            try:
+                async with _sem:
+                    await fabric_rate_limiter.acquire(3)
+                    if generation == "Gen2":
+                        meta, datasources, transactions, upstream, raw_parts = await asyncio.gather(
+                            fabric_client.get_dataflow_metadata(token, ws_id, df_id, generation),
+                            fabric_client.list_dataflow_datasources(token, ws_id, df_id),
+                            fabric_client.list_dataflow_transactions(token, ws_id, df_id),
+                            fabric_client.list_dataflow_upstream(token, ws_id, df_id),
+                            fabric_client.extract_dataflow_definition(token, ws_id, df_id),
+                        )
+                        decoded = dataflow_parser.decode_parts(raw_parts)
+                        definition_data = dataflow_parser.parse_dataflow_parts(decoded)
+                    else:
+                        # Gen1: no definition endpoint
+                        meta, datasources, transactions, upstream = await asyncio.gather(
+                            fabric_client.get_dataflow_metadata(token, ws_id, df_id, generation),
+                            fabric_client.list_dataflow_datasources(token, ws_id, df_id),
+                            fabric_client.list_dataflow_transactions(token, ws_id, df_id),
+                            fabric_client.list_dataflow_upstream(token, ws_id, df_id),
+                        )
+                        definition_data = dataflow_parser.empty_definition()
+
+                assembled = dataflow_parser.assemble_dataflow(
+                    dataflow_id=df_id,
+                    dataflow_name=df_name,
+                    generation=generation,
+                    workspace_id=ws_id,
+                    configured_by=meta.get("configured_by", df.get("created_by", "")),
+                    modified_by=meta.get("modified_by", df.get("modified_by", "")),
+                    modified_at=meta.get("modified_at", df.get("modified_at", "")),
+                    description=meta.get("description", df.get("description", "")),
+                    can_refresh=meta.get("can_refresh", True),
+                    refresh_count=meta.get("refresh_count", 0),
+                    failure_count=meta.get("failure_count", 0),
+                    avg_duration_sec=meta.get("avg_duration_sec", 0),
+                    last_refresh_time=meta.get("last_refresh_time", ""),
+                    next_refresh_time=meta.get("next_refresh_time", ""),
+                    refresh_schedule=meta.get("refresh_schedule", {}),
+                    gateway_id=meta.get("gateway_id", df.get("gateway_id", "")),
+                    state=meta.get("state", df.get("state", "Active")),
+                    datasources=datasources,
+                    transactions=transactions,
+                    upstream=upstream,
+                    definition_data=definition_data,
+                )
+                dataflows_by_ws[ws_id].append(assembled)
+                await tracker.item_completed(f"Dataflow: {df_name}", "dataflow")
+
+            except Exception as exc:
+                logger.error("Dataflow extraction failed (%s %s): %s", ws_id, df_id, exc)
+                dataflows_by_ws[ws_id].append(_stub_dataflow(df_id, df_name, generation, str(exc)))
+                await tracker.item_failed(f"Dataflow: {df_name}", str(exc), "dataflow")
+
+            processed_df = tracker.phase_progress.get("dataflows", {}).get("processed", 0)
+            _db_progress(
+                f"Dataflow complete: {df_name}",
+                md=total_models, mt=total_models,
+                rd=total_reports, rt=total_reports,
+            )
+
+        await asyncio.gather(*[
+            _process_dataflow(ws_id, df)
+            for ws_id in workspace_ids
+            for df in ws_dataflows.get(ws_id, [])
+        ])
+        await tracker.phase_done("dataflows")
+
         # ── Phase 4: Cross-linking ────────────────────────────────────────────
         # No additional API calls needed — link report→dataset by dataset_id field
         await tracker.set_phase("crosslinking")
@@ -711,9 +814,10 @@ async def _run_fabric_assessment(
 
         workspace_results: list[dict] = []
         for ws_id in workspace_ids:
-            ws_meta     = ws_meta_map.get(ws_id, {"id": ws_id, "name": ws_id, "type": "Workspace", "state": "Active"})
-            datasets_out = datasets_by_ws.get(ws_id, [])
-            reports_out  = reports_by_ws.get(ws_id, [])
+            ws_meta      = ws_meta_map.get(ws_id, {"id": ws_id, "name": ws_id, "type": "Workspace", "state": "Active"})
+            datasets_out  = datasets_by_ws.get(ws_id, [])
+            reports_out   = reports_by_ws.get(ws_id, [])
+            dataflows_out = dataflows_by_ws.get(ws_id, [])
             workspace_results.append({
                 "id":    ws_id,
                 "name":  ws_meta.get("name", ws_id),
@@ -722,8 +826,10 @@ async def _run_fabric_assessment(
                 "dataset_count":          len(datasets_out),
                 "report_count":           sum(1 for r in reports_out if not r.get("is_paginated")),
                 "paginated_report_count": sum(1 for r in reports_out if r.get("is_paginated")),
-                "datasets": datasets_out,
-                "reports":  reports_out,
+                "dataflow_count":         len(dataflows_out),
+                "datasets":   datasets_out,
+                "reports":    reports_out,
+                "dataflows":  dataflows_out,
             })
 
         summary = _build_summary(workspace_results)
@@ -852,6 +958,7 @@ async def get_session_progress(session_id: str, _: Any = Depends(get_current_use
             "discovery":       {"done": is_done, "count": 0},
             "semantic_models": {"done": is_done, "total": 0, "processed": 0},
             "reports":         {"done": is_done, "total": 0, "processed": 0},
+            "dataflows":       {"done": is_done, "total": 0, "processed": 0},
             "crosslinking":    {"done": is_done},
             "saving":          {"done": is_done},
         },
@@ -916,6 +1023,7 @@ async def stream_session_progress(
                         "discovery":       {"done": is_done_fb, "count": 0},
                         "semantic_models": {"done": is_done_fb, "total": 0, "processed": 0},
                         "reports":         {"done": is_done_fb, "total": 0, "processed": 0},
+                        "dataflows":       {"done": is_done_fb, "total": 0, "processed": 0},
                         "crosslinking":    {"done": is_done_fb},
                         "saving":          {"done": is_done_fb},
                     },
@@ -1047,6 +1155,8 @@ def _build_summary(workspaces: list[dict]) -> dict:
     total_calc_cols = 0
     total_rels = 0
     total_visuals = 0
+    total_dataflow_entities = 0
+    total_dataflow_datasources = 0
 
     for ws in workspaces:
         for ds in ws.get("datasets", []):
@@ -1056,17 +1166,23 @@ def _build_summary(workspaces: list[dict]) -> dict:
             total_rels += ds.get("relationship_count", 0)
         for rpt in ws.get("reports", []):
             total_visuals += rpt.get("visual_count", 0)
+        for df in ws.get("dataflows", []):
+            total_dataflow_entities += df.get("entity_count", 0)
+            total_dataflow_datasources += df.get("datasource_count", 0)
 
     return {
         "workspace_count": len(workspaces),
         "dataset_count": sum(ws.get("dataset_count", 0) for ws in workspaces),
         "report_count": sum(ws.get("report_count", 0) for ws in workspaces),
         "paginated_report_count": sum(ws.get("paginated_report_count", 0) for ws in workspaces),
+        "dataflow_count": sum(ws.get("dataflow_count", 0) for ws in workspaces),
         "total_measures": total_measures,
         "total_calculated_tables": total_calc_tables,
         "total_calculated_columns": total_calc_cols,
         "total_relationships": total_rels,
         "total_visuals": total_visuals,
+        "total_dataflow_entities": total_dataflow_entities,
+        "total_dataflow_datasources": total_dataflow_datasources,
     }
 
 
@@ -1086,6 +1202,25 @@ def _stub_report(report_id: str, name: str, error: str) -> dict:
         "id": report_id, "name": name, "report_type": "PowerBIReport", "is_paginated": False,
         "dataset_id": "", "web_url": "", "page_count": None, "visual_count": 0,
         "bookmark_count": 0, "bookmarks": [], "layout_parsed": False, "pages": [],
+        "_error": error,
+    }
+
+
+def _stub_dataflow(dataflow_id: str, name: str, generation: str, error: str) -> dict:
+    return {
+        "id": dataflow_id, "name": name, "generation": generation,
+        "description": "", "workspace_id": "", "configured_by": "", "modified_by": "",
+        "modified_at": "", "state": "Unknown", "can_refresh": False,
+        "refresh_count": 0, "failure_count": 0, "reliability_pct": None,
+        "avg_duration_sec": 0, "last_refresh_time": "", "next_refresh_time": "",
+        "refresh_schedule": {}, "schedule_summary": "Unknown", "gateway_id": "",
+        "datasources": [], "datasource_count": 0,
+        "entities": [], "entity_count": 0,
+        "total_transformation_steps": 0,
+        "complexity": {"score": 0, "level": "None", "function_count": 0,
+                       "step_count": 0, "nesting_depth": 0, "complex_functions": []},
+        "upstream_dataflows": [], "upstream_dataflow_refs": [],
+        "transactions": [], "has_refresh_errors": False,
         "_error": error,
     }
 
@@ -1504,6 +1639,88 @@ def _generate_excel(results: dict, label: str) -> bytes:
                lineage_rows,
                col_widths=[20, 26, 24, 16, 22, 16, 24, 12],
                header_color=CLR_SECTION_A)
+
+    # ── 11. Dataflows Inventory ───────────────────────────────────────────────
+    df_rows = []
+    for _ws in workspaces:
+        for df in _ws.get("dataflows", []):
+            cx = df.get("complexity") or {}
+            datasource_types = ", ".join(
+                d.get("datasource_type", d.get("type", "")) for d in (df.get("datasources") or [])
+            ) or "—"
+            upstream_names = ", ".join(
+                u.get("source_dataflow_name", u) if isinstance(u, dict) else str(u)
+                for u in (df.get("upstream_dataflows") or [])
+            ) or "—"
+            last_txn = (df.get("transactions") or [{}])[0] if df.get("transactions") else {}
+            df_rows.append([
+                _ws.get("name", ""),
+                df.get("name", ""),
+                df.get("generation", ""),
+                df.get("state", ""),
+                df.get("configured_by", ""),
+                df.get("modified_by", ""),
+                df.get("modified_at", ""),
+                df.get("entity_count", 0),
+                df.get("datasource_count", 0),
+                datasource_types,
+                df.get("total_transformation_steps", 0),
+                cx.get("level", "None"),
+                cx.get("score", 0),
+                df.get("schedule_summary", ""),
+                df.get("refresh_count", 0),
+                df.get("failure_count", 0),
+                f"{df.get('reliability_pct', '')}%" if df.get("reliability_pct") is not None else "—",
+                df.get("last_refresh_time", ""),
+                "Yes" if df.get("has_refresh_errors") else "No",
+                df.get("gateway_id", "") or "—",
+                upstream_names,
+                last_txn.get("status", "") if last_txn else "",
+                last_txn.get("error_message", "") if last_txn else "",
+            ])
+    _add_sheet("Dataflows",
+               ["Workspace", "Dataflow Name", "Generation", "State", "Owner", "Modified By",
+                "Last Modified", "Entities", "Data Sources", "Source Types",
+                "Transform Steps", "Complexity Level", "Complexity Score",
+                "Refresh Schedule", "Refresh Count", "Failure Count", "Reliability",
+                "Last Refresh Time", "Has Errors", "Gateway ID",
+                "Upstream Dataflows", "Last Run Status", "Last Error"],
+               df_rows,
+               col_widths=[20, 26, 9, 10, 20, 20, 20, 9, 11, 32, 14, 15, 13,
+                           22, 13, 13, 11, 20, 10, 24, 24, 14, 34],
+               header_color=CLR_SECTION_B)
+
+    # ── 12. Dataflow Entity Detail ────────────────────────────────────────────
+    entity_rows = []
+    for _ws in workspaces:
+        for df in _ws.get("dataflows", []):
+            for ent in df.get("entities", []):
+                cx = ent.get("complexity") or {}
+                col_names = ", ".join(c.get("name", "") for c in (ent.get("columns") or [])[:10])
+                entity_rows.append([
+                    _ws.get("name", ""),
+                    df.get("name", ""),
+                    df.get("generation", ""),
+                    ent.get("name", ""),
+                    ent.get("column_count", 0),
+                    ent.get("step_count", 0),
+                    cx.get("level", "None"),
+                    cx.get("score", 0),
+                    cx.get("function_count", 0),
+                    cx.get("nesting_depth", 0),
+                    ", ".join(cx.get("complex_functions", [])),
+                    "Yes" if ent.get("is_enabled", True) else "No",
+                    "Yes" if ent.get("is_hidden", False) else "No",
+                    col_names or "—",
+                ])
+    _add_sheet("Dataflow Entities",
+               ["Workspace", "Dataflow", "Generation", "Entity Name",
+                "Columns", "Transform Steps", "Complexity Level", "Score",
+                "M Functions", "Nesting Depth", "Complex Functions",
+                "Enabled", "Hidden", "Columns (sample)"],
+               entity_rows,
+               col_widths=[20, 26, 9, 26, 9, 14, 15, 8, 11, 12, 28, 9, 9, 40],
+               header_color=CLR_SECTION_B)
 
     buf = io.BytesIO()
     wb.save(buf)

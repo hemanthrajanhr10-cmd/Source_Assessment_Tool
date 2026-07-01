@@ -57,6 +57,7 @@ class ProgressState:
             "discovery":       {"done": False, "count": 0},
             "semantic_models": {"done": False, "total": 0, "processed": 0},
             "reports":         {"done": False, "total": 0, "processed": 0},
+            "dataflows":       {"done": False, "total": 0, "processed": 0},
             "crosslinking":    {"done": False},
             "saving":          {"done": False},
         }
@@ -73,12 +74,13 @@ class ProgressState:
         async with self._lock:
             self.phase = phase
 
-    async def set_totals(self, total_models: int, total_reports: int) -> None:
+    async def set_totals(self, total_models: int, total_reports: int, total_dataflows: int = 0) -> None:
         """Called after discovery; sets item counts and marks discovery done."""
         async with self._lock:
-            self.total_items = total_models + total_reports
+            self.total_items = total_models + total_reports + total_dataflows
             self.phase_progress["semantic_models"]["total"] = total_models
             self.phase_progress["reports"]["total"] = total_reports
+            self.phase_progress["dataflows"]["total"] = total_dataflows
             self.phase_progress["discovery"]["count"] = self.total_items
             self.phase_progress["discovery"]["done"] = True
 
@@ -90,7 +92,7 @@ class ProgressState:
     async def item_completed(self, name: str, item_type: str = "") -> None:
         """
         Atomically increment processed_items and update ETA.
-        item_type: "model" | "report" | ""
+        item_type: "model" | "report" | "dataflow" | ""
         """
         async with self._lock:
             self.processed_items += 1
@@ -98,6 +100,8 @@ class ProgressState:
                 self.phase_progress["semantic_models"]["processed"] += 1
             elif item_type == "report":
                 self.phase_progress["reports"]["processed"] += 1
+            elif item_type == "dataflow":
+                self.phase_progress["dataflows"]["processed"] += 1
 
             self._recompute_eta()
 
@@ -117,6 +121,8 @@ class ProgressState:
                 self.phase_progress["semantic_models"]["processed"] += 1
             elif item_type == "report":
                 self.phase_progress["reports"]["processed"] += 1
+            elif item_type == "dataflow":
+                self.phase_progress["dataflows"]["processed"] += 1
 
             self.errors.append({"item": name, "error": error[:400]})
 

@@ -865,7 +865,8 @@ export interface FabricDataflow {
   description: string
   configured_by: string
   modified_at: string
-  refresh_schedule: string
+  refresh_schedule: Record<string, unknown>
+  schedule_summary: string
   entity_count: number
   datasource_count: number
   upstream_dataflow_count: number
@@ -889,10 +890,13 @@ export interface FabricDataflowEntity {
 }
 
 export interface FabricDataflowDatasource {
-  kind: string
+  kind?: string
   datasource_type: string
-  path: string
-  connection_string?: string
+  path?: string
+  server?: string
+  database?: string
+  gateway_id?: string
+  credential_type?: string
 }
 
 export interface FabricDataflowUpstream {

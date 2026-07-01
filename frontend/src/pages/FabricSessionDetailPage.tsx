@@ -2160,10 +2160,10 @@ function DataflowCard({ df, wsName }: { df: FabricDataflow; wsName: string }) {
           <div className="flex items-center gap-3 mt-1 text-xs text-slate-400 flex-wrap">
             <span className="flex items-center gap-1"><Layers className="h-3 w-3" />{df.entity_count} entit{df.entity_count !== 1 ? 'ies' : 'y'}</span>
             <span className="flex items-center gap-1"><Link2 className="h-3 w-3" />{df.datasource_count} source{df.datasource_count !== 1 ? 's' : ''}</span>
-            {df.refresh_schedule && df.refresh_schedule !== '—' && (
-              <span className="flex items-center gap-1"><Activity className="h-3 w-3" />{df.refresh_schedule}</span>
+            {df.schedule_summary && df.schedule_summary !== 'Not scheduled' && (
+              <span className="flex items-center gap-1"><Activity className="h-3 w-3" />{df.schedule_summary}</span>
             )}
-            {df.configured_by && <span className="text-slate-400 truncate">by {df.configured_by}</span>}
+            {df.configured_by && typeof df.configured_by === 'string' && <span className="text-slate-400 truncate">by {df.configured_by}</span>}
             <span className="ml-auto text-slate-300">{wsName}</span>
           </div>
         </div>
@@ -2206,7 +2206,8 @@ function DataflowCard({ df, wsName }: { df: FabricDataflow; wsName: string }) {
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
                       {ds.datasource_type || ds.kind || 'Unknown'}
                     </span>
-                    {ds.path && <span className="text-slate-500 truncate font-mono">{ds.path}</span>}
+                    {ds.path && typeof ds.path === 'string' && <span className="text-slate-500 truncate font-mono">{ds.path}</span>}
+                    {!ds.path && ds.server && <span className="text-slate-500 truncate font-mono">{String(ds.server)}</span>}
                   </div>
                 ))}
               </div>

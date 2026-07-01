@@ -885,8 +885,15 @@ export interface FabricDataflowEntity {
   m_expression: string
   column_count: number
   columns: { name: string; type: string }[]
-  complexity: { score: number; level: string }
+  complexity: { score: number; level: string; function_count: number; step_count: number; nesting_depth: number; complex_functions: string[] }
   datasource_types: string[]
+  step_count: number
+  named_steps: string[]
+  destination_table: string
+  destination_lakehouse: string
+  destination_warehouse: string
+  uses_merge: boolean
+  merge_kinds: string[]
 }
 
 export interface FabricDataflowDatasource {

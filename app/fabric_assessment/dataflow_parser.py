@@ -179,6 +179,7 @@ def _parse_entities(model_json: dict, mashup_text: str) -> list[dict[str, Any]]:
         seen_names.add(name)
         columns = _parse_model_columns(entity.get("attributes", entity.get("columns", [])))
         m_expr = _find_m_expression(name, mashup_text)
+        named_steps = _extract_named_steps(m_expr)
         entities.append({
             "name": name,
             "description": entity.get("description", ""),
@@ -186,9 +187,15 @@ def _parse_entities(model_json: dict, mashup_text: str) -> list[dict[str, Any]]:
             "column_count": len(columns),
             "m_expression": m_expr,
             "step_count": _count_steps(m_expr),
+            "named_steps": named_steps,
             "complexity": _score_m_complexity(m_expr),
             "is_enabled": entity.get("isEnabled", True),
             "is_hidden": entity.get("isHidden", False),
+            "destination_table": _extract_destination_table(m_expr, name),
+            "destination_lakehouse": _extract_destination_lakehouse(m_expr),
+            "destination_warehouse": _extract_destination_warehouse(m_expr),
+            "uses_merge": _detect_merge(m_expr),
+            "merge_kinds": _extract_merge_kinds(m_expr),
         })
 
     # Fallback: scan M text for "let … in" blocks if model.json had nothing
@@ -197,6 +204,7 @@ def _parse_entities(model_json: dict, mashup_text: str) -> list[dict[str, Any]]:
             if name in seen_names:
                 continue
             seen_names.add(name)
+            named_steps = _extract_named_steps(m_expr)
             entities.append({
                 "name": name,
                 "description": "",
@@ -204,9 +212,15 @@ def _parse_entities(model_json: dict, mashup_text: str) -> list[dict[str, Any]]:
                 "column_count": 0,
                 "m_expression": m_expr,
                 "step_count": _count_steps(m_expr),
+                "named_steps": named_steps,
                 "complexity": _score_m_complexity(m_expr),
                 "is_enabled": True,
                 "is_hidden": False,
+                "destination_table": _extract_destination_table(m_expr, name),
+                "destination_lakehouse": _extract_destination_lakehouse(m_expr),
+                "destination_warehouse": _extract_destination_warehouse(m_expr),
+                "uses_merge": _detect_merge(m_expr),
+                "merge_kinds": _extract_merge_kinds(m_expr),
             })
 
     return entities
@@ -229,7 +243,8 @@ def _find_m_expression(entity_name: str, text: str) -> str:
     Try to locate the M expression block for a named entity.
     Searches for patterns like:  shared <EntityName> = let ... in ...
     """
-    pattern = rf'(?:shared\s+)?["\']?{re.escape(entity_name)}["\']?\s*=\s*(let\b.*?)(?=\n(?:shared|\Z))'
+    # Lookahead: next shared definition OR end of string (no \n required before \Z)
+    pattern = rf'(?:shared\s+)?["\']?{re.escape(entity_name)}["\']?\s*=\s*(let\b.*?)(?=\n\s*shared|\Z)'
     m = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
     if m:
         return m.group(1).strip()
@@ -255,8 +270,106 @@ def _count_steps(m_expr: str) -> int:
     """Count transformation steps = number of named assignments inside the let block."""
     if not m_expr:
         return 0
-    # Each line like:    StepName = ...   inside a let block is one step
     return len(re.findall(r'^\s{2,}[A-Za-z_#"][^=\n]*=', m_expr, re.MULTILINE))
+
+
+def _extract_named_steps(m_expr: str) -> list[str]:
+    """Return the ordered list of named step identifiers from a let block."""
+    if not m_expr:
+        return []
+    return re.findall(r'^\s{2,}([A-Za-z_#"][^=\n]*?)\s*=', m_expr, re.MULTILINE)
+
+
+def _extract_destination_table(m_expr: str, entity_name: str) -> str:
+    """
+    Infer the output/destination table name from the M expression.
+    The final identifier after 'in' is the result — that is the destination table.
+    Falls back to the entity name itself.
+    """
+    if not m_expr:
+        return entity_name
+    # Pattern: "in\n  <Identifier>" or "in <Identifier>" at end of let block
+    # Allow optional trailing semicolon (shared entity definitions end with ;)
+    m = re.search(r'\bin\s+([A-Za-z_#][A-Za-z0-9_ #]*)\s*;?\s*$', m_expr, re.MULTILINE)
+    if m:
+        return m.group(1).strip().strip('"\'')
+    return entity_name
+
+
+# Lakehouse.Contents patterns: Lakehouse.Contents("name") or LakehouseContents with workspace
+_LAKEHOUSE_PATTERN = re.compile(
+    r'Lakehouse\.Contents\s*\(\s*["\']([^"\']+)["\']',
+    re.IGNORECASE,
+)
+
+def _extract_destination_lakehouse(m_expr: str) -> str:
+    """Extract lakehouse name from Lakehouse.Contents() calls in M code."""
+    if not m_expr:
+        return ""
+    m = _LAKEHOUSE_PATTERN.search(m_expr)
+    return m.group(1).strip() if m else ""
+
+
+# Warehouse patterns: Warehouse.Contents("name") or AzureSynapse patterns
+_WAREHOUSE_PATTERN = re.compile(
+    r'(?:Warehouse\.Contents|AzureSynapseAnalytics\.Database)\s*\(\s*["\']([^"\']+)["\']',
+    re.IGNORECASE,
+)
+
+def _extract_destination_warehouse(m_expr: str) -> str:
+    """Extract warehouse/Synapse name from M code."""
+    if not m_expr:
+        return ""
+    m = _WAREHOUSE_PATTERN.search(m_expr)
+    return m.group(1).strip() if m else ""
+
+
+# Merge/Join detection — all M functions that combine tables
+_MERGE_FUNCTIONS = {
+    "Table.Join": "Inner",
+    "Table.NestedJoin": "Nested",
+    "Table.FuzzyJoin": "Fuzzy",
+    "Table.FuzzyGroup": "FuzzyGroup",
+    "Table.AddJoinColumn": "Left Outer",
+    "Record.Merge": "Record Merge",
+    "Record.Combine": "Record Combine",
+}
+
+_MERGE_FN_PATTERN = re.compile(
+    r'\b(' + '|'.join(re.escape(k) for k in _MERGE_FUNCTIONS) + r')\s*\(',
+    re.IGNORECASE,
+)
+
+# JoinKind constants that appear inside join calls
+_JOIN_KIND_PATTERN = re.compile(
+    r'JoinKind\.(\w+)',
+    re.IGNORECASE,
+)
+
+def _detect_merge(m_expr: str) -> bool:
+    """Return True if the M expression contains any merge/join operation."""
+    if not m_expr:
+        return False
+    return bool(_MERGE_FN_PATTERN.search(m_expr))
+
+
+def _extract_merge_kinds(m_expr: str) -> list[str]:
+    """
+    Return the distinct merge/join function names (and explicit JoinKind values)
+    used in this M expression.
+    """
+    if not m_expr:
+        return []
+    kinds: list[str] = []
+    for m in _MERGE_FN_PATTERN.finditer(m_expr):
+        fn = m.group(1)
+        # Find the nearest JoinKind inside the same call
+        snippet = m_expr[m.start():m.start() + 300]
+        jk = _JOIN_KIND_PATTERN.search(snippet)
+        label = f"{fn}({jk.group(1)})" if jk else fn
+        if label not in kinds:
+            kinds.append(label)
+    return kinds
 
 
 # ── M Complexity Scoring ──────────────────────────────────────────────────────

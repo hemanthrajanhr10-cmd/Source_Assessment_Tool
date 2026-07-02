@@ -877,16 +877,21 @@ def _run_oracle_assessment(conn_cfg: dict, include_null: bool, null_limit: int) 
 
 
 def _run_mssql_assessment(conn_cfg: dict, include_null: bool, null_limit: int) -> dict:
-    # pymssql bundles its own TDS driver — no ODBC Driver installation required
-    conn = pymssql.connect(
-        server=conn_cfg["server"],
-        port=str(conn_cfg.get("port", 1433)),
+    # pymssql bundles its own TDS driver — no ODBC Driver installation required.
+    # Named instances (SERVER\INSTANCE) must not pass an explicit port — pymssql
+    # uses SQL Server Browser to resolve the dynamic port automatically.
+    server = conn_cfg["server"]
+    connect_kwargs: dict = dict(
+        server=server,
         user=conn_cfg["username"],
         password=conn_cfg["password"],
         database=conn_cfg["database"],
         tds_version="7.4",
         login_timeout=30,
     )
+    if "\\" not in server:
+        connect_kwargs["port"] = str(conn_cfg.get("port", 1433))
+    conn = pymssql.connect(**connect_kwargs)
     cursor = conn.cursor(as_dict=True)
     raw: dict[str, Any] = {}
     try:

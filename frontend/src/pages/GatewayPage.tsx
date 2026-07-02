@@ -715,12 +715,18 @@ function SetupStep({ step, defaultOpen }: { step: Step; defaultOpen: boolean }) 
 
 // ── Connectivity test ─────────────────────────────────────────────────────────
 
+function isIpAddress(s: string): boolean {
+  return /^(\d{1,3}\.){3}\d{1,3}$/.test(s.trim())
+}
+
 function ConnectivityTest() {
   const [server, setServer] = useState('')
   const [port, setPort]     = useState('1433')
   const [result, setResult] = useState<{ reachable: boolean; latency_ms: number | null } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState<string | null>(null)
+
+  const serverIsIp = isIpAddress(server)
 
   const handleTest = async () => {
     if (!server.trim()) return
@@ -770,7 +776,7 @@ function ConnectivityTest() {
             <input
               type="text"
               className="form-input pl-10"
-              placeholder="SQL Server hostname or IP"
+              placeholder="SQL Server hostname (e.g. UIAP-S-SQL-01V)"
               value={server}
               onChange={(e) => { setServer(e.target.value); setResult(null); setError(null) }}
               onKeyDown={(e) => e.key === 'Enter' && server.trim() && handleTest()}
@@ -797,6 +803,18 @@ function ConnectivityTest() {
           </Button>
         </div>
 
+        {/* IP address warning — shown inline before testing */}
+        {serverIsIp && !result && !loading && (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700 animate-slide-down">
+            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>
+              Azure Hybrid Connection routes traffic by <strong>hostname</strong>, not IP address.
+              IP <strong>{server.trim()}</strong> will not be routed through HCM and will always appear unreachable.
+              Use the exact hostname you registered in the Hybrid Connection endpoint instead.
+            </span>
+          </div>
+        )}
+
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 animate-slide-down">
             <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -819,8 +837,9 @@ function ConnectivityTest() {
             </div>
             {!result.reachable && (
               <p className="mt-1.5 text-xs text-red-600">
-                Ensure HCM is running on a machine connected to the VPN, the Hybrid Connection is configured in Azure Portal,
-                and the endpoint host matches the SQL Server hostname exactly.
+                {serverIsIp
+                  ? <>Azure Hybrid Connection routes by <strong>hostname only</strong> — IP address <strong>{server.trim()}</strong> bypasses HCM and cannot reach a private network. Use the hostname registered in your Hybrid Connection endpoint.</>
+                  : <>Ensure HCM is running on a machine connected to the VPN, the Hybrid Connection is configured in Azure Portal, and the endpoint host matches the SQL Server hostname exactly.</>}
               </p>
             )}
           </div>

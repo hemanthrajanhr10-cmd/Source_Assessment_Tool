@@ -193,13 +193,20 @@ def get_connection(params: ConnectionParams):
 
 def _connect_mssql(params: ConnectionParams):
     import mssql_python
+    # Named instances (SERVER\INSTANCE) must not include a port — the SQL Server Browser
+    # service resolves the dynamic port. Appending ,1433 would connect to the wrong instance.
+    if "\\" in params.server:
+        server_part = params.server
+    else:
+        server_part = f"{params.server},{params.port}"
     conn_str = (
-        f"SERVER={params.server},{params.port};"
+        f"SERVER={server_part};"
         f"DATABASE={params.database};"
         f"UID={params.username};"
         f"PWD={params.password.get_secret_value()};"
         f"TrustServerCertificate={'yes' if params.trust_server_certificate else 'no'};"
         f"Encrypt={'yes' if params.encrypt else 'no'};"
+        "ConnectTimeout=120;"
     )
     return mssql_python.connect(conn_str)
 

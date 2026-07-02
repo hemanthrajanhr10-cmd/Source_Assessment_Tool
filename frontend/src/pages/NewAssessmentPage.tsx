@@ -520,14 +520,17 @@ function ServerCard({
                     spellCheck={false}
                   />
                 </div>
-                <input
-                  type="number"
-                  className="form-input w-24"
-                  min={1} max={65535}
-                  value={entry.port}
-                  onChange={(e) => set({ port: parseInt(e.target.value, 10) || 1433, connectivity: null })}
-                  title="Port"
-                />
+                {/* Hide port for SQL Server named instances — port is resolved via SQL Browser */}
+                {!(entry.db_type === 'mssql' && entry.server.includes('\\')) && (
+                  <input
+                    type="number"
+                    className="form-input w-24"
+                    min={1} max={65535}
+                    value={entry.port}
+                    onChange={(e) => set({ port: parseInt(e.target.value, 10) || 1433, connectivity: null })}
+                    title="Port"
+                  />
+                )}
                 <HybridConnectionPicker
                   onSelect={(host, port) =>
                     set({ server: host, port, gateway_key: null, connectivity: null })

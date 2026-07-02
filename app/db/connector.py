@@ -206,7 +206,6 @@ def _connect_mssql(params: ConnectionParams):
         f"PWD={params.password.get_secret_value()};"
         f"TrustServerCertificate={'yes' if params.trust_server_certificate else 'no'};"
         f"Encrypt={'yes' if params.encrypt else 'no'};"
-        "ConnectTimeout=120;"
     )
     return mssql_python.connect(conn_str)
 

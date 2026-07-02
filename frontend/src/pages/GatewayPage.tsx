@@ -202,7 +202,8 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
   const [error, setError]     = useState<string | null>(null)
   const [result, setResult]   = useState<CreateResult | null>(null)
 
-  const valid = name.trim() && host.trim() && parseInt(port) > 0
+  const isNamedInstance = host.includes('\\')
+  const valid = name.trim() && host.trim() && (isNamedInstance || parseInt(port) > 0)
 
   const handleCreate = async () => {
     if (!valid) return
@@ -213,7 +214,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
       const { data } = await api.createHybridConnection({
         name: name.trim(),
         endpoint_host: host.trim(),
-        endpoint_port: parseInt(port, 10) || 1433,
+        endpoint_port: isNamedInstance ? 1434 : (parseInt(port, 10) || 1433),
       })
       setResult({
         status: data.status,
@@ -276,27 +277,35 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
               <input
                 type="text"
                 className="form-input pl-10 w-full"
-                placeholder="SQL Server hostname or IP"
+                placeholder="hostname or HOST\INSTANCE"
                 value={host}
                 onChange={(e) => { setHost(e.target.value); setResult(null) }}
                 spellCheck={false}
                 autoComplete="off"
               />
             </div>
+            {isNamedInstance && (
+              <p className="text-xs text-earth-600 flex items-center gap-1">
+                <Info className="h-3 w-3 shrink-0" />
+                Named instance detected — port auto-set to 1434 (SQL Browser)
+              </p>
+            )}
           </div>
 
-          {/* Endpoint port */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-600">Endpoint port</label>
-            <input
-              type="number"
-              className="form-input w-full"
-              min={1}
-              max={65535}
-              value={port}
-              onChange={(e) => { setPort(e.target.value); setResult(null) }}
-            />
-          </div>
+          {/* Endpoint port — hidden for named instances */}
+          {!isNamedInstance && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-600">Endpoint port</label>
+              <input
+                type="number"
+                className="form-input w-full"
+                min={1}
+                max={65535}
+                value={port}
+                onChange={(e) => { setPort(e.target.value); setResult(null) }}
+              />
+            </div>
+          )}
         </div>
 
         <Button

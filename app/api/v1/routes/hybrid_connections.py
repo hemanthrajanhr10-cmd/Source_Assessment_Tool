@@ -204,15 +204,43 @@ def _ensure_user_namespace(
             # Clear stale cache and fall through to (re)provision.
             azure_store.set_user_relay_namespace(user_id, "")
 
-        poller = relay_client.namespaces.begin_create_or_update(
-            resource_group_name=resource_group,
-            namespace_name=namespace,
-            parameters=RelayNamespace(
-                location=location,
-                sku=Sku(name="Standard", tier="Standard"),
-            ),
-        )
-        poller.result()  # wait for ARM LRO to complete
+        try:
+            poller = relay_client.namespaces.begin_create_or_update(
+                resource_group_name=resource_group,
+                namespace_name=namespace,
+                parameters=RelayNamespace(
+                    location=location,
+                    sku=Sku(name="Standard", tier="Standard"),
+                ),
+            )
+            poller.result()  # wait for ARM LRO to complete
+        except Exception as create_exc:
+            # InvalidResourceLocation means the namespace already exists in a
+            # different Azure region (e.g. the app was re-deployed to a new region).
+            # The namespace is cross-region — just verify it is usable and reuse it.
+            if "InvalidResourceLocation" in str(create_exc):
+                logger.info(
+                    "Namespace '%s' already exists in another region — verifying and reusing it.",
+                    namespace,
+                )
+                try:
+                    ns = relay_client.namespaces.get(resource_group, namespace)
+                    if (ns.provisioning_state or "").lower() != "succeeded":
+                        raise RuntimeError(
+                            f"Existing namespace '{namespace}' provisioning_state="
+                            f"{ns.provisioning_state} — not ready."
+                        )
+                    azure_store.set_user_relay_namespace(user_id, namespace)
+                    logger.info(
+                        "Reusing existing Relay namespace '%s' for user %s (cross-region deployment)",
+                        namespace, user_id,
+                    )
+                    return namespace, None
+                except Exception as verify_exc:
+                    raise RuntimeError(
+                        f"Namespace '{namespace}' exists in another region but could not be verified: {verify_exc}"
+                    ) from verify_exc
+            raise
 
         # ARM says Succeeded, but internal propagation can still lag.
         # Poll until the namespace is actually reachable.

@@ -1206,6 +1206,7 @@ function ModelsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
   const [navLevel, setNavLevel] = useState<ModelsNavLevel>('workspaces')
   const [selectedWs, setSelectedWs] = useState<FabricWorkspace | null>(null)
   const [selectedDs, setSelectedDs] = useState<FabricDataset | null>(null)
+  const [modelFilter, setModelFilter] = useState('')
 
   const handleSelectWorkspace = (ws: FabricWorkspace) => {
     setSelectedWs(ws)
@@ -1221,6 +1222,7 @@ function ModelsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
     setNavLevel('workspaces')
     setSelectedWs(null)
     setSelectedDs(null)
+    setModelFilter('')
   }
 
   const handleBackToModels = () => {
@@ -1346,11 +1348,14 @@ function ModelsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
 
   // ── Level 2: Semantic model cards for selected workspace ────────────────────
   if (navLevel === 'models' && selectedWs) {
-    const groups = selectedWs.datasets.map(ds => ({
+    const allGroups = selectedWs.datasets.map(ds => ({
       ds,
       reports: selectedWs.reports.filter(r => r.dataset_id === ds.id),
       dist: getComplexityDistribution(ds),
     }))
+    const groups = modelFilter
+      ? allGroups.filter(({ ds }) => ds.name.toLowerCase().includes(modelFilter.toLowerCase()))
+      : allGroups
 
     return (
       <div className="space-y-4">
@@ -1358,7 +1363,7 @@ function ModelsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
 
         {/* Workspace summary banner */}
         <div className="rounded-2xl overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #4DA8A0 0%, #6CBDB5 50%, #0891B2 100%)', boxShadow: '0 4px 20px rgba(77,168,160,0.22)' }}>
+          style={{ background: 'linear-gradient(135deg, #4DA8A0 0%, #6CBDB5 50%, #93CCC6 100%)', boxShadow: '0 4px 20px rgba(77,168,160,0.22)' }}>
           <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-white/60 text-xs font-medium uppercase tracking-widest mb-0.5">Workspace</p>
@@ -1379,9 +1384,38 @@ function ModelsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
           </div>
         </div>
 
+        {/* Search / filter bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            className="form-input pl-9 py-2 text-sm w-full"
+            placeholder={`Filter ${selectedWs.dataset_count} model${selectedWs.dataset_count !== 1 ? 's' : ''}…`}
+            value={modelFilter}
+            onChange={e => setModelFilter(e.target.value)}
+          />
+          {modelFilter && (
+            <button
+              onClick={() => setModelFilter('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Model count hint */}
+        {modelFilter && (
+          <p className="text-xs text-slate-400">
+            Showing {groups.length} of {allGroups.length} model{allGroups.length !== 1 ? 's' : ''}
+          </p>
+        )}
+
         {/* Lineage-style: model cards → their linked reports */}
         {groups.length === 0 ? (
-          <p className="text-xs text-slate-400 italic text-center py-8">No semantic models in this workspace.</p>
+          <p className="text-xs text-slate-400 italic text-center py-8">
+            {modelFilter ? `No models match "${modelFilter}"` : 'No semantic models in this workspace.'}
+          </p>
         ) : (
           <div className="space-y-3">
             {groups.map(({ ds, reports, dist }, gi) => {
@@ -2111,13 +2145,12 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 
 // ── Dataflows Tab ─────────────────────────────────────────────────────────────
 
-// Design system constants aligned to DESIGN.md (dark surface / intelligence-amber)
 const DF_COMPLEXITY: Record<string, { dot: string; text: string; badge: string; bar: string }> = {
-  'None':         { dot: 'bg-zinc-500',   text: 'text-zinc-400',   badge: 'bg-zinc-800/60 text-zinc-400 border-zinc-700/50',   bar: '#71717a' },
-  'Simple':       { dot: 'bg-emerald-400',text: 'text-emerald-400',badge: 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20', bar: '#34d399' },
-  'Moderate':     { dot: 'bg-amber-400',  text: 'text-amber-400',  badge: 'bg-amber-400/10 text-amber-400 border-amber-400/20', bar: '#f59e0b' },
-  'Complex':      { dot: 'bg-orange-400', text: 'text-orange-400', badge: 'bg-orange-400/10 text-orange-400 border-orange-400/20', bar: '#f97316' },
-  'Very Complex': { dot: 'bg-red-400',    text: 'text-red-400',    badge: 'bg-red-400/10 text-red-400 border-red-400/20',       bar: '#f87171' },
+  'None':         { dot: 'bg-slate-400',   text: 'text-slate-500',   badge: 'bg-slate-100 text-slate-500 border-slate-200',        bar: '#94a3b8' },
+  'Simple':       { dot: 'bg-emerald-500', text: 'text-emerald-700', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',   bar: '#10b981' },
+  'Moderate':     { dot: 'bg-amber-500',   text: 'text-amber-700',   badge: 'bg-amber-50 text-amber-700 border-amber-200',         bar: '#f59e0b' },
+  'Complex':      { dot: 'bg-orange-500',  text: 'text-orange-700',  badge: 'bg-orange-50 text-orange-700 border-orange-200',      bar: '#f97316' },
+  'Very Complex': { dot: 'bg-red-500',     text: 'text-red-700',     badge: 'bg-red-50 text-red-700 border-red-200',               bar: '#ef4444' },
 }
 
 // Spring config for Jakub-style enters: no bounce, fast settle
@@ -2140,7 +2173,7 @@ function ComplexityBar({ score, level }: { score: number; level: string }) {
   const c = DF_COMPLEXITY[level] ?? DF_COMPLEXITY['None']
   const pct = Math.min(100, (score / 20) * 100)
   return (
-    <div className="h-0.5 w-full rounded-full bg-zinc-800 overflow-hidden">
+    <div className="h-0.5 w-full rounded-full bg-slate-200 overflow-hidden">
       <motion.div
         className="h-full rounded-full"
         style={{ background: c.bar }}
@@ -2155,7 +2188,7 @@ function ComplexityBar({ score, level }: { score: number; level: string }) {
 // Merge kind pill — distinct style from complexity
 function MergeKindPill({ kind }: { kind: string }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-blue-400/10 text-blue-300 border-blue-400/20">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-violet-50 text-violet-700 border-violet-200">
       <GitMerge className="h-2.5 w-2.5" />
       {kind}
     </span>
@@ -2176,14 +2209,14 @@ function NamedStepsList({ steps }: { steps: string[] }) {
           transition={{ ...SPRING, delay: i * 0.025 }}
         >
           {/* Step number */}
-          <span className="flex items-center justify-center h-4 w-4 rounded shrink-0 bg-zinc-800 border border-zinc-700/60 text-[9px] font-mono text-zinc-500 group-hover:border-amber-500/30 group-hover:text-amber-400/70 transition-colors">
+          <span className="flex items-center justify-center h-4 w-4 rounded shrink-0 bg-slate-100 border border-slate-200 text-[9px] font-mono text-slate-500 group-hover:border-brand-400/50 group-hover:text-brand-600 transition-colors">
             {i + 1}
           </span>
           {/* Connector line */}
           {i < steps.length - 1 && (
-            <div className="absolute left-[17px] top-4 h-0.5 w-0 border-l border-dashed border-zinc-700/40" style={{ height: '100%' }} />
+            <div className="absolute left-[17px] top-4 h-0.5 w-0 border-l border-dashed border-slate-200" style={{ height: '100%' }} />
           )}
-          <span className="text-xs font-mono text-zinc-300 truncate">{step.trim()}</span>
+          <span className="text-xs font-mono text-slate-700 truncate">{step.trim()}</span>
         </motion.div>
       ))}
     </div>
@@ -2201,19 +2234,19 @@ function DestinationRow({ ent }: { ent: import('../types/api').FabricDataflowEnt
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {destTable && (
-        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-zinc-400 bg-zinc-800/60 border border-zinc-700/50 rounded px-1.5 py-0.5">
-          <Table2 className="h-2.5 w-2.5 text-zinc-500" />
+        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">
+          <Table2 className="h-2.5 w-2.5 text-slate-400" />
           {destTable}
         </span>
       )}
       {hasLakehouse && (
-        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-teal-300 bg-teal-400/10 border border-teal-400/20 rounded-full px-2 py-0.5">
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-earth-700 bg-earth-50 border border-earth-200 rounded-full px-2 py-0.5">
           <Database className="h-2.5 w-2.5" />
           {ent.destination_lakehouse}
         </span>
       )}
       {hasWarehouse && (
-        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-300 bg-blue-400/10 border border-blue-400/20 rounded-full px-2 py-0.5">
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-700 bg-brand-50 border border-brand-200 rounded-full px-2 py-0.5">
           <Database className="h-2.5 w-2.5" />
           {ent.destination_warehouse}
         </span>
@@ -2229,35 +2262,36 @@ function EntityDetailRow({ ent, idx }: { ent: import('../types/api').FabricDataf
 
   return (
     <motion.div
-      className="rounded-lg border border-zinc-700/50 bg-zinc-900/40 overflow-hidden"
-      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)' }}
+      className="rounded-lg border border-slate-200 bg-white overflow-hidden"
+      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.8)' }}
       initial={{ opacity: 0, y: 6, filter: 'blur(2px)' }}
       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       transition={{ ...SPRING, delay: idx * 0.04 }}
     >
       {/* Entity header */}
-      <div className="px-3 py-2.5 flex items-start gap-3">
+      <div className="px-3 py-2.5 flex items-start gap-3 bg-slate-50/60">
         {/* Step count badge */}
         <div className="flex flex-col items-center shrink-0 mt-0.5">
-          <span className="flex items-center justify-center h-6 w-6 rounded bg-zinc-800 border border-zinc-700/60 text-[10px] font-mono font-semibold text-amber-400">
+          <span className="flex items-center justify-center h-6 w-6 rounded border text-[10px] font-mono font-semibold"
+            style={{ background: 'rgba(108,189,181,0.12)', borderColor: 'rgba(108,189,181,0.35)', color: '#3D8B84' }}>
             {ent.step_count ?? cx.step_count ?? 0}
           </span>
-          <span className="text-[8px] text-zinc-600 mt-0.5 leading-none">steps</span>
+          <span className="text-[8px] text-slate-400 mt-0.5 leading-none">steps</span>
         </div>
 
         <div className="flex-1 min-w-0">
           {/* Name + badges row */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-zinc-100 truncate">{ent.name}</span>
+            <span className="text-sm font-semibold text-slate-800 truncate">{ent.name}</span>
             <DfComplexityBadge level={cx.level} score={cx.score} />
             {ent.uses_merge && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-violet-400/10 text-violet-300 border-violet-400/20">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-violet-50 text-violet-700 border-violet-200">
                 <GitMerge className="h-2.5 w-2.5" />
                 Merge
               </span>
             )}
             {ent.column_count > 0 && (
-              <span className="text-[10px] text-zinc-500 font-mono">{ent.column_count} col{ent.column_count !== 1 ? 's' : ''}</span>
+              <span className="text-[10px] text-slate-400 font-mono">{ent.column_count} col{ent.column_count !== 1 ? 's' : ''}</span>
             )}
           </div>
 
@@ -2280,7 +2314,7 @@ function EntityDetailRow({ ent, idx }: { ent: import('../types/api').FabricDataf
           {(cx.complex_functions || []).length > 0 && (
             <div className="flex items-center gap-1 flex-wrap mt-1.5">
               {cx.complex_functions.slice(0, 4).map((fn, i) => (
-                <span key={i} className="text-[10px] font-mono text-zinc-500 bg-zinc-800/80 border border-zinc-700/40 rounded px-1.5 py-0.5">
+                <span key={i} className="text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">
                   {fn}
                 </span>
               ))}
@@ -2291,17 +2325,17 @@ function EntityDetailRow({ ent, idx }: { ent: import('../types/api').FabricDataf
 
       {/* Named steps section */}
       {(ent.named_steps || []).length > 0 && (
-        <div className="border-t border-zinc-700/40">
+        <div className="border-t border-slate-100">
           <button
-            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-zinc-800/40 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 transition-colors"
             onClick={() => setQueryOpen(o => !o)}
           >
-            <Code2 className="h-3 w-3 text-zinc-500 shrink-0" />
-            <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest flex-1">
+            <Code2 className="h-3 w-3 text-slate-400 shrink-0" />
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest flex-1">
               Query Steps ({ent.named_steps.length})
             </span>
             <motion.div animate={{ rotate: queryOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
-              <ChevronDown className="h-3 w-3 text-zinc-600" />
+              <ChevronDown className="h-3 w-3 text-slate-400" />
             </motion.div>
           </button>
           <AnimatePresence>
@@ -2324,14 +2358,14 @@ function EntityDetailRow({ ent, idx }: { ent: import('../types/api').FabricDataf
 
       {/* M expression raw view */}
       {ent.m_expression && (
-        <div className="border-t border-zinc-700/40 px-3 py-2">
+        <div className="border-t border-slate-100 px-3 py-2">
           <details className="group">
-            <summary className="flex items-center gap-2 cursor-pointer list-none text-[10px] font-semibold text-zinc-600 uppercase tracking-widest hover:text-zinc-400 transition-colors">
+            <summary className="flex items-center gap-2 cursor-pointer list-none text-[10px] font-semibold text-slate-500 uppercase tracking-widest hover:text-slate-700 transition-colors">
               <Eye className="h-3 w-3" />
               Advanced Query Editor
               <ChevronDown className="h-3 w-3 ml-auto group-open:rotate-180 transition-transform" />
             </summary>
-            <pre className="mt-2 text-[10px] font-mono text-zinc-400 bg-zinc-950/60 rounded-lg border border-zinc-800/60 p-3 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-48 scrollbar-thin">
+            <pre className="mt-2 text-[10px] font-mono text-slate-600 bg-slate-50 rounded-lg border border-slate-200 p-3 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-48 scrollbar-thin">
               {ent.m_expression}
             </pre>
           </details>
@@ -2349,65 +2383,66 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
 
   return (
     <motion.div
-      className="rounded-xl border border-zinc-700/60 overflow-hidden"
+      className="rounded-xl border overflow-hidden"
       style={{
-        background: '#18181b',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.03)',
+        background: 'white',
+        borderColor: 'rgba(168,226,221,0.8)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
       }}
       initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
       animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
       transition={{ ...SPRING, delay: index * 0.055 }}
-      whileHover={{ boxShadow: '0 4px 12px rgba(0,0,0,0.45), 0 2px 4px rgba(0,0,0,0.3)', borderColor: 'rgba(245,158,11,0.18)' }}
+      whileHover={{ boxShadow: '0 4px 16px rgba(77,168,160,0.12), 0 1px 4px rgba(0,0,0,0.06)', borderColor: 'rgba(108,189,181,0.6)' }}
     >
       {/* Header button */}
       <button
-        className="w-full flex items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-zinc-800/30"
+        className="w-full flex items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-earth-50/40"
+        style={{ background: 'linear-gradient(135deg, rgba(77,168,160,0.03) 0%, rgba(108,189,181,0.01) 100%)' }}
         onClick={() => setOpen(o => !o)}
       >
-        {/* Icon with amber glow */}
+        {/* Icon */}
         <span
           className="flex items-center justify-center h-8 w-8 rounded-lg shrink-0 mt-0.5"
           style={{
-            background: 'rgba(245,158,11,0.12)',
-            border: '1px solid rgba(245,158,11,0.25)',
-            boxShadow: open ? '0 0 16px rgba(245,158,11,0.18)' : 'none',
+            background: 'rgba(108,189,181,0.12)',
+            border: '1px solid rgba(108,189,181,0.30)',
             transition: 'box-shadow 0.25s ease',
           }}
         >
-          <Zap className="h-4 w-4 text-amber-400" />
+          <Zap className="h-4 w-4" style={{ color: '#4DA8A0' }} />
         </span>
 
         <div className="flex-1 min-w-0">
           {/* Name + badges */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-zinc-100 truncate">{df.name}</span>
+            <span className="text-sm font-semibold text-slate-800 truncate">{df.name}</span>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
               df.generation === 'Gen2'
-                ? 'bg-teal-400/10 text-teal-300 border-teal-400/25'
-                : 'bg-zinc-700/50 text-zinc-400 border-zinc-600/50'
+                ? 'bg-earth-50 text-earth-700 border-earth-200'
+                : 'bg-slate-100 text-slate-500 border-slate-200'
             }`}>{df.generation}</span>
             <DfComplexityBadge level={cx.level} score={cx.score} />
             {totalMerges > 0 && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-violet-400/10 text-violet-300 border-violet-400/20">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-violet-50 text-violet-700 border-violet-200">
                 <GitMerge className="h-2.5 w-2.5" />
                 {totalMerges} merge{totalMerges !== 1 ? 's' : ''}
               </span>
             )}
             {df._error && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-400/10 text-red-400 border border-red-400/20">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-600 border border-red-200">
                 Extraction failed
               </span>
             )}
           </div>
 
           {/* Meta row */}
-          <div className="flex items-center gap-3 mt-1.5 text-[11px] text-zinc-500 flex-wrap">
+          <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500 flex-wrap">
             <span className="flex items-center gap-1">
               <Layers className="h-3 w-3" />
               {df.entity_count} {df.entity_count !== 1 ? 'entities' : 'entity'}
             </span>
             {totalSteps > 0 && (
-              <span className="flex items-center gap-1 font-mono text-amber-500/70">
+              <span className="flex items-center gap-1 font-mono" style={{ color: '#4DA8A0' }}>
                 <Hash className="h-3 w-3" />
                 {totalSteps} steps
               </span>
@@ -2417,15 +2452,15 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
               {df.datasource_count} source{df.datasource_count !== 1 ? 's' : ''}
             </span>
             {df.schedule_summary && df.schedule_summary !== 'Not scheduled' && (
-              <span className="flex items-center gap-1 text-zinc-500">
+              <span className="flex items-center gap-1 text-slate-400">
                 <Activity className="h-3 w-3" />
                 {df.schedule_summary}
               </span>
             )}
             {df.configured_by && typeof df.configured_by === 'string' && (
-              <span className="text-zinc-600 truncate">by {df.configured_by}</span>
+              <span className="text-slate-400 truncate">by {df.configured_by}</span>
             )}
-            <span className="ml-auto text-zinc-700 text-[10px] font-mono truncate">{wsName}</span>
+            <span className="ml-auto text-slate-400 text-[10px] font-mono truncate">{wsName}</span>
           </div>
         </div>
 
@@ -2434,7 +2469,7 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
           transition={{ duration: 0.2 }}
           className="shrink-0 mt-1"
         >
-          <ChevronDown className="h-4 w-4 text-zinc-600" />
+          <ChevronDown className="h-4 w-4 text-slate-400" />
         </motion.div>
       </button>
 
@@ -2448,15 +2483,15 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
             transition={SPRING}
             className="overflow-hidden"
           >
-            <div className="border-t border-zinc-700/50">
+            <div className="border-t border-slate-100">
 
               {/* Entities section */}
               {(df.entities || []).length > 0 && (
                 <div className="px-4 py-4">
-                  <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
                     <Table2 className="h-3 w-3" />
                     Queries / Entities
-                    <span className="ml-1 font-mono text-zinc-600">({df.entities.length})</span>
+                    <span className="ml-1 font-mono text-slate-400">({df.entities.length})</span>
                   </p>
                   <div className="space-y-2">
                     {df.entities.map((ent, i) => (
@@ -2468,11 +2503,11 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
 
               {/* Data Sources section */}
               {(df.datasources || []).length > 0 && (
-                <div className="px-4 py-3 border-t border-zinc-800/60">
-                  <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                <div className="px-4 py-3 border-t border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
                     <ExternalLink className="h-3 w-3" />
                     Data Sources
-                    <span className="ml-1 font-mono text-zinc-600">({df.datasources.length})</span>
+                    <span className="ml-1 font-mono text-slate-400">({df.datasources.length})</span>
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {df.datasources.map((ds, i) => (
@@ -2480,9 +2515,9 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
                         key={i}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px]"
                         style={{
-                          background: 'rgba(96,165,250,0.06)',
-                          borderColor: 'rgba(96,165,250,0.18)',
-                          color: '#93c5fd',
+                          background: 'rgba(77,168,160,0.06)',
+                          borderColor: 'rgba(77,168,160,0.20)',
+                          color: '#3D8B84',
                         }}
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -2491,7 +2526,7 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
                         <Database className="h-3 w-3 opacity-70 shrink-0" />
                         <span className="font-medium">{ds.datasource_type || ds.kind || 'Unknown'}</span>
                         {(ds.path || ds.server) && (
-                          <span className="font-mono text-blue-300/50 text-[10px] max-w-[140px] truncate">
+                          <span className="font-mono text-slate-400 text-[10px] max-w-[140px] truncate">
                             {ds.path || String(ds.server)}
                           </span>
                         )}
@@ -2503,27 +2538,27 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
 
               {/* Upstream Dataflows */}
               {(df.upstream_dataflows || []).length > 0 && (
-                <div className="px-4 py-3 border-t border-zinc-800/60">
-                  <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                <div className="px-4 py-3 border-t border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
                     <ArrowUpRight className="h-3 w-3" />
                     Upstream Dependencies
-                    <span className="ml-1 font-mono text-zinc-600">({df.upstream_dataflows.length})</span>
+                    <span className="ml-1 font-mono text-slate-400">({df.upstream_dataflows.length})</span>
                   </p>
                   <div className="space-y-1.5">
                     {df.upstream_dataflows.map((up, i) => (
                       <motion.div
                         key={i}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-700/40 bg-zinc-900/50 text-xs"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-xs"
                         initial={{ opacity: 0, x: -8 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ ...SPRING, delay: i * 0.04 }}
                       >
-                        <Zap className="h-3 w-3 text-amber-500 shrink-0" />
-                        <span className="font-semibold text-zinc-200">{up.source_dataflow_name}</span>
+                        <Zap className="h-3 w-3 shrink-0" style={{ color: '#4DA8A0' }} />
+                        <span className="font-semibold text-slate-700">{up.source_dataflow_name}</span>
                         {up.entity_name && (
                           <>
-                            <ArrowRight className="h-3 w-3 text-zinc-700 shrink-0" />
-                            <span className="text-zinc-500 font-mono">{up.entity_name}</span>
+                            <ArrowRight className="h-3 w-3 text-slate-300 shrink-0" />
+                            <span className="text-slate-500 font-mono">{up.entity_name}</span>
                           </>
                         )}
                       </motion.div>
@@ -2534,8 +2569,8 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
 
               {/* Refresh history */}
               {(df.transactions || []).length > 0 && (
-                <div className="px-4 py-3 border-t border-zinc-800/60">
-                  <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                <div className="px-4 py-3 border-t border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
                     <Activity className="h-3 w-3" />
                     Recent Refreshes
                   </p>
@@ -2544,8 +2579,8 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
                       <div key={i} className="flex items-center gap-2.5 text-[11px] py-1">
                         <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0 ${
                           txn.status === 'Success'
-                            ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20'
-                            : 'bg-red-400/10 text-red-400 border-red-400/20'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-red-50 text-red-600 border-red-200'
                         }`}>
                           {txn.status === 'Success'
                             ? <CheckCircle2 className="h-2.5 w-2.5" />
@@ -2553,10 +2588,10 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
                           }
                           {txn.status}
                         </span>
-                        <span className="text-zinc-500 font-mono text-[10px]">
+                        <span className="text-slate-500 font-mono text-[10px]">
                           {txn.start_time ? txn.start_time.slice(0, 19).replace('T', ' ') : '—'}
                         </span>
-                        <span className="text-zinc-600 text-[10px]">{txn.type}</span>
+                        <span className="text-slate-400 text-[10px]">{txn.type}</span>
                       </div>
                     ))}
                   </div>
@@ -2565,8 +2600,8 @@ function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: strin
 
               {/* Error notice */}
               {df._error && (
-                <div className="px-4 py-3 border-t border-zinc-800/60">
-                  <div className="flex items-start gap-2 rounded-lg bg-red-400/8 border border-red-400/20 px-3 py-2.5 text-xs text-red-400">
+                <div className="px-4 py-3 border-t border-slate-100">
+                  <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-xs text-red-600">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                     <span>{df._error}</span>
                   </div>
@@ -2614,12 +2649,12 @@ function DataflowsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
       <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
         <span
           className="flex items-center justify-center h-14 w-14 rounded-2xl"
-          style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.20)', boxShadow: '0 0 32px rgba(245,158,11,0.08)' }}
+          style={{ background: 'rgba(108,189,181,0.12)', border: '1px solid rgba(108,189,181,0.25)' }}
         >
-          <Zap className="h-7 w-7 text-amber-400" />
+          <Zap className="h-7 w-7" style={{ color: '#4DA8A0' }} />
         </span>
-        <p className="text-zinc-200 font-semibold">No dataflows assessed</p>
-        <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
+        <p className="text-slate-700 font-semibold">No dataflows assessed</p>
+        <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
           No dataflows were selected or found in the assessed workspaces. Select dataflows in Step 3 when creating a new assessment.
         </p>
       </div>
@@ -2628,39 +2663,34 @@ function DataflowsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
 
   return (
     <div className="space-y-5 pt-4">
-      {/* Intelligence brief — 4 signal stats, left-aligned asymmetric layout */}
+      {/* Summary stats */}
       <motion.div
-        className="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-xl overflow-hidden border border-zinc-800/60"
-        style={{ background: '#27272a', boxShadow: '0 1px 3px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03)' }}
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={SPRING}
       >
         {[
-          { label: 'Dataflows', value: allDataflows.length, sub: `${gen1Count} Gen1 · ${gen2Count} Gen2`, icon: <Zap className="h-3.5 w-3.5" />, color: '#f59e0b', glow: true },
-          { label: 'Entities', value: totalEntities, sub: 'output tables', icon: <Table2 className="h-3.5 w-3.5" />, color: '#60a5fa', glow: false },
-          { label: 'Total Steps', value: totalSteps, sub: 'M query steps', icon: <Hash className="h-3.5 w-3.5" />, color: '#34d399', glow: false },
-          { label: 'Merges', value: totalMerges, sub: 'join operations', icon: <GitMerge className="h-3.5 w-3.5" />, color: '#a78bfa', glow: false },
-        ].map(({ label, value, sub, icon, color, glow }) => (
+          { label: 'Dataflows', value: allDataflows.length, sub: `${gen1Count} Gen1 · ${gen2Count} Gen2`, icon: <Zap className="h-3.5 w-3.5" />, color: '#4DA8A0', bg: 'rgba(108,189,181,0.12)', border: 'rgba(108,189,181,0.30)' },
+          { label: 'Entities', value: totalEntities, sub: 'output tables', icon: <Table2 className="h-3.5 w-3.5" />, color: '#6D28D9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.18)' },
+          { label: 'Total Steps', value: totalSteps, sub: 'M query steps', icon: <Hash className="h-3.5 w-3.5" />, color: '#059669', bg: 'rgba(5,150,105,0.08)', border: 'rgba(5,150,105,0.18)' },
+          { label: 'Merges', value: totalMerges, sub: 'join operations', icon: <GitMerge className="h-3.5 w-3.5" />, color: '#D97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.20)' },
+        ].map(({ label, value, sub, icon, color, bg, border }) => (
           <div
             key={label}
-            className="flex items-center gap-3 px-5 py-4 bg-zinc-900/60"
+            className="flex items-center gap-3 px-4 py-3.5 rounded-xl border"
+            style={{ background: 'white', borderColor: 'rgba(168,226,221,0.7)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
           >
             <span
               className="flex items-center justify-center h-8 w-8 rounded-lg shrink-0"
-              style={{
-                background: `${color}14`,
-                border: `1px solid ${color}28`,
-                color,
-                boxShadow: glow ? `0 0 16px ${color}22` : 'none',
-              }}
+              style={{ background: bg, border: `1px solid ${border}`, color }}
             >
               {icon}
             </span>
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">{label}</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{label}</p>
               <p className="text-xl font-black font-mono leading-tight" style={{ color }}>{value}</p>
-              <p className="text-[10px] text-zinc-600 leading-tight">{sub}</p>
+              <p className="text-[10px] text-slate-400 leading-tight">{sub}</p>
             </div>
           </div>
         ))}
@@ -2674,10 +2704,10 @@ function DataflowsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
         transition={{ ...SPRING, delay: 0.1 }}
       >
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-600 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
           <input
             type="text"
-            className="form-input pl-9 py-2 text-sm w-full bg-zinc-900/60 border-zinc-700/60 text-zinc-200 placeholder-zinc-600 focus:border-amber-500/40 focus:ring-amber-500/10"
+            className="form-input pl-9 py-2 text-sm w-full"
             placeholder="Search dataflows or workspaces…"
             value={filter}
             onChange={e => setFilter(e.target.value)}
@@ -2685,7 +2715,7 @@ function DataflowsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
           {filter && (
             <button
               onClick={() => setFilter('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -2703,8 +2733,8 @@ function DataflowsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
                 onClick={() => setComplexityFilter(lvl)}
                 className={`px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-all ${
                   active
-                    ? (c ? `${c.badge} shadow-sm` : 'bg-amber-400/15 text-amber-400 border-amber-400/30')
-                    : 'bg-zinc-900/40 text-zinc-600 border-zinc-700/50 hover:text-zinc-400 hover:border-zinc-600/60'
+                    ? (c ? `${c.badge} shadow-sm` : 'bg-earth-100 text-earth-700 border-earth-300')
+                    : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700 hover:border-slate-300'
                 }`}
               >
                 {lvl}
@@ -2719,7 +2749,7 @@ function DataflowsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
         {filtered.length === 0 ? (
           <motion.p
             key="empty"
-            className="text-center text-sm text-zinc-600 py-10"
+            className="text-center text-sm text-slate-400 py-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

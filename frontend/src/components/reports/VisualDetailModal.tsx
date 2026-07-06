@@ -517,7 +517,7 @@ export default function VisualDetailModal({
               </div>
             </div>
             <button type="button" onClick={handleClose}
-              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex-shrink-0"
+              className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-earth-400 flex-shrink-0"
               aria-label="Close">
               <X size={16} style={{ color: '#6B7280' }} />
             </button>
@@ -553,7 +553,7 @@ export default function VisualDetailModal({
               {visual.id}
             </span>
             <button type="button" onClick={handleDismiss}
-              className="py-1.5 px-5 rounded-lg text-sm font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="py-1.5 px-5 rounded-lg text-sm font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-earth-400"
               style={{ background: '#B83510' }}>
               Close
             </button>
@@ -611,7 +611,7 @@ export default function VisualDetailModal({
               </div>
             </div>
             <button type="button" onClick={handleClose}
-              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors"
+              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-earth-400 transition-colors"
               aria-label="Close">
               <X size={16} style={{ color: '#6B7280' }} />
             </button>
@@ -675,7 +675,7 @@ export default function VisualDetailModal({
               )}
               <button
                 type="button"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-earth-400 transition-colors"
                 style={{ borderColor: '#E5E7EB', color: '#374151' }}
                 aria-label="Export to Excel"
               >
@@ -698,7 +698,7 @@ export default function VisualDetailModal({
               ID: {visual.id}
             </span>
             <button type="button" onClick={handleDismiss}
-              className="py-1.5 px-5 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 flex-shrink-0"
+              className="py-1.5 px-5 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-earth-400 flex-shrink-0"
               style={{ background: '#B83510' }}>
               Close
             </button>

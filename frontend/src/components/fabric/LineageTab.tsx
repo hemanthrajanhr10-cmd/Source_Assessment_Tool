@@ -12,19 +12,19 @@ import Breadcrumb from '../reports/Breadcrumb'
 // ── Design tokens ──────────────────────────────────────────────────────────────
 
 const T = {
-  wsAccent:    '#3B5BDB',
+  wsAccent:    '#4DA8A0',
   modelAccent: '#D97706',
-  repAccent:   '#0056B3',
+  repAccent:   '#3D8B84',
   msrAccent:   '#6D28D9',
   ink2:   '#1E293B',
   mid:    '#475569',
   muted:  '#64748B',
   dim:    '#94A3B8',
-  border: 'rgba(197,213,236,0.65)',
+  border: 'rgba(168,226,221,0.65)',
   shadow:    '0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.8)',
-  shadowMd:  '0 4px 16px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
-  canvas:    '#F8FAFF',
-  toolbarBg: 'linear-gradient(180deg, #F9FAFD 0%, #F2F6FB 100%)',
+  shadowMd:  '0 4px 16px rgba(77,168,160,0.12), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
+  canvas:    '#F8FDFB',
+  toolbarBg: 'linear-gradient(180deg, #F5FCFA 0%, #EEF8F6 100%)',
 }
 
 // ── Keyframes ──────────────────────────────────────────────────────────────────

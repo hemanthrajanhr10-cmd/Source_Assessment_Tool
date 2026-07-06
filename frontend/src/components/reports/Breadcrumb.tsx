@@ -23,10 +23,10 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
       aria-label="Breadcrumb"
       className="flex items-center h-9 px-4 select-none overflow-hidden"
       style={{
-        background: 'linear-gradient(180deg, #EFF6FF 0%, #E8F0FB 100%)',
+        background: 'linear-gradient(180deg, #F5FCFA 0%, #EEF8F6 100%)',
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
         minHeight: 36,
-        borderBottom: '1px solid rgba(197,213,236,0.60)',
+        borderBottom: '1px solid rgba(168,226,221,0.60)',
       }}
     >
       {displayed.map((item, idx) => {
@@ -63,9 +63,9 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
               <button
                 type="button"
                 onClick={item.onClick}
-                className="text-sm truncate max-w-xs hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+                className="text-sm truncate max-w-xs hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-earth-400 rounded"
                 style={{
-                  color: '#0056B3',
+                  color: '#3D8B84',
                   cursor: item.onClick ? 'pointer' : 'default',
                   background: 'none',
                   border: 'none',

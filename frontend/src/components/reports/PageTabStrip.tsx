@@ -30,7 +30,7 @@ export default function PageTabStrip({ pages, activePageIndex, onSelectPage }: P
         <select
           value={activePageIndex}
           onChange={e => onSelectPage(Number(e.target.value))}
-          className="flex-1 text-xs rounded-md border px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="flex-1 text-xs rounded-md border px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-earth-400 focus:border-transparent"
           style={{ borderColor: '#E5E7EB', color: '#111827', fontFamily: FONT }}
           aria-label="Select page"
         >
@@ -72,12 +72,12 @@ export default function PageTabStrip({ pages, activePageIndex, onSelectPage }: P
               role="tab"
               aria-selected={isActive}
               onClick={() => onSelectPage(idx)}
-              className="flex items-center px-4 text-xs whitespace-nowrap transition-colors duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 flex-shrink-0"
+              className="flex items-center px-4 text-xs whitespace-nowrap transition-colors duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-earth-400 flex-shrink-0"
               style={{
                 background: isActive ? '#fff' : 'transparent',
-                color: isActive ? '#0056B3' : '#6B7280',
+                color: isActive ? '#4DA8A0' : '#6B7280',
                 fontWeight: isActive ? 600 : 400,
-                borderBottom: isActive ? '2px solid #0056B3' : '2px solid transparent',
+                borderBottom: isActive ? '2px solid #4DA8A0' : '2px solid transparent',
                 borderTop: 'none',
                 borderLeft: 'none',
                 borderRight: 'none',

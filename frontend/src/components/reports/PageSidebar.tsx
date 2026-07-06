@@ -45,11 +45,11 @@ export default function PageSidebar({
               type="button"
               role="listitem"
               onClick={() => { onSelectPage(idx); onItemClick?.() }}
-              className="w-full text-left px-3 py-2 text-xs transition-colors duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 flex items-center gap-2.5"
+              className="w-full text-left px-3 py-2 text-xs transition-colors duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-earth-400 flex items-center gap-2.5"
               style={{
-                color: isActive ? '#0056B3' : '#374151',
-                background: isActive ? '#EFF6FF' : 'transparent',
-                borderLeft: isActive ? '2px solid #0056B3' : '2px solid transparent',
+                color: isActive ? '#4DA8A0' : '#374151',
+                background: isActive ? '#F0FAF9' : 'transparent',
+                borderLeft: isActive ? '2px solid #4DA8A0' : '2px solid transparent',
                 fontWeight: isActive ? 600 : 400,
                 fontFamily: FONT,
               }}
@@ -65,7 +65,7 @@ export default function PageSidebar({
                 className="inline-flex items-center justify-center rounded-full flex-shrink-0"
                 style={{
                   width: 18, height: 18,
-                  background: isActive ? '#0056B3' : '#E5E7EB',
+                  background: isActive ? '#4DA8A0' : '#E5E7EB',
                   color: isActive ? '#fff' : '#6B7280',
                   fontSize: 9, fontWeight: 700,
                 }}
@@ -115,7 +115,7 @@ export default function PageSidebar({
             <button
               type="button"
               onClick={onMobileClose}
-              className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-earth-400"
               aria-label="Close navigation"
             >
               <X size={15} style={{ color: '#6B7280' }} />
@@ -149,10 +149,10 @@ export default function PageSidebar({
               type="button"
               title={`${idx + 1}. ${page.name}`}
               onClick={() => onSelectPage(idx)}
-              className="flex items-center justify-center w-full py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
+              className="flex items-center justify-center w-full py-2.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-earth-400"
               style={{
-                background: isActive ? '#EFF6FF' : 'transparent',
-                borderLeft: isActive ? '2px solid #0056B3' : '2px solid transparent',
+                background: isActive ? '#F0FAF9' : 'transparent',
+                borderLeft: isActive ? '2px solid #4DA8A0' : '2px solid transparent',
               }}
               aria-current={isActive ? 'page' : undefined}
               aria-label={`Page ${idx + 1}: ${page.name}`}
@@ -161,7 +161,7 @@ export default function PageSidebar({
                 className="inline-flex items-center justify-center rounded-full"
                 style={{
                   width: 20, height: 20,
-                  background: isActive ? '#0056B3' : '#E5E7EB',
+                  background: isActive ? '#4DA8A0' : '#E5E7EB',
                   color: isActive ? '#fff' : '#6B7280',
                   fontSize: 9, fontWeight: 700,
                 }}
@@ -200,7 +200,7 @@ export default function PageSidebar({
         <button
           type="button"
           onClick={onToggle}
-          className="flex items-center justify-center w-6 h-6 rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors ml-auto"
+          className="flex items-center justify-center w-6 h-6 rounded hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-earth-400 transition-colors ml-auto"
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed

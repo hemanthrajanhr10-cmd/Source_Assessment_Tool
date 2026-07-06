@@ -10,6 +10,7 @@ import type { FabricWorkspaceInfo, FabricWorkspaceItems } from '../types/api'
 import Button from '../components/ui/Button'
 import { FabricLogo } from '../components/ui/SourceLogos'
 import { formatTime } from '../utils/dateTime'
+import { useNotifications } from '../context/NotificationContext'
 
 // Steps: start → waiting (device code) → picking (workspaces) → picking-items (models & reports) → naming → submitting
 type Step = 'start' | 'waiting' | 'picking' | 'picking-items' | 'naming' | 'submitting'
@@ -22,6 +23,7 @@ const MAX_CONSECUTIVE_POLL_ERRORS = 5
 
 export default function FabricAssessmentPage() {
   const navigate = useNavigate()
+  const { push: pushNotif } = useNotifications()
   const [step, setStep]           = useState<Step>('start')
   const [authId, setAuthId]       = useState('')
   const [userCode, setUserCode]   = useState('')
@@ -365,9 +367,19 @@ export default function FabricAssessmentPage() {
         report_ids:    Array.from(selectedReportIds),
         dataflow_ids:  Array.from(selectedDataflowIds),
       })
+      pushNotif(
+        'success',
+        'Fabric assessment started',
+        `${label.trim() || 'Assessment'} — ${selectedWsIds.size} workspace${selectedWsIds.size !== 1 ? 's' : ''}, ` +
+        `${selectedReportIds.size} report${selectedReportIds.size !== 1 ? 's' : ''}, ` +
+        `${selectedDatasetIds.size} model${selectedDatasetIds.size !== 1 ? 's' : ''}, ` +
+        `${selectedDataflowIds.size} dataflow${selectedDataflowIds.size !== 1 ? 's' : ''}.`,
+      )
       navigate(`/fabric/sessions/${data.fabric_session_id}`)
     } catch (err) {
-      setError(getApiErrorMessage(err))
+      const msg = getApiErrorMessage(err)
+      setError(msg)
+      pushNotif('error', 'Fabric assessment failed to start', msg)
       setStep('naming')
     }
   }
@@ -407,16 +419,11 @@ export default function FabricAssessmentPage() {
           <div className="p-6">
             {step === 'start' && (
               <div className="space-y-4">
-                {/* Cancel / dismissible info banner */}
                 {cancelInfo && (
                   <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                     <AlertCircle className="h-4 w-4 shrink-0 text-slate-400" />
                     <span className="flex-1">{cancelInfo}</span>
-                    <button
-                      onClick={() => setCancelInfo(null)}
-                      aria-label="Dismiss"
-                      className="ml-auto text-slate-400 hover:text-slate-600 transition-colors"
-                    >
+                    <button onClick={() => setCancelInfo(null)} aria-label="Dismiss" className="ml-auto text-slate-400 hover:text-slate-600 transition-colors">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
@@ -432,36 +439,25 @@ export default function FabricAssessmentPage() {
               </div>
             )}
 
-            {/* Waiting — code not yet received */}
             {step === 'waiting' && !userCode && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 text-sm text-slate-500">
                   <Loader2 className="h-5 w-5 animate-spin text-earth-600" />
                   Requesting device code from Microsoft…
                 </div>
-                <button
-                  onClick={handleCancel}
-                  aria-label="Cancel sign-in"
-                  role="button"
-                  className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-transparent px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-earth-600/50 cursor-pointer"
-                >
+                <button onClick={handleCancel} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-transparent px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">
                   Cancel
                 </button>
               </div>
             )}
 
-            {/* Waiting — code received, user must go to microsoft.com/devicelogin */}
             {step === 'waiting' && userCode && (
               <div className="space-y-4">
                 <p className="text-sm text-slate-500">
                   Open the link below in any browser and enter the code to authenticate:
                 </p>
-                <a
-                  href={verificationUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm font-medium text-earth-700 hover:text-earth-800 hover:underline transition-colors"
-                >
+                <a href={verificationUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm font-medium text-earth-700 hover:text-earth-800 hover:underline transition-colors">
                   <ExternalLink className="h-4 w-4 shrink-0" />
                   {verificationUrl}
                 </a>
@@ -470,10 +466,7 @@ export default function FabricAssessmentPage() {
                     <p className="text-xs text-earth-600/70 font-medium mb-0.5">Your code</p>
                     <p className="text-2xl font-mono font-bold tracking-widest text-earth-700">{userCode}</p>
                   </div>
-                  <button
-                    onClick={handleCopy}
-                    className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 transition-colors"
-                  >
+                  <button onClick={handleCopy} className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 transition-colors">
                     <Copy className="h-4 w-4" />
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
@@ -481,28 +474,9 @@ export default function FabricAssessmentPage() {
                 <div className="flex items-center gap-2 text-sm text-slate-500">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Waiting for you to sign in…
-                  {expiresAt && (
-                    <span className="text-xs text-slate-400">
-                      (expires {formatTime(expiresAt)})
-                    </span>
-                  )}
+                  {expiresAt && <span className="text-xs text-slate-400">(expires {formatTime(expiresAt)})</span>}
                 </div>
-
-                {/* Cancel button — accessible, ghost style, centered */}
-                <button
-                  onClick={handleCancel}
-                  aria-label="Cancel sign-in"
-                  role="button"
-                  className={[
-                    'flex w-full items-center justify-center gap-1.5 rounded-xl',
-                    'border border-slate-300 bg-transparent px-4 py-2',
-                    'text-sm text-slate-500',
-                    'hover:bg-slate-50 hover:text-slate-700',
-                    'transition-colors focus:outline-none focus:ring-2 focus:ring-earth-600/50',
-                    'cursor-pointer',
-                    'sm:w-auto sm:mx-auto',
-                  ].join(' ')}
-                >
+                <button onClick={handleCancel} className="flex w-full sm:w-auto sm:mx-auto items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-transparent px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">
                   ← Back
                 </button>
               </div>
@@ -517,7 +491,7 @@ export default function FabricAssessmentPage() {
           </div>
         </div>
 
-        {/* ── Step 2 — Select Workspaces ───────────────────────────────────── */}
+        {/* ── Step 2 — Select Workspaces (redesigned) ─────────────────────── */}
         {(step === 'picking' || wsDone) && (
           <div className={`card overflow-hidden border-2 transition-colors ${
             !wsDone ? 'border-earth-400' : 'border-slate-200'
@@ -529,15 +503,15 @@ export default function FabricAssessmentPage() {
               </span>
               <h2 className="text-sm font-semibold text-slate-900">Select Workspaces</h2>
               {selectedWsIds.size > 0 && (
-                <span className="ml-auto text-xs text-earth-700 font-medium">
+                <span className="ml-auto text-xs font-semibold text-earth-700 bg-earth-50 border border-earth-200 rounded-full px-2.5 py-0.5">
                   {selectedWsIds.size} selected
                 </span>
               )}
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-5 space-y-4">
               {workspacesLoading ? (
-                <div className="flex items-center gap-3 text-sm text-slate-500">
+                <div className="flex items-center gap-3 py-4 text-sm text-slate-500">
                   <Loader2 className="h-5 w-5 animate-spin text-earth-600" />
                   Loading accessible workspaces…
                 </div>
@@ -546,89 +520,111 @@ export default function FabricAssessmentPage() {
                   <CheckCircle2 className="h-4 w-4 text-earth-500" />
                   {selectedWsIds.size} workspace{selectedWsIds.size !== 1 ? 's' : ''} selected
                 </div>
+              ) : workspaces.length === 0 ? (
+                <p className="text-sm text-slate-500 py-4">No accessible workspaces found for this account.</p>
               ) : (
                 <>
-                  {workspaces.length === 0 ? (
-                    <p className="text-sm text-slate-500">No accessible workspaces found for this account.</p>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
-                          <input
-                            type="text"
-                            className="form-input pl-9 py-1.5 text-sm"
-                            placeholder="Filter workspaces…"
-                            value={wsFilter}
-                            onChange={e => setWsFilter(e.target.value)}
-                          />
-                        </div>
-                        <button
-                          onClick={toggleAllWorkspaces}
-                          className="shrink-0 text-xs text-earth-700 hover:text-earth-800 hover:underline font-medium transition-colors"
-                        >
-                          {filteredWorkspaces.every(w => selectedWsIds.has(w.id))
-                            ? 'Deselect all'
-                            : 'Select all'}
-                        </button>
-                      </div>
+                  {/* Search + select-all */}
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        className="form-input pl-9 py-1.5 text-sm"
+                        placeholder="Search workspaces…"
+                        value={wsFilter}
+                        onChange={e => setWsFilter(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      onClick={toggleAllWorkspaces}
+                      className="shrink-0 text-xs font-medium text-earth-700 hover:text-earth-800 hover:underline transition-colors"
+                    >
+                      {filteredWorkspaces.every(w => selectedWsIds.has(w.id)) ? 'Deselect all' : 'Select all'}
+                    </button>
+                  </div>
 
-                      <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-50">
-                        {filteredWorkspaces.map(ws => (
-                          <label
-                            key={ws.id}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors"
-                          >
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white"
-                              checked={selectedWsIds.has(ws.id)}
-                              onChange={() => toggleWorkspace(ws.id)}
-                            />
-                            <Building2 className="h-4 w-4 text-slate-500 shrink-0" />
+                  {/* Workspace card grid */}
+                  <div className="grid gap-2">
+                    {filteredWorkspaces.map(ws => {
+                      const isSelected = selectedWsIds.has(ws.id)
+                      return (
+                        <button
+                          key={ws.id}
+                          type="button"
+                          onClick={() => toggleWorkspace(ws.id)}
+                          className={`w-full text-left rounded-xl border px-4 py-3 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-earth-400/50 ${
+                            isSelected
+                              ? 'border-earth-400 bg-earth-50/70 shadow-sm'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Checkbox visual */}
+                            <div className={`mt-0.5 h-4.5 w-4.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected ? 'border-earth-500 bg-earth-500' : 'border-slate-300 bg-white'
+                            }`}
+                              style={{ width: '1.125rem', height: '1.125rem' }}
+                            >
+                              {isSelected && (
+                                <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                            </div>
+
+                            {/* Icon + Name */}
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              isSelected ? 'bg-earth-100 text-earth-600' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              <Building2 className="h-4 w-4" />
+                            </div>
+
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-slate-800 truncate">{ws.name}</p>
-                              <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
-                                <span className="flex items-center gap-1">
+                              <p className={`text-sm font-semibold truncate leading-snug ${
+                                isSelected ? 'text-earth-900' : 'text-slate-800'
+                              }`}>{ws.name}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
                                   <Database className="h-3 w-3" />
                                   {ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''}
                                 </span>
-                                <span className="flex items-center gap-1">
+                                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
                                   <FileText className="h-3 w-3" />
                                   {ws.report_count} report{ws.report_count !== 1 ? 's' : ''}
                                 </span>
                                 {ws.state !== 'Active' && (
-                                  <span className="text-earth-600">{ws.state}</span>
+                                  <span className="text-[11px] text-amber-600 font-medium">{ws.state}</span>
                                 )}
                               </div>
                             </div>
-                          </label>
-                        ))}
-
-                        {filteredWorkspaces.length === 0 && (
-                          <div className="px-4 py-6 text-center text-sm text-slate-400">
-                            No workspaces match "{wsFilter}"
                           </div>
-                        )}
-                      </div>
+                        </button>
+                      )
+                    })}
 
-                      <Button
-                        disabled={selectedWsIds.size === 0}
-                        loading={itemsLoading}
-                        rightIcon={<ArrowRight className="h-4 w-4" />}
-                        onClick={fetchWorkspaceItems}
-                      >
-                        Continue with {selectedWsIds.size || '…'} workspace{selectedWsIds.size !== 1 ? 's' : ''}
-                      </Button>
-                    </>
-                  )}
+                    {filteredWorkspaces.length === 0 && (
+                      <div className="py-8 text-center text-sm text-slate-400 rounded-xl border border-dashed border-slate-200">
+                        No workspaces match &quot;{wsFilter}&quot;
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    disabled={selectedWsIds.size === 0}
+                    loading={itemsLoading}
+                    rightIcon={<ArrowRight className="h-4 w-4" />}
+                    onClick={fetchWorkspaceItems}
+                  >
+                    Continue with {selectedWsIds.size || '…'} workspace{selectedWsIds.size !== 1 ? 's' : ''}
+                  </Button>
                 </>
               )}
             </div>
           </div>
         )}
 
-        {/* ── Step 3 — Select Models & Reports ────────────────────────────── */}
+        {/* ── Step 3 — Select Artifacts (redesigned) ──────────────────────── */}
         {(step === 'picking-items' || itemsDone) && (
           <div className={`card overflow-hidden border-2 transition-colors ${
             !itemsDone ? 'border-earth-400' : 'border-slate-200'
@@ -638,21 +634,19 @@ export default function FabricAssessmentPage() {
                 ${itemsDone ? 'bg-earth-500 text-white' : 'bg-earth-600 text-white'}`}>
                 {itemsDone ? <CheckCircle2 className="h-4 w-4" /> : '3'}
               </span>
-              <h2 className="text-sm font-semibold text-slate-900">Select Reports, Models &amp; Dataflows</h2>
-              {selectedItemCount > 0 && (
-                <span className="ml-auto text-xs text-earth-700 font-medium">
-                  {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''},{' '}
-                  {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''},{' '}
-                  {selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''}
+              <h2 className="text-sm font-semibold text-slate-900">Select Artifacts</h2>
+              {selectedItemCount > 0 && !itemsDone && (
+                <span className="ml-auto text-[11px] font-semibold text-earth-700 bg-earth-50 border border-earth-200 rounded-full px-2.5 py-0.5 tabular-nums">
+                  {selectedItemCount} selected
                 </span>
               )}
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-5 space-y-4">
               {itemsLoading ? (
-                <div className="flex items-center gap-3 text-sm text-slate-500">
+                <div className="flex items-center gap-3 py-4 text-sm text-slate-500">
                   <Loader2 className="h-5 w-5 animate-spin text-earth-600" />
-                  Loading reports, models and dataflows…
+                  Loading artifacts from selected workspaces…
                 </div>
               ) : itemsDone ? (
                 <div className="flex items-center gap-2 text-sm text-earth-700">
@@ -661,225 +655,263 @@ export default function FabricAssessmentPage() {
                   {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''},{' '}
                   {selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''} selected
                 </div>
+              ) : totalItems === 0 ? (
+                <p className="text-sm text-slate-500 py-4">No artifacts found in the selected workspaces.</p>
               ) : (
                 <>
-                  {totalItems === 0 ? (
-                    <p className="text-sm text-slate-500">No reports, models or dataflows found in the selected workspaces.</p>
-                  ) : (
-                    <>
-                      {/* Search + global toggle */}
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
-                          <input
-                            type="text"
-                            className="form-input pl-9 py-1.5 text-sm"
-                            placeholder="Filter reports, models and dataflows…"
-                            value={itemFilter}
-                            onChange={e => setItemFilter(e.target.value)}
-                          />
-                        </div>
-                        <button
-                          onClick={toggleAllItems}
-                          className="shrink-0 text-xs text-earth-700 hover:text-earth-800 hover:underline font-medium transition-colors"
-                        >
-                          {allItemsSelected ? 'Deselect all' : 'Select all'}
-                        </button>
-                      </div>
+                  {/* Search bar + global toggle */}
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        className="form-input pl-9 py-1.5 text-sm"
+                        placeholder="Search reports, models, dataflows…"
+                        value={itemFilter}
+                        onChange={e => setItemFilter(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      onClick={toggleAllItems}
+                      className="shrink-0 text-xs font-medium text-earth-700 hover:text-earth-800 hover:underline transition-colors"
+                    >
+                      {allItemsSelected ? 'Deselect all' : 'Select all'}
+                    </button>
+                  </div>
 
-                      {/* Workspace-grouped item list */}
-                      <div className="max-h-96 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-50">
-                        {filteredItems.map(ws => {
-                          const wsName      = wsNameMap[ws.workspace_id] || ws.workspace_id
-                          const wsExpanded  = expandedWorkspaces.has(ws.workspace_id)
-                          const rptExpanded = expandedReports.has(ws.workspace_id)
-                          const mdlExpanded = expandedModels.has(ws.workspace_id)
-                          const dfExpanded  = expandedDataflows.has(ws.workspace_id)
-                          const dsSelected  = ws.datasets.filter(d => selectedDatasetIds.has(d.id)).length
-                          const rptSelected = ws.reports.filter(r => selectedReportIds.has(r.id)).length
-                          const dfSelected  = (ws.dataflows || []).filter(df => selectedDataflowIds.has(df.id)).length
+                  {/* Per-workspace accordion */}
+                  <div className="space-y-3">
+                    {filteredItems.map(ws => {
+                      const wsName      = wsNameMap[ws.workspace_id] || ws.workspace_id
+                      const wsExpanded  = expandedWorkspaces.has(ws.workspace_id)
+                      const rptExpanded = expandedReports.has(ws.workspace_id)
+                      const mdlExpanded = expandedModels.has(ws.workspace_id)
+                      const dfExpanded  = expandedDataflows.has(ws.workspace_id)
+                      const dsSelected  = ws.datasets.filter(d => selectedDatasetIds.has(d.id)).length
+                      const rptSelected = ws.reports.filter(r => selectedReportIds.has(r.id)).length
+                      const dfSelected  = (ws.dataflows || []).filter(df => selectedDataflowIds.has(df.id)).length
+                      const wsTotal     = ws.datasets.length + ws.reports.length + (ws.dataflows || []).length
+                      const wsSelectedTotal = dsSelected + rptSelected + dfSelected
 
-                          return (
-                            <div key={ws.workspace_id}>
-                              {/* Workspace header row */}
-                              <button
-                                className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-100/60 hover:bg-slate-100 transition-colors text-left"
-                                onClick={() => toggleWsExpand(ws.workspace_id)}
-                              >
-                                {wsExpanded
-                                  ? <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                                  : <ChevronRight className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                                }
-                                <Building2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                                <span className="flex-1 text-xs font-semibold text-slate-700 truncate">{wsName}</span>
-                                <span className="text-xs text-slate-400">
-                                  {rptSelected}/{ws.reports.length} reports · {dsSelected}/{ws.datasets.length} models · {dfSelected}/{(ws.dataflows || []).length} dataflows
+                      return (
+                        <div key={ws.workspace_id} className="rounded-xl border border-slate-200 overflow-hidden">
+                          {/* Workspace accordion header */}
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100/70 transition-colors text-left"
+                            onClick={() => toggleWsExpand(ws.workspace_id)}
+                          >
+                            <div className="h-7 w-7 rounded-lg bg-earth-50 border border-earth-100 flex items-center justify-center shrink-0">
+                              <Building2 className="h-3.5 w-3.5 text-earth-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-semibold text-slate-800 truncate block">{wsName}</span>
+                            </div>
+                            {/* Artifact type summary chips */}
+                            <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+                              {ws.reports.length > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-sky-50 border-sky-200 text-sky-700">
+                                  <FileText className="h-2.5 w-2.5" />
+                                  {rptSelected}/{ws.reports.length}
                                 </span>
-                              </button>
+                              )}
+                              {ws.datasets.length > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-violet-50 border-violet-200 text-violet-700">
+                                  <Database className="h-2.5 w-2.5" />
+                                  {dsSelected}/{ws.datasets.length}
+                                </span>
+                              )}
+                              {(ws.dataflows || []).length > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-50 border-amber-200 text-amber-700">
+                                  <Zap className="h-2.5 w-2.5" />
+                                  {dfSelected}/{(ws.dataflows || []).length}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-slate-400 tabular-nums ml-2 shrink-0">
+                              {wsSelectedTotal}/{wsTotal}
+                            </span>
+                            {wsExpanded
+                              ? <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                              : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                            }
+                          </button>
 
-                              {wsExpanded && (
-                                <div className="divide-y divide-slate-200">
+                          {wsExpanded && (
+                            <div className="divide-y divide-slate-100">
 
-                                  {/* ── Reports sub-section ── */}
-                                  {ws.reports.length > 0 && (
-                                    <div>
-                                      <button
-                                        className="w-full flex items-center gap-2 px-5 py-1.5 bg-slate-50/40 hover:bg-slate-50 transition-colors text-left"
-                                        onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedReports)}
-                                      >
-                                        {rptExpanded
-                                          ? <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />
-                                          : <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
-                                        }
-                                        <FileText className="h-3 w-3 text-earth-500/70 shrink-0" />
-                                        <span className="text-xs font-medium text-slate-500 flex-1">
-                                          Reports <span className="text-slate-400 font-normal">({rptSelected}/{ws.reports.length})</span>
-                                        </span>
-                                        <span
-                                          role="button"
-                                          tabIndex={0}
-                                          onClick={e => { e.stopPropagation(); toggleWorkspaceReports(ws) }}
-                                          onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceReports(ws))}
-                                          className="text-xs text-earth-700 hover:text-earth-800 hover:underline transition-colors cursor-pointer"
-                                        >
-                                          {ws.reports.every(r => selectedReportIds.has(r.id)) ? 'Deselect' : 'Select'} all
-                                        </span>
-                                      </button>
-                                      {rptExpanded && ws.reports.filter(r =>
+                              {/* Reports section */}
+                              {ws.reports.length > 0 && (
+                                <div>
+                                  <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2 bg-sky-50/50 hover:bg-sky-50 transition-colors text-left"
+                                    onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedReports)}
+                                  >
+                                    {rptExpanded ? <ChevronDown className="h-3.5 w-3.5 text-sky-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-sky-400 shrink-0" />}
+                                    <FileText className="h-3.5 w-3.5 text-sky-500 shrink-0" />
+                                    <span className="flex-1 text-xs font-semibold text-sky-700 uppercase tracking-wider">
+                                      Reports
+                                    </span>
+                                    <span className="text-[11px] text-sky-600 font-semibold tabular-nums">{rptSelected}/{ws.reports.length}</span>
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={e => { e.stopPropagation(); toggleWorkspaceReports(ws) }}
+                                      onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceReports(ws))}
+                                      className="ml-3 text-[11px] text-sky-600 hover:text-sky-800 hover:underline transition-colors cursor-pointer font-medium"
+                                    >
+                                      {ws.reports.every(r => selectedReportIds.has(r.id)) ? 'Deselect all' : 'Select all'}
+                                    </span>
+                                  </button>
+                                  {rptExpanded && (
+                                    <div className="divide-y divide-slate-100/70">
+                                      {ws.reports.filter(r =>
                                         !itemFilter || r.name.toLowerCase().includes(itemFilter.toLowerCase())
                                       ).map(rpt => (
                                         <label
                                           key={rpt.id}
-                                          className="flex items-center gap-3 px-7 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
+                                          className="flex items-center gap-3 pl-10 pr-4 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
                                         >
                                           <input
                                             type="checkbox"
-                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white shrink-0"
                                             checked={selectedReportIds.has(rpt.id)}
                                             onChange={() => toggleReport(rpt.id)}
                                           />
+                                          <FileText className="h-3 w-3 text-sky-400 shrink-0" />
                                           <span className="flex-1 text-sm text-slate-700 truncate">{rpt.name}</span>
                                           {rpt.report_type === 'PaginatedReport' && (
-                                            <span className="text-xs text-slate-400 shrink-0">Paginated</span>
+                                            <span className="text-[10px] text-slate-400 bg-slate-100 rounded px-1.5 py-0.5 shrink-0">Paginated</span>
                                           )}
                                         </label>
                                       ))}
                                     </div>
                                   )}
+                                </div>
+                              )}
 
-                                  {/* ── Semantic Models sub-section ── */}
-                                  {ws.datasets.length > 0 && (
-                                    <div>
-                                      <button
-                                        className="w-full flex items-center gap-2 px-5 py-1.5 bg-slate-50/40 hover:bg-slate-50 transition-colors text-left"
-                                        onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedModels)}
-                                      >
-                                        {mdlExpanded
-                                          ? <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />
-                                          : <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
-                                        }
-                                        <Database className="h-3 w-3 text-earth-500 shrink-0" />
-                                        <span className="text-xs font-medium text-slate-500 flex-1">
-                                          Semantic Models <span className="text-slate-400 font-normal">({dsSelected}/{ws.datasets.length})</span>
-                                        </span>
-                                        <span
-                                          role="button"
-                                          tabIndex={0}
-                                          onClick={e => { e.stopPropagation(); toggleWorkspaceDatasets(ws) }}
-                                          onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceDatasets(ws))}
-                                          className="text-xs text-earth-700 hover:text-earth-800 hover:underline transition-colors cursor-pointer"
-                                        >
-                                          {ws.datasets.every(d => selectedDatasetIds.has(d.id)) ? 'Deselect' : 'Select'} all
-                                        </span>
-                                      </button>
-                                      {mdlExpanded && ws.datasets.filter(d =>
+                              {/* Semantic Models section */}
+                              {ws.datasets.length > 0 && (
+                                <div>
+                                  <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2 bg-violet-50/50 hover:bg-violet-50 transition-colors text-left"
+                                    onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedModels)}
+                                  >
+                                    {mdlExpanded ? <ChevronDown className="h-3.5 w-3.5 text-violet-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-violet-400 shrink-0" />}
+                                    <Database className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                                    <span className="flex-1 text-xs font-semibold text-violet-700 uppercase tracking-wider">
+                                      Semantic Models
+                                    </span>
+                                    <span className="text-[11px] text-violet-600 font-semibold tabular-nums">{dsSelected}/{ws.datasets.length}</span>
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={e => { e.stopPropagation(); toggleWorkspaceDatasets(ws) }}
+                                      onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceDatasets(ws))}
+                                      className="ml-3 text-[11px] text-violet-600 hover:text-violet-800 hover:underline transition-colors cursor-pointer font-medium"
+                                    >
+                                      {ws.datasets.every(d => selectedDatasetIds.has(d.id)) ? 'Deselect all' : 'Select all'}
+                                    </span>
+                                  </button>
+                                  {mdlExpanded && (
+                                    <div className="divide-y divide-slate-100/70">
+                                      {ws.datasets.filter(d =>
                                         !itemFilter || d.name.toLowerCase().includes(itemFilter.toLowerCase())
                                       ).map(ds => (
                                         <label
                                           key={ds.id}
-                                          className="flex items-center gap-3 px-7 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
+                                          className="flex items-center gap-3 pl-10 pr-4 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
                                         >
                                           <input
                                             type="checkbox"
-                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white shrink-0"
                                             checked={selectedDatasetIds.has(ds.id)}
                                             onChange={() => toggleDataset(ds.id)}
                                           />
-                                          <span className="text-sm text-slate-700 truncate">{ds.name}</span>
+                                          <Database className="h-3 w-3 text-violet-400 shrink-0" />
+                                          <span className="flex-1 text-sm text-slate-700 truncate">{ds.name}</span>
                                         </label>
                                       ))}
                                     </div>
                                   )}
+                                </div>
+                              )}
 
-                                  {/* ── Dataflows sub-section ── */}
-                                  {(ws.dataflows || []).length > 0 && (
-                                    <div>
-                                      <button
-                                        className="w-full flex items-center gap-2 px-5 py-1.5 bg-slate-50/40 hover:bg-slate-50 transition-colors text-left"
-                                        onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedDataflows)}
-                                      >
-                                        {dfExpanded
-                                          ? <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />
-                                          : <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
-                                        }
-                                        <Zap className="h-3 w-3 text-amber-500 shrink-0" />
-                                        <span className="text-xs font-medium text-slate-500 flex-1">
-                                          Dataflows <span className="text-slate-400 font-normal">({dfSelected}/{(ws.dataflows || []).length})</span>
-                                        </span>
-                                        <span
-                                          role="button"
-                                          tabIndex={0}
-                                          onClick={e => { e.stopPropagation(); toggleWorkspaceDataflows(ws) }}
-                                          onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceDataflows(ws))}
-                                          className="text-xs text-earth-700 hover:text-earth-800 hover:underline transition-colors cursor-pointer"
-                                        >
-                                          {(ws.dataflows || []).every(df => selectedDataflowIds.has(df.id)) ? 'Deselect' : 'Select'} all
-                                        </span>
-                                      </button>
-                                      {dfExpanded && (ws.dataflows || []).filter(df =>
+                              {/* Dataflows section */}
+                              {(ws.dataflows || []).length > 0 && (
+                                <div>
+                                  <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2 bg-amber-50/50 hover:bg-amber-50 transition-colors text-left"
+                                    onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedDataflows)}
+                                  >
+                                    {dfExpanded ? <ChevronDown className="h-3.5 w-3.5 text-amber-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+                                    <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                    <span className="flex-1 text-xs font-semibold text-amber-700 uppercase tracking-wider">
+                                      Dataflows
+                                    </span>
+                                    <span className="text-[11px] text-amber-600 font-semibold tabular-nums">{dfSelected}/{(ws.dataflows || []).length}</span>
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={e => { e.stopPropagation(); toggleWorkspaceDataflows(ws) }}
+                                      onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceDataflows(ws))}
+                                      className="ml-3 text-[11px] text-amber-600 hover:text-amber-800 hover:underline transition-colors cursor-pointer font-medium"
+                                    >
+                                      {(ws.dataflows || []).every(df => selectedDataflowIds.has(df.id)) ? 'Deselect all' : 'Select all'}
+                                    </span>
+                                  </button>
+                                  {dfExpanded && (
+                                    <div className="divide-y divide-slate-100/70">
+                                      {(ws.dataflows || []).filter(df =>
                                         !itemFilter || df.name.toLowerCase().includes(itemFilter.toLowerCase())
                                       ).map(df => (
                                         <label
                                           key={df.id}
-                                          className="flex items-center gap-3 px-7 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
+                                          className="flex items-center gap-3 pl-10 pr-4 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
                                         >
                                           <input
                                             type="checkbox"
-                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white shrink-0"
                                             checked={selectedDataflowIds.has(df.id)}
                                             onChange={() => toggleDataflow(df.id)}
                                           />
+                                          <Zap className="h-3 w-3 text-amber-400 shrink-0" />
                                           <span className="flex-1 text-sm text-slate-700 truncate">{df.name}</span>
-                                          <span className="text-xs text-slate-400 shrink-0">{df.generation}</span>
+                                          {df.generation && (
+                                            <span className="text-[10px] text-slate-400 bg-slate-100 rounded px-1.5 py-0.5 shrink-0">{df.generation}</span>
+                                          )}
                                         </label>
                                       ))}
                                     </div>
                                   )}
-
                                 </div>
                               )}
+
                             </div>
-                          )
-                        })}
+                          )}
+                        </div>
+                      )
+                    })}
 
-                        {filteredItems.length === 0 && (
-                          <div className="px-4 py-6 text-center text-sm text-slate-400">
-                            No items match "{itemFilter}"
-                          </div>
-                        )}
+                    {filteredItems.length === 0 && (
+                      <div className="py-8 text-center text-sm text-slate-400 rounded-xl border border-dashed border-slate-200">
+                        No artifacts match &quot;{itemFilter}&quot;
                       </div>
+                    )}
+                  </div>
 
-                      <Button
-                        disabled={selectedItemCount === 0}
-                        rightIcon={<ArrowRight className="h-4 w-4" />}
-                        onClick={() => setStep('naming')}
-                      >
-                        Continue with {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''},{' '}
-                        {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''}{' '}
-                        &amp; {selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''}
-                      </Button>
-                    </>
-                  )}
+                  <Button
+                    disabled={selectedItemCount === 0}
+                    rightIcon={<ArrowRight className="h-4 w-4" />}
+                    onClick={() => setStep('naming')}
+                  >
+                    Continue — {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''},{' '}
+                    {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''},{' '}
+                    {selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''}
+                  </Button>
                 </>
               )}
             </div>
@@ -890,9 +922,7 @@ export default function FabricAssessmentPage() {
         {itemsDone && (
           <div className="card overflow-hidden border-2 border-earth-400">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
-              <span className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold bg-earth-600 text-white">
-                4
-              </span>
+              <span className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold bg-earth-600 text-white">4</span>
               <h2 className="text-sm font-semibold text-slate-900">Label &amp; Start Assessment</h2>
             </div>
             <div className="p-6 space-y-4">

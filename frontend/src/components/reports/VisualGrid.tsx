@@ -11,6 +11,51 @@ import type { MockPage, MockVisual } from '../../data/mockReports'
 const PBI_DEFAULT_W = 1280
 const PBI_DEFAULT_H = 720
 
+// ── Visual gutter ─────────────────────────────────────────────────────────────
+// Gap to inset each visual from its raw Power BI bounding box, in page-coordinate
+// pixels (before the container scale factor is applied). This creates breathing room
+// between adjacent visuals without changing their relative order or grouping.
+// Tune this single constant to adjust the overall density of the report canvas.
+
+const VISUAL_GAP_PX = 5   // half-gap per side: visuals 10px apart when touching
+
+// Minimum inset-adjusted dimensions (in page-coordinate pixels) below which we
+// stop insetting so small visuals stay legible.
+const INSET_MIN_W = 60
+const INSET_MIN_H = 36
+
+interface RawRect { x: number; y: number; width: number; height: number }
+
+/**
+ * Returns an inset copy of `raw` that adds breathing room between adjacent visuals.
+ *
+ * Strategy: shrink each visual by VISUAL_GAP_PX on every side, but only when the
+ * visual is genuinely touching a neighbour (i.e. gap < VISUAL_GAP_PX*2 in source).
+ * We detect this by checking whether the visual already has at least VISUAL_GAP_PX
+ * of clear space on each side vs the page edge — if it does, we assume the report
+ * author intentionally spaced it out and we only add half the inset so already-
+ * spaced reports aren't over-corrected.
+ *
+ * Simpler heuristic used here: always inset by VISUAL_GAP_PX per side (uniform),
+ * but cap so the visual never shrinks below INSET_MIN_W × INSET_MIN_H.
+ * This is sufficient because the gap is small (5px each side) — visuals that were
+ * already well-spaced in the source shrink slightly but grouping is unchanged.
+ */
+function applyVisualGutter(raw: RawRect): RawRect {
+  const g = VISUAL_GAP_PX
+  const newW = Math.max(INSET_MIN_W, raw.width  - g * 2)
+  const newH = Math.max(INSET_MIN_H, raw.height - g * 2)
+  // Centre the inset box within the original slot
+  const dx = (raw.width  - newW) / 2
+  const dy = (raw.height - newH) / 2
+  return {
+    x:      raw.x + dx,
+    y:      raw.y + dy,
+    width:  newW,
+    height: newH,
+  }
+}
+
 // ── Type label map ─────────────────────────────────────────────────────────────
 
 const TYPE_LABEL_MAP: Record<string, string> = {
@@ -330,14 +375,18 @@ function VisualBox({ visual, scale, pageW, index, onClick }: VisualBoxProps) {
     )
   }
 
-  const raw = hasLayout
+  const rawSlot = hasLayout
     ? { x: visual.x!, y: visual.y!, width: visual.width!, height: visual.height! }
     : fallbackRect(index, pageW)
 
-  const left   = raw.x * scale
-  const top    = raw.y * scale
-  const width  = Math.max(MIN_W * scale, raw.width  * scale)
-  const height = Math.max(MIN_H * scale, raw.height * scale)
+  // Apply gutter inset to add breathing room between adjacent visuals.
+  // Fallback rects already have explicit padding baked in, so skip guttering them.
+  const rect = hasLayout ? applyVisualGutter(rawSlot) : rawSlot
+
+  const left   = rect.x * scale
+  const top    = rect.y * scale
+  const width  = Math.max(MIN_W * scale, rect.width  * scale)
+  const height = Math.max(MIN_H * scale, rect.height * scale)
 
   const label = displayLabel(visual.type)
   const chip  = typeChipStyle(visual.type)

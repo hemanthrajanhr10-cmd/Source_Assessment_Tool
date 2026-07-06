@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState, useCallback } from 'react'
+import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Database, Hash, GitMerge, BarChart2, Table2,
@@ -6,6 +7,103 @@ import {
   TrendingUp, Eye, Shield,
 } from 'lucide-react'
 import type { FabricWorkspace, FabricReport, FabricDataset } from '../../types/api'
+
+// ── Portal tooltip ─────────────────────────────────────────────────────────────
+// Renders at document.body to escape any ancestor overflow:hidden or stacking
+// context that would clip or misposition the tooltip.
+
+interface TooltipState {
+  visible: boolean
+  x: number
+  y: number
+  content: React.ReactNode
+}
+
+function PortalTooltip({ state }: { state: TooltipState }) {
+  if (!state.visible) return null
+  return createPortal(
+    <div
+      role="tooltip"
+      style={{
+        position: 'fixed',
+        left: state.x,
+        top: state.y,
+        zIndex: 99999,
+        pointerEvents: 'none',
+        // Fade in via animation
+        animation: 'sat-tooltip-fadein 120ms ease forwards',
+      }}
+    >
+      <div style={{
+        background: '#1E293B',
+        color: '#F1F5F9',
+        fontSize: 11,
+        fontWeight: 500,
+        lineHeight: 1.5,
+        padding: '6px 10px',
+        borderRadius: 6,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12)',
+        whiteSpace: 'pre-line',
+        maxWidth: 260,
+        fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+      }}>
+        {state.content}
+      </div>
+    </div>,
+    document.body,
+  )
+}
+
+// Hook: tracks mouse position and manages tooltip visibility.
+// Returns props to spread onto the trigger element.
+function usePortalTooltip(content: React.ReactNode) {
+  const [state, setState] = useState<TooltipState>({ visible: false, x: 0, y: 0, content })
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Keep content ref current so tooltip always reflects latest data
+  const contentRef = useRef(content)
+  contentRef.current = content
+
+  const showFromElement = useCallback((el: HTMLElement) => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    const rect = el.getBoundingClientRect()
+    setState({
+      visible: true,
+      // Position above the element, centred horizontally
+      x: rect.left + rect.width / 2 - 100, // 100 ≈ half tooltip width
+      y: rect.top - 8,                       // 8px gap above trigger
+      content: contentRef.current,
+    })
+  }, [])
+
+  const showMouse = useCallback((e: React.MouseEvent) => {
+    showFromElement(e.currentTarget as HTMLElement)
+  }, [showFromElement])
+
+  const showFocus = useCallback((e: React.FocusEvent) => {
+    showFromElement(e.currentTarget as HTMLElement)
+  }, [showFromElement])
+
+  const hide = useCallback(() => {
+    // Small delay prevents flicker when cursor briefly leaves element
+    timerRef.current = setTimeout(() => {
+      setState(s => ({ ...s, visible: false }))
+    }, 80)
+  }, [])
+
+  // Cleanup on unmount so the tooltip doesn't linger after component removal
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
+
+  return {
+    tooltipState: state,
+    triggerProps: {
+      onMouseEnter: showMouse,
+      onMouseLeave: hide,
+      onFocus: showFocus,
+      onBlur: hide,
+    },
+  }
+}
 
 // ── Motion tokens (mirror CSS custom properties) ──────────────────────────────
 
@@ -48,26 +146,54 @@ const CX: Record<string, { bg: string; text: string; border: string; glow: strin
   'Minimal':      { bg: 'rgba(148,163,184,0.08)', text: '#64748B', border: 'rgba(148,163,184,0.20)', glow: 'rgba(148,163,184,0.08)' },
 }
 
+const COMPLEXITY_DESCRIPTIONS: Record<string, string> = {
+  None:           'No DAX complexity detected.\nThis measure uses only basic aggregations.',
+  Minimal:        'Minimal complexity.\nStraightforward calculation with few dependencies.',
+  Simple:         'Simple DAX.\nOne or two functions, low nesting depth.',
+  Moderate:       'Moderate complexity.\nMultiple functions or cross-table references.',
+  Complex:        'High complexity.\nDeep nesting, time-intelligence, or many dependencies.',
+  'Very Complex': 'Very complex DAX.\nHeavy nesting, CALCULATE chains, or 10+ functions.',
+}
+
 function ComplexityBadge({ level, score }: { level: string; score?: number }) {
   const s = CX[level] ?? CX['None']
-  return (
-    <motion.span
-      initial={{ scale: 0.85, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={SPRING_SNAPPY}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px',
-        borderRadius: 9999, fontSize: 11, fontWeight: 700, letterSpacing: '0.01em',
-        background: s.bg, color: s.text, border: `1px solid ${s.border}`,
-        boxShadow: `0 0 0 3px ${s.glow}`,
-      }}
-    >
-      <BarChart2 size={10} />
-      {level}
+  const description = COMPLEXITY_DESCRIPTIONS[level] ?? level
+  const tooltipContent = (
+    <span>
+      <strong style={{ display: 'block', marginBottom: 2 }}>{level}</strong>
       {score !== undefined && score > 0 && (
-        <span style={{ opacity: 0.60, fontSize: 10 }}>({score})</span>
+        <span style={{ display: 'block', marginBottom: 4, opacity: 0.75 }}>DAX score: {score}</span>
       )}
-    </motion.span>
+      {description}
+    </span>
+  )
+  const { tooltipState, triggerProps } = usePortalTooltip(tooltipContent)
+
+  return (
+    <>
+      <PortalTooltip state={tooltipState} />
+      <motion.span
+        initial={{ scale: 0.85, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={SPRING_SNAPPY}
+        tabIndex={0}
+        aria-describedby={tooltipState.visible ? 'complexity-tooltip' : undefined}
+        {...triggerProps}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px',
+          borderRadius: 9999, fontSize: 11, fontWeight: 700, letterSpacing: '0.01em',
+          background: s.bg, color: s.text, border: `1px solid ${s.border}`,
+          boxShadow: `0 0 0 3px ${s.glow}`,
+          cursor: 'default',
+        }}
+      >
+        <BarChart2 size={10} />
+        {level}
+        {score !== undefined && score > 0 && (
+          <span style={{ opacity: 0.60, fontSize: 10 }}>({score})</span>
+        )}
+      </motion.span>
+    </>
   )
 }
 
@@ -441,7 +567,7 @@ export default function ReportMetadataView({ report, workspace }: ReportMetadata
             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#1E293B', fontSize: 12 }}>{m.name}</span>,
             <span style={{ color: '#475569', fontSize: 11 }}>{m.table}</span>,
             <strong style={{ color: '#0056B3' }}>{m.usedCount}</strong>,
-            m.complexity ? <ComplexityBadge level={m.complexity.level} /> : <span style={{ color: '#94A3B8' }}>—</span>,
+            m.complexity ? <ComplexityBadge level={m.complexity.level} score={m.complexity.score} /> : <span style={{ color: '#94A3B8' }}>—</span>,
             m.complexity?.score ?? dashCell(),
             m.complexity?.nesting_depth ?? dashCell(),
             m.complexity?.function_count ?? dashCell(),

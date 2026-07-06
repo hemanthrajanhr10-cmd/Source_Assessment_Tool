@@ -1,10 +1,15 @@
-﻿import { useState } from 'react'
+import { useRef, useState, useLayoutEffect } from 'react'
 import {
   TrendingUp, BarChart2, Table2, Filter, Activity,
   PieChart, LayoutGrid, Type, Image as ImageIcon,
   ScatterChart, TrendingDown, Eye,
 } from 'lucide-react'
 import type { MockPage, MockVisual } from '../../data/mockReports'
+
+// ── Power BI default canvas size (used as fallback when page dims are absent) ──
+
+const PBI_DEFAULT_W = 1280
+const PBI_DEFAULT_H = 720
 
 // ── Type label map ─────────────────────────────────────────────────────────────
 
@@ -24,9 +29,11 @@ const TYPE_LABEL_MAP: Record<string, string> = {
   piechart: 'Pie Chart',
   kpivisual: 'KPI',
   kpi: 'KPI',
+  'kpi card': 'KPI',
   card: 'Card',
   pivottable: 'Pivot Table',
   tableex: 'Table',
+  table: 'Table',
   matrix: 'Matrix',
   basicshape: 'Shape',
   shape: 'Shape',
@@ -39,11 +46,15 @@ const TYPE_LABEL_MAP: Record<string, string> = {
   slicer: 'Slicer',
   textbox: 'Text Box',
   image: 'Image',
+  gauge: 'Gauge',
 }
 
 function displayLabel(type: string): string {
   const key = type.toLowerCase().replace(/\s+/g, '')
-  return TYPE_LABEL_MAP[key] ?? (type.charAt(0).toUpperCase() + type.slice(1))
+  if (TYPE_LABEL_MAP[key]) return TYPE_LABEL_MAP[key]
+  // Also try with spaces preserved for multi-word types like "kpi card"
+  const keySpaced = type.toLowerCase()
+  return TYPE_LABEL_MAP[keySpaced] ?? (type.charAt(0).toUpperCase() + type.slice(1))
 }
 
 function typeChipStyle(type: string): { bg: string; color: string } {
@@ -58,12 +69,16 @@ function typeChipStyle(type: string): { bg: string; color: string } {
     return { bg: '#EDF9F0', color: '#136137' }
   if (['tableex', 'table'].includes(t))
     return { bg: '#EDF8FA', color: '#084E5B' }
-  if (['card', 'kpivisual', 'kpi'].includes(t))
+  if (['card', 'kpivisual', 'kpi', 'kpicard'].includes(t))
     return { bg: '#EDF9F0', color: '#177B44' }
   if (['linechart', 'areachart', 'stackedareachart'].includes(t))
     return { bg: '#EDF8FA', color: '#0D7F97' }
   if (['donutchart', 'piechart'].includes(t))
     return { bg: '#EFF6FF', color: '#0056B3' }
+  if (t === 'gauge')
+    return { bg: '#FDF4FF', color: '#7C3AED' }
+  if (t === 'image')
+    return { bg: '#F9FAFB', color: '#6B7280' }
   return { bg: '#F9FAFB', color: '#374151' }
 }
 
@@ -78,7 +93,7 @@ function VisualTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
        'clusteredcolumnchart', 'stackedcolumnchart', 'hundredpercentstackedcolumnchart',
        'hundredpercentstackedbarchart', 'lineclusteredcolumnchart'].includes(t))
     return <BarChart2 size={size} style={{ color: '#0A6678' }} />
-  if (['card', 'kpivisual', 'kpi'].includes(t))
+  if (['card', 'kpivisual', 'kpi', 'kpicard'].includes(t))
     return <TrendingUp size={size} style={{ color: '#177B44' }} />
   if (['tableex', 'table'].includes(t))
     return <Table2 size={size} style={{ color: '#084E5B' }} />
@@ -86,6 +101,8 @@ function VisualTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
     return <LayoutGrid size={size} style={{ color: '#136137' }} />
   if (['donutchart', 'piechart'].includes(t))
     return <PieChart size={size} style={{ color: '#0056B3' }} />
+  if (t === 'gauge')
+    return <Activity size={size} style={{ color: '#7C3AED' }} />
   if (t === 'scatterchart')
     return <ScatterChart size={size} style={{ color: '#0D7F97' }} />
   if (['waterfallchart', 'funnelchart', 'ribbonchart', 'treemap'].includes(t))
@@ -99,38 +116,43 @@ function VisualTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
   return <Eye size={size} style={{ color: '#9CA3AF' }} />
 }
 
-// ── Mini Preview (120px tall area inside card) ─────────────────────────────────
+// ── Mini Preview ───────────────────────────────────────────────────────────────
+// Renders a scaled content preview that fills whatever space the parent gives it.
 
-const PREVIEW_H = 120
-
-function MiniPreview({ visual }: { visual: MockVisual }) {
+function MiniPreview({ visual, scale }: { visual: MockVisual; scale: number }) {
   const t = visual.type.toLowerCase().replace(/\s+/g, '')
 
   if (['textbox', 'shape', 'basicshape'].includes(t)) {
     const text = visual.text_content || visual.mockValue || ''
     return (
-      <div className="flex items-start justify-start w-full h-full p-3 overflow-hidden">
+      <div className="flex items-start justify-start w-full h-full overflow-hidden"
+        style={{ padding: Math.max(4, 8 * scale) }}>
         {text
-          ? <span className="text-xs leading-relaxed" style={{ color: '#374151', wordBreak: 'break-word' }}>
+          ? <span style={{
+              fontSize: Math.max(8, 11 * scale),
+              color: '#374151', wordBreak: 'break-word', lineHeight: 1.4,
+            }}>
               {text.slice(0, 140)}
             </span>
           : <div className="flex flex-col items-center justify-center w-full h-full gap-1">
-              <VisualTypeIcon type={visual.type} size={24} />
-              <span className="text-xs" style={{ color: '#9CA3AF' }}>{displayLabel(visual.type)}</span>
+              <VisualTypeIcon type={visual.type} size={Math.max(12, 20 * scale)} />
+              <span style={{ fontSize: Math.max(7, 10 * scale), color: '#9CA3AF' }}>
+                {displayLabel(visual.type)}
+              </span>
             </div>
         }
       </div>
     )
   }
 
-  if (['card', 'kpivisual', 'kpi'].includes(t)) {
+  if (['card', 'kpivisual', 'kpi', 'kpicard'].includes(t)) {
     return (
       <div className="flex flex-col items-center justify-center w-full h-full">
-        <span style={{ fontSize: 30, fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
+        <span style={{ fontSize: Math.max(12, 22 * scale), fontWeight: 700, color: '#111827', lineHeight: 1.1 }}>
           {visual.mockValue ?? '—'}
         </span>
         {visual.mockSubtitle && (
-          <span className="text-xs mt-1.5 font-medium" style={{ color: '#047857' }}>
+          <span style={{ fontSize: Math.max(7, 9 * scale), marginTop: 2, fontWeight: 500, color: '#047857' }}>
             {visual.mockSubtitle}
           </span>
         )}
@@ -138,12 +160,37 @@ function MiniPreview({ visual }: { visual: MockVisual }) {
     )
   }
 
+  if (t === 'gauge') {
+    const pct = 0.72
+    const r = 40, cx = 56, cy = 52
+    const startAngle = Math.PI
+    const endAngle   = startAngle + pct * Math.PI
+    const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle)
+    const x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle)
+    return (
+      <div className="flex items-center justify-center w-full h-full">
+        <svg width="100%" height="100%" viewBox="0 0 112 68" preserveAspectRatio="xMidYMid meet">
+          <path d={`M ${x1} ${y1} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+            fill="none" stroke="#E5E7EB" strokeWidth="8" strokeLinecap="round" />
+          <path d={`M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`}
+            fill="none" stroke="#7C3AED" strokeWidth="8" strokeLinecap="round" />
+          <text x={cx} y={cy - 4} textAnchor="middle"
+            style={{ fontSize: 12, fontWeight: 700, fill: '#1F2937', fontFamily: 'system-ui' }}>
+            {visual.mockValue ?? '72%'}
+          </text>
+        </svg>
+      </div>
+    )
+  }
+
   if (t === 'slicer') {
     return (
-      <div className="flex flex-wrap items-center gap-1.5 p-3 w-full content-center h-full">
+      <div className="flex flex-wrap items-center gap-1 w-full content-center h-full"
+        style={{ padding: Math.max(4, 8 * scale) }}>
         {['(All)', 'A', 'B', 'C'].map((c, i) => (
           <span key={c} style={{
-            padding: '2px 10px', fontSize: 11, borderRadius: 999, fontWeight: 500,
+            padding: `${Math.max(1, 2 * scale)}px ${Math.max(4, 8 * scale)}px`,
+            fontSize: Math.max(7, 10 * scale), borderRadius: 999, fontWeight: 500,
             border: '1px solid', borderColor: i === 0 ? '#0056B3' : '#D1D5DB',
             background: i === 0 ? '#0056B3' : '#fff',
             color: i === 0 ? '#fff' : '#374151',
@@ -158,8 +205,8 @@ function MiniPreview({ visual }: { visual: MockVisual }) {
        'hundredpercentstackedbarchart', 'lineclusteredcolumnchart'].includes(t)) {
     const bars = [0.6, 0.85, 0.45, 0.9, 0.7]
     return (
-      <div className="flex items-end justify-center gap-1 w-full px-5"
-        style={{ height: PREVIEW_H - 16, paddingBottom: 10 }}>
+      <div className="flex items-end justify-center gap-1 w-full h-full"
+        style={{ padding: `${Math.max(4, 8 * scale)}px ${Math.max(8, 16 * scale)}px ${Math.max(6, 10 * scale)}px` }}>
         {bars.map((p, i) => (
           <div key={i} style={{
             flex: 1, height: `${p * 100}%`,
@@ -173,24 +220,24 @@ function MiniPreview({ visual }: { visual: MockVisual }) {
 
   if (['linechart', 'areachart', 'stackedareachart'].includes(t)) {
     const pts = [0.7, 0.45, 0.6, 0.3, 0.5, 0.2, 0.4, 0.35]
-    const W = 180, H = PREVIEW_H - 28
+    const W = 180, H = 60
     const xStep = W / (pts.length - 1)
     const polyline = pts.map((p, i) => `${i * xStep},${p * H}`).join(' ')
     const areaPath = `M 0 ${pts[0] * H} ${pts.map((p, i) => `L ${i * xStep} ${p * H}`).join(' ')} L ${W} ${H} L 0 ${H} Z`
     return (
-      <div className="flex items-center justify-center w-full" style={{ height: PREVIEW_H - 16, padding: '8px 16px' }}>
+      <div className="flex items-center justify-center w-full h-full"
+        style={{ padding: Math.max(4, 8 * scale) }}>
         <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
           <path d={areaPath} fill="#EDF8FA" fillOpacity={0.6} />
-          <polyline points={polyline} fill="none" stroke="#0D7F97" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <polyline points={polyline} fill="none" stroke="#0D7F97" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
     )
   }
 
   if (['donutchart', 'piechart'].includes(t)) {
-    const sz = Math.min(100, PREVIEW_H - 20)
-    const r = sz / 2 - 4
-    const cx = sz / 2, cy = sz / 2
+    const sz = 80, r = sz / 2 - 4, cx = sz / 2, cy = sz / 2
     const segs = [{ pct: 0.45, color: '#0056B3' }, { pct: 0.3, color: '#0D7F97' }, { pct: 0.25, color: '#177B44' }]
     let angle = -Math.PI / 2
     const arcs = segs.map(s => {
@@ -212,38 +259,99 @@ function MiniPreview({ visual }: { visual: MockVisual }) {
 
   if (['tableex', 'table', 'matrix', 'pivottable'].includes(t)) {
     return (
-      <div className="w-full h-full flex flex-col gap-px px-3 py-3">
-        <div style={{ height: 16, background: '#E5E7EB', borderRadius: 2 }} />
-        {[0, 1, 2].map(i => (
+      <div className="w-full h-full flex flex-col gap-px"
+        style={{ padding: Math.max(4, 8 * scale) }}>
+        <div style={{ height: Math.max(8, 14 * scale), background: '#E5E7EB', borderRadius: 2 }} />
+        {[0, 1, 2, 3].map(i => (
           <div key={i} style={{
-            height: 13,
+            flex: 1, minHeight: 0,
             background: i % 2 === 0 ? '#fff' : '#F9FAFB',
-            borderRadius: 2,
-            border: '1px solid #F3F4F6',
+            borderRadius: 2, border: '1px solid #F3F4F6',
           }} />
         ))}
       </div>
     )
   }
 
-  // Generic fallback — centered icon + label on gray-50
+  // Generic fallback
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full gap-2" style={{ background: '#F9FAFB' }}>
-      <VisualTypeIcon type={visual.type} size={28} />
-      <span className="text-xs font-medium" style={{ color: '#6B7280' }}>{displayLabel(visual.type)}</span>
+    <div className="flex flex-col items-center justify-center w-full h-full gap-2">
+      <VisualTypeIcon type={visual.type} size={Math.max(16, 24 * scale)} />
+      <span style={{ fontSize: Math.max(7, 10 * scale), fontWeight: 500, color: '#6B7280' }}>
+        {displayLabel(visual.type)}
+      </span>
     </div>
   )
 }
 
-// ── Visual Thumbnail Card ──────────────────────────────────────────────────────
+// ── Absolutely-positioned visual box ──────────────────────────────────────────
 
-function VisualThumbnailCard({ visual, onClick }: { visual: MockVisual; onClick: () => void }) {
+interface VisualBoxProps {
+  visual: MockVisual
+  scale: number
+  pageW: number
+  index: number
+  onClick: () => void
+}
+
+// Minimum rendered size (before scale) to avoid unreadably tiny boxes
+const MIN_W = 80
+const MIN_H = 50
+
+// Fallback grid placement for visuals with no layout data
+function fallbackRect(index: number, pageW: number) {
+  const cols = 4
+  const pad  = 10
+  const cellW = Math.floor((pageW - pad * (cols + 1)) / cols)
+  const cellH = 120
+  const col   = index % cols
+  const row   = Math.floor(index / cols)
+  return {
+    x: pad + col * (cellW + pad),
+    y: pad + row * (cellH + pad),
+    width: cellW,
+    height: cellH,
+  }
+}
+
+function VisualBox({ visual, scale, pageW, index, onClick }: VisualBoxProps) {
   const [hovered, setHovered] = useState(false)
+
+  const hasLayout = (
+    visual.x !== undefined && visual.y !== undefined &&
+    visual.width !== undefined && visual.height !== undefined &&
+    visual.width > 0 && visual.height > 0
+  )
+
+  if (!hasLayout) {
+    // Warn once per visual, not on every render
+    console.warn(
+      `[VisualGrid] No layout data for visual "${visual.title}" (id: ${visual.id}) — using fallback position.`,
+    )
+  }
+
+  const raw = hasLayout
+    ? { x: visual.x!, y: visual.y!, width: visual.width!, height: visual.height! }
+    : fallbackRect(index, pageW)
+
+  const left   = raw.x * scale
+  const top    = raw.y * scale
+  const width  = Math.max(MIN_W * scale, raw.width  * scale)
+  const height = Math.max(MIN_H * scale, raw.height * scale)
+
   const label = displayLabel(visual.type)
-  const chip = typeChipStyle(visual.type)
+  const chip  = typeChipStyle(visual.type)
   const displayTitle = (visual.title && visual.title.toLowerCase() !== visual.type.toLowerCase())
     ? visual.title
     : label
+
+  // Header height scales with the box
+  const headerH = Math.max(20, Math.min(28, height * 0.22))
+  const iconSize = Math.max(9, Math.min(13, headerH * 0.48))
+  const chipFontSize = Math.max(7, Math.min(10, headerH * 0.40))
+  const showFooter = height > 70
+  const footerH = showFooter ? Math.max(16, Math.min(22, height * 0.15)) : 0
+  const previewH = height - headerH - footerH
 
   return (
     <div
@@ -255,40 +363,52 @@ function VisualThumbnailCard({ visual, onClick }: { visual: MockVisual; onClick:
       onMouseLeave={() => setHovered(false)}
       aria-label={`${displayTitle} — click to inspect field bindings`}
       style={{
+        position: 'absolute',
+        left,
+        top,
+        width,
+        height,
         background: '#FFFFFF',
         border: `1px solid ${hovered ? 'rgba(0,86,179,0.35)' : '#E5E7EB'}`,
-        borderRadius: 8,
+        borderRadius: Math.max(4, 8 * scale),
         boxShadow: hovered
           ? '0 4px 16px rgba(0,86,179,0.14), 0 1px 4px rgba(0,0,0,0.06)'
           : '0 1px 4px rgba(0,0,0,0.08)',
         transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
-        transform: hovered ? 'translateY(-2px)' : 'translateY(0)',
+        transform: hovered ? 'translateY(-1px)' : 'translateY(0)',
         cursor: 'pointer',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+        // z-index from data or default stack by index
+        zIndex: hovered ? 999 : (index + 1),
       }}
     >
       {/* Header: icon + type chip + field count */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 7,
-        padding: '9px 12px 8px',
+        display: 'flex', alignItems: 'center', gap: Math.max(3, 6 * scale),
+        padding: `${Math.max(3, 6 * scale)}px ${Math.max(5, 9 * scale)}px`,
         borderBottom: '1px solid #F3F4F6',
         flexShrink: 0,
+        height: headerH,
+        overflow: 'hidden',
       }}>
-        <VisualTypeIcon type={visual.type} size={13} />
+        <VisualTypeIcon type={visual.type} size={iconSize} />
         <span style={{
-          padding: '2px 8px', borderRadius: 999,
-          fontSize: 10, fontWeight: 600,
+          padding: `1px ${Math.max(4, 6 * scale)}px`, borderRadius: 999,
+          fontSize: chipFontSize, fontWeight: 600,
           background: chip.bg, color: chip.color,
-          lineHeight: '16px', whiteSpace: 'nowrap',
-          letterSpacing: '0.01em',
+          lineHeight: '14px', whiteSpace: 'nowrap',
+          letterSpacing: '0.01em', flexShrink: 0,
         }}>
           {label}
         </span>
-        {visual.fields && visual.fields.length > 0 && (
-          <span style={{ marginLeft: 'auto', fontSize: 10, color: '#9CA3AF', whiteSpace: 'nowrap' }}>
+        {visual.fields && visual.fields.length > 0 && width > 100 && (
+          <span style={{
+            marginLeft: 'auto', fontSize: chipFontSize,
+            color: '#9CA3AF', whiteSpace: 'nowrap',
+          }}>
             {visual.fields.length}f
           </span>
         )}
@@ -297,30 +417,36 @@ function VisualThumbnailCard({ visual, onClick }: { visual: MockVisual; onClick:
       {/* Preview area */}
       <div style={{
         background: '#F9FAFB',
-        height: PREVIEW_H,
+        height: previewH,
         overflow: 'hidden',
         flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-        <MiniPreview visual={visual} />
+        <MiniPreview visual={visual} scale={scale} />
       </div>
 
-      {/* Footer: visual name */}
-      <div style={{
-        padding: '8px 12px',
-        borderTop: '1px solid #F3F4F6',
-        flexShrink: 0,
-      }}>
-        <p style={{
-          fontSize: 12, fontWeight: 600, color: '#1F2937',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          margin: 0,
-        }} title={displayTitle}>
-          {displayTitle}
-        </p>
-      </div>
+      {/* Footer: visual name (only if tall enough) */}
+      {showFooter && (
+        <div style={{
+          padding: `${Math.max(2, 5 * scale)}px ${Math.max(5, 9 * scale)}px`,
+          borderTop: '1px solid #F3F4F6',
+          flexShrink: 0,
+          height: footerH,
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+        }}>
+          <p style={{
+            fontSize: Math.max(8, 11 * scale), fontWeight: 600, color: '#1F2937',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            margin: 0, lineHeight: 1.2,
+          }} title={displayTitle}>
+            {displayTitle}
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -333,6 +459,22 @@ interface VisualGridProps {
 }
 
 export default function VisualGrid({ page, onClickVisual }: VisualGridProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+
+  // Measure container width and track resizes for responsive scaling
+  useLayoutEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const obs = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width ?? 0
+      setContainerWidth(w)
+    })
+    obs.observe(el)
+    setContainerWidth(el.getBoundingClientRect().width)
+    return () => obs.disconnect()
+  }, [])
+
   if (page.visuals.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-20 px-8"
@@ -344,22 +486,41 @@ export default function VisualGrid({ page, onClickVisual }: VisualGridProps) {
     )
   }
 
+  const pageW = page.page_width  ?? PBI_DEFAULT_W
+  const pageH = page.page_height ?? PBI_DEFAULT_H
+
+  // Single scale factor: fit the page width into the container (maintain aspect ratio)
+  const scale = containerWidth > 0 ? containerWidth / pageW : 1
+  const canvasH = pageH * scale
+
   return (
+    // Outer scroll wrapper — page can still be taller than the visible area
     <div
+      ref={containerRef}
       className="overflow-y-auto"
-      style={{ background: '#EFF6FF', padding: 20, minHeight: '100%' }}
+      style={{ background: '#F7F9FA', padding: '16px 16px 32px', minHeight: '100%' }}
       aria-label={`Report page: ${page.name}`}
     >
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-        gap: 16,
-        alignItems: 'stretch',
-      }}>
-        {page.visuals.map(visual => (
-          <VisualThumbnailCard
+      {/* Canvas: sized exactly to the scaled page dimensions */}
+      <div
+        style={{
+          position: 'relative',
+          width: containerWidth > 0 ? containerWidth : '100%',
+          height: canvasH || pageH, // fallback to un-scaled height while measuring
+          background: '#FFFFFF',
+          border: '1px solid #E5E7EB',
+          borderRadius: 8,
+          overflow: 'hidden',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        }}
+      >
+        {containerWidth > 0 && page.visuals.map((visual, i) => (
+          <VisualBox
             key={visual.id}
             visual={visual}
+            scale={scale}
+            pageW={pageW}
+            index={i}
             onClick={() => onClickVisual(visual.id)}
           />
         ))}

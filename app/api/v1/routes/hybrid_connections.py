@@ -524,8 +524,31 @@ async def create_hybrid_connection(
     - config_missing : env vars not configured on the server
     - error          : provisioning attempted but failed (detail in error_detail)
     """
-    connection_id    = str(uuid.uuid4())
     user_id          = current_user["user_id"]
+
+    # ── Duplicate checks ───────────────────────────────────────────────────────
+    existing = azure_store.list_hybrid_connections(user_id=user_id)
+    name_lower = body.name.strip().lower()
+    for hc in existing:
+        if hc["name"].strip().lower() == name_lower:
+            raise HTTPException(
+                status_code=409,
+                detail=f"A Hybrid Connection named '{body.name}' already exists. Choose a different name.",
+            )
+        if (
+            hc["endpoint_host"].strip().lower() == body.endpoint_host.strip().lower()
+            and int(hc["endpoint_port"]) == body.endpoint_port
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"A Hybrid Connection for {body.endpoint_host}:{body.endpoint_port} "
+                    f"already exists ('{hc['name']}'). "
+                    "Duplicate server:port endpoints are not allowed."
+                ),
+            )
+
+    connection_id    = str(uuid.uuid4())
     subscription_id  = os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
     resource_group   = os.environ.get("AZURE_RESOURCE_GROUP", "").strip()
 

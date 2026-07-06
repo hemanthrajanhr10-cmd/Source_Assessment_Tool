@@ -194,7 +194,13 @@ interface CreateResult {
   senderConnectionString: string | null
 }
 
-function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
+function CreateConnectionForm({
+  onCreated,
+  existingConnections,
+}: {
+  onCreated: () => void
+  existingConnections: HybridConnection[]
+}) {
   const [name, setName]   = useState('')
   const [host, setHost]   = useState('')
   const [port, setPort]   = useState('1433')
@@ -209,7 +215,21 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
     : hostIsIp
     ? 'IP addresses are not accepted. Enter the server hostname only (e.g. UIAP-S-SQL-01V).'
     : null
-  const valid = name.trim() && host.trim() && !hostError && parseInt(port) > 0
+
+  const nameTrimmed = name.trim().toLowerCase()
+  const duplicateName = nameTrimmed
+    ? existingConnections.find((c) => c.name.trim().toLowerCase() === nameTrimmed) ?? null
+    : null
+  const portNum = parseInt(port, 10) || 0
+  const duplicateEndpoint = host.trim() && portNum > 0 && !hostError
+    ? existingConnections.find(
+        (c) =>
+          c.endpoint_host.trim().toLowerCase() === host.trim().toLowerCase() &&
+          c.endpoint_port === portNum
+      ) ?? null
+    : null
+
+  const valid = name.trim() && host.trim() && !hostError && portNum > 0 && !duplicateName && !duplicateEndpoint
 
   const handleCreate = async () => {
     if (!valid) return
@@ -266,13 +286,19 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
             <label className="text-xs font-semibold text-slate-600">Hybrid connection name</label>
             <input
               type="text"
-              className="form-input w-full"
+              className={`form-input w-full ${duplicateName && name.trim() ? 'border-red-400 focus:ring-red-300' : ''}`}
               placeholder="e.g. sat-onprem-sql"
               value={name}
               onChange={(e) => { setName(e.target.value); setResult(null) }}
               spellCheck={false}
               autoComplete="off"
             />
+            {duplicateName && name.trim() && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                A connection named &quot;{duplicateName.name}&quot; already exists. Choose a different name.
+              </p>
+            )}
           </div>
 
           {/* Endpoint host */}
@@ -303,12 +329,18 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
             <label className="text-xs font-semibold text-slate-600">Endpoint port</label>
             <input
               type="number"
-              className="form-input w-full"
+              className={`form-input w-full ${duplicateEndpoint ? 'border-red-400 focus:ring-red-300' : ''}`}
               min={1}
               max={65535}
               value={port}
               onChange={(e) => { setPort(e.target.value); setResult(null) }}
             />
+            {duplicateEndpoint && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                {host.trim()}:{portNum} is already used by &quot;{duplicateEndpoint.name}&quot;. Duplicate endpoints are not allowed.
+              </p>
+            )}
           </div>
         </div>
 
@@ -549,7 +581,7 @@ function MyConnectionsListControlled() {
 
   return (
     <>
-      <CreateConnectionForm onCreated={handleCreated} />
+      <CreateConnectionForm onCreated={handleCreated} existingConnections={connections} />
 
       <div className="card overflow-hidden">
         <div className="flex items-center gap-2.5 px-5 py-3.5 border-b border-slate-200 bg-slate-50">

@@ -512,7 +512,7 @@ function ServerCard({
                       entry.db_type === 'postgres' ? 'hostname, IP, or project:region:instance'
                       : entry.db_type === 'mysql'  ? 'hostname or IP'
                       : entry.db_type === 'oracle' ? 'hostname or IP'
-                      : 'SERVERNAME or host\\INSTANCE'
+                      : 'hostname (e.g. UIAP-S-SQL-01V)'
                     }
                     value={entry.server}
                     onChange={(e) => set({ server: e.target.value, connectivity: null })}
@@ -520,17 +520,14 @@ function ServerCard({
                     spellCheck={false}
                   />
                 </div>
-                {/* Hide port for SQL Server named instances — port is resolved via SQL Browser */}
-                {!(entry.db_type === 'mssql' && entry.server.includes('\\')) && (
-                  <input
-                    type="number"
-                    className="form-input w-24"
-                    min={1} max={65535}
-                    value={entry.port}
-                    onChange={(e) => set({ port: parseInt(e.target.value, 10) || 1433, connectivity: null })}
-                    title="Port"
-                  />
-                )}
+                <input
+                  type="number"
+                  className="form-input w-24"
+                  min={1} max={65535}
+                  value={entry.port}
+                  onChange={(e) => set({ port: parseInt(e.target.value, 10) || 1433, connectivity: null })}
+                  title="Port"
+                />
                 <HybridConnectionPicker
                   onSelect={(host, port) =>
                     set({ server: host, port, gateway_key: null, connectivity: null })

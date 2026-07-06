@@ -202,8 +202,14 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
   const [error, setError]     = useState<string | null>(null)
   const [result, setResult]   = useState<CreateResult | null>(null)
 
-  const isNamedInstance = host.includes('\\')
-  const valid = name.trim() && host.trim() && (isNamedInstance || parseInt(port) > 0)
+  const hostHasInstance = host.includes('\\')
+  const hostIsIp = isIpAddress(host)
+  const hostError = hostHasInstance
+    ? 'Endpoint host must be a plain hostname — remove the instance name (e.g. use SERVERNAME, not SERVERNAME\\INSTANCE).'
+    : hostIsIp
+    ? 'IP addresses are not accepted. Enter the server hostname only (e.g. UIAP-S-SQL-01V).'
+    : null
+  const valid = name.trim() && host.trim() && !hostError && parseInt(port) > 0
 
   const handleCreate = async () => {
     if (!valid) return
@@ -214,7 +220,7 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
       const { data } = await api.createHybridConnection({
         name: name.trim(),
         endpoint_host: host.trim(),
-        endpoint_port: isNamedInstance ? 1434 : (parseInt(port, 10) || 1433),
+        endpoint_port: parseInt(port, 10) || 1433,
       })
       setResult({
         status: data.status,
@@ -276,36 +282,34 @@ function CreateConnectionForm({ onCreated }: { onCreated: () => void }) {
               <Server className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               <input
                 type="text"
-                className="form-input pl-10 w-full"
-                placeholder="hostname or HOST\INSTANCE"
+                className={`form-input pl-10 w-full ${hostError && host.trim() ? 'border-red-400 focus:ring-red-300' : ''}`}
+                placeholder="e.g. UIAP-S-SQL-01V"
                 value={host}
                 onChange={(e) => { setHost(e.target.value); setResult(null) }}
                 spellCheck={false}
                 autoComplete="off"
               />
             </div>
-            {isNamedInstance && (
-              <p className="text-xs text-earth-600 flex items-center gap-1">
-                <Info className="h-3 w-3 shrink-0" />
-                Named instance detected — port auto-set to 1434 (SQL Browser)
+            {hostError && host.trim() && (
+              <p className="text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="h-3 w-3 shrink-0" />
+                {hostError}
               </p>
             )}
           </div>
 
-          {/* Endpoint port — hidden for named instances */}
-          {!isNamedInstance && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600">Endpoint port</label>
-              <input
-                type="number"
-                className="form-input w-full"
-                min={1}
-                max={65535}
-                value={port}
-                onChange={(e) => { setPort(e.target.value); setResult(null) }}
-              />
-            </div>
-          )}
+          {/* Endpoint port */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-600">Endpoint port</label>
+            <input
+              type="number"
+              className="form-input w-full"
+              min={1}
+              max={65535}
+              value={port}
+              onChange={(e) => { setPort(e.target.value); setResult(null) }}
+            />
+          </div>
         </div>
 
         <Button
@@ -736,9 +740,15 @@ function ConnectivityTest() {
   const [error, setError]   = useState<string | null>(null)
 
   const serverIsIp = isIpAddress(server)
+  const serverHasInstance = server.includes('\\')
+  const serverError = serverIsIp
+    ? 'IP addresses are not accepted. Enter the server hostname only (e.g. UIAP-S-SQL-01V).'
+    : serverHasInstance
+    ? 'Use a plain hostname — remove the instance name (e.g. use SERVERNAME, not SERVERNAME\\INSTANCE).'
+    : null
 
   const handleTest = async () => {
-    if (!server.trim()) return
+    if (!server.trim() || serverError) return
     setResult(null)
     setError(null)
     setLoading(true)
@@ -784,11 +794,11 @@ function ConnectivityTest() {
             <Database className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              className="form-input pl-10"
+              className={`form-input pl-10 ${serverError && server.trim() ? 'border-red-400 focus:ring-red-300' : ''}`}
               placeholder="SQL Server hostname (e.g. UIAP-S-SQL-01V)"
               value={server}
               onChange={(e) => { setServer(e.target.value); setResult(null); setError(null) }}
-              onKeyDown={(e) => e.key === 'Enter' && server.trim() && handleTest()}
+              onKeyDown={(e) => e.key === 'Enter' && server.trim() && !serverError && handleTest()}
               spellCheck={false}
               autoComplete="off"
             />
@@ -805,22 +815,17 @@ function ConnectivityTest() {
           <Button
             onClick={handleTest}
             loading={loading}
-            disabled={!server.trim()}
+            disabled={!server.trim() || !!serverError}
             leftIcon={loading ? undefined : <Search className="h-4 w-4" />}
           >
             Test
           </Button>
         </div>
 
-        {/* IP address warning — shown inline before testing */}
-        {serverIsIp && !result && !loading && (
-          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700 animate-slide-down">
-            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            <span>
-              Azure Hybrid Connection routes traffic by <strong>hostname</strong>, not IP address.
-              IP <strong>{server.trim()}</strong> will not be routed through HCM and will always appear unreachable.
-              Use the exact hostname you registered in the Hybrid Connection endpoint instead.
-            </span>
+        {serverError && server.trim() && (
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700 animate-slide-down">
+            <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>{serverError}</span>
           </div>
         )}
 
@@ -846,9 +851,7 @@ function ConnectivityTest() {
             </div>
             {!result.reachable && (
               <p className="mt-1.5 text-xs text-red-600">
-                {serverIsIp
-                  ? <>Azure Hybrid Connection routes by <strong>hostname only</strong> — IP address <strong>{server.trim()}</strong> bypasses HCM and cannot reach a private network. Use the hostname registered in your Hybrid Connection endpoint.</>
-                  : <>Ensure HCM is running on a machine connected to the VPN, the Hybrid Connection is configured in Azure Portal, and the endpoint host matches the SQL Server hostname exactly.</>}
+                Ensure HCM is running on a machine connected to the VPN, the Hybrid Connection is configured in Azure Portal, and the endpoint host matches the SQL Server hostname exactly.
               </p>
             )}
           </div>

@@ -1507,6 +1507,37 @@ def _generate_excel(results: dict, label: str) -> bytes:
         if score >= 5:  return "Simple"
         return "Minimal"
 
+    _TMDL_NOISE_RE = __import__("re").compile(
+        r'^\s*(changedPropert(?:y|ies)\s*=.*|annotation\s+\S.*|```)\s*$',
+        __import__("re").IGNORECASE | __import__("re").MULTILINE,
+    )
+
+    def _clean_dax(expr: str) -> str:
+        """Strip TMDL metadata lines that leaked into stored DAX expressions."""
+        if not expr:
+            return ""
+        # Remove noise lines (changedProperty, annotation, backtick fences)
+        cleaned = _TMDL_NOISE_RE.sub("", expr)
+        # Collapse runs of blank lines to a single blank
+        cleaned = __import__("re").sub(r'\n{3,}', '\n\n', cleaned)
+        return cleaned.strip()
+
+    def _rel_table_col(r: dict, side: str) -> tuple[str, str]:
+        """
+        Return (table, column) for a relationship side, handling both:
+        - split fields: from_table + from_column (new parser)
+        - combined column: 'TableName.ColumnName' in from_column (old stored data)
+        """
+        tbl = r.get(f"{side}_table", "") or ""
+        col_raw = r.get(f"{side}_column", "") or ""
+        if not tbl and "." in col_raw:
+            dot = col_raw.find(".")
+            tbl = col_raw[:dot].strip().strip("'")
+            col = col_raw[dot + 1:].strip().strip("'")
+        else:
+            col = col_raw.strip().strip("'")
+        return tbl, col
+
     ds_by_id: dict[str, dict] = {}
     for _ws in workspaces:
         for _ds in _ws.get("datasets", []):
@@ -1631,7 +1662,7 @@ def _generate_excel(results: dict, label: str) -> bytes:
                     ", ".join(cx.get("complex_functions", [])),
                     dep_tables,
                     m.get("format_string", ""),
-                    m.get("expression", "")[:500],
+                    _clean_dax(m.get("expression", ""))[:500],
                 ])
     _add_sheet("Measures", "MEASURES",
                ["Workspace", "Model", "Table", "Measure", "Folder",
@@ -1646,10 +1677,12 @@ def _generate_excel(results: dict, label: str) -> bytes:
     for _ws in workspaces:
         for ds in _ws.get("datasets", []):
             for r in ds.get("relationships", []):
+                from_tbl, from_col = _rel_table_col(r, "from")
+                to_tbl, to_col     = _rel_table_col(r, "to")
                 rel_rows.append([
                     _ws.get("name", ""), ds.get("name", ""),
-                    r.get("from_table", ""), r.get("from_column", ""),
-                    r.get("to_table", ""), r.get("to_column", ""),
+                    from_tbl, from_col,
+                    to_tbl, to_col,
                     r.get("cardinality", ""), r.get("cross_filter", ""),
                     "Active" if r.get("is_active", True) else "Inactive",
                 ])
@@ -1729,7 +1762,7 @@ def _generate_excel(results: dict, label: str) -> bytes:
     for _ws in workspaces:
         for ds in _ws.get("datasets", []):
             for m in ds.get("measures", []):
-                expr = m.get("expression", "") or ""
+                expr = _clean_dax(m.get("expression", "") or "")
                 if expr:
                     cx = m.get("complexity") or {}
                     dax_rows.append([
@@ -1740,7 +1773,7 @@ def _generate_excel(results: dict, label: str) -> bytes:
                         expr,
                     ])
             for col_item in ds.get("calculated_columns", []):
-                expr = col_item.get("expression", "") or ""
+                expr = _clean_dax(col_item.get("expression", "") or "")
                 if expr:
                     cx = col_item.get("complexity") or {}
                     dax_rows.append([
@@ -1752,7 +1785,7 @@ def _generate_excel(results: dict, label: str) -> bytes:
                     ])
             for tbl in ds.get("tables", []):
                 for ct in (tbl.get("calculated_table_expression") and [tbl]) or []:
-                    expr = ct.get("calculated_table_expression", "") or ""
+                    expr = _clean_dax(ct.get("calculated_table_expression", "") or "")
                     if expr:
                         dax_rows.append([
                             _ws.get("name", ""), ds.get("name", ""), "Calc Table",

@@ -67,11 +67,14 @@ function usePortalTooltip(content: React.ReactNode) {
   const showFromElement = useCallback((el: HTMLElement) => {
     if (timerRef.current) clearTimeout(timerRef.current)
     const rect = el.getBoundingClientRect()
+    // Prefer rendering below the trigger; fall back to above if near bottom of viewport
+    const spaceBelow = window.innerHeight - rect.bottom
+    const tooltipH = 60 // estimated tooltip height
+    const renderBelow = spaceBelow > tooltipH + 12
     setState({
       visible: true,
-      // Position above the element, centred horizontally
-      x: rect.left + rect.width / 2 - 100, // 100 ≈ half tooltip width
-      y: rect.top - 8,                       // 8px gap above trigger
+      x: Math.max(8, rect.left + rect.width / 2 - 130), // clamp to viewport left edge
+      y: renderBelow ? rect.bottom + 8 : rect.top - tooltipH - 8,
       content: contentRef.current,
     })
   }, [])
@@ -352,11 +355,10 @@ function MetaTable({
                 style={{
                   background: ri % 2 === 0 ? '#fff' : 'rgba(248,250,253,0.9)',
                   borderBottom: '1px solid rgba(197,213,236,0.30)',
+                  cursor: 'default',
                 }}
-                whileHover={{
-                  backgroundColor: 'rgba(0,86,179,0.03)',
-                  transition: { duration: 0.12 },
-                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(147,204,198,0.10)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = ri % 2 === 0 ? '#fff' : 'rgba(248,250,253,0.9)' }}
               >
                 {row.map((cell, ci) => (
                   <td key={ci} style={{

@@ -35,10 +35,10 @@ function relativeTime(ts: number): string {
 }
 
 const KIND_META: Record<NotifKind, { icon: React.ElementType; color: string; bg: string; border: string }> = {
-  success: { icon: CheckCircle2,  color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
-  error:   { icon: AlertCircle,   color: 'text-red-400',     bg: 'bg-red-500/10',     border: 'border-red-500/20'     },
-  warning: { icon: AlertTriangle, color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20'   },
-  info:    { icon: Info,          color: 'text-sky-400',     bg: 'bg-sky-500/10',     border: 'border-sky-500/20'     },
+  success: { icon: CheckCircle2,  color: 'text-emerald-600', bg: 'bg-emerald-50',  border: 'border-emerald-200' },
+  error:   { icon: AlertCircle,   color: 'text-red-500',     bg: 'bg-red-50',      border: 'border-red-200'     },
+  warning: { icon: AlertTriangle, color: 'text-amber-500',   bg: 'bg-amber-50',    border: 'border-amber-200'   },
+  info:    { icon: Info,          color: 'text-teal-600',    bg: 'bg-teal-50',     border: 'border-teal-200'    },
 }
 
 function NotificationItem({ n, onDismiss }: { n: Notification; onDismiss: (id: string) => void }) {
@@ -46,12 +46,13 @@ function NotificationItem({ n, onDismiss }: { n: Notification; onDismiss: (id: s
   return (
     <div
       className={`group relative flex gap-3 px-4 py-3 transition-colors duration-150 ${
-        n.read ? 'opacity-60' : ''
-      } hover:bg-white/[0.03]`}
+        n.read ? 'opacity-50' : ''
+      } hover:bg-teal-50/60`}
     >
       {/* Unread dot */}
       {!n.read && (
-        <span className="absolute left-2 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-amber-400" />
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: '#6CBDB5' }} />
       )}
 
       {/* Kind icon */}
@@ -61,17 +62,20 @@ function NotificationItem({ n, onDismiss }: { n: Notification; onDismiss: (id: s
 
       {/* Text */}
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-semibold text-zinc-100 leading-snug">{n.title}</p>
+        <p className="text-[13px] font-semibold leading-snug" style={{ color: '#1E293B' }}>{n.title}</p>
         {n.body && (
-          <p className="mt-0.5 text-[12px] text-zinc-400 leading-relaxed line-clamp-2">{n.body}</p>
+          <p className="mt-0.5 text-[12px] leading-relaxed line-clamp-2" style={{ color: '#64748B' }}>{n.body}</p>
         )}
-        <p className="mt-1 text-[11px] text-zinc-600 tabular-nums">{relativeTime(n.ts)}</p>
+        <p className="mt-1 text-[11px] tabular-nums" style={{ color: '#94A3B8' }}>{relativeTime(n.ts)}</p>
       </div>
 
       {/* Dismiss */}
       <button
         onClick={() => onDismiss(n.id)}
-        className="shrink-0 mt-0.5 p-1 rounded-md text-zinc-600 opacity-0 group-hover:opacity-100 hover:text-zinc-300 hover:bg-white/[0.08] transition-all"
+        className="shrink-0 mt-0.5 p-1 rounded-md opacity-0 group-hover:opacity-100 transition-all"
+        style={{ color: '#94A3B8' }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#0F766E'; e.currentTarget.style.backgroundColor = 'rgba(108,189,181,0.12)' }}
+        onMouseLeave={e => { e.currentTarget.style.color = '#94A3B8'; e.currentTarget.style.backgroundColor = '' }}
         aria-label="Dismiss notification"
       >
         <X className="h-3 w-3" />
@@ -219,20 +223,29 @@ export default function Header({ onMenuClick }: HeaderProps) {
               ref={panelRef}
               className="absolute right-0 top-full mt-2 w-[360px] rounded-2xl overflow-hidden z-50"
               style={{
-                background: '#18181b',
-                border: '1px solid rgba(63,63,70,0.8)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)',
+                background: '#FFFFFF',
+                border: '1px solid rgba(108,189,181,0.35)',
+                boxShadow: '0 8px 32px rgba(108,189,181,0.18), 0 2px 12px rgba(0,0,0,0.08)',
               }}
             >
               {/* Panel header */}
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800">
-                <Bell className="h-3.5 w-3.5 text-zinc-500" />
-                <span className="flex-1 text-[13px] font-semibold text-zinc-200">Notifications</span>
+              <div
+                className="flex items-center gap-2 px-4 py-3 border-b"
+                style={{
+                  borderColor: 'rgba(108,189,181,0.25)',
+                  background: 'linear-gradient(135deg, rgba(147,204,198,0.12) 0%, rgba(108,189,181,0.06) 100%)',
+                }}
+              >
+                <Bell className="h-3.5 w-3.5" style={{ color: '#6CBDB5' }} />
+                <span className="flex-1 text-[13px] font-semibold" style={{ color: '#0F766E' }}>Notifications</span>
                 {notifications.length > 0 && (
                   <>
                     <button
                       onClick={markAllRead}
-                      className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1 rounded-lg hover:bg-white/[0.06]"
+                      className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg transition-colors"
+                      style={{ color: '#64748B' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#0F766E'; e.currentTarget.style.backgroundColor = 'rgba(108,189,181,0.12)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#64748B'; e.currentTarget.style.backgroundColor = '' }}
                       title="Mark all read"
                     >
                       <CheckCheck className="h-3 w-3" />
@@ -240,7 +253,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     </button>
                     <button
                       onClick={clearAll}
-                      className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-500/10"
+                      className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg transition-colors"
+                      style={{ color: '#94A3B8' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.07)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = '#94A3B8'; e.currentTarget.style.backgroundColor = '' }}
                       title="Clear all"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -250,12 +266,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
               </div>
 
               {/* Items */}
-              <div className="max-h-[420px] overflow-y-auto divide-y divide-zinc-800/60">
+              <div className="max-h-[420px] overflow-y-auto divide-y divide-teal-100">
                 {notifications.length === 0 ? (
                   <div className="px-4 py-10 text-center">
-                    <Bell className="h-6 w-6 text-zinc-700 mx-auto mb-2" />
-                    <p className="text-[13px] text-zinc-500">No notifications yet.</p>
-                    <p className="text-[11px] text-zinc-600 mt-1">Assessment completions and errors will appear here.</p>
+                    <Bell className="h-6 w-6 mx-auto mb-2" style={{ color: '#93CCC6', opacity: 0.6 }} />
+                    <p className="text-[13px]" style={{ color: '#64748B' }}>No notifications yet.</p>
+                    <p className="text-[11px] mt-1" style={{ color: '#94A3B8' }}>Assessment completions and errors will appear here.</p>
                   </div>
                 ) : (
                   notifications.map(n => (

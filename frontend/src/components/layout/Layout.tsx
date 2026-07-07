@@ -30,36 +30,28 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </main>
 
-        {/* Footer — gradient accent line top */}
+        {/* Footer */}
         <footer
-          className="border-t border-slate-200/60 py-4 shrink-0"
+          className="border-t border-slate-200/60 py-3 shrink-0"
           style={{ background: 'linear-gradient(180deg, #FAFAFE 0%, #ffffff 100%)' }}
         >
           <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div
                 className="h-5 w-5 rounded-md flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #0056B3, #0084D4)' }}
+                style={{ background: 'linear-gradient(135deg, var(--color-4), var(--color-3))' }}
                 aria-hidden="true"
               >
                 <Database className="h-3 w-3 text-white" />
               </div>
-              <span className="text-[11px] text-slate-400 tracking-wide">
+              <span className="text-[11px] tracking-wide font-medium" style={{ color: '#6CBDB5' }}>
                 Source Assessment Tool
-                <span className="text-slate-300 mx-1.5">·</span>
-                SQL Server Intelligence Platform
+              </span>
+              <span className="text-slate-300 mx-0.5">·</span>
+              <span className="text-[11px] text-slate-400 tracking-wide">
+                Turn complexity into clarity
               </span>
             </div>
-            <span
-              className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md"
-              style={{
-                background: 'linear-gradient(135deg, rgba(0,86,179,0.07), rgba(8,145,178,0.04))',
-                color: '#0056B3',
-                border: '1px solid rgba(0,86,179,0.22)',
-              }}
-            >
-              v2.0
-            </span>
           </div>
         </footer>
       </div>

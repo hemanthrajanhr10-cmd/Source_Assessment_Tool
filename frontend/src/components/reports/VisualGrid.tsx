@@ -17,7 +17,7 @@ const PBI_DEFAULT_H = 720
 // between adjacent visuals without changing their relative order or grouping.
 // Tune this single constant to adjust the overall density of the report canvas.
 
-const VISUAL_GAP_PX = 5   // half-gap per side: visuals 10px apart when touching
+const VISUAL_GAP_PX = 10  // half-gap per side: visuals 20px apart when touching
 
 // Minimum inset-adjusted dimensions (in page-coordinate pixels) below which we
 // stop insetting so small visuals stay legible.
@@ -336,6 +336,7 @@ interface VisualBoxProps {
   scale: number
   pageW: number
   index: number
+  totalVisuals: number
   onClick: () => void
 }
 
@@ -359,7 +360,7 @@ function fallbackRect(index: number, pageW: number) {
   }
 }
 
-function VisualBox({ visual, scale, pageW, index, onClick }: VisualBoxProps) {
+function VisualBox({ visual, scale, pageW, index, totalVisuals, onClick }: VisualBoxProps) {
   const [hovered, setHovered] = useState(false)
 
   const hasLayout = (
@@ -402,6 +403,13 @@ function VisualBox({ visual, scale, pageW, index, onClick }: VisualBoxProps) {
   const footerH = showFooter ? Math.max(16, Math.min(22, height * 0.15)) : 0
   const previewH = height - headerH - footerH
 
+  // Smaller visuals placed inside larger ones must sit on top so they're clickable.
+  // Rank by area: smaller area → higher base z-index. Hovered always wins.
+  const area = rect.width * rect.height
+  const maxArea = PBI_DEFAULT_W * PBI_DEFAULT_H
+  const areaRank = Math.round((1 - area / maxArea) * (totalVisuals + 1))
+  const baseZ = Math.max(1, areaRank)
+
   return (
     <div
       role="button"
@@ -418,10 +426,10 @@ function VisualBox({ visual, scale, pageW, index, onClick }: VisualBoxProps) {
         width,
         height,
         background: '#FFFFFF',
-        border: `1px solid ${hovered ? 'rgba(0,86,179,0.35)' : '#E5E7EB'}`,
+        border: `1px solid ${hovered ? 'rgba(108,189,181,0.55)' : '#E5E7EB'}`,
         borderRadius: Math.max(4, 8 * scale),
         boxShadow: hovered
-          ? '0 4px 16px rgba(0,86,179,0.14), 0 1px 4px rgba(0,0,0,0.06)'
+          ? '0 4px 16px rgba(108,189,181,0.22), 0 1px 4px rgba(0,0,0,0.06)'
           : '0 1px 4px rgba(0,0,0,0.08)',
         transition: 'box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease',
         transform: hovered ? 'translateY(-1px)' : 'translateY(0)',
@@ -430,8 +438,7 @@ function VisualBox({ visual, scale, pageW, index, onClick }: VisualBoxProps) {
         flexDirection: 'column',
         overflow: 'hidden',
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
-        // z-index from data or default stack by index
-        zIndex: hovered ? 999 : (index + 1),
+        zIndex: hovered ? 9999 : baseZ,
       }}
     >
       {/* Header: icon + type chip + field count */}
@@ -570,6 +577,7 @@ export default function VisualGrid({ page, onClickVisual }: VisualGridProps) {
             scale={scale}
             pageW={pageW}
             index={i}
+            totalVisuals={page.visuals.length}
             onClick={() => onClickVisual(visual.id)}
           />
         ))}

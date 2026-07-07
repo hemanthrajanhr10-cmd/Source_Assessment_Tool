@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X, TrendingUp, ChevronDown, ChevronUp, ArrowRight, Eye, Download } from 'lucide-react'
 import type { VisualField } from '../../types/api'
 import type { MockVisual, AssessmentStatus } from '../../data/mockReports'
@@ -475,9 +476,9 @@ export default function VisualDetailModal({
 
   // ── Mobile: full-screen bottom sheet ──────────────────────────────────────
   if (isMobile) {
-    return (
+    return createPortal(
       <div
-        className="fixed inset-0 z-50 flex flex-col justify-end"
+        className="fixed inset-0 z-[9999] flex flex-col justify-end"
         style={{
           background: visible ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)',
           backdropFilter: visible ? 'blur(2px)' : 'none',
@@ -559,14 +560,15 @@ export default function VisualDetailModal({
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body,
     )
   }
 
   // ── Desktop / tablet: centered overlay modal ───────────────────────────────
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
       style={{
         background: visible ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0)',
         backdropFilter: visible ? 'blur(4px)' : 'none',
@@ -705,6 +707,7 @@ export default function VisualDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

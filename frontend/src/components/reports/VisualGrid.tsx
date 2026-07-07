@@ -105,7 +105,7 @@ function displayLabel(type: string): string {
 function typeChipStyle(type: string): { bg: string; color: string } {
   const t = type.toLowerCase().replace(/\s+/g, '')
   if (t === 'slicer')
-    return { bg: '#EFF6FF', color: '#0056B3' }
+    return { bg: '#F0FAFA', color: '#0F766E' }
   if (['columnchart', 'clusteredcolumnchart', 'stackedcolumnchart',
        'hundredpercentstackedcolumnchart', 'barchart', 'clusteredbarchart',
        'stackedbarchart', 'hundredpercentstackedbarchart', 'lineclusteredcolumnchart'].includes(t))
@@ -119,7 +119,7 @@ function typeChipStyle(type: string): { bg: string; color: string } {
   if (['linechart', 'areachart', 'stackedareachart'].includes(t))
     return { bg: '#EDF8FA', color: '#0D7F97' }
   if (['donutchart', 'piechart'].includes(t))
-    return { bg: '#EFF6FF', color: '#0056B3' }
+    return { bg: '#F0FAFA', color: '#0F766E' }
   if (t === 'gauge')
     return { bg: '#FDF4FF', color: '#7C3AED' }
   if (t === 'image')
@@ -131,7 +131,7 @@ function typeChipStyle(type: string): { bg: string; color: string } {
 
 function VisualTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
   const t = type.toLowerCase().replace(/\s+/g, '')
-  if (t === 'slicer') return <Filter size={size} style={{ color: '#0056B3' }} />
+  if (t === 'slicer') return <Filter size={size} style={{ color: '#0F766E' }} />
   if (['linechart', 'areachart', 'stackedareachart'].includes(t))
     return <Activity size={size} style={{ color: '#0D7F97' }} />
   if (['barchart', 'clusteredbarchart', 'stackedbarchart', 'columnchart',
@@ -145,7 +145,7 @@ function VisualTypeIcon({ type, size = 14 }: { type: string; size?: number }) {
   if (['matrix', 'pivottable'].includes(t))
     return <LayoutGrid size={size} style={{ color: '#136137' }} />
   if (['donutchart', 'piechart'].includes(t))
-    return <PieChart size={size} style={{ color: '#0056B3' }} />
+    return <PieChart size={size} style={{ color: '#0F766E' }} />
   if (t === 'gauge')
     return <Activity size={size} style={{ color: '#7C3AED' }} />
   if (t === 'scatterchart')
@@ -236,8 +236,8 @@ function MiniPreview({ visual, scale }: { visual: MockVisual; scale: number }) {
           <span key={c} style={{
             padding: `${Math.max(1, 2 * scale)}px ${Math.max(4, 8 * scale)}px`,
             fontSize: Math.max(7, 10 * scale), borderRadius: 999, fontWeight: 500,
-            border: '1px solid', borderColor: i === 0 ? '#0056B3' : '#D1D5DB',
-            background: i === 0 ? '#0056B3' : '#fff',
+            border: '1px solid', borderColor: i === 0 ? '#6CBDB5' : '#D1D5DB',
+            background: i === 0 ? '#6CBDB5' : '#fff',
             color: i === 0 ? '#fff' : '#374151',
           }}>{c}</span>
         ))}
@@ -283,7 +283,7 @@ function MiniPreview({ visual, scale }: { visual: MockVisual; scale: number }) {
 
   if (['donutchart', 'piechart'].includes(t)) {
     const sz = 80, r = sz / 2 - 4, cx = sz / 2, cy = sz / 2
-    const segs = [{ pct: 0.45, color: '#0056B3' }, { pct: 0.3, color: '#0D7F97' }, { pct: 0.25, color: '#177B44' }]
+    const segs = [{ pct: 0.45, color: '#6CBDB5' }, { pct: 0.3, color: '#4DA8A0' }, { pct: 0.25, color: '#177B44' }]
     let angle = -Math.PI / 2
     const arcs = segs.map(s => {
       const a1 = angle, a2 = angle + s.pct * 2 * Math.PI

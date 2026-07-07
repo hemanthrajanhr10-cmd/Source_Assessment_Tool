@@ -63,8 +63,8 @@ export function normalizeVisualType(raw: string): string {
 
 export function getVisualIcon(raw: string, size = 18): React.ReactNode {
   const t = raw.toLowerCase()
-  const ocean  = '#0056B3'
-  const tide   = '#0891B2'
+  const ocean  = '#6CBDB5'
+  const tide   = '#4DA8A0'
   const grove  = '#0D9488'
   const amber  = '#D97706'
   const slate  = '#94A3B8'
@@ -129,13 +129,13 @@ export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardP
         background: '#ffffff',
         border: '1px solid rgba(197,213,236,0.8)',
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        '--tw-ring-color': 'rgba(0,86,179,0.40)',
+        '--tw-ring-color': 'rgba(108,189,181,0.40)',
       } as React.CSSProperties}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLDivElement
         el.style.transform = 'translateY(-2px) scale(1.01)'
-        el.style.boxShadow = '0 8px 24px rgba(0,86,179,0.12), 0 2px 6px rgba(0,0,0,0.04)'
-        el.style.borderColor = 'rgba(0,86,179,0.25)'
+        el.style.boxShadow = '0 8px 24px rgba(108,189,181,0.18), 0 2px 6px rgba(0,0,0,0.04)'
+        el.style.borderColor = 'rgba(108,189,181,0.38)'
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLDivElement
@@ -149,7 +149,7 @@ export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardP
       <div className="flex items-start gap-2.5 p-3">
         {/* Icon */}
         <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg mt-0.5"
-          style={{ background: 'linear-gradient(135deg, rgba(0,86,179,0.08) 0%, rgba(0,132,212,0.05) 100%)', border: '1px solid rgba(0,86,179,0.12)' }}>
+          style={{ background: 'linear-gradient(135deg, rgba(108,189,181,0.12) 0%, rgba(147,204,198,0.06) 100%)', border: '1px solid rgba(108,189,181,0.20)' }}>
           {icon}
         </div>
 
@@ -159,7 +159,7 @@ export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardP
             {displayTitle}
           </p>
           <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded-full border font-medium leading-none"
-            style={{ color: '#0056B3', borderColor: 'rgba(0,86,179,0.20)', background: 'rgba(0,86,179,0.06)' }}>
+            style={{ color: '#0F766E', borderColor: 'rgba(108,189,181,0.28)', background: 'rgba(108,189,181,0.08)' }}>
             {displayType}
           </span>
         </div>
@@ -176,14 +176,14 @@ export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardP
 
       {/* Footer strip */}
       <div className="flex items-center gap-3 px-3 py-2 border-t text-xs"
-        style={{ borderColor: 'rgba(197,213,236,0.5)', background: 'rgba(239,246,255,0.5)', color: '#64748B' }}>
+        style={{ borderColor: 'rgba(197,213,236,0.5)', background: 'rgba(240,250,249,0.5)', color: '#64748B' }}>
         {isTextLike
           ? <span>{visual.text_content ? 'Text content' : 'Shape / text'}</span>
           : fieldCount > 0
             ? <>
                 <span>{fieldCount} field{fieldCount !== 1 ? 's' : ''}</span>
                 {measureCount > 0 && (
-                  <span className="flex items-center gap-0.5" style={{ color: '#0056B3' }}>
+                  <span className="flex items-center gap-0.5" style={{ color: '#0F766E' }}>
                     <Hash size={9} />
                     {measureCount} measure{measureCount !== 1 ? 's' : ''}
                   </span>
@@ -191,7 +191,7 @@ export default function VisualCard({ visual, onClick, colSpan = 1 }: VisualCardP
               </>
             : <span>No field data</span>
         }
-        <span className="ml-auto text-[10px] font-semibold" style={{ color: '#0056B3' }}>View →</span>
+        <span className="ml-auto text-[10px] font-semibold" style={{ color: '#0F766E' }}>View →</span>
       </div>
     </div>
   )

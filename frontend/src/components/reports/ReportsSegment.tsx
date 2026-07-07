@@ -223,8 +223,8 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
                 <div style={{
                   display: 'flex', alignItems: 'center',
                   padding: 3, gap: 2,
-                  background: 'rgba(0,86,179,0.06)',
-                  border: '1px solid rgba(0,86,179,0.14)',
+                  background: 'rgba(108,189,181,0.08)',
+                  border: '1px solid rgba(108,189,181,0.22)',
                   borderRadius: 10,
                   position: 'relative',
                 }}>
@@ -249,8 +249,8 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
                           style={{
                             position: 'absolute', inset: 0, zIndex: -1,
                             borderRadius: 7,
-                            background: 'linear-gradient(135deg, #0056B3, #0084D4)',
-                            boxShadow: '0 2px 8px rgba(0,86,179,0.30)',
+                            background: 'linear-gradient(135deg, #6CBDB5, #93CCC6)',
+                            boxShadow: '0 2px 8px rgba(108,189,181,0.40)',
                           }}
                           transition={{ type: 'spring', duration: 0.32, bounce: 0.15 }}
                         />

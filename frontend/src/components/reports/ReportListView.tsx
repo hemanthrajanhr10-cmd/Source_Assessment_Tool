@@ -32,8 +32,8 @@ export default function ReportListView({ reports, onSelectReport }: ReportListVi
               boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
             }}
             onFocus={e => {
-              e.currentTarget.style.borderColor = '#0056B3'
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,86,179,0.10), 0 1px 3px rgba(0,0,0,0.04)'
+              e.currentTarget.style.borderColor = '#6CBDB5'
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(108,189,181,0.18), 0 1px 3px rgba(0,0,0,0.04)'
             }}
             onBlur={e => {
               e.currentTarget.style.borderColor = 'rgba(197,213,236,0.8)'
@@ -47,7 +47,7 @@ export default function ReportListView({ reports, onSelectReport }: ReportListVi
             {filtered.length} report{filtered.length !== 1 ? 's' : ''} found
           </p>
         )}
-        <div className="ml-auto text-xs font-medium" style={{ color: '#0056B3' }}>
+        <div className="ml-auto text-xs font-medium" style={{ color: '#0F766E' }}>
           {reports.length} report{reports.length !== 1 ? 's' : ''}
         </div>
       </div>
@@ -69,8 +69,8 @@ export default function ReportListView({ reports, onSelectReport }: ReportListVi
         /* Empty state */
         <div className="flex flex-col items-center justify-center py-24 gap-4">
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl"
-            style={{ background: 'rgba(0,86,179,0.06)', border: '1px solid rgba(0,86,179,0.12)' }}>
-            <FileText size={28} style={{ color: '#0056B3' }} />
+            style={{ background: 'rgba(108,189,181,0.10)', border: '1px solid rgba(108,189,181,0.22)' }}>
+            <FileText size={28} style={{ color: '#6CBDB5' }} />
           </div>
           <div className="text-center">
             <p className="text-sm font-semibold text-slate-700">No reports found</p>
@@ -85,7 +85,7 @@ export default function ReportListView({ reports, onSelectReport }: ReportListVi
               type="button"
               onClick={() => setQuery('')}
               className="text-xs font-semibold px-4 py-1.5 rounded-full transition-colors"
-              style={{ background: 'rgba(0,86,179,0.08)', color: '#0056B3', border: '1px solid rgba(0,86,179,0.18)' }}
+              style={{ background: 'rgba(108,189,181,0.12)', color: '#0F766E', border: '1px solid rgba(108,189,181,0.30)' }}
             >
               Clear search
             </button>

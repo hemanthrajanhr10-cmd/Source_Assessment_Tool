@@ -80,11 +80,11 @@ function WorkspacePickerCard({
       style={{
         display: 'flex', flexDirection: 'column', gap: 14,
         padding: '20px 22px', borderRadius: 14,
-        border: `1.5px solid ${hov ? 'rgba(0,86,179,0.42)' : 'rgba(197,213,236,0.7)'}`,
-        background: hov ? 'rgba(0,86,179,0.035)' : 'white',
+        border: `1.5px solid ${hov ? 'rgba(108,189,181,0.55)' : 'rgba(197,213,236,0.7)'}`,
+        background: hov ? 'rgba(108,189,181,0.04)' : 'white',
         cursor: 'pointer', textAlign: 'left', width: '100%',
         boxShadow: hov
-          ? '0 8px 28px rgba(0,86,179,0.11), 0 2px 8px rgba(0,86,179,0.07)'
+          ? '0 8px 28px rgba(108,189,181,0.16), 0 2px 8px rgba(108,189,181,0.10)'
           : '0 1px 4px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.04)',
         transform: hov ? 'translateY(-3px)' : 'translateY(0)',
         transition: 'all 0.22s cubic-bezier(0.16,1,0.3,1)',
@@ -95,12 +95,12 @@ function WorkspacePickerCard({
         <div style={{
           width: 40, height: 40, borderRadius: 11, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: hov ? 'rgba(0,86,179,0.10)' : 'rgba(0,86,179,0.06)',
-          border: '1px solid rgba(0,86,179,0.14)',
+          background: hov ? 'rgba(108,189,181,0.16)' : 'rgba(108,189,181,0.08)',
+          border: '1px solid rgba(108,189,181,0.22)',
           transition: 'background 0.2s ease',
-          boxShadow: hov ? '0 2px 8px rgba(0,86,179,0.12)' : 'none',
+          boxShadow: hov ? '0 2px 8px rgba(108,189,181,0.18)' : 'none',
         }}>
-          <FolderOpen size={18} style={{ color: '#0056B3' }} />
+          <FolderOpen size={18} style={{ color: '#6CBDB5' }} />
         </div>
         <div style={{ minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#1E293B', lineHeight: 1.3 }}>
@@ -132,19 +132,19 @@ function WorkspaceNode({ workspace }: { workspace: FabricWorkspace }) {
     <div style={{
       padding: '16px 18px', borderRadius: 13,
       background: 'white',
-      border: '2px solid rgba(0,86,179,0.22)',
-      boxShadow: '0 2px 12px rgba(0,86,179,0.09), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
+      border: '2px solid rgba(108,189,181,0.30)',
+      boxShadow: '0 2px 12px rgba(108,189,181,0.14), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
       animation: 'lgFadeLeft 0.44s cubic-bezier(0.16,1,0.3,1) both',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 13 }}>
         <div style={{
           width: 36, height: 36, borderRadius: 9,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,86,179,0.08)', border: '1px solid rgba(0,86,179,0.18)',
+          background: 'rgba(108,189,181,0.12)', border: '1px solid rgba(108,189,181,0.24)',
           flexShrink: 0,
-          boxShadow: '0 1px 4px rgba(0,86,179,0.10)',
+          boxShadow: '0 1px 4px rgba(108,189,181,0.14)',
         }}>
-          <FolderOpen size={16} style={{ color: '#0056B3' }} />
+          <FolderOpen size={16} style={{ color: '#6CBDB5' }} />
         </div>
         <div style={{ minWidth: 0 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#1E293B', lineHeight: 1.3, wordBreak: 'break-word' }}>
@@ -285,11 +285,11 @@ const ReportCard = forwardRef<HTMLDivElement, {
       onMouseLeave={() => { setHov(false); onHoverChange(false) }}
       style={{
         padding: '9px 13px', borderRadius: 10, cursor: 'pointer',
-        border: `1.5px solid ${hov ? 'rgba(0,86,179,0.48)' : 'rgba(197,213,236,0.65)'}`,
-        background: hov ? 'rgba(0,86,179,0.035)' : 'white',
+        border: `1.5px solid ${hov ? 'rgba(108,189,181,0.55)' : 'rgba(197,213,236,0.65)'}`,
+        background: hov ? 'rgba(108,189,181,0.04)' : 'white',
         opacity: isActive ? 1 : 0.28,
         boxShadow: hov
-          ? '0 4px 16px rgba(0,86,179,0.12), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)'
+          ? '0 4px 16px rgba(108,189,181,0.18), 0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)'
           : '0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.8)',
         transform: hov ? 'translateX(3px)' : 'translateX(0)',
         transition: 'all 0.18s cubic-bezier(0.16,1,0.3,1)',
@@ -301,12 +301,12 @@ const ReportCard = forwardRef<HTMLDivElement, {
       <div style={{
         width: 28, height: 28, borderRadius: 7, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: hov ? 'rgba(0,86,179,0.10)' : 'rgba(0,86,179,0.06)',
-        border: '1px solid rgba(0,86,179,0.14)',
+        background: hov ? 'rgba(108,189,181,0.16)' : 'rgba(108,189,181,0.08)',
+        border: '1px solid rgba(108,189,181,0.22)',
         transition: 'background 0.2s ease',
-        boxShadow: hov ? '0 1px 4px rgba(0,86,179,0.12)' : 'none',
+        boxShadow: hov ? '0 1px 4px rgba(108,189,181,0.18)' : 'none',
       }}>
-        <BarChart2 size={13} style={{ color: '#0056B3' }} />
+        <BarChart2 size={13} style={{ color: '#6CBDB5' }} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{
@@ -330,9 +330,9 @@ const ReportCard = forwardRef<HTMLDivElement, {
         </div>
       </div>
       <span style={{
-        fontSize: 9, fontWeight: 700, color: hov ? '#0056B3' : '#94A3B8',
-        background: hov ? 'rgba(0,86,179,0.08)' : 'rgba(0,0,0,0.04)',
-        border: `1px solid ${hov ? 'rgba(0,86,179,0.2)' : 'rgba(0,0,0,0.08)'}`,
+        fontSize: 9, fontWeight: 700, color: hov ? '#0F766E' : '#94A3B8',
+        background: hov ? 'rgba(108,189,181,0.12)' : 'rgba(0,0,0,0.04)',
+        border: `1px solid ${hov ? 'rgba(108,189,181,0.28)' : 'rgba(0,0,0,0.08)'}`,
         borderRadius: 5, padding: '2px 7px', flexShrink: 0,
         transition: 'all 0.15s ease',
         letterSpacing: '0.04em',
@@ -501,7 +501,7 @@ function ModelGroupRow({
           const isHovModel = hoveredModel === group.modelId
           const isHovReport = hoveredReport === reportId
           const bright = isHovModel || isHovReport
-          const stroke = bright ? 'rgba(0,86,179,0.8)' : 'rgba(0,86,179,0.26)'
+          const stroke = bright ? 'rgba(108,189,181,0.90)' : 'rgba(108,189,181,0.35)'
           const sw = bright ? 2.2 : 1.5
 
           return (
@@ -547,9 +547,9 @@ function ColLabel({ children, count }: { children: string; count?: number }) {
       }}>{children}</span>
       {count !== undefined && (
         <span style={{
-          fontSize: 10, fontWeight: 800, color: '#0056B3',
-          background: 'rgba(0,86,179,0.08)', borderRadius: 10,
-          padding: '1px 7px', border: '1px solid rgba(0,86,179,0.16)',
+          fontSize: 10, fontWeight: 800, color: '#0F766E',
+          background: 'rgba(108,189,181,0.12)', borderRadius: 10,
+          padding: '1px 7px', border: '1px solid rgba(108,189,181,0.28)',
         }}>{count}</span>
       )}
     </div>
@@ -648,8 +648,8 @@ export default function LineageExplorer({
               transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
             }}
             onFocus={e => {
-              e.currentTarget.style.borderColor = '#0056B3'
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,86,179,0.10), 0 1px 2px rgba(0,0,0,0.04)'
+              e.currentTarget.style.borderColor = '#6CBDB5'
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(108,189,181,0.18), 0 1px 2px rgba(0,0,0,0.04)'
             }}
             onBlur={e => {
               e.currentTarget.style.borderColor = 'rgba(197,213,236,0.8)'
@@ -708,7 +708,7 @@ export default function LineageExplorer({
                 position: 'absolute',
                 left: 11, top: 38, bottom: 28,
                 width: 2, borderRadius: 2,
-                background: 'linear-gradient(to bottom, rgba(0,86,179,0.3) 0%, rgba(0,86,179,0.06) 100%)',
+                background: 'linear-gradient(to bottom, rgba(108,189,181,0.40) 0%, rgba(108,189,181,0.08) 100%)',
               }} />
             </div>
 
@@ -734,16 +734,16 @@ export default function LineageExplorer({
                       position: 'absolute',
                       left: -24, top: '50%', marginTop: -1,
                       width: 24, height: 2, borderRadius: 1,
-                      background: 'rgba(0,86,179,0.22)',
+                      background: 'rgba(108,189,181,0.30)',
                     }} />
                     {/* Dot on trunk */}
                     <div style={{
                       position: 'absolute',
                       left: -27, top: '50%', marginTop: -3,
                       width: 6, height: 6, borderRadius: '50%',
-                      background: 'rgba(0,86,179,0.35)',
+                      background: 'rgba(108,189,181,0.55)',
                       border: '1.5px solid white',
-                      boxShadow: '0 0 0 1px rgba(0,86,179,0.2)',
+                      boxShadow: '0 0 0 1px rgba(108,189,181,0.28)',
                     }} />
 
                     <ModelGroupRow
@@ -773,8 +773,8 @@ export default function LineageExplorer({
               <button
                 onClick={() => setSearchQuery('')}
                 style={{
-                  marginTop: 12, fontSize: 11, fontWeight: 700, color: '#0056B3',
-                  background: 'rgba(0,86,179,0.07)', border: '1px solid rgba(0,86,179,0.2)',
+                  marginTop: 12, fontSize: 11, fontWeight: 700, color: '#0F766E',
+                  background: 'rgba(108,189,181,0.10)', border: '1px solid rgba(108,189,181,0.28)',
                   borderRadius: 6, padding: '5px 14px', cursor: 'pointer',
                 }}
               >

@@ -279,7 +279,7 @@ function KpiCard({ label, value, color, icon, delay = 0 }: {
 
 // ── Section header ─────────────────────────────────────────────────────────────
 
-function SectionHeader({ icon, title, count, accent = '#0056B3' }: {
+function SectionHeader({ icon, title, count, accent = '#6CBDB5' }: {
   icon: React.ReactNode; title: string; count?: number; accent?: string
 }) {
   return (
@@ -334,7 +334,7 @@ function MetaTable({
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
         <thead>
-          <tr style={{ background: 'rgba(239,246,255,0.8)', borderBottom: '1px solid rgba(197,213,236,0.55)' }}>
+          <tr style={{ background: 'rgba(240,250,249,0.8)', borderBottom: '1px solid rgba(197,213,236,0.55)' }}>
             {headers.map((h, i) => (
               <th key={i} style={{
                 padding: '9px 15px', fontWeight: 700, color: '#475569', fontSize: 11,
@@ -472,8 +472,8 @@ export default function ReportMetadataView({ report, workspace }: ReportMetadata
 
   // ── KPI data ───────────────────────────────────────────────────────────────
   const kpis = [
-    { label: 'Pages',         value: report.page_count ?? 0,   color: '#0056B3', icon: <Eye size={14} />        },
-    { label: 'Visuals',       value: report.visual_count ?? 0, color: '#0891B2', icon: <BarChart2 size={14} />   },
+    { label: 'Pages',         value: report.page_count ?? 0,   color: '#6CBDB5', icon: <Eye size={14} />        },
+    { label: 'Visuals',       value: report.visual_count ?? 0, color: '#4DA8A0', icon: <BarChart2 size={14} />   },
     { label: 'Unique Tables', value: fieldTableNames.size,      color: '#059669', icon: <Table2 size={14} />     },
     { label: 'Measures Used', value: usedMeasures.length,       color: '#7C3AED', icon: <Hash size={14} />       },
     { label: 'Relationships', value: linkedRels.length,         color: '#D97706', icon: <GitMerge size={14} />   },
@@ -503,19 +503,19 @@ export default function ReportMetadataView({ report, workspace }: ReportMetadata
         style={{
           display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center',
           padding: '11px 18px', borderRadius: 12,
-          background: 'linear-gradient(135deg, rgba(0,86,179,0.05) 0%, rgba(0,132,212,0.03) 100%)',
-          border: '1px solid rgba(0,86,179,0.13)',
-          boxShadow: '0 1px 4px rgba(0,86,179,0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
+          background: 'linear-gradient(135deg, rgba(108,189,181,0.07) 0%, rgba(147,204,198,0.04) 100%)',
+          border: '1px solid rgba(108,189,181,0.20)',
+          boxShadow: '0 1px 4px rgba(108,189,181,0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#334155' }}>
-          <Database size={13} color="#0056B3" />
+          <Database size={13} color="#6CBDB5" />
           <strong style={{ color: '#1E293B' }}>Semantic Model:</strong>
           <span>{ds?.name ?? <em style={{ color: '#94A3B8' }}>unlinked</em>}</span>
         </div>
         <Divider />
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: '#334155' }}>
-          <Layers size={13} color="#0891B2" />
+          <Layers size={13} color="#4DA8A0" />
           <strong style={{ color: '#1E293B' }}>Storage:</strong>
           <span style={{ color: '#475569' }}>{ds?.storage_mode ?? '—'}</span>
         </div>
@@ -542,7 +542,7 @@ export default function ReportMetadataView({ report, workspace }: ReportMetadata
             const inModel = ds?.tables?.some(t => t.name === f.table) ?? false
             return [
               <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#1E293B', fontSize: 12 }}>{f.table}</span>,
-              numCell(f.directFields, '#0056B3'),
+              numCell(f.directFields, '#6CBDB5'),
               numCell(f.measures, '#7C3AED'),
               numCell(f.aggregations, '#D97706'),
               <strong style={{ color: '#1E293B' }}>{f.totalFields}</strong>,
@@ -568,7 +568,7 @@ export default function ReportMetadataView({ report, workspace }: ReportMetadata
           rows={usedMeasures.map(m => [
             <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#1E293B', fontSize: 12 }}>{m.name}</span>,
             <span style={{ color: '#475569', fontSize: 11 }}>{m.table}</span>,
-            <strong style={{ color: '#0056B3' }}>{m.usedCount}</strong>,
+            <strong style={{ color: '#0F766E' }}>{m.usedCount}</strong>,
             m.complexity ? <ComplexityBadge level={m.complexity.level} score={m.complexity.score} /> : <span style={{ color: '#94A3B8' }}>—</span>,
             m.complexity?.score ?? dashCell(),
             m.complexity?.nesting_depth ?? dashCell(),
@@ -604,12 +604,12 @@ export default function ReportMetadataView({ report, workspace }: ReportMetadata
 
       {/* ── All Model Tables ──────────────────────────────────────────────────── */}
       {ds && ds.tables && ds.tables.length > 0 && (
-        <AnimatedCard delay={0.36} accent="#0056B3">
+        <AnimatedCard delay={0.36} accent="#6CBDB5">
           <SectionHeader
             icon={<Database size={13} color="#fff" />}
             title="Semantic Model — All Tables"
             count={ds.tables.length}
-            accent="#0056B3"
+            accent="#6CBDB5"
           />
           <MetaTable
             headers={['Table Name', 'Storage Mode', 'Visibility', 'Type', 'Used by Report']}
@@ -641,8 +641,8 @@ export default function ReportMetadataView({ report, workspace }: ReportMetadata
             transition={SPRING_GENTLE}
             style={{
               display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 16px',
-              borderRadius: 10, background: 'rgba(0,86,179,0.05)',
-              border: '1px solid rgba(0,86,179,0.18)', fontSize: 12, color: '#003D82',
+              borderRadius: 10, background: 'rgba(108,189,181,0.07)',
+              border: '1px solid rgba(108,189,181,0.22)', fontSize: 12, color: '#0F5C57',
             }}
           >
             <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -684,7 +684,7 @@ function dashCell() {
 
 // ── Animated card wrapper ──────────────────────────────────────────────────────
 
-function AnimatedCard({ children, delay = 0, accent = '#0056B3' }: {
+function AnimatedCard({ children, delay = 0, accent = '#6CBDB5' }: {
   children: React.ReactNode; delay?: number; accent?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)

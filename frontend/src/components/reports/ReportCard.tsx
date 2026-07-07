@@ -46,13 +46,13 @@ export default function ReportCard({ report, onClick }: ReportCardProps) {
         background: '#ffffff',
         border: '1px solid rgba(197,213,236,0.8)',
         boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-        '--tw-ring-color': 'rgba(0,86,179,0.40)',
+        '--tw-ring-color': 'rgba(108,189,181,0.40)',
       } as React.CSSProperties}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLDivElement
         el.style.transform = 'translateY(-3px)'
-        el.style.boxShadow = '0 12px 32px rgba(0,86,179,0.14), 0 2px 8px rgba(0,0,0,0.06)'
-        el.style.borderColor = 'rgba(0,86,179,0.30)'
+        el.style.boxShadow = '0 12px 32px rgba(108,189,181,0.20), 0 2px 8px rgba(0,0,0,0.06)'
+        el.style.borderColor = 'rgba(108,189,181,0.45)'
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLDivElement
@@ -62,18 +62,18 @@ export default function ReportCard({ report, onClick }: ReportCardProps) {
       }}
       aria-label={`Open report: ${report.name}`}
     >
-      {/* Ocean top accent */}
-      <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #0056B3, #0891B2, #0D9488)' }} />
+      {/* Teal top accent */}
+      <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, #6CBDB5, #93CCC6, #7DD3CD)' }} />
 
       <div className="p-4">
         {/* Icon row */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl"
             style={{
-              background: 'linear-gradient(135deg, rgba(0,86,179,0.10) 0%, rgba(0,132,212,0.06) 100%)',
-              border: '1px solid rgba(0,86,179,0.15)',
+              background: 'linear-gradient(135deg, rgba(108,189,181,0.14) 0%, rgba(147,204,198,0.08) 100%)',
+              border: '1px solid rgba(108,189,181,0.22)',
             }}>
-            <BarChart2 size={20} style={{ color: '#0056B3' }} />
+            <BarChart2 size={20} style={{ color: '#6CBDB5' }} />
           </div>
           {/* Status badge */}
           <span className="flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full border"
@@ -94,7 +94,7 @@ export default function ReportCard({ report, onClick }: ReportCardProps) {
         {/* Footer meta */}
         <div className="flex items-center gap-2.5">
           <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
-            style={{ background: 'rgba(0,86,179,0.07)', color: '#0056B3' }}>
+            style={{ background: 'rgba(108,189,181,0.10)', color: '#0F766E' }}>
             <BookOpen size={10} />
             {report.pageCount} page{report.pageCount !== 1 ? 's' : ''}
           </span>
@@ -102,7 +102,7 @@ export default function ReportCard({ report, onClick }: ReportCardProps) {
             <Clock size={10} />
             {formatRefreshed(report.lastRefreshed)}
           </span>
-          <span className="ml-auto text-[10px] font-semibold" style={{ color: '#0056B3' }}>
+          <span className="ml-auto text-[10px] font-semibold" style={{ color: '#0F766E' }}>
             View →
           </span>
         </div>

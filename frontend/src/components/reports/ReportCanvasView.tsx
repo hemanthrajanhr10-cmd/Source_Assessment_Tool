@@ -24,9 +24,9 @@ export default function ReportCanvasView({ report, onVisualClick }: ReportCanvas
         height: '100%',
         minHeight: 540,
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
-        background: '#EFF6FF',
-        borderColor: 'rgba(197,213,236,0.70)',
-        boxShadow: '0 1px 4px rgba(0,86,179,0.08)',
+        background: '#F0FAFA',
+        borderColor: 'rgba(168,226,221,0.70)',
+        boxShadow: '0 1px 4px rgba(108,189,181,0.12)',
       }}
     >
       {/* ── Top toolbar ─────────────────────────────────────────────────────── */}

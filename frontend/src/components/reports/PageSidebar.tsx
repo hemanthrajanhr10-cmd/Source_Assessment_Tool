@@ -132,7 +132,7 @@ export default function PageSidebar({
     return (
       <div
         className="flex flex-col flex-shrink-0 border-r overflow-y-auto"
-        style={{ width: 40, background: '#F5F9FF', borderColor: '#E5E7EB', fontFamily: FONT }}
+        style={{ width: 40, background: '#F2FAF9', borderColor: '#E5E7EB', fontFamily: FONT }}
         aria-label="Page navigation (compact)"
       >
         <div
@@ -181,7 +181,7 @@ export default function PageSidebar({
       className="flex flex-col flex-shrink-0 overflow-hidden transition-all duration-200 ease-in-out border-r"
       style={{
         width: collapsed ? 0 : 240,
-        background: '#F5F9FF',
+        background: '#F2FAF9',
         borderColor: '#E5E7EB',
         fontFamily: FONT,
       }}

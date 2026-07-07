@@ -629,7 +629,7 @@ export default function LineageExplorer({
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '8px 22px',
         borderBottom: '1px solid rgba(197,213,236,0.55)',
-        background: 'linear-gradient(180deg, #F9FAFD 0%, #F2F6FB 100%)',
+        background: 'linear-gradient(180deg, #F7FDFB 0%, #EFF9F7 100%)',
         flexShrink: 0,
       }}>
         <div style={{ position: 'relative', width: 264 }}>
@@ -690,7 +690,7 @@ export default function LineageExplorer({
       {/* Canvas */}
       <div style={{
         flex: 1, overflow: 'auto', padding: 28,
-        background: '#F8FAFF',
+        background: '#F4FBFA',
       }}>
         {filteredGroups.length > 0 ? (
           <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start', minWidth: 700 }}>

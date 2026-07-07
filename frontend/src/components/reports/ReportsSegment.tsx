@@ -211,7 +211,7 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '8px 16px',
                 borderBottom: '1px solid rgba(197,213,236,0.65)',
-                background: 'linear-gradient(180deg, #F9FAFD 0%, #F2F6FB 100%)',
+                background: 'linear-gradient(180deg, #F7FDFB 0%, #EFF9F7 100%)',
                 flexShrink: 0,
               }}>
                 <span style={{

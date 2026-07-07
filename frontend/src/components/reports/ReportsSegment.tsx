@@ -206,25 +206,21 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
 
           return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-              {/* ── Animated toggle bar ──────────────────────────────────── */}
+              {/* ── View toggle bar ───────────────────────────────────── */}
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 16px',
-                borderBottom: '1px solid rgba(197,213,236,0.65)',
-                background: 'linear-gradient(180deg, #F7FDFB 0%, #EFF9F7 100%)',
+                padding: '0 18px',
+                height: 48,
+                borderBottom: '1px solid oklch(0.91 0.012 185)',
+                background: 'oklch(1.0 0.003 185)',
                 flexShrink: 0,
               }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 700, color: '#94A3B8',
-                  textTransform: 'uppercase', letterSpacing: '0.07em',
-                }}>View</span>
-
                 {/* Pill switcher */}
                 <div style={{
                   display: 'flex', alignItems: 'center',
                   padding: 3, gap: 2,
-                  background: 'rgba(108,189,181,0.08)',
-                  border: '1px solid rgba(108,189,181,0.22)',
+                  background: 'oklch(0.95 0.018 185)',
+                  border: '1px solid oklch(0.88 0.025 185)',
                   borderRadius: 10,
                   position: 'relative',
                 }}>
@@ -235,24 +231,23 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
                       style={{
                         position: 'relative', zIndex: 1,
                         display: 'inline-flex', alignItems: 'center', gap: 5,
-                        padding: '5px 13px', borderRadius: 7, cursor: 'pointer',
-                        fontSize: 11.5, fontWeight: 600, border: 'none',
+                        padding: '5px 14px', borderRadius: 7, cursor: 'pointer',
+                        fontSize: 12, fontWeight: 600, border: 'none',
                         background: 'transparent',
-                        color: reportViewMode === mode ? '#fff' : '#475569',
-                        transition: 'color 150ms cubic-bezier(0.4,0,0.2,1)',
+                        color: reportViewMode === mode ? '#fff' : 'oklch(0.45 0.025 185)',
+                        transition: 'color 150ms ease',
                       }}
                     >
-                      {/* Sliding background pill */}
                       {reportViewMode === mode && (
                         <motion.span
                           layoutId="view-pill"
                           style={{
                             position: 'absolute', inset: 0, zIndex: -1,
                             borderRadius: 7,
-                            background: 'linear-gradient(135deg, #6CBDB5, #93CCC6)',
-                            boxShadow: '0 2px 8px rgba(108,189,181,0.40)',
+                            background: 'oklch(0.44 0.072 185)',
+                            boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
                           }}
-                          transition={{ type: 'spring', duration: 0.32, bounce: 0.15 }}
+                          transition={{ type: 'spring', duration: 0.30, bounce: 0.10 }}
                         />
                       )}
                       {icon}
@@ -268,11 +263,12 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
                   style={{
-                    marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: '#475569',
-                    background: 'rgba(100,116,139,0.08)',
-                    border: '1px solid rgba(100,116,139,0.15)',
-                    padding: '3px 10px', borderRadius: 7,
-                    maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    marginLeft: 'auto', fontSize: 11.5, fontWeight: 600,
+                    color: 'oklch(0.40 0.025 185)',
+                    background: 'oklch(0.94 0.022 185)',
+                    border: '1px solid oklch(0.87 0.030 185)',
+                    padding: '4px 12px', borderRadius: 8,
+                    maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                   }}
                 >
                   {selectedReport.name}
@@ -280,7 +276,7 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
               </div>
 
               {/* ── Panel with AnimatePresence slide ─────────────────────── */}
-              <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+              <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
                 <AnimatePresence mode="wait">
                   {reportViewMode === 'canvas' && (
                     <motion.div
@@ -289,7 +285,7 @@ export default function ReportsSegment({ workspaces }: ReportsSegmentProps) {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -12 }}
                       transition={{ type: 'spring', duration: 0.35, bounce: 0 }}
-                      className="p-4 h-full"
+                      style={{ height: '100%' }}
                     >
                       <ReportCanvasView
                         report={selectedReport}

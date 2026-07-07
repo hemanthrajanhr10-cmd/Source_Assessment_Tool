@@ -1313,76 +1313,169 @@ def _stub_dataflow(dataflow_id: str, name: str, generation: str, error: str) -> 
 
 # ── Excel export ──────────────────────────────────────────────────────────────
 
+_EXCEL_ROW_LIMIT = 1_048_576
+
+
 def _generate_excel(results: dict, label: str) -> bytes:
-    """Generate a multi-sheet Excel file from FabricResults."""
+    """Generate a styled multi-sheet Excel file from FabricResults."""
     try:
         import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, GradientFill
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
         from openpyxl.utils import get_column_letter
     except ImportError:
         raise HTTPException(status_code=503, detail="openpyxl not installed")
 
     wb = openpyxl.Workbook()
-    wb.remove(wb.active)  # remove default sheet
+    wb.remove(wb.active)
 
-    # ── Palette ───────────────────────────────────────────────────────────────
-    CLR_PRIMARY    = "4F46E5"   # indigo header
-    CLR_SECTION_A  = "1E3A5F"   # dark-navy header for lineage sheets
-    CLR_SECTION_B  = "0F766E"   # teal header for complexity sheets
-    CLR_SECTION_C  = "92400E"   # amber-brown header for DB-usage sheet
-    CLR_ALT_ROW    = "F8FAFF"   # very light blue alternate row
-    CLR_BORDER     = "C5D5EC"
+    # ── Style constants (mirrors SQL Server report palette) ───────────────────
+    DARK_BLUE   = "1F3864"
+    MID_BLUE    = "2E75B6"
+    LIGHT_BLUE  = "BDD7EE"
+    ACCENT_BLUE = "DEEAF1"
+    TEAL_DARK   = "0F766E"
+    TEAL_MID    = "0D9488"
+    TEAL_LIGHT  = "CCFBF1"
+    NAVY        = "1E3A5F"
+    AMBER_DARK  = "92400E"
+    AMBER_LIGHT = "FEF3C7"
+    GREEN       = "70AD47"
+    LIGHT_GREEN = "E2EFDA"
+    ORANGE      = "ED7D31"
+    LIGHT_ORANGE= "FCE4D6"
+    RED         = "FF0000"
+    LIGHT_RED   = "FFE2E2"
+    WHITE       = "FFFFFF"
+    LIGHT_GRAY  = "F2F2F2"
+    MED_GRAY    = "808080"
+    DARK_GRAY   = "404040"
+    FONT_NAME   = "Calibri"
 
-    thin_side = Side(style="thin", color=CLR_BORDER)
-    thin_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+    def _fnt(bold=False, size=11, color=DARK_GRAY, italic=False):
+        return Font(name=FONT_NAME, bold=bold, size=size, color=color, italic=italic)
 
-    def _make_header_font(color: str = "FFFFFF") -> Font:
-        return Font(bold=True, color=color, size=10)
+    def _fill(hex_color: str):
+        return PatternFill("solid", fgColor=hex_color)
 
-    def _make_header_fill(fg: str) -> PatternFill:
-        return PatternFill("solid", fgColor=fg)
+    def _border(style="thin", color="D0D7E5"):
+        s = Side(style=style, color=color)
+        return Border(left=s, right=s, top=s, bottom=s)
+
+    def _align(h="left", v="center", wrap=False):
+        return Alignment(horizontal=h, vertical=v, wrap_text=wrap)
+
+    def _header_cell(ws, row: int, col: int, value: str, bg=DARK_BLUE, fg=WHITE):
+        c = ws.cell(row=row, column=col, value=value)
+        c.font = _fnt(bold=True, color=fg, size=10)
+        c.fill = _fill(bg)
+        c.alignment = _align("center")
+        c.border = _border()
+
+    def _section_title(ws, row: int, col: int, text: str, span: int = 1, bg=MID_BLUE):
+        c = ws.cell(row=row, column=col, value=text)
+        c.font = _fnt(bold=True, size=12, color=WHITE)
+        c.fill = _fill(bg)
+        c.alignment = _align("left")
+        c.border = _border()
+        if span > 1:
+            ws.merge_cells(start_row=row, start_column=col, end_row=row, end_column=col + span - 1)
+
+    def _data_cell(ws, row: int, col: int, value, bg=WHITE, align_h="left",
+                   bold=False, color=DARK_GRAY, wrap=False):
+        c = ws.cell(row=row, column=col, value=value)
+        c.font = _fnt(bold=bold, color=color)
+        c.fill = _fill(bg)
+        c.border = _border()
+        c.alignment = _align(align_h, wrap=wrap)
+
+    def _auto_width(ws, min_w=10, max_w=52):
+        for col in ws.columns:
+            max_len = 0
+            col_letter = get_column_letter(col[0].column)
+            for cell in col:
+                try:
+                    if cell.value:
+                        max_len = max(max_len, len(str(cell.value)))
+                except Exception:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max(max_len + 2, min_w), max_w)
 
     def _add_sheet(
         name: str,
+        section_label: str,
         headers: list[str],
         rows: list[list],
         col_widths: list[int] | None = None,
-        header_color: str = CLR_PRIMARY,
-        alt_row: bool = True,
-    ) -> None:
-        ws = wb.create_sheet(title=name[:31])
-        hfont  = _make_header_font()
-        hfill  = _make_header_fill(header_color)
-        halign = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        header_bg: str = DARK_BLUE,
+        alt_bg: str = LIGHT_GRAY,
+        tab_color: str = MID_BLUE,
+        cell_overrides: dict | None = None,
+        wrap_last_col: bool = False,
+    ) -> list:
+        """
+        Creates a sheet (possibly split across multiple sheets if rows > EXCEL_ROW_LIMIT).
+        Row 1 = section title (merged), Row 2 = column headers, Row 3+ = data.
+        Returns list of created worksheet objects.
+        """
+        MAX_DATA_ROWS = _EXCEL_ROW_LIMIT - 2  # rows 1+2 are title+header
+        sheets_created = []
+        part = 1
+        offset = 0
+        total = len(rows)
 
-        ws.append(headers)
-        ws.row_dimensions[1].height = 28
-        for ci, cell in enumerate(ws[1]):
-            cell.font      = hfont
-            cell.fill      = hfill
-            cell.alignment = halign
-            cell.border    = thin_border
+        while offset < total or (offset == 0 and total == 0):
+            chunk = rows[offset: offset + MAX_DATA_ROWS]
+            sheet_name = name[:31] if part == 1 else f"{name[:27]} ({part})"
+            ws = wb.create_sheet(title=sheet_name)
+            ws.sheet_properties.tabColor = tab_color
+            sheets_created.append(ws)
 
-        alt_fill = PatternFill("solid", fgColor=CLR_ALT_ROW)
-        for ri, row in enumerate(rows, start=2):
-            ws.append([str(v) if v is not None else "" for v in row])
-            if alt_row and ri % 2 == 0:
-                for cell in ws[ri]:
-                    cell.fill = alt_fill
-            for cell in ws[ri]:
-                cell.border = thin_border
-                cell.alignment = Alignment(vertical="center", wrap_text=False)
+            # Row 1: section title
+            _section_title(ws, 1, 1, f"  {section_label}", span=len(headers), bg=header_bg)
+            ws.row_dimensions[1].height = 22
 
-        widths = col_widths or [22] * len(headers)
-        for ci, w in enumerate(widths, start=1):
-            ws.column_dimensions[get_column_letter(ci)].width = w
+            # Row 2: column headers
+            for ci, h in enumerate(headers, 1):
+                _header_cell(ws, 2, ci, h, bg=header_bg)
+            ws.row_dimensions[2].height = 26
+            ws.auto_filter.ref = f"A2:{get_column_letter(len(headers))}2"
+            ws.freeze_panes = "A3"
 
-        ws.freeze_panes = "A2"
+            # Data rows starting at row 3
+            for ri, row in enumerate(chunk, start=3):
+                bg = alt_bg if ri % 2 == 0 else WHITE
+                for ci, val in enumerate(row, start=1):
+                    str_val = str(val) if val is not None else ""
+                    do_wrap = wrap_last_col and ci == len(row)
+                    _data_cell(ws, ri, ci, str_val, bg=bg,
+                               align_h="center" if ci > 2 else "left",
+                               wrap=do_wrap)
+                    # Apply any per-cell style overrides
+                    if cell_overrides:
+                        for (check_col, check_val), style in cell_overrides.items():
+                            if ci == check_col and str_val == check_val:
+                                c = ws.cell(row=ri, column=ci)
+                                if "bg" in style:
+                                    c.fill = _fill(style["bg"])
+                                if "color" in style:
+                                    c.font = _fnt(bold=style.get("bold", False), color=style["color"])
+
+            # Column widths
+            widths = col_widths or [22] * len(headers)
+            for ci, w in enumerate(widths, start=1):
+                ws.column_dimensions[get_column_letter(ci)].width = w
+
+            offset += MAX_DATA_ROWS
+            part += 1
+            if offset >= total:
+                break
+
+        return sheets_created
 
     workspaces = results.get("workspaces", [])
     summary = results.get("summary", {})
 
-    # ── helpers ───────────────────────────────────────────────────────────────
+    # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _risk(storage_mode: str) -> str:
         return {
@@ -1405,50 +1498,98 @@ def _generate_excel(results: dict, label: str) -> bytes:
         }.get(storage_mode, storage_mode or "Unknown")
 
     def _report_complexity(rpt: dict, ds_map: dict) -> str:
-        """Estimate report complexity from visual & measure counts."""
         vc = rpt.get("visual_count", 0)
-        ds_id = rpt.get("dataset_id", "")
-        ds = ds_map.get(ds_id, {})
-        mc = ds.get("measure_count", 0)
-        rc = ds.get("relationship_count", 0)
-        score = vc + mc * 2 + rc
-        if score >= 80:  return "Very Complex"
-        if score >= 40:  return "Complex"
-        if score >= 20:  return "Moderate"
-        if score >= 5:   return "Simple"
+        ds = ds_map.get(rpt.get("dataset_id", ""), {})
+        score = vc + ds.get("measure_count", 0) * 2 + ds.get("relationship_count", 0)
+        if score >= 80: return "Very Complex"
+        if score >= 40: return "Complex"
+        if score >= 20: return "Moderate"
+        if score >= 5:  return "Simple"
         return "Minimal"
 
-    # Build dataset-id → dataset map for cross-linking
     ds_by_id: dict[str, dict] = {}
-    ds_by_name: dict[str, dict] = {}
     for _ws in workspaces:
         for _ds in _ws.get("datasets", []):
             ds_by_id[_ds.get("id", "")] = _ds
-            ds_by_name[_ds.get("name", "")] = _ds
 
-    # ── 1. Summary sheet ─────────────────────────────────────────────────────
-    total_visuals = summary.get("total_visuals", 0)
+    # ── 1. Summary ────────────────────────────────────────────────────────────
+    ws_sum = wb.create_sheet(title="Summary")
+    ws_sum.sheet_properties.tabColor = DARK_BLUE
+
+    # Main title
+    ws_sum.merge_cells("A1:D1")
+    c = ws_sum["A1"]
+    c.value = "FABRIC ASSESSMENT REPORT"
+    c.font = _fnt(bold=True, size=18, color=WHITE)
+    c.fill = _fill(DARK_BLUE)
+    c.alignment = _align("center")
+    ws_sum.row_dimensions[1].height = 36
+
+    # Sub-title
+    ws_sum.merge_cells("A2:D2")
+    c = ws_sum["A2"]
+    c.value = f"Label: {label}    |    Generated: {results.get('assessed_at', '')}"
+    c.font = _fnt(italic=True, size=10, color=MED_GRAY)
+    c.fill = _fill(ACCENT_BLUE)
+    c.alignment = _align("center")
+
     total_complex = sum(
         1 for _ws in workspaces for _ds in _ws.get("datasets", [])
         for m in _ds.get("measures", [])
         if (m.get("complexity") or {}).get("level") in ("Complex", "Very Complex")
     )
-    _add_sheet("Summary", ["Metric", "Value"], [
-        ["Workspaces Assessed",      summary.get("workspace_count", 0)],
-        ["Semantic Models",          summary.get("dataset_count", 0)],
-        ["Reports",                  summary.get("report_count", 0)],
-        ["Paginated Reports",        summary.get("paginated_report_count", 0)],
-        ["Total Measures",           summary.get("total_measures", 0)],
-        ["Complex / Very Complex Measures", total_complex],
-        ["Calculated Tables",        summary.get("total_calculated_tables", 0)],
-        ["Calculated Columns",       summary.get("total_calculated_columns", 0)],
-        ["Relationships",            summary.get("total_relationships", 0)],
-        ["Total Visuals",            total_visuals],
-        ["Assessment Label",         label],
-        ["Assessed At",              results.get("assessed_at", "")],
-    ], col_widths=[36, 20])
 
-    # ── 2. Semantic Models sheet ──────────────────────────────────────────────
+    # KPI grid (row 4 label, row 5 value)
+    _section_title(ws_sum, 3, 1, "  KEY METRICS", span=4, bg=TEAL_DARK)
+    kpis = [
+        ("Workspaces",       summary.get("workspace_count", 0),          TEAL_MID),
+        ("Semantic Models",  summary.get("dataset_count", 0),             MID_BLUE),
+        ("Reports",          summary.get("report_count", 0),              MID_BLUE),
+        ("Total Measures",   summary.get("total_measures", 0),            MID_BLUE),
+        ("Complex Measures", total_complex,                                ORANGE),
+        ("Calc Tables",      summary.get("total_calculated_tables", 0),   GREEN),
+        ("Calc Columns",     summary.get("total_calculated_columns", 0),  GREEN),
+        ("Total Visuals",    summary.get("total_visuals", 0),             MID_BLUE),
+    ]
+    for idx, (lbl, val, color) in enumerate(kpis):
+        col = idx + 1
+        kl = ws_sum.cell(row=4, column=col, value=lbl)
+        kl.font = _fnt(bold=True, size=9, color=WHITE)
+        kl.fill = _fill(color)
+        kl.alignment = _align("center")
+        kl.border = _border()
+        ws_sum.row_dimensions[4].height = 18
+
+        kv = ws_sum.cell(row=5, column=col, value=val)
+        kv.font = _fnt(bold=True, size=16)
+        kv.fill = _fill(ACCENT_BLUE)
+        kv.alignment = _align("center")
+        kv.border = _border()
+        ws_sum.row_dimensions[5].height = 32
+
+    # Workspace breakdown table
+    _section_title(ws_sum, 7, 1, "  WORKSPACE BREAKDOWN", span=6, bg=MID_BLUE)
+    ws_headers = ["Workspace", "Semantic Models", "Reports", "Dataflows", "Measures", "Visuals"]
+    for ci, h in enumerate(ws_headers, 1):
+        _header_cell(ws_sum, 8, ci, h, bg=MID_BLUE)
+    ws_sum.row_dimensions[8].height = 22
+    for ri, _ws in enumerate(workspaces, start=9):
+        bg = LIGHT_BLUE if ri % 2 == 0 else WHITE
+        vals = [
+            _ws.get("name", ""),
+            len(_ws.get("datasets", [])),
+            len(_ws.get("reports", [])),
+            len(_ws.get("dataflows", [])),
+            sum(len(ds.get("measures", [])) for ds in _ws.get("datasets", [])),
+            sum(rpt.get("visual_count", 0) for rpt in _ws.get("reports", [])),
+        ]
+        for ci, v in enumerate(vals, 1):
+            _data_cell(ws_sum, ri, ci, v, bg=bg, align_h="center" if ci > 1 else "left")
+
+    for ci, w in enumerate([34, 16, 10, 11, 11, 10], start=1):
+        ws_sum.column_dimensions[get_column_letter(ci)].width = w
+
+    # ── 2. Semantic Models ────────────────────────────────────────────────────
     model_rows = []
     for _ws in workspaces:
         for ds in _ws.get("datasets", []):
@@ -1458,30 +1599,29 @@ def _generate_excel(results: dict, label: str) -> bytes:
                 cx_dist[lvl] = cx_dist.get(lvl, 0) + 1
             model_rows.append([
                 _ws.get("name", ""), ds.get("name", ""), ds.get("storage_mode", ""),
-                _dep_type(ds.get("storage_mode", "")),
-                ds.get("configured_by", ""), ds.get("table_count", 0),
-                ds.get("measure_count", 0), ds.get("calculated_column_count", 0),
-                ds.get("calculated_table_count", 0), ds.get("relationship_count", 0),
-                ds.get("complexity_score", 0),
-                cx_dist.get("Very Complex", 0),
-                cx_dist.get("Complex", 0),
+                _dep_type(ds.get("storage_mode", "")), ds.get("configured_by", ""),
+                ds.get("table_count", 0), ds.get("measure_count", 0),
+                ds.get("calculated_column_count", 0), ds.get("calculated_table_count", 0),
+                ds.get("relationship_count", 0), ds.get("complexity_score", 0),
+                cx_dist.get("Very Complex", 0), cx_dist.get("Complex", 0),
                 "Yes" if ds.get("is_refreshable") else "No",
             ])
-    _add_sheet("Semantic Models",
+    _add_sheet("Semantic Models", "SEMANTIC MODELS",
                ["Workspace", "Model", "Storage Mode", "Dependency Type", "Owner",
                 "Tables", "Measures", "Calc Cols", "Calc Tables", "Relationships",
-                "Complexity Score", "Very Complex Measures", "Complex Measures", "Refreshable"],
+                "Complexity Score", "Very Complex", "Complex", "Refreshable"],
                model_rows,
-               col_widths=[22, 26, 16, 24, 20, 9, 10, 10, 11, 14, 14, 16, 14, 12])
+               col_widths=[24, 28, 14, 26, 22, 9, 10, 10, 11, 14, 14, 13, 10, 12],
+               header_bg=DARK_BLUE, alt_bg=LIGHT_BLUE, tab_color=MID_BLUE)
 
-    # ── 3. Measures sheet ─────────────────────────────────────────────────────
+    # ── 3. Measures (metadata + short DAX) ───────────────────────────────────
     measure_rows = []
     for _ws in workspaces:
         for ds in _ws.get("datasets", []):
             for m in ds.get("measures", []):
                 cx = m.get("complexity") or {}
                 deps = m.get("dependencies") or []
-                dep_tables = ", ".join(sorted({d.get("table", "") for d in deps}))
+                dep_tables = ", ".join(sorted({d.get("table", "") for d in deps if d.get("table")}))
                 measure_rows.append([
                     _ws.get("name", ""), ds.get("name", ""), m.get("table", ""),
                     m.get("name", ""), m.get("display_folder", ""),
@@ -1490,16 +1630,18 @@ def _generate_excel(results: dict, label: str) -> bytes:
                     cx.get("dependency_count", 0),
                     ", ".join(cx.get("complex_functions", [])),
                     dep_tables,
-                    m.get("expression", "")[:300],
+                    m.get("format_string", ""),
+                    m.get("expression", "")[:500],
                 ])
-    _add_sheet("Measures",
+    _add_sheet("Measures", "MEASURES",
                ["Workspace", "Model", "Table", "Measure", "Folder",
                 "Score", "Level", "Nesting Depth", "Function Count", "Column Refs",
-                "Complex Functions", "Referenced Tables", "DAX Expression (truncated)"],
+                "Complex Functions", "Referenced Tables", "Format", "DAX Preview (500c)"],
                measure_rows,
-               col_widths=[20, 22, 18, 26, 16, 8, 14, 12, 13, 10, 22, 22, 40])
+               col_widths=[20, 22, 18, 26, 16, 8, 14, 12, 13, 10, 22, 22, 12, 50],
+               header_bg=DARK_BLUE, alt_bg=LIGHT_GRAY, tab_color=DARK_BLUE)
 
-    # ── 4. Relationships sheet ────────────────────────────────────────────────
+    # ── 4. Relationships ──────────────────────────────────────────────────────
     rel_rows = []
     for _ws in workspaces:
         for ds in _ws.get("datasets", []):
@@ -1511,39 +1653,40 @@ def _generate_excel(results: dict, label: str) -> bytes:
                     r.get("cardinality", ""), r.get("cross_filter", ""),
                     "Active" if r.get("is_active", True) else "Inactive",
                 ])
-    _add_sheet("Relationships",
+    _add_sheet("Relationships", "RELATIONSHIPS",
                ["Workspace", "Model", "From Table", "From Column",
                 "To Table", "To Column", "Cardinality", "Cross Filter", "Status"],
                rel_rows,
-               col_widths=[22, 22, 20, 20, 20, 20, 14, 16, 10])
+               col_widths=[22, 22, 22, 22, 22, 22, 14, 16, 10],
+               header_bg=MID_BLUE, alt_bg=LIGHT_BLUE, tab_color=MID_BLUE,
+               cell_overrides={(9, "Inactive"): {"bg": LIGHT_ORANGE, "color": AMBER_DARK, "bold": True}})
 
-    # ── 5. Reports sheet ──────────────────────────────────────────────────────
+    # ── 5. Reports ────────────────────────────────────────────────────────────
     report_rows = []
     for _ws in workspaces:
         for rpt in _ws.get("reports", []):
-            ds_id  = rpt.get("dataset_id", "")
-            ds     = ds_by_id.get(ds_id, {})
-            model_name = ds.get("name", ds_id or "—")
-            pages  = rpt.get("pages") or []
-            unique_visual_types = sorted({v.get("type", "") for p in pages for v in p.get("visuals", []) if v.get("type")})
+            ds    = ds_by_id.get(rpt.get("dataset_id", ""), {})
+            pages = rpt.get("pages") or []
+            unique_types = sorted({v.get("type", "") for p in pages for v in p.get("visuals", []) if v.get("type")})
             report_rows.append([
                 _ws.get("name", ""), rpt.get("name", ""),
                 rpt.get("report_type", ""), "Yes" if rpt.get("is_paginated") else "No",
-                model_name,
+                ds.get("name", rpt.get("dataset_id", "—") or "—"),
                 rpt.get("page_count", 0) or 0, rpt.get("visual_count", 0),
                 rpt.get("bookmark_count", 0),
                 _report_complexity(rpt, ds_by_id),
                 "Yes" if rpt.get("layout_parsed") else "No",
-                ", ".join(unique_visual_types[:8]),
+                ", ".join(unique_types[:10]),
             ])
-    _add_sheet("Reports",
+    _add_sheet("Reports", "REPORTS",
                ["Workspace", "Report", "Type", "Paginated", "Linked Model",
                 "Pages", "Visuals", "Bookmarks", "Complexity Level",
-                "Full Layout Parsed", "Visual Types Used"],
+                "Layout Parsed", "Visual Types Used"],
                report_rows,
-               col_widths=[20, 26, 14, 10, 24, 8, 9, 10, 16, 14, 34])
+               col_widths=[20, 28, 14, 10, 26, 8, 9, 10, 16, 14, 38],
+               header_bg=TEAL_DARK, alt_bg=TEAL_LIGHT, tab_color=TEAL_DARK)
 
-    # ── 6. Complexity Top 50 sheet ────────────────────────────────────────────
+    # ── 6. DAX Complexity (all items, no cap) ─────────────────────────────────
     complexity_items: list[tuple[int, list]] = []
     for _ws in workspaces:
         for ds in _ws.get("datasets", []):
@@ -1554,29 +1697,90 @@ def _generate_excel(results: dict, label: str) -> bytes:
                         _ws.get("name", ""), ds.get("name", ""), "Measure",
                         m.get("name", ""), m.get("table", ""),
                         cx["score"], cx.get("level", ""), cx.get("nesting_depth", 0),
-                        cx.get("function_count", 0),
+                        cx.get("function_count", 0), cx.get("dependency_count", 0),
                         ", ".join(cx.get("complex_functions", [])),
                     ]))
-            for c in ds.get("calculated_columns", []):
-                cx = c.get("complexity") or {}
+            for col_item in ds.get("calculated_columns", []):
+                cx = col_item.get("complexity") or {}
                 if cx.get("score", 0) > 0:
                     complexity_items.append((cx["score"], [
                         _ws.get("name", ""), ds.get("name", ""), "Calc Column",
-                        c.get("name", ""), c.get("table", ""),
+                        col_item.get("name", ""), col_item.get("table", ""),
                         cx["score"], cx.get("level", ""), cx.get("nesting_depth", 0),
-                        cx.get("function_count", 0),
+                        cx.get("function_count", 0), cx.get("dependency_count", 0),
                         ", ".join(cx.get("complex_functions", [])),
                     ]))
     complexity_items.sort(key=lambda x: x[0], reverse=True)
-    _add_sheet("Complexity Top 50",
+    cx_rows = [row for _, row in complexity_items]
+    _add_sheet("DAX Complexity", "DAX COMPLEXITY RANKING (ALL ITEMS)",
                ["Workspace", "Model", "Type", "Name", "Table",
-                "Score", "Level", "Nesting Depth", "Function Count", "Complex Functions"],
-               [row for _, row in complexity_items[:50]],
-               col_widths=[20, 22, 14, 30, 18, 8, 14, 12, 14, 28],
-               header_color=CLR_SECTION_B)
+                "Score", "Level", "Nesting Depth", "Function Count", "Column Refs",
+                "Complex Functions"],
+               cx_rows,
+               col_widths=[20, 22, 14, 32, 20, 8, 14, 13, 14, 11, 30],
+               header_bg=TEAL_DARK, alt_bg=TEAL_LIGHT, tab_color=TEAL_DARK,
+               cell_overrides={
+                   (7, "Very Complex"): {"bg": LIGHT_RED, "color": RED, "bold": True},
+                   (7, "Complex"):      {"bg": LIGHT_ORANGE, "color": ORANGE, "bold": True},
+               })
 
-    # ── 7. Database Usage Summary (Backend Dependency) ────────────────────────
-    db_map: dict[str, dict] = {}   # db_key → {name, storage_mode, reports: set, dep_type, risk}
+    # ── 7. Full DAX Expressions ───────────────────────────────────────────────
+    dax_rows = []
+    for _ws in workspaces:
+        for ds in _ws.get("datasets", []):
+            for m in ds.get("measures", []):
+                expr = m.get("expression", "") or ""
+                if expr:
+                    cx = m.get("complexity") or {}
+                    dax_rows.append([
+                        _ws.get("name", ""), ds.get("name", ""), "Measure",
+                        m.get("table", ""), m.get("name", ""),
+                        m.get("display_folder", ""), m.get("format_string", ""),
+                        cx.get("score", 0), cx.get("level", "None"),
+                        expr,
+                    ])
+            for col_item in ds.get("calculated_columns", []):
+                expr = col_item.get("expression", "") or ""
+                if expr:
+                    cx = col_item.get("complexity") or {}
+                    dax_rows.append([
+                        _ws.get("name", ""), ds.get("name", ""), "Calc Column",
+                        col_item.get("table", ""), col_item.get("name", ""),
+                        col_item.get("display_folder", ""), col_item.get("format_string", ""),
+                        cx.get("score", 0), cx.get("level", "None"),
+                        expr,
+                    ])
+            for tbl in ds.get("tables", []):
+                for ct in (tbl.get("calculated_table_expression") and [tbl]) or []:
+                    expr = ct.get("calculated_table_expression", "") or ""
+                    if expr:
+                        dax_rows.append([
+                            _ws.get("name", ""), ds.get("name", ""), "Calc Table",
+                            ct.get("name", ""), ct.get("name", ""),
+                            "", "", 0, "None",
+                            expr,
+                        ])
+
+    ws_dax_list = _add_sheet(
+        "DAX Expressions", "FULL DAX EXPRESSIONS",
+        ["Workspace", "Model", "Type", "Table", "Name",
+         "Folder", "Format", "Score", "Level", "DAX Expression"],
+        dax_rows,
+        col_widths=[20, 22, 13, 22, 28, 16, 12, 8, 14, 80],
+        header_bg=NAVY, alt_bg=ACCENT_BLUE, tab_color=NAVY,
+        wrap_last_col=True,
+    )
+    # Enable wrap + taller rows on DAX expression column for readability
+    for ws_dax in ws_dax_list:
+        for row in ws_dax.iter_rows(min_row=3):
+            last_cell = row[-1]
+            if last_cell.value and len(str(last_cell.value)) > 80:
+                ws_dax.row_dimensions[last_cell.row].height = min(
+                    14 * (str(last_cell.value).count("\n") + 1), 200
+                )
+
+    # ── 8. Database Usage Summary ─────────────────────────────────────────────
+    db_map: dict[str, dict] = {}
     for _ws in workspaces:
         for ds in _ws.get("datasets", []):
             key = ds.get("name", "")
@@ -1584,21 +1788,19 @@ def _generate_excel(results: dict, label: str) -> bytes:
                 continue
             if key not in db_map:
                 db_map[key] = {
+                    "workspace": _ws.get("name", ""),
                     "name": key,
                     "storage_mode": ds.get("storage_mode", ""),
                     "dep_type": _dep_type(ds.get("storage_mode", "")),
                     "risk": _risk(ds.get("storage_mode", "")),
                     "reports": set(),
-                    "workspace": _ws.get("name", ""),
                     "table_count": ds.get("table_count", 0),
                     "relationship_count": ds.get("relationship_count", 0),
                     "measure_count": ds.get("measure_count", 0),
                 }
-            # count reports linked to this dataset
             for rpt in _ws.get("reports", []):
                 if rpt.get("dataset_id") == ds.get("id"):
                     db_map[key]["reports"].add(rpt.get("name", ""))
-
     db_rows = []
     for entry in sorted(db_map.values(), key=lambda x: -len(x["reports"])):
         db_rows.append([
@@ -1607,20 +1809,23 @@ def _generate_excel(results: dict, label: str) -> bytes:
             entry["table_count"], entry["relationship_count"], entry["measure_count"],
             entry["risk"],
         ])
-    _add_sheet("Database Usage Summary",
+    _add_sheet("Database Usage Summary", "DATABASE / MODEL USAGE SUMMARY",
                ["Workspace", "Database / Model", "Storage Mode", "Dependency Type",
                 "Approx Report Count", "Tables", "Relationships", "Measures", "Risk Level"],
                db_rows,
-               col_widths=[20, 26, 16, 26, 18, 9, 14, 10, 12],
-               header_color=CLR_SECTION_C)
+               col_widths=[20, 28, 16, 28, 18, 9, 14, 10, 12],
+               header_bg=AMBER_DARK, alt_bg=AMBER_LIGHT, tab_color=AMBER_DARK,
+               cell_overrides={
+                   (9, "High"):   {"bg": LIGHT_RED,    "color": RED,    "bold": True},
+                   (9, "Medium"): {"bg": LIGHT_ORANGE, "color": ORANGE, "bold": True},
+                   (9, "Low"):    {"bg": LIGHT_GREEN,  "color": GREEN,  "bold": True},
+               })
 
-    # ── 8. Detailed Report Complexity Table ───────────────────────────────────
+    # ── 9. Detailed Report Complexity ─────────────────────────────────────────
     detail_rows = []
     for _ws in workspaces:
         for rpt in _ws.get("reports", []):
-            ds_id = rpt.get("dataset_id", "")
-            ds    = ds_by_id.get(ds_id, {})
-            # Unique data-source tables from visual fields
+            ds = ds_by_id.get(rpt.get("dataset_id", ""), {})
             pages = rpt.get("pages") or []
             field_tables: set[str] = set()
             for p in pages:
@@ -1629,35 +1834,33 @@ def _generate_excel(results: dict, label: str) -> bytes:
                         if f.get("table"):
                             field_tables.add(f["table"])
             detail_rows.append([
-                _ws.get("name", ""),
-                rpt.get("name", ""),
-                ds.get("name", ds_id or "—"),
+                _ws.get("name", ""), rpt.get("name", ""),
+                ds.get("name", rpt.get("dataset_id", "—") or "—"),
                 ds.get("storage_mode", ""),
-                rpt.get("page_count", 0) or 0,
-                ds.get("table_count", 0),
-                ds.get("measure_count", 0),
-                ds.get("relationship_count", 0),
-                len(field_tables),
-                ", ".join(sorted(field_tables)[:6]) or "—",
-                rpt.get("visual_count", 0),
-                _report_complexity(rpt, ds_by_id),
+                rpt.get("page_count", 0) or 0, ds.get("table_count", 0),
+                ds.get("measure_count", 0), ds.get("relationship_count", 0),
+                len(field_tables), ", ".join(sorted(field_tables)[:8]) or "—",
+                rpt.get("visual_count", 0), _report_complexity(rpt, ds_by_id),
             ])
-    detail_rows.sort(key=lambda r: r[11])   # sort by complexity level alpha
-    _add_sheet("Detailed Report Complexity",
+    detail_rows.sort(key=lambda r: r[11])
+    _add_sheet("Report Complexity Detail", "DETAILED REPORT COMPLEXITY",
                ["Workspace", "Report Name", "Semantic Model", "Storage Mode",
                 "Page Count", "Table Count", "Measures", "Relationships",
                 "Unique Data Sources", "Data Source Tables (sample)",
                 "Visual Count", "Complexity Level"],
                detail_rows,
-               col_widths=[20, 28, 26, 16, 10, 10, 10, 14, 16, 36, 12, 16],
-               header_color=CLR_SECTION_B)
+               col_widths=[20, 28, 26, 14, 10, 10, 10, 14, 16, 40, 12, 16],
+               header_bg=TEAL_DARK, alt_bg=TEAL_LIGHT, tab_color=TEAL_DARK,
+               cell_overrides={
+                   (12, "Very Complex"): {"bg": LIGHT_RED,    "color": RED,    "bold": True},
+                   (12, "Complex"):      {"bg": LIGHT_ORANGE, "color": ORANGE, "bold": True},
+               })
 
-    # ── 9. Visual Field Inventory ─────────────────────────────────────────────
+    # ── 10. Visual Field Inventory ────────────────────────────────────────────
     field_rows = []
     for _ws in workspaces:
         for rpt in _ws.get("reports", []):
-            ds_id = rpt.get("dataset_id", "")
-            ds    = ds_by_id.get(ds_id, {})
+            ds = ds_by_id.get(rpt.get("dataset_id", ""), {})
             pages = rpt.get("pages") or []
             for page in pages:
                 for visual in page.get("visuals", []):
@@ -1674,97 +1877,81 @@ def _generate_excel(results: dict, label: str) -> bytes:
                             cx.get("level", "") if cx else "",
                             cx.get("score", "") if cx else "",
                         ])
-    _add_sheet("Visual Field Inventory",
+    _add_sheet("Visual Field Inventory", "VISUAL FIELD INVENTORY",
                ["Workspace", "Report", "Semantic Model", "Page",
                 "Visual Title", "Visual Type", "Field Type",
                 "Table", "Field / Measure Name", "Aggregation",
                 "Measure Complexity", "Complexity Score"],
                field_rows,
-               col_widths=[18, 24, 22, 16, 22, 16, 12, 18, 24, 14, 16, 14],
-               header_color=CLR_SECTION_A)
+               col_widths=[18, 24, 22, 16, 22, 16, 12, 18, 26, 14, 16, 14],
+               header_bg=NAVY, alt_bg=ACCENT_BLUE, tab_color=NAVY)
 
-    # ── 10. Table-to-Report Lineage ───────────────────────────────────────────
+    # ── 11. Table-to-Report Lineage ───────────────────────────────────────────
     lineage_rows = []
     for _ws in workspaces:
         for rpt in _ws.get("reports", []):
-            ds_id = rpt.get("dataset_id", "")
-            ds    = ds_by_id.get(ds_id, {})
+            ds = ds_by_id.get(rpt.get("dataset_id", ""), {})
             pages = rpt.get("pages") or []
             used_tables: set[str] = set()
+            used_measure_tables: set[str] = set()
             for p in pages:
                 for v in p.get("visuals", []):
                     for f in v.get("fields", []):
                         if f.get("table"):
                             used_tables.add(f["table"])
-            # Also include tables from measures referenced in this report
-            used_measures_tables: set[str] = set()
-            for p in pages:
-                for v in p.get("visuals", []):
-                    for f in v.get("fields", []):
                         if f.get("field_type") == "measure":
                             for dep in (f.get("dependencies") or []):
                                 if dep.get("table"):
-                                    used_measures_tables.add(dep["table"])
-            all_tables = used_tables | used_measures_tables
-            for tbl in sorted(all_tables):
-                # check if table exists in the dataset
-                ds_tables = {t.get("name", "") for t in (ds.get("tables") or [])}
+                                    used_measure_tables.add(dep["table"])
+            ds_tables = {t.get("name", "") for t in (ds.get("tables") or [])}
+            for tbl in sorted(used_tables | used_measure_tables):
                 lineage_rows.append([
-                    _ws.get("name", ""),
-                    rpt.get("name", ""),
-                    ds.get("name", "—"),
-                    ds.get("storage_mode", ""),
-                    tbl,
+                    _ws.get("name", ""), rpt.get("name", ""),
+                    ds.get("name", "—"), ds.get("storage_mode", ""), tbl,
                     "Yes" if tbl in ds_tables else "No",
                     "Direct Field" if tbl in used_tables else "Via Measure Dependency",
                     _risk(ds.get("storage_mode", "")),
                 ])
-    _add_sheet("Table-to-Report Lineage",
+    _add_sheet("Table-to-Report Lineage", "TABLE-TO-REPORT LINEAGE",
                ["Workspace", "Report", "Semantic Model", "Storage Mode",
                 "Table Name", "Verified in Model", "Lineage Path", "Risk Level"],
                lineage_rows,
-               col_widths=[20, 26, 24, 16, 22, 16, 24, 12],
-               header_color=CLR_SECTION_A)
+               col_widths=[20, 26, 24, 14, 22, 16, 26, 12],
+               header_bg=NAVY, alt_bg=ACCENT_BLUE, tab_color=NAVY)
 
-    # ── 11. Dataflows Inventory ───────────────────────────────────────────────
+    # ── 12. Dataflows Inventory ───────────────────────────────────────────────
     df_rows = []
     for _ws in workspaces:
         for df in _ws.get("dataflows", []):
             cx = df.get("complexity") or {}
-            datasource_types = ", ".join(
-                d.get("datasource_type", d.get("type", "")) for d in (df.get("datasources") or [])
+            ds_types = ", ".join(
+                d.get("datasource_type", d.get("type", ""))
+                for d in (df.get("datasources") or [])
             ) or "—"
-            upstream_names = ", ".join(
+            upstream = ", ".join(
                 u.get("source_dataflow_name", u) if isinstance(u, dict) else str(u)
                 for u in (df.get("upstream_dataflows") or [])
             ) or "—"
             last_txn = (df.get("transactions") or [{}])[0] if df.get("transactions") else {}
             df_rows.append([
-                _ws.get("name", ""),
-                df.get("name", ""),
-                df.get("generation", ""),
-                df.get("state", ""),
-                df.get("configured_by", ""),
-                df.get("modified_by", ""),
+                _ws.get("name", ""), df.get("name", ""),
+                df.get("generation", ""), df.get("state", ""),
+                df.get("configured_by", ""), df.get("modified_by", ""),
                 df.get("modified_at", ""),
-                df.get("entity_count", 0),
-                df.get("datasource_count", 0),
-                datasource_types,
-                df.get("total_transformation_steps", 0),
-                cx.get("level", "None"),
-                cx.get("score", 0),
+                df.get("entity_count", 0), df.get("datasource_count", 0),
+                ds_types, df.get("total_transformation_steps", 0),
+                cx.get("level", "None"), cx.get("score", 0),
                 df.get("schedule_summary", ""),
-                df.get("refresh_count", 0),
-                df.get("failure_count", 0),
+                df.get("refresh_count", 0), df.get("failure_count", 0),
                 f"{df.get('reliability_pct', '')}%" if df.get("reliability_pct") is not None else "—",
                 df.get("last_refresh_time", ""),
                 "Yes" if df.get("has_refresh_errors") else "No",
                 df.get("gateway_id", "") or "—",
-                upstream_names,
+                upstream,
                 last_txn.get("status", "") if last_txn else "",
                 last_txn.get("error_message", "") if last_txn else "",
             ])
-    _add_sheet("Dataflows",
+    _add_sheet("Dataflows", "DATAFLOWS INVENTORY",
                ["Workspace", "Dataflow Name", "Generation", "State", "Owner", "Modified By",
                 "Last Modified", "Entities", "Data Sources", "Source Types",
                 "Transform Steps", "Complexity Level", "Complexity Score",
@@ -1772,41 +1959,79 @@ def _generate_excel(results: dict, label: str) -> bytes:
                 "Last Refresh Time", "Has Errors", "Gateway ID",
                 "Upstream Dataflows", "Last Run Status", "Last Error"],
                df_rows,
-               col_widths=[20, 26, 9, 10, 20, 20, 20, 9, 11, 32, 14, 15, 13,
+               col_widths=[20, 26, 9, 10, 20, 20, 20, 9, 11, 30, 14, 15, 13,
                            22, 13, 13, 11, 20, 10, 24, 24, 14, 34],
-               header_color=CLR_SECTION_B)
+               header_bg=GREEN, alt_bg=LIGHT_GREEN, tab_color=GREEN,
+               cell_overrides={(19, "Yes"): {"bg": LIGHT_RED, "color": RED, "bold": True}})
 
-    # ── 12. Dataflow Entity Detail ────────────────────────────────────────────
+    # ── 13. Dataflow Entity Detail ────────────────────────────────────────────
     entity_rows = []
     for _ws in workspaces:
         for df in _ws.get("dataflows", []):
             for ent in df.get("entities", []):
                 cx = ent.get("complexity") or {}
-                col_names = ", ".join(c.get("name", "") for c in (ent.get("columns") or [])[:10])
+                col_names = ", ".join(c.get("name", "") for c in (ent.get("columns") or [])[:12])
                 entity_rows.append([
-                    _ws.get("name", ""),
-                    df.get("name", ""),
-                    df.get("generation", ""),
-                    ent.get("name", ""),
-                    ent.get("column_count", 0),
-                    ent.get("step_count", 0),
-                    cx.get("level", "None"),
-                    cx.get("score", 0),
-                    cx.get("function_count", 0),
-                    cx.get("nesting_depth", 0),
+                    _ws.get("name", ""), df.get("name", ""),
+                    df.get("generation", ""), ent.get("name", ""),
+                    ent.get("column_count", 0), ent.get("step_count", 0),
+                    cx.get("level", "None"), cx.get("score", 0),
+                    cx.get("function_count", 0), cx.get("nesting_depth", 0),
                     ", ".join(cx.get("complex_functions", [])),
                     "Yes" if ent.get("is_enabled", True) else "No",
                     "Yes" if ent.get("is_hidden", False) else "No",
                     col_names or "—",
                 ])
-    _add_sheet("Dataflow Entities",
+    _add_sheet("Dataflow Entities", "DATAFLOW ENTITY DETAIL",
                ["Workspace", "Dataflow", "Generation", "Entity Name",
                 "Columns", "Transform Steps", "Complexity Level", "Score",
                 "M Functions", "Nesting Depth", "Complex Functions",
                 "Enabled", "Hidden", "Columns (sample)"],
                entity_rows,
-               col_widths=[20, 26, 9, 26, 9, 14, 15, 8, 11, 12, 28, 9, 9, 40],
-               header_color=CLR_SECTION_B)
+               col_widths=[20, 26, 9, 26, 9, 14, 15, 8, 11, 12, 28, 9, 9, 42],
+               header_bg=TEAL_DARK, alt_bg=TEAL_LIGHT, tab_color=TEAL_DARK)
+
+    # ── 14. Dataflow M Queries (full Power Query code) ────────────────────────
+    mq_rows = []
+    for _ws in workspaces:
+        for df in _ws.get("dataflows", []):
+            for ent in df.get("entities", []):
+                # Look for M query / Power Query code in entity
+                m_query = (
+                    ent.get("m_query")
+                    or ent.get("query_steps_raw")
+                    or ent.get("power_query_m")
+                    or ent.get("advanced_query")
+                    or ""
+                )
+                # Also try query_steps as list → join
+                if not m_query:
+                    steps = ent.get("query_steps") or []
+                    if steps:
+                        if isinstance(steps[0], dict):
+                            m_query = "\n".join(
+                                f"// Step: {s.get('name','')}\n{s.get('expression','')}"
+                                for s in steps if s.get("expression")
+                            )
+                        else:
+                            m_query = "\n".join(str(s) for s in steps)
+                cx = ent.get("complexity") or {}
+                mq_rows.append([
+                    _ws.get("name", ""), df.get("name", ""),
+                    df.get("generation", ""), ent.get("name", ""),
+                    ent.get("step_count", 0), cx.get("level", "None"),
+                    cx.get("function_count", 0),
+                    ", ".join(cx.get("complex_functions", [])),
+                    m_query or "(not extracted)",
+                ])
+    _add_sheet("Dataflow M Queries", "DATAFLOW M QUERIES (POWER QUERY)",
+               ["Workspace", "Dataflow", "Generation", "Entity Name",
+                "Step Count", "Complexity Level", "M Functions",
+                "Complex Functions", "M Query / Power Query Expression"],
+               mq_rows,
+               col_widths=[20, 26, 9, 26, 10, 15, 12, 28, 90],
+               header_bg=MID_BLUE, alt_bg=ACCENT_BLUE, tab_color=MID_BLUE,
+               wrap_last_col=True)
 
     buf = io.BytesIO()
     wb.save(buf)

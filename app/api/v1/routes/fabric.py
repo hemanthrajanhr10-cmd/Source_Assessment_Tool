@@ -97,6 +97,10 @@ class FabricTokenRequest(BaseModel):
 
 # ── Device-code auth helpers ──────────────────────────────────────────────────
 
+# Fallback public client ID (Azure CLI) used when FABRIC_CLIENT_ID is not set.
+_FALLBACK_CLIENT_ID = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"
+
+
 def _run_device_code_auth(auth_id: str) -> None:
     """
     Blocking function run in a background thread.
@@ -105,25 +109,23 @@ def _run_device_code_auth(auth_id: str) -> None:
     try:
         from azure.identity import DeviceCodeCredential
 
-        client_id = settings.fabric_client_id
-        if not client_id:
-            raise ValueError(
-                "FABRIC_CLIENT_ID is not configured. "
-                "Register a dedicated app in Azure portal and set FABRIC_CLIENT_ID in your environment. "
-                "Do not use the Azure CLI fallback app — enterprise tenants block it via Conditional Access."
-            )
-
         def _prompt(uri: str, code: str, expires_on):
             with _AUTH_LOCK:
-                _AUTH[auth_id].update({
-                    "user_code": code,
-                    "verification_url": uri,
-                    "expires_at": expires_on.isoformat() if hasattr(expires_on, "isoformat") else str(expires_on),
-                    "status": "pending",
-                })
+                _AUTH[auth_id].update(
+                    {
+                        "user_code": code,
+                        "verification_url": uri,
+                        "expires_at": (
+                            expires_on.isoformat()
+                            if hasattr(expires_on, "isoformat")
+                            else str(expires_on)
+                        ),
+                        "status": "pending",
+                    }
+                )
 
         credential = DeviceCodeCredential(
-            client_id=client_id,
+            client_id=settings.fabric_client_id or _FALLBACK_CLIENT_ID,
             tenant_id=settings.fabric_tenant_id,
             prompt_callback=_prompt,
         )

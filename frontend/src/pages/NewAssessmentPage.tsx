@@ -1,4 +1,5 @@
-﻿import { useState, useCallback, useEffect, useRef } from 'react'
+﻿import { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Server, Database, User, Lock, Eye, EyeOff,
@@ -160,6 +161,11 @@ interface ServerEntry {
 }
 
 // ── Hybrid Connection Picker ───────────────────────────────────────────────────
+// Popover rendered via createPortal at document.body so it escapes every
+// overflow:hidden ancestor (the server card and the page card both clip children).
+// Position is calculated from the trigger's getBoundingClientRect each open.
+
+interface PopoverPos { top: number; left: number; openUp: boolean }
 
 function HybridConnectionPicker({
   onSelect,
@@ -167,21 +173,67 @@ function HybridConnectionPicker({
   onSelect: (host: string, port: number) => void
 }) {
   const [open, setOpen]               = useState(false)
+  const [pos, setPos]                 = useState<PopoverPos>({ top: 0, left: 0, openUp: false })
   const [connections, setConnections] = useState<HybridConnection[]>([])
   const [loading, setLoading]         = useState(false)
   const [error, setError]             = useState<string | null>(null)
-  const ref = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const panelRef   = useRef<HTMLDivElement>(null)
 
+  // Click-outside: close when click lands outside both trigger and panel
   useEffect(() => {
+    if (!open) return
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (
+        triggerRef.current && !triggerRef.current.contains(t) &&
+        panelRef.current   && !panelRef.current.contains(t)
+      ) setOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  }, [open])
+
+  // Escape key
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [open])
+
+  // Reposition on open and on scroll/resize while open
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return
+    const reposition = () => {
+      if (!triggerRef.current) return
+      const r = triggerRef.current.getBoundingClientRect()
+      const panelH = 320
+      const panelW = 288
+      const spaceBelow = window.innerHeight - r.bottom
+      const openUp = spaceBelow < panelH + 12 && r.top > panelH + 12
+      // Align panel right-edge to trigger right-edge; clamp to viewport
+      const left = Math.min(
+        r.right - panelW,
+        window.innerWidth - panelW - 8,
+      )
+      setPos({
+        top: openUp ? r.top - panelH - 6 : r.bottom + 6,
+        left: Math.max(8, left),
+        openUp,
+      })
+    }
+    reposition()
+    window.addEventListener('scroll', reposition, { passive: true, capture: true })
+    window.addEventListener('resize', reposition, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', reposition, { capture: true })
+      window.removeEventListener('resize', reposition)
+    }
+  }, [open])
 
   const handleOpen = async () => {
-    setOpen(true)
+    setOpen(v => !v)
     if (connections.length > 0) return
     setLoading(true)
     setError(null)
@@ -202,66 +254,172 @@ function HybridConnectionPicker({
     setOpen(false)
   }
 
+  const panel = open ? (
+    <div
+      ref={panelRef}
+      style={{
+        position: 'fixed',
+        top: pos.top,
+        left: pos.left,
+        width: 288,
+        zIndex: 9999,
+        // Enter animation: slide from the direction it opens
+        animation: 'hcp-enter 160ms cubic-bezier(0.16,1,0.3,1) forwards',
+        transformOrigin: pos.openUp ? 'bottom center' : 'top center',
+      }}
+    >
+      {/* Outer shell */}
+      <div style={{
+        background: '#ffffff',
+        border: '1px solid rgba(108,189,181,0.35)',
+        borderRadius: 12,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08), 0 0 0 1px rgba(108,189,181,0.08)',
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '10px 14px',
+          borderBottom: '1px solid rgba(147,204,198,0.22)',
+          background: 'linear-gradient(135deg, rgba(147,204,198,0.10) 0%, rgba(108,189,181,0.05) 100%)',
+        }}>
+          <div style={{
+            width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+            background: 'rgba(108,189,181,0.14)',
+            border: '1px solid rgba(108,189,181,0.28)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Share2 style={{ width: 12, height: 12, color: '#0F766E' }} />
+          </div>
+          <span style={{
+            flex: 1, fontSize: 12, fontWeight: 700, color: '#0F766E',
+            letterSpacing: '0.02em',
+          }}>
+            Your Hybrid Connections
+          </span>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Close"
+            style={{
+              width: 22, height: 22, borderRadius: 5, border: 'none',
+              background: 'transparent', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#94A3B8', transition: 'background 120ms, color 120ms',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(108,189,181,0.12)'; e.currentTarget.style.color = '#0F766E' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94A3B8' }}
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+          {loading && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 0' }}>
+              <RefreshCw style={{ width: 16, height: 16, color: '#6CBDB5', animation: 'spin 1s linear infinite' }} />
+            </div>
+          )}
+
+          {error && !loading && (
+            <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <AlertCircle style={{ width: 13, height: 13, color: '#EF4444', flexShrink: 0, marginTop: 1 }} />
+              <span style={{ fontSize: 11, color: '#EF4444', lineHeight: 1.5 }}>{error}</span>
+            </div>
+          )}
+
+          {!loading && !error && connections.length === 0 && (
+            <div style={{ padding: '20px 14px', textAlign: 'center' }}>
+              <Network style={{ width: 28, height: 28, color: '#CBD5E1', margin: '0 auto 8px' }} />
+              <p style={{ fontSize: 12, color: '#64748B', marginBottom: 4 }}>No saved connections.</p>
+              <a
+                href="/hybrid-connection"
+                style={{ fontSize: 11, color: '#0F766E', textDecoration: 'underline', textUnderlineOffset: 3 }}
+              >
+                Create one first
+              </a>
+            </div>
+          )}
+
+          {!loading && !error && connections.map((hc, i) => (
+            <button
+              key={hc.connection_id}
+              type="button"
+              onClick={() => handlePick(hc)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                padding: '9px 14px', textAlign: 'left', border: 'none',
+                borderBottom: i < connections.length - 1 ? '1px solid rgba(147,204,198,0.15)' : 'none',
+                background: 'transparent', cursor: 'pointer',
+                transition: 'background 120ms',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(147,204,198,0.09)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              <div style={{
+                width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                background: 'rgba(108,189,181,0.10)',
+                border: '1px solid rgba(108,189,181,0.22)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Share2 style={{ width: 13, height: 13, color: '#0F766E' }} />
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p style={{
+                  fontSize: 12, fontWeight: 600, color: '#1E293B',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  marginBottom: 2,
+                }}>
+                  {hc.name}
+                </p>
+                <p style={{
+                  fontSize: 11, color: '#64748B', fontFamily: 'monospace',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {hc.endpoint_host}:{hc.endpoint_port}
+                </p>
+              </div>
+              <ArrowRight style={{ width: 13, height: 13, color: '#CBD5E1', flexShrink: 0 }} />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : null
+
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={handleOpen}
-        className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-earth-50 hover:border-earth-200 hover:text-earth-800 disabled:opacity-40 transition-colors"
+        className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium disabled:opacity-40 transition-all duration-150"
+        style={{
+          borderColor: open ? 'rgba(108,189,181,0.55)' : 'rgba(203,213,225,1)',
+          color: open ? '#0F766E' : '#475569',
+          background: open ? 'rgba(147,204,198,0.10)' : 'transparent',
+          boxShadow: open ? '0 0 0 3px rgba(108,189,181,0.12)' : 'none',
+        }}
         title="Pick from your saved Hybrid Connections"
+        aria-expanded={open}
+        aria-haspopup="listbox"
       >
         <Share2 className="h-3.5 w-3.5" />
         Hybrid
       </button>
 
-      {open && (
-        <div className="absolute top-full mt-1.5 left-0 z-50 w-72 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden animate-slide-down">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 bg-slate-50">
-            <Share2 className="h-3.5 w-3.5 text-earth-600" />
-            <span className="text-xs font-semibold text-slate-700">Your Hybrid Connections</span>
-          </div>
+      {createPortal(panel, document.body)}
 
-          {loading && (
-            <div className="flex items-center justify-center py-6">
-              <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />
-            </div>
-          )}
-
-          {error && (
-            <div className="px-3 py-3 text-xs text-red-600">{error}</div>
-          )}
-
-          {!loading && !error && connections.length === 0 && (
-            <div className="px-3 py-4 text-xs text-slate-400 text-center">
-              No saved connections.{' '}
-              <a href="/hybrid-connection" className="text-earth-700 underline underline-offset-2">
-                Create one
-              </a>{' '}
-              first.
-            </div>
-          )}
-
-          {!loading && connections.map((hc) => (
-            <button
-              key={hc.connection_id}
-              type="button"
-              onClick={() => handlePick(hc)}
-              className="w-full flex items-start gap-3 px-3 py-2.5 text-left hover:bg-earth-50 transition-colors border-b border-slate-50 last:border-0"
-            >
-              <div className="h-7 w-7 rounded-lg bg-earth-50 border border-earth-100 flex items-center justify-center shrink-0 mt-0.5">
-                <Share2 className="h-3.5 w-3.5 text-earth-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-slate-800 truncate">{hc.name}</p>
-                <p className="text-[11px] text-slate-500 truncate">
-                  {hc.endpoint_host}:{hc.endpoint_port}
-                </p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      <style>{`
+        @keyframes hcp-enter {
+          from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+          to   { opacity: 1; transform: scale(1)    translateY(0);    }
+        }
+      `}</style>
+    </>
   )
 }
 

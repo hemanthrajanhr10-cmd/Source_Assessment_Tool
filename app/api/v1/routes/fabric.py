@@ -62,6 +62,12 @@ _JOBS: dict[str, dict[str, Any]] = {}
 
 # ── Request / response models ─────────────────────────────────────────────────
 
+class ServicePrincipalAuthRequest(BaseModel):
+    tenant_id: str
+    client_id: str
+    client_secret: str
+
+
 class WorkspaceItemsRequest(BaseModel):
     workspace_ids: list[str]
 
@@ -175,6 +181,86 @@ async def fabric_auth_start(_: Any = Depends(get_current_user)):
         "verification_url": sess.get("verification_url", "https://microsoft.com/devicelogin"),
         "expires_at": sess.get("expires_at", ""),
     }
+
+
+@router.post("/auth/service-principal")
+async def fabric_auth_service_principal(
+    body: ServicePrincipalAuthRequest,
+    _: Any = Depends(get_current_user),
+):
+    """
+    Acquire a Fabric token via Service Principal (client credentials flow).
+    Synchronous — no polling needed. Returns auth_id immediately with status 'ready'.
+
+    The client_secret is used only to construct the credential in-memory;
+    it is never logged, stored, or included in any response.
+    This endpoint must only be exposed over HTTPS in production.
+    """
+    tenant_id     = body.tenant_id.strip()
+    client_id     = body.client_id.strip()
+    # Keep client_secret in a local variable only for the duration of this call;
+    # we reference body.client_secret once and then let it fall out of scope.
+    client_secret = body.client_secret  # not stripped — secrets may have whitespace
+
+    if not tenant_id or not client_id or not client_secret:
+        raise HTTPException(status_code=422, detail="tenant_id, client_id, and client_secret are all required.")
+
+    try:
+        from azure.identity import ClientSecretCredential
+
+        credential = ClientSecretCredential(
+            tenant_id=tenant_id,
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+        token_obj = credential.get_token("https://api.fabric.microsoft.com/.default")
+
+        # Drop the secret reference — it is no longer needed after this point.
+        del client_secret
+
+    except Exception as exc:
+        # Drop secret even on failure path.
+        try:
+            del client_secret
+        except NameError:
+            pass
+
+        err_str = str(exc)
+        # Map well-known Azure AD error codes to actionable messages.
+        if "AADSTS7000215" in err_str:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid client secret. Check the secret value and its expiry date in Azure portal.",
+            )
+        if "AADSTS700016" in err_str:
+            raise HTTPException(
+                status_code=401,
+                detail="Application not found in the tenant. Verify the client_id and tenant_id.",
+            )
+        if "AADSTS90002" in err_str or "AADSTS90004" in err_str:
+            raise HTTPException(
+                status_code=401,
+                detail="Tenant not found. Verify the tenant_id (directory ID).",
+            )
+        if "AADSTS65001" in err_str or "Insufficient" in err_str or "forbidden" in err_str.lower():
+            raise HTTPException(
+                status_code=401,
+                detail="Insufficient Fabric permissions. Grant the service principal 'Fabric API' permissions in Azure portal.",
+            )
+        logger.error("Service-principal Fabric auth failed: %s", exc)
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {err_str}")
+
+    auth_id = str(uuid.uuid4())
+    with _AUTH_LOCK:
+        _AUTH[auth_id] = {
+            "status": "ready",
+            "token": token_obj.token,
+            "method": "service_principal",
+            "error": None,
+        }
+
+    logger.info("Fabric service-principal auth completed for session %s", auth_id)
+    return {"auth_id": auth_id, "status": "ready"}
 
 
 @router.get("/auth/{auth_id}/status")

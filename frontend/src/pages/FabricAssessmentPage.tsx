@@ -4,6 +4,7 @@ import {
   MonitorSmartphone, CheckCircle2, AlertCircle,
   Loader2, ExternalLink, Tag, ArrowRight, Copy,
   Building2, Database, FileText, Search, ChevronDown, ChevronRight, X, Zap,
+  KeyRound, Eye, EyeOff, UserCog,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { FabricWorkspaceInfo, FabricWorkspaceItems } from '../types/api'
@@ -12,8 +13,9 @@ import { FabricLogo } from '../components/ui/SourceLogos'
 import { formatTime } from '../utils/dateTime'
 import { useNotifications } from '../context/NotificationContext'
 
-// Steps: start → waiting (device code) → picking (workspaces) → picking-items (models & reports) → naming → submitting
-type Step = 'start' | 'waiting' | 'picking' | 'picking-items' | 'naming' | 'submitting'
+// Steps: start → waiting (device code) → sp-connecting (service principal) → picking (workspaces) → picking-items → naming → submitting
+type Step = 'start' | 'waiting' | 'sp-connecting' | 'picking' | 'picking-items' | 'naming' | 'submitting'
+type AuthMethod = 'device' | 'service_principal'
 
 /** How long (ms) to wait before surfacing a timeout message. */
 const AUTH_TIMEOUT_MS = 30_000
@@ -35,6 +37,16 @@ export default function FabricAssessmentPage() {
   const [copied, setCopied]       = useState(false)
   const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Auth method selection
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('device')
+
+  // Service Principal form state
+  const [spTenantId, setSpTenantId]         = useState('')
+  const [spClientId, setSpClientId]         = useState('')
+  const [spClientSecret, setSpClientSecret] = useState('')
+  const [spSecretVisible, setSpSecretVisible] = useState(false)
+  const [spConnecting, setSpConnecting]     = useState(false)
 
   // Workspace selection state
   const [workspaces, setWorkspaces]               = useState<FabricWorkspaceInfo[]>([])
@@ -67,6 +79,7 @@ export default function FabricAssessmentPage() {
     setVerificationUrl('')
     setExpiresAt('')
     setError(null)
+    setSpConnecting(false)
     if (message) setCancelInfo(message)
   }, [])
 
@@ -196,6 +209,29 @@ export default function FabricAssessmentPage() {
     } catch (err) {
       setError(getApiErrorMessage(err))
       setStep('start')
+    }
+  }
+
+  const handleServicePrincipalConnect = async () => {
+    setError(null)
+    setCancelInfo(null)
+    setSpConnecting(true)
+    setStep('sp-connecting')
+    try {
+      const { data } = await api.fabricAuthServicePrincipal({
+        tenant_id:     spTenantId.trim(),
+        client_id:     spClientId.trim(),
+        client_secret: spClientSecret,
+      })
+      setAuthId(data.auth_id)
+      // Clear secret from component state immediately after successful auth
+      setSpClientSecret('')
+      await fetchWorkspaces(data.auth_id)
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+      setStep('start')
+    } finally {
+      setSpConnecting(false)
     }
   }
 
@@ -384,7 +420,7 @@ export default function FabricAssessmentPage() {
     }
   }
 
-  const authDone  = step !== 'start' && step !== 'waiting'
+  const authDone  = step !== 'start' && step !== 'waiting' && step !== 'sp-connecting'
   const wsDone    = step === 'picking-items' || step === 'naming' || step === 'submitting'
   const itemsDone = step === 'naming' || step === 'submitting'
 
@@ -418,7 +454,8 @@ export default function FabricAssessmentPage() {
           </div>
           <div className="p-6">
             {step === 'start' && (
-              <div className="space-y-4">
+              <div className="space-y-5">
+
                 {cancelInfo && (
                   <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
                     <AlertCircle className="h-4 w-4 shrink-0 text-slate-400" />
@@ -428,14 +465,135 @@ export default function FabricAssessmentPage() {
                     </button>
                   </div>
                 )}
-                <p className="text-sm text-slate-500">
-                  Click below to start a secure Microsoft device-code login. You will be given a short
-                  code to enter at <strong className="text-slate-700">microsoft.com/devicelogin</strong>.
-                  No passwords are stored — the token is held in memory only for this session.
-                </p>
-                <Button leftIcon={<MonitorSmartphone className="h-4 w-4" />} onClick={handleStartAuth}>
-                  Connect to Microsoft Fabric
-                </Button>
+
+                {/* ── Auth method selector ─────────────────────────────────── */}
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100/80">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMethod('device')}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                      authMethod === 'device'
+                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <MonitorSmartphone className={`h-3.5 w-3.5 ${authMethod === 'device' ? 'text-earth-600' : 'text-slate-400'}`} />
+                    Interactive Login
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMethod('service_principal')}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                      authMethod === 'service_principal'
+                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <KeyRound className={`h-3.5 w-3.5 ${authMethod === 'service_principal' ? 'text-earth-600' : 'text-slate-400'}`} />
+                    Service Principal
+                  </button>
+                </div>
+
+                {/* ── Device code flow ─────────────────────────────────────── */}
+                {authMethod === 'device' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-slate-500">
+                      Start a secure Microsoft device-code login. You will be given a short
+                      code to enter at <strong className="text-slate-700">microsoft.com/devicelogin</strong>.
+                      No passwords are stored — the token is held in memory only for this session.
+                    </p>
+                    <Button leftIcon={<MonitorSmartphone className="h-4 w-4" />} onClick={handleStartAuth}>
+                      Connect with Microsoft Account
+                    </Button>
+                  </div>
+                )}
+
+                {/* ── Service Principal form ────────────────────────────────── */}
+                {authMethod === 'service_principal' && (
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3">
+                      <UserCog className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-amber-800 leading-relaxed">
+                        The service principal must have Fabric API permissions granted in Azure and be added
+                        as a workspace member. Credentials are used only to obtain a token — never stored.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="form-label">Tenant ID (Directory ID)</label>
+                        <input
+                          type="text"
+                          className="form-input font-mono text-sm"
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                          value={spTenantId}
+                          onChange={e => setSpTenantId(e.target.value)}
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="form-label">Client ID (Application ID)</label>
+                        <input
+                          type="text"
+                          className="form-input font-mono text-sm"
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                          value={spClientId}
+                          onChange={e => setSpClientId(e.target.value)}
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="form-label">Client Secret</label>
+                        <div className="relative">
+                          <input
+                            type={spSecretVisible ? 'text' : 'password'}
+                            className="form-input pr-10 font-mono text-sm"
+                            placeholder="Your app registration secret value"
+                            value={spClientSecret}
+                            onChange={e => setSpClientSecret(e.target.value)}
+                            autoComplete="new-password"
+                            spellCheck={false}
+                          />
+                          <button
+                            type="button"
+                            tabIndex={-1}
+                            onClick={() => setSpSecretVisible(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                            aria-label={spSecretVisible ? 'Hide secret' : 'Show secret'}
+                          >
+                            {spSecretVisible
+                              ? <EyeOff className="h-4 w-4" />
+                              : <Eye className="h-4 w-4" />
+                            }
+                          </button>
+                        </div>
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          Transmitted over HTTPS and discarded immediately after the token is acquired.
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      leftIcon={<KeyRound className="h-4 w-4" />}
+                      loading={spConnecting}
+                      disabled={!spTenantId.trim() || !spClientId.trim() || !spClientSecret}
+                      onClick={handleServicePrincipalConnect}
+                    >
+                      {spConnecting ? 'Connecting…' : 'Connect with Service Principal'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 'sp-connecting' && (
+              <div className="flex items-center gap-3 text-sm text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin text-earth-600" />
+                Authenticating with Azure AD…
               </div>
             )}
 
@@ -485,7 +643,10 @@ export default function FabricAssessmentPage() {
             {authDone && (
               <div className="flex items-center gap-2 text-sm text-earth-700">
                 <CheckCircle2 className="h-4 w-4 text-earth-500" />
-                Successfully authenticated with Microsoft
+                {authMethod === 'service_principal'
+                  ? 'Service principal authenticated with Microsoft Fabric'
+                  : 'Successfully authenticated with Microsoft'
+                }
               </div>
             )}
           </div>

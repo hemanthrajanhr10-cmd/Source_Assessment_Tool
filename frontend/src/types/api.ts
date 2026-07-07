@@ -684,6 +684,17 @@ export interface FabricAuthStatus {
   error?: string
 }
 
+export interface FabricServicePrincipalAuthRequest {
+  tenant_id: string
+  client_id: string
+  client_secret: string
+}
+
+export interface FabricServicePrincipalAuthResponse {
+  auth_id: string
+  status: 'ready'
+}
+
 // ── Fabric: measure complexity ────────────────────────────────────────────────
 
 export interface MeasureComplexity {

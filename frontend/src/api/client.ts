@@ -12,6 +12,8 @@ import type {
   DatabaseInfo,
   FabricAuthStartResponse,
   FabricAuthStatus,
+  FabricServicePrincipalAuthRequest,
+  FabricServicePrincipalAuthResponse,
   FabricSessionRecord,
   FabricWorkspaceInfo,
   FabricWorkspaceItems,
@@ -236,6 +238,9 @@ export const api = {
   // ── Fabric Workspace Assessment ───────────────────────────────────────────
   fabricAuthStart: () =>
     http.post<FabricAuthStartResponse>('/api/v1/fabric/auth/start'),
+
+  fabricAuthServicePrincipal: (data: FabricServicePrincipalAuthRequest) =>
+    http.post<FabricServicePrincipalAuthResponse>('/api/v1/fabric/auth/service-principal', data),
 
   fabricAuthStatus: (authId: string) =>
     http.get<FabricAuthStatus>(`/api/v1/fabric/auth/${authId}/status`),

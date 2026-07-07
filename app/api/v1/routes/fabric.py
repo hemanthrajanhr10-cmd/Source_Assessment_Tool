@@ -1970,11 +1970,16 @@ def _generate_excel(results: dict, label: str) -> bytes:
         for df in _ws.get("dataflows", []):
             for ent in df.get("entities", []):
                 cx = ent.get("complexity") or {}
-                col_names = ", ".join(c.get("name", "") for c in (ent.get("columns") or [])[:12])
+                raw_cols = ent.get("columns") or []
+                # columns is a list of dicts {name, data_type} or plain strings
+                col_names = ", ".join(
+                    c.get("name", str(c)) if isinstance(c, dict) else str(c)
+                    for c in raw_cols[:12]
+                )
                 entity_rows.append([
                     _ws.get("name", ""), df.get("name", ""),
                     df.get("generation", ""), ent.get("name", ""),
-                    ent.get("column_count", 0), ent.get("step_count", 0),
+                    ent.get("column_count", len(raw_cols)), ent.get("step_count", 0),
                     cx.get("level", "None"), cx.get("score", 0),
                     cx.get("function_count", 0), cx.get("nesting_depth", 0),
                     ", ".join(cx.get("complex_functions", [])),
@@ -1996,19 +2001,25 @@ def _generate_excel(results: dict, label: str) -> bytes:
     for _ws in workspaces:
         for df in _ws.get("dataflows", []):
             for ent in df.get("entities", []):
-                # Look for M query / Power Query code in entity
+                # m_expression is the canonical field from dataflow_parser
                 m_query = (
-                    ent.get("m_query")
+                    ent.get("m_expression")
+                    or ent.get("m_query")
                     or ent.get("query_steps_raw")
                     or ent.get("power_query_m")
                     or ent.get("advanced_query")
                     or ""
                 )
-                # Also try query_steps as list → join
+                # Fallback: join named_steps list
+                if not m_query:
+                    named = ent.get("named_steps") or []
+                    if named:
+                        m_query = "\n".join(str(s) for s in named)
+                # Fallback: join query_steps list
                 if not m_query:
                     steps = ent.get("query_steps") or []
                     if steps:
-                        if isinstance(steps[0], dict):
+                        if steps and isinstance(steps[0], dict):
                             m_query = "\n".join(
                                 f"// Step: {s.get('name','')}\n{s.get('expression','')}"
                                 for s in steps if s.get("expression")
@@ -2022,7 +2033,7 @@ def _generate_excel(results: dict, label: str) -> bytes:
                     ent.get("step_count", 0), cx.get("level", "None"),
                     cx.get("function_count", 0),
                     ", ".join(cx.get("complex_functions", [])),
-                    m_query or "(not extracted)",
+                    m_query or "(not extracted — Gen1 or definition unavailable)",
                 ])
     _add_sheet("Dataflow M Queries", "DATAFLOW M QUERIES (POWER QUERY)",
                ["Workspace", "Dataflow", "Generation", "Entity Name",

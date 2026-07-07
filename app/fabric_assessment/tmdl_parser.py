@@ -28,6 +28,22 @@ def _unquote(name: str) -> str:
     return name
 
 
+def _split_table_column(ref: str) -> tuple[str, str]:
+    """
+    Split a TMDL table.column reference into (table, column).
+    Handles formats: "TableName.'Column Name'", "TableName.ColumnName", "'Column Name'"
+    Returns ("", col) when there is no table prefix.
+    """
+    ref = ref.strip()
+    # Pattern: anything before the first dot, then the rest as column
+    dot = ref.find(".")
+    if dot > 0:
+        table = ref[:dot].strip().strip("'")
+        col = _unquote(ref[dot + 1:].strip())
+        return table, col
+    return "", _unquote(ref)
+
+
 def _indent(line: str) -> int:
     """Count logical indent level (1 tab or 4 spaces = 1 level)."""
     count = 0
@@ -49,7 +65,7 @@ def _indent(line: str) -> int:
 
 _KNOWN_MEASURE_PROPS = frozenset(
     ["formatstring", "displayfolder", "lineagetag", "description",
-     "ishidden", "kpi", "annotations", "changedproperties"]
+     "ishidden", "kpi", "annotations", "changedproperties", "changedproperty"]
 )
 
 _KNOWN_COLUMN_PROPS = frozenset(
@@ -315,7 +331,8 @@ def _parse_measure(lines: list[str], start: int) -> tuple[dict, int]:
             # Multi-line expression continuation
             expr_lines.append(sub_s)
         elif sub_ind == prop_ind:
-            key = sub_s.split(":")[0].strip().lower()
+            # Key may use ":" (formatString: value) or "=" (changedProperty = Name)
+            key = sub_s.split(":")[0].split("=")[0].strip().lower()
             if key in _KNOWN_MEASURE_PROPS:
                 if key == "ishidden" or sub_s == "isHidden":
                     meas["is_hidden"] = True
@@ -420,13 +437,18 @@ def _parse_relationships(content: str) -> list[dict[str, Any]]:
             if key == "fromtable":
                 cur["from_table"] = val
             elif key == "fromcolumn":
-                cur["from_column"] = val
-                # column names sometimes appear without quotes
-                cur["from_column"] = _unquote(val)
+                # Value may be "TableName.'ColumnName'" or just "ColumnName"
+                tbl, col = _split_table_column(val)
+                if tbl:
+                    cur["from_table"] = tbl
+                cur["from_column"] = col
             elif key == "totable":
                 cur["to_table"] = val
             elif key == "tocolumn":
-                cur["to_column"] = _unquote(val)
+                tbl, col = _split_table_column(val)
+                if tbl:
+                    cur["to_table"] = tbl
+                cur["to_column"] = col
             elif key == "fromcardinality":
                 cur["_fc"] = val.lower()
             elif key == "tocardinality":
@@ -630,6 +652,7 @@ def assemble_dataset(
                 "table": tname,
                 "expression": m.get("expression", ""),
                 "display_folder": m.get("display_folder", ""),
+                "format_string": m.get("format_string"),
                 "complexity": m.get("complexity"),
                 "dependencies": m.get("dependencies", []),
             })

@@ -169,7 +169,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <SATAppLogo size={72} />
+            <SATAppLogo size={48} />
             <div>
               <p className="text-lg font-bold text-slate-900 font-display tracking-tight">
                 Source<span className="font-extrabold" style={{ color: '#358F87' }}>SAT</span>

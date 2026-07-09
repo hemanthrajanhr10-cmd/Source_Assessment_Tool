@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { SATAppLogo } from './SourceLogos'
+import { Database } from 'lucide-react'
 
 interface SplashScreenProps {
   message?: string
@@ -200,6 +200,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
                 width: 72,
                 height: 72,
                 borderRadius: 20,
+                background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
                 boxShadow: [
                   '0 20px 60px rgba(108,189,181,0.44)',
                   '0 8px 24px rgba(108,189,181,0.30)',
@@ -224,7 +225,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
                   zIndex: 1,
                 }}
               />
-              <SATAppLogo size={72} />
+              <Database style={{ width: 38, height: 38, color: '#ffffff', position: 'relative', zIndex: 2 }} aria-hidden="true" />
             </div>
           </div>
         </div>

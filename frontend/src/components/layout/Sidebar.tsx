@@ -352,14 +352,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div key={group.label}>
                 {/* Section label with inline brand logo */}
                 <div className="flex items-center gap-2 px-2 mb-2.5">
-                  {Logo === SATAppLogo ? (
-                    <Logo size={32} />
-                  ) : (
-                    <div className="flex items-center justify-center h-8 w-8 rounded-md shrink-0"
-                      style={{ background: 'rgba(108,189,181,0.10)', border: '1px solid rgba(108,189,181,0.20)' }}>
-                      <Logo size={24} />
-                    </div>
-                  )}
+                  <div className="flex items-center justify-center h-8 w-8 rounded-md shrink-0"
+                    style={{ background: 'rgba(108,189,181,0.10)', border: '1px solid rgba(108,189,181,0.20)' }}>
+                    <Logo size={24} />
+                  </div>
                   <p className="section-title">{group.label}</p>
                 </div>
 

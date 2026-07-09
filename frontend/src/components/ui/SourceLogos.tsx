@@ -15,27 +15,35 @@ import inforUrl        from '../../assets/src_logos/infor.png'
 
 import postgresqlUrl   from '../../assets/src_logos/Postgresql.png'
 import ibmDb2Url      from '../../assets/src_logos/IBM_Db2.png'
-import satAppLogoUrl  from '../../assets/src_logos/source_assessment_logo.png'
+import { Database } from 'lucide-react'
 
 type LogoProps = { size?: number; className?: string }
 
-/** The actual SourceSAT product logo PNG — use this everywhere instead of the SVG reticle. */
+/** SourceSAT brand logo — teal rounded square with Database icon */
 export function SATAppLogo({ size = 36, className }: LogoProps) {
+  const iconSize = Math.round(size * 0.55)
+  const radius = Math.round(size * 0.28)
   return (
-    <img
-      src={satAppLogoUrl}
-      alt="SourceSAT"
+    <div
       className={className}
+      aria-label="SourceSAT"
       style={{
         width: size,
         height: size,
-        objectFit: 'contain',
-        objectPosition: 'center',
-        display: 'inline-block',
+        borderRadius: radius,
+        background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
+        boxShadow: '0 4px 14px rgba(77,168,160,0.35), inset 0 1px 0 rgba(255,255,255,0.20)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         flexShrink: 0,
-        mixBlendMode: 'multiply',
       }}
-    />
+    >
+      <Database
+        style={{ width: iconSize, height: iconSize, color: '#ffffff' }}
+        aria-hidden="true"
+      />
+    </div>
   )
 }
 

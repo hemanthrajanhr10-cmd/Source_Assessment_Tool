@@ -1,11 +1,9 @@
 """
-SMTP email helpers for SAT admin notifications.
+Email helpers using Azure Communication Services (ACS).
+No SMTP credentials needed — uses the ACS connection string from Azure Portal.
 """
 
-import smtplib
 import threading
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 from app.config import settings
 from app.core.logging import get_logger
@@ -14,40 +12,45 @@ logger = get_logger(__name__)
 
 
 def _send(subject: str, html_body: str, to: str) -> None:
-    """Send a single email. Runs in a background thread so it never blocks a request."""
-    smtp_user = settings.smtp_username
-    smtp_pass = settings.smtp_password.get_secret_value()
-    if not smtp_user or not smtp_pass:
-        logger.warning("SMTP not configured — skipping email to %s", to)
+    """Send a single email via ACS. Called in a background thread."""
+    conn_str = settings.acs_email_connection_string.get_secret_value()
+    sender = settings.acs_email_sender
+    if not conn_str or not sender:
+        logger.warning(
+            "ACS email not configured (ACS_EMAIL_CONNECTION_STRING / ACS_EMAIL_SENDER unset) "
+            "— skipping email to %s", to
+        )
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"{settings.smtp_from_name} <{smtp_user}>"
-    msg["To"] = to
-    msg.attach(MIMEText(html_body, "html"))
-
     try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, [to], msg.as_string())
-        logger.info("Email sent to %s — %s", to, subject)
+        from azure.communication.email import EmailClient
+
+        client = EmailClient.from_connection_string(conn_str)
+        message = {
+            "senderAddress": sender,
+            "recipients": {"to": [{"address": to}]},
+            "content": {
+                "subject": subject,
+                "html": html_body,
+            },
+        }
+        poller = client.begin_send(message)
+        result = poller.result()
+        logger.info("ACS email sent to %s — status: %s", to, result.get("status"))
     except Exception as exc:
-        logger.error("Failed to send email to %s: %s", to, exc)
+        logger.error("ACS email to %s failed: %s", to, exc)
 
 
 def send_async(subject: str, html_body: str, to: str) -> None:
-    """Fire-and-forget email — does not block the caller."""
+    """Fire-and-forget — does not block the caller."""
     threading.Thread(target=_send, args=(subject, html_body, to), daemon=True).start()
 
 
 def send_new_user_notification(email: str, full_name: str | None, user_id: str) -> None:
     """
-    Email sent to the admin when a new user registers.
-    Contains a small HTML form the admin submits to set the retention period.
-    The form POSTs to the backend /api/v1/auth/admin/set-retention endpoint.
+    Sends an admin notification email when a new user registers.
+    The email contains user details and an HTML form to set the retention period.
+    Submitting the form calls POST /api/v1/auth/admin/set-retention on the backend.
     """
     display = full_name or email
     backend = settings.backend_url.rstrip("/")

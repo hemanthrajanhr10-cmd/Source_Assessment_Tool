@@ -38,6 +38,9 @@ PyJWT==2.12.1
 # Azure Service Bus (gateway agent messaging)
 azure-servicebus==7.14.2
 
+# Azure Communication Services — Email (admin registration notifications)
+azure-communication-email==1.1.0
+
 # Azure Key Vault (UserConnections AES key storage)
 azure-keyvault-secrets==4.9.0
 

@@ -70,12 +70,13 @@ class Settings(BaseSettings):
     azure_openai_api_version: str = "2024-11-20"
     azure_openai_deployment: str = "gpt-4o"
 
-    # ── SMTP (registration notifications + retention emails) ─────────────────
-    smtp_host: str = "smtp.gmail.com"
-    smtp_port: int = 587
-    smtp_username: str = ""
-    smtp_password: SecretStr = SecretStr("")
-    smtp_from_name: str = "SAT Admin"
+    # ── Azure Communication Services — Email ──────────────────────────────────
+    # Create a free ACS resource in Azure Portal → "Communication Services"
+    # Then: ACS resource → Email → Add domain (use free *.azurecomm.net domain)
+    # Copy the connection string from "Keys" blade and set ACS_EMAIL_CONNECTION_STRING
+    # Set ACS_EMAIL_SENDER to the "MailFrom" address shown on your email domain
+    acs_email_connection_string: SecretStr = SecretStr("")
+    acs_email_sender: str = ""           # e.g. donotreply@<yourname>.azurecomm.net
     admin_email: str = "hemanth.rajan@ubtiinc.com"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

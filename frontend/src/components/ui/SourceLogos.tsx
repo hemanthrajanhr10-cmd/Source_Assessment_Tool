@@ -15,8 +15,29 @@ import inforUrl        from '../../assets/src_logos/infor.png'
 
 import postgresqlUrl   from '../../assets/src_logos/Postgresql.png'
 import ibmDb2Url      from '../../assets/src_logos/IBM_Db2.png'
+import satAppLogoUrl  from '../../assets/src_logos/source_assessment_logo.png'
 
 type LogoProps = { size?: number; className?: string }
+
+/** The actual SourceSAT product logo PNG — use this everywhere instead of the SVG reticle. */
+export function SATAppLogo({ size = 36, className }: LogoProps) {
+  return (
+    <img
+      src={satAppLogoUrl}
+      alt="SourceSAT"
+      className={className}
+      style={{
+        width: size,
+        height: size,
+        objectFit: 'contain',
+        objectPosition: 'center',
+        display: 'inline-block',
+        flexShrink: 0,
+        borderRadius: Math.round(size * 0.22),
+      }}
+    />
+  )
+}
 
 /**
  * Fixed-box icon slot: renders a square container of `size × size` px with

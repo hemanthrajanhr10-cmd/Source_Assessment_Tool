@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { SourceSATLogo } from './SourceLogos'
+import { SATAppLogo } from './SourceLogos'
 
 interface SplashScreenProps {
   message?: string
@@ -224,7 +224,7 @@ export default function SplashScreen({ message = 'Loading…' }: SplashScreenPro
                   zIndex: 1,
                 }}
               />
-              <SourceSATLogo size={72} />
+              <SATAppLogo size={72} />
             </div>
           </div>
         </div>

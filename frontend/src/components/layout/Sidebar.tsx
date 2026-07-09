@@ -10,7 +10,7 @@ import {
   SqlServerLogo, FabricLogo, SapLogo,
   SageIntacctLogo, TableauLogo, SnowflakeIconLogo, DataverseIconLogo,
   SalesforceIconLogo, IbmDb2Logo, InforPNGLogo, DatabricksLogo,
-  SourceSATLogo,
+  SATAppLogo,
 } from '../ui/SourceLogos'
 import type { LucideIcon } from 'lucide-react'
 
@@ -50,7 +50,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Unified Assessment',
     element: 'ocean',
-    LogoComponent: SourceSATLogo,
+    LogoComponent: SATAppLogo,
     ...TEAL_THEME,
     items: [
       { to: '/unified/new',      label: 'New Assessment', icon: Combine,         exact: true },
@@ -270,7 +270,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   el.style.boxShadow = '0 4px 12px rgba(108,189,181,0.38), inset 0 1px 0 rgba(255,255,255,0.20)'
                 }}
               >
-                <SourceSATLogo size={36} aria-hidden="true" />
+                <SATAppLogo size={36} aria-hidden="true" />
               </div>
             </div>
 

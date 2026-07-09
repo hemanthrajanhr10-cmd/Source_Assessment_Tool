@@ -5,6 +5,7 @@ import {
   ArrowRight, Shield, CheckCircle2, Sparkles, Network,
   Layers, Cloud, FileSpreadsheet, AlertCircle,
 } from 'lucide-react'
+import { SATAppLogo } from '../components/ui/SourceLogos'
 import { useAuth } from '../context/AuthContext'
 import { api, getApiErrorMessage } from '../api/client'
 
@@ -168,10 +169,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-12 w-12 rounded-2xl"
-              style={{ background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)', boxShadow: '0 8px 24px rgba(108,189,181,0.38), inset 0 1px 0 rgba(255,255,255,0.20)' }}>
-              <Database className="h-6 w-6 text-white" aria-hidden="true" />
-            </div>
+            <SATAppLogo size={48} />
             <div>
               <p className="text-lg font-bold text-slate-900 font-display tracking-tight">
                 Source<span className="font-extrabold" style={{ color: '#358F87' }}>SAT</span>
@@ -235,9 +233,8 @@ export default function LoginPage() {
 
         {/* Mobile logo */}
         <div className="lg:hidden flex flex-col items-center mb-10">
-          <div className="flex items-center justify-center h-14 w-14 rounded-2xl mb-4"
-            style={{ background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)', boxShadow: '0 8px 24px rgba(108,189,181,0.36)' }}>
-            <Database className="h-7 w-7 text-white" aria-hidden="true" />
+          <div className="mb-4">
+            <SATAppLogo size={56} />
           </div>
           <h1 className="text-2xl font-black text-slate-900 font-display tracking-tight">
             Source<span className="font-extrabold" style={{ color: '#358F87' }}>SAT</span>

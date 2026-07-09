@@ -254,23 +254,20 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 aria-hidden="true"
               />
               <div
-                className="relative flex items-center justify-center h-9 w-9 rounded-xl overflow-hidden"
+                className="relative flex items-center justify-center"
                 style={{
-                  boxShadow: '0 4px 12px rgba(108,189,181,0.38), inset 0 1px 0 rgba(255,255,255,0.20)',
-                  transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 220ms ease',
+                  transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1)',
                 }}
                 onMouseEnter={(e) => {
                   const el = e.currentTarget as HTMLDivElement
                   el.style.transform = 'scale(1.08) rotate(-3deg)'
-                  el.style.boxShadow = '0 6px 20px rgba(108,189,181,0.55), inset 0 1px 0 rgba(255,255,255,0.20)'
                 }}
                 onMouseLeave={(e) => {
                   const el = e.currentTarget as HTMLDivElement
                   el.style.transform = 'scale(1) rotate(0deg)'
-                  el.style.boxShadow = '0 4px 12px rgba(108,189,181,0.38), inset 0 1px 0 rgba(255,255,255,0.20)'
                 }}
               >
-                <SATAppLogo size={36} aria-hidden="true" />
+                <SATAppLogo size={44} aria-hidden="true" />
               </div>
             </div>
 
@@ -355,10 +352,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div key={group.label}>
                 {/* Section label with inline brand logo */}
                 <div className="flex items-center gap-2 px-2 mb-2.5">
-                  <div className="flex items-center justify-center h-8 w-8 rounded-md shrink-0"
-                    style={{ background: 'rgba(108,189,181,0.10)', border: '1px solid rgba(108,189,181,0.20)' }}>
-                    <Logo size={24} />
-                  </div>
+                  {Logo === SATAppLogo ? (
+                    <Logo size={32} />
+                  ) : (
+                    <div className="flex items-center justify-center h-8 w-8 rounded-md shrink-0"
+                      style={{ background: 'rgba(108,189,181,0.10)', border: '1px solid rgba(108,189,181,0.20)' }}>
+                      <Logo size={24} />
+                    </div>
+                  )}
                   <p className="section-title">{group.label}</p>
                 </div>
 

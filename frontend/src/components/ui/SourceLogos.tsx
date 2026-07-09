@@ -33,7 +33,7 @@ export function SATAppLogo({ size = 36, className }: LogoProps) {
         objectPosition: 'center',
         display: 'inline-block',
         flexShrink: 0,
-        borderRadius: Math.round(size * 0.22),
+        mixBlendMode: 'multiply',
       }}
     />
   )

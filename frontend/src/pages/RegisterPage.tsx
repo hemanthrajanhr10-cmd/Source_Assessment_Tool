@@ -1,13 +1,9 @@
 ﻿import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Database, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { Link } from 'react-router-dom'
+import { Database, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 
 export default function RegisterPage() {
-  const { setToken } = useAuth()
-  const navigate = useNavigate()
-
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,6 +11,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -29,13 +26,12 @@ export default function RegisterPage() {
     }
     setLoading(true)
     try {
-      const res = await api.register({
+      await api.register({
         email,
         password,
         full_name: fullName || undefined,
       })
-      setToken(res.data.access_token)
-      navigate('/', { replace: true })
+      setSuccess(true)
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {
@@ -65,6 +61,28 @@ export default function RegisterPage() {
       />
 
       <div className="w-full max-w-sm relative z-10 animate-slide-up">
+
+        {/* Pending-activation success state */}
+        {success && (
+          <div className="rounded-3xl bg-white p-8 text-center"
+               style={{ boxShadow: '0 24px 64px rgba(108,189,181,0.12), 0 4px 16px rgba(0,0,0,0.06)' }}>
+            <CheckCircle className="h-12 w-12 mx-auto mb-4" style={{ color: '#358F87' }} />
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Account Submitted</h2>
+            <p className="text-sm text-slate-600 leading-relaxed mb-6">
+              Your account request has been received. An administrator will review and
+              activate your account shortly. You'll be able to log in once access is granted.
+            </p>
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-2 text-sm font-semibold"
+              style={{ color: '#358F87' }}
+            >
+              Back to Sign In <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
+
+        {!success && (<>
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
           <div
@@ -201,6 +219,7 @@ export default function RegisterPage() {
             Sign in
           </Link>
         </p>
+        </>)}
       </div>
     </div>
   )

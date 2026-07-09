@@ -40,6 +40,13 @@ IF NOT EXISTS (
 )
     ALTER TABLE dbo.users ADD last_login_location NVARCHAR(200) NULL;
 
+-- Migration: add expires_at for retention-period enforcement
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.users') AND name = 'expires_at'
+)
+    ALTER TABLE dbo.users ADD expires_at DATETIME2 NULL;
+
 -- ─── Migration: remove old JSON-blob table (one-time) ────────────────────────
 IF OBJECT_ID('dbo.assessment_sections', 'U') IS NOT NULL
     DROP TABLE dbo.assessment_sections;

@@ -1086,7 +1086,7 @@ def get_user_by_email(email: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at, last_login_ip, last_login_location "
+            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at, last_login_ip, last_login_location, expires_at "
             "FROM dbo.users WHERE email = ?",
             (email,),
         )
@@ -1104,7 +1104,7 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
     try:
         cur = conn.cursor()
         cur.execute(
-            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at, last_login_ip, last_login_location "
+            "SELECT user_id, email, full_name, password_hash, mfa_secret, mfa_enabled, is_active, relay_namespace, created_at, last_login_ip, last_login_location, expires_at "
             "FROM dbo.users WHERE user_id = ?",
             (user_id,),
         )
@@ -1113,6 +1113,74 @@ def get_user_by_id(user_id: str) -> Optional[dict[str, Any]]:
             return None
         cols = [d[0] for d in cur.description]
         return dict(zip(cols, row))
+    finally:
+        conn.close()
+
+
+def deactivate_user(user_id: str) -> None:
+    """Set is_active = 0 for a user (pending admin activation)."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE dbo.users SET is_active = 0 WHERE user_id = ?", (user_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def set_user_expiry(user_id: str, expires_at: datetime) -> None:
+    """Set the retention expiry date and re-activate the user."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE dbo.users SET expires_at = ?, is_active = 1 WHERE user_id = ?",
+            (expires_at, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def expire_stale_users() -> int:
+    """Deactivate users whose expires_at has passed. Returns count updated."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE dbo.users
+            SET is_active = 0
+            WHERE expires_at IS NOT NULL
+              AND expires_at < SYSUTCDATETIME()
+              AND is_active = 1
+            """
+        )
+        count = cur.rowcount or 0
+        conn.commit()
+        return count
+    finally:
+        conn.close()
+
+
+def get_all_users() -> list[dict[str, Any]]:
+    """Return all users for admin view."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT user_id, email, full_name, is_active, created_at, expires_at, last_login_ip, last_login_location "
+            "FROM dbo.users ORDER BY created_at DESC"
+        )
+        cols = [d[0] for d in cur.description]
+        rows = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            for k, v in d.items():
+                if isinstance(v, datetime):
+                    d[k] = v.isoformat()
+            rows.append(d)
+        return rows
     finally:
         conn.close()
 

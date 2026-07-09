@@ -83,12 +83,29 @@ async def lifespan(app: FastAPI):
     # (covers relay/service-bus jobs whose agent crashed before submitting)
     _watchdog_task = asyncio.create_task(_pending_job_watchdog())
 
+    # Retention watchdog: deactivate users whose retention period has expired
+    _retention_task = asyncio.create_task(_retention_watchdog())
+
     logger.info("SQL Server Assessment API started")
     yield
     # Shutdown
     _watchdog_task.cancel()
+    _retention_task.cancel()
     _schema_task.cancel()
     logger.info("SQL Server Assessment API stopped")
+
+
+async def _retention_watchdog(interval_s: int = 3600) -> None:
+    """Every hour, deactivate users whose retention period has lapsed."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            count = azure_store.expire_stale_users()
+            if count:
+                logger.info("Retention watchdog deactivated %d expired user(s)", count)
+        except Exception as exc:
+            logger.warning("Retention watchdog error (non-fatal): %s", exc)
+        await asyncio.sleep(interval_s)
 
 
 async def _pending_job_watchdog(interval_s: int = 300, timeout_minutes: int = 30) -> None:

@@ -20,12 +20,13 @@ import base64
 import io
 import time
 import urllib.parse
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import qrcode
 import requests as http_requests
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 
 from jose import jwt as jose_jwt
@@ -40,6 +41,7 @@ from app.core.auth import (
     verify_totp,
 )
 from app.core.dependencies import get_current_user
+from app.core.email_utils import send_new_user_notification
 from app.db import azure_store
 
 router = APIRouter()
@@ -119,7 +121,7 @@ class TokenResponse(BaseModel):
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
-@router.post("/register", response_model=TokenResponse, status_code=201)
+@router.post("/register", status_code=201)
 async def register(body: RegisterRequest):
     existing = azure_store.get_user_by_email(body.email)
     if existing:
@@ -129,8 +131,16 @@ async def register(body: RegisterRequest):
     password_hash = hash_password(body.password)
     azure_store.create_user(user_id, body.email, body.full_name, password_hash)
 
-    token = create_access_token(user_id, body.email)
-    return TokenResponse(access_token=token)
+    # Mark account inactive until admin sets the retention period
+    azure_store.deactivate_user(user_id)
+
+    # Notify admin — email contains a form to set the retention period
+    send_new_user_notification(body.email, body.full_name, user_id)
+
+    return {
+        "message": "Account created. Your account is pending activation by an administrator. "
+                   "You will be able to log in once access has been granted."
+    }
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -139,8 +149,22 @@ async def login(body: LoginRequest, request: Request):
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
 
+    # Auto-expire if retention period has lapsed
+    expires_at = user.get("expires_at")
+    if expires_at is not None:
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if datetime.now(tz=timezone.utc) > expires_at:
+            azure_store.expire_stale_users()
+
     if not user.get("is_active"):
-        raise HTTPException(status_code=403, detail="Account is disabled.")
+        raise HTTPException(
+            status_code=403,
+            detail="Account is inactive. It may be pending activation or the retention period has expired. "
+                   "Please contact the administrator."
+        )
 
     # If MFA is enabled, return a challenge — no token yet (login info updated after MFA)
     if user.get("mfa_enabled"):
@@ -244,6 +268,9 @@ def _oauth_upsert_user(email: str, full_name: Optional[str]) -> dict:
         user_id = new_user_id()
         # password_hash = "" marks this as an OAuth-only account
         azure_store.create_user(user_id, email, full_name, "")
+        # New OAuth users start inactive until admin sets a retention period
+        azure_store.deactivate_user(user_id)
+        send_new_user_notification(email, full_name, user_id)
         user = azure_store.get_user_by_id(user_id)
     return user
 
@@ -491,3 +518,63 @@ async def oauth_apple_callback(
     jwt_token = create_access_token(sat_user["user_id"], sat_user["email"])
     fe = settings.frontend_url.rstrip("/")
     return RedirectResponse(f"{fe}/auth/callback?token={jwt_token}", status_code=303)
+
+
+# ── Admin: set retention period (called from the email form) ─────────────────
+
+@router.post("/admin/set-retention", response_class=HTMLResponse, include_in_schema=False)
+async def admin_set_retention(
+    user_id: str = Form(...),
+    days: int = Form(..., ge=1, le=3650),
+):
+    """
+    Receives the admin form submission from the notification email.
+    Sets expires_at = now + days and activates the account.
+    Returns a simple HTML confirmation page.
+    """
+    user = azure_store.get_user_by_id(user_id)
+    if not user:
+        return HTMLResponse(
+            _admin_page("Error", "User not found.", success=False),
+            status_code=404,
+        )
+
+    expires_at = datetime.now(tz=timezone.utc) + timedelta(days=days)
+    azure_store.set_user_expiry(user_id, expires_at)
+
+    expiry_str = expires_at.strftime("%Y-%m-%d")
+    return HTMLResponse(
+        _admin_page(
+            "Account Activated",
+            f"Account <strong>{user['email']}</strong> has been activated.<br/>"
+            f"Retention period: <strong>{days} days</strong> (expires {expiry_str} UTC).",
+            success=True,
+        )
+    )
+
+
+def _admin_page(title: str, body: str, success: bool) -> str:
+    color = "#1a8a4a" if success else "#c0392b"
+    icon = "✅" if success else "❌"
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>SAT Admin — {title}</title>
+  <style>
+    body {{font-family:Arial,sans-serif;background:#f4f6f9;display:flex;
+           align-items:center;justify-content:center;min-height:100vh;margin:0;}}
+    .card {{background:#fff;border-radius:10px;padding:40px 48px;max-width:480px;
+            box-shadow:0 2px 16px rgba(0,0,0,.12);text-align:center;}}
+    h2 {{color:{color};}}
+    p {{color:#444;line-height:1.7;font-size:15px;}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>{icon} {title}</h2>
+    <p>{body}</p>
+    <p style="font-size:13px;color:#999;margin-top:24px;">SAT — Source Assessment Tool</p>
+  </div>
+</body>
+</html>"""

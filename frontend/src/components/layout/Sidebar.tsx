@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Layers, List, Network,
   LogOut, Shield, ChevronDown,
-  X, BarChart3, Sparkles, LayoutDashboard, Combine, PlusCircle, LayoutGrid, Database,
+  X, BarChart3, Sparkles, LayoutDashboard, Combine, PlusCircle, LayoutGrid,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
@@ -10,6 +10,7 @@ import {
   SqlServerLogo, FabricLogo, SapLogo,
   SageIntacctLogo, TableauLogo, SnowflakeIconLogo, DataverseIconLogo,
   SalesforceIconLogo, IbmDb2Logo, InforPNGLogo, DatabricksLogo,
+  SourceSATLogo,
 } from '../ui/SourceLogos'
 import type { LucideIcon } from 'lucide-react'
 
@@ -44,24 +45,12 @@ const TEAL_THEME = {
   hoverIconColor:  '#4DA8A0',
 }
 
-function SATBrandLogo() {
-  return (
-    <div style={{
-      width: 24, height: 24, borderRadius: 7,
-      background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.20)',
-    }}>
-      <Database style={{ width: 13, height: 13, color: '#fff' }} aria-hidden="true" />
-    </div>
-  )
-}
 
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Unified Assessment',
     element: 'ocean',
-    LogoComponent: SATBrandLogo,
+    LogoComponent: SourceSATLogo,
     ...TEAL_THEME,
     items: [
       { to: '/unified/new',      label: 'New Assessment', icon: Combine,         exact: true },
@@ -267,7 +256,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <div
                 className="relative flex items-center justify-center h-9 w-9 rounded-xl overflow-hidden"
                 style={{
-                  background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
                   boxShadow: '0 4px 12px rgba(108,189,181,0.38), inset 0 1px 0 rgba(255,255,255,0.20)',
                   transition: 'transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 220ms ease',
                 }}
@@ -282,7 +270,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                   el.style.boxShadow = '0 4px 12px rgba(108,189,181,0.38), inset 0 1px 0 rgba(255,255,255,0.20)'
                 }}
               >
-                <Database className="h-5 w-5 text-white" aria-hidden="true" />
+                <SourceSATLogo size={36} aria-hidden="true" />
               </div>
             </div>
 

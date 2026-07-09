@@ -350,6 +350,11 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
     try:
         raw: dict[str, Any] = {"_db_type": db_type}
 
+        step_num = 0
+        total_steps = sum(
+            1 for _, _, _, min_level in query_steps
+            if ACCESS_LEVEL_RANK.get(min_level, 1) <= access_rank
+        )
         for key, sql, display_name, min_level in query_steps:
             min_rank = ACCESS_LEVEL_RANK.get(min_level, 1)
             if access_rank < min_rank:
@@ -357,13 +362,14 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
                 raw[key] = []
                 logger.debug("Skipped %s (requires %s, have %s)", key, min_level, access_level, extra=extra)
                 continue
+            step_num += 1
             logger.info("Running query: %s", display_name, extra=extra)
-            job_store.update_job(job_id, progress_message=f"Collecting {display_name}…")
+            job_store.update_job(job_id, progress_message=f"step:{step_num}/{total_steps}:{display_name}")
             raw[key] = _safe_fetch(cursor, sql)
 
         if request.include_null_analysis:
             logger.info("Running null analysis (limit=%d)", request.null_analysis_sample_limit, extra=extra)
-            job_store.update_job(job_id, progress_message="Running null/blank analysis…")
+            job_store.update_job(job_id, progress_message=f"step:{total_steps + 1}/{total_steps + 2}:Null analysis")
             raw["null_analysis"] = _run_null_analysis(
                 cursor, raw.get("tables", []), request.null_analysis_sample_limit,
                 db_type=db_type,
@@ -371,12 +377,13 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
         else:
             raw["null_analysis"] = []
 
-        job_store.update_job(job_id, progress_message="Persisting results to Azure SQL…")
+        final_steps = total_steps + (2 if request.include_null_analysis else 0)
+        job_store.update_job(job_id, progress_message=f"step:{final_steps - 1}/{final_steps}:Persisting results")
         overview_dict = _extract_overview(raw.get("overview", []))
         azure_store.save_overview(job_id, overview_dict, access_level=access_level)
         azure_store.save_sections(job_id, raw)
 
-        job_store.update_job(job_id, progress_message="Building Excel report…")
+        job_store.update_job(job_id, progress_message=f"step:{final_steps}/{final_steps}:Building Excel report")
         report_path = report_service.build_report(job_id, raw, db_type=db_type)
 
         results: dict[str, Any] = {

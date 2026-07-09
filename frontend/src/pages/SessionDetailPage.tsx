@@ -43,20 +43,40 @@ const ASSESSMENT_STEPS = [
   { key: 'persisting results', label: 'Persisting results' },
 ]
 
-function getCompletedSteps(progressMsg?: string, status?: string): number {
-  if (!progressMsg) return 0
-  if (status === 'completed') return ASSESSMENT_STEPS.length
+/** Parse progress_message in two formats:
+ *  1. New:  "step:N/T:Display name"  → returns { done: N-1, total: T, current: name }
+ *  2. Legacy: free text → falls back to keyword matching against ASSESSMENT_STEPS
+ */
+function parseProgress(progressMsg?: string, status?: string): { done: number; total: number; currentLabel?: string } {
+  const total = ASSESSMENT_STEPS.length
+  if (status === 'completed') return { done: total, total }
+  if (!progressMsg) return { done: 0, total }
+
+  // New structured format: "step:N/T:Display name"
+  const stepMatch = progressMsg.match(/^step:(\d+)\/(\d+):(.+)$/)
+  if (stepMatch) {
+    const n = parseInt(stepMatch[1], 10)
+    const t = parseInt(stepMatch[2], 10)
+    return {
+      done: Math.max(0, n - 1),
+      total: t,
+      currentLabel: stepMatch[3],
+    }
+  }
+
+  // Legacy text matching
   const lower = progressMsg.toLowerCase()
   const idx = ASSESSMENT_STEPS.findIndex((s) => lower.includes(s.key))
-  return idx === -1 ? 0 : idx
+  return { done: idx === -1 ? 0 : idx, total }
 }
 
 function ProgressDetails({ job }: { job: SessionJobInfo }) {
   const [open, setOpen] = useState(false)
   if (job.status !== 'running' && job.status !== 'completed') return null
 
-  const completedCount = getCompletedSteps(job.progress_message ?? undefined, job.status)
-  const total = ASSESSMENT_STEPS.length
+  const { done: completedCount, total, currentLabel } = parseProgress(job.progress_message ?? undefined, job.status)
+  const displayTotal = Math.max(total, ASSESSMENT_STEPS.length)
+  const pct = displayTotal > 0 ? Math.round((completedCount / displayTotal) * 100) : 0
 
   return (
     <div className="mt-3 border border-slate-200 rounded-xl overflow-hidden">
@@ -66,13 +86,22 @@ function ProgressDetails({ job }: { job: SessionJobInfo }) {
       >
         <ListChecks className="h-4 w-4 text-earth-600 shrink-0" />
         <span className="text-xs font-semibold text-slate-700 flex-1">
-          Assessment Progress — {completedCount} / {total} steps done
+          Assessment Progress — {completedCount} / {displayTotal} steps done
+          {currentLabel && job.status === 'running' && (
+            <span className="font-normal text-slate-400 ml-1">· {currentLabel}</span>
+          )}
         </span>
-        <span className="text-xs text-slate-400 tabular-nums mr-2">
-          {Math.round((completedCount / total) * 100)}%
-        </span>
+        <span className="text-xs text-slate-400 tabular-nums mr-2">{pct}%</span>
         {open ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
       </button>
+
+      {/* Inline progress bar */}
+      <div className="h-1 bg-slate-100 overflow-hidden">
+        <div
+          className="h-full bg-earth-500 transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
 
       {open && (
         <div className="px-4 py-3 bg-slate-50/40 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
@@ -205,9 +234,15 @@ function JobRow({ job, onNavigate }: { job: SessionJobInfo; onNavigate: (jobId: 
       </td>
       <td className="px-5 py-3.5">
         <JobStatusBadge status={job.status} />
-        {job.progress_message && job.status === 'running' && (
-          <p className="text-xs text-slate-400 mt-1 max-w-[180px] truncate">{job.progress_message}</p>
-        )}
+        {job.progress_message && job.status === 'running' && (() => {
+          const stepMatch = job.progress_message.match(/^step:(\d+)\/(\d+):(.+)$/)
+          const displayMsg = stepMatch
+            ? `${stepMatch[3]} (${stepMatch[1]}/${stepMatch[2]})`
+            : job.progress_message
+          return (
+            <p className="text-xs text-slate-400 mt-1 max-w-[180px] truncate">{displayMsg}</p>
+          )
+        })()}
         {job.error && (
           <p className="text-xs text-red-400 mt-1 max-w-[220px] truncate" title={job.error}>
             {job.error}

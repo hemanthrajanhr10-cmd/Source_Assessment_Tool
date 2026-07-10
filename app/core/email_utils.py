@@ -43,7 +43,7 @@ def _send(subject: str, html_body: str, to: str) -> None:
 
 def send_async(subject: str, html_body: str, to: str) -> None:
     """Fire-and-forget — does not block the caller."""
-    threading.Thread(target=_send, args=(subject, html_body, to), daemon=True).start()
+    threading.Thread(target=_send, args=(subject, html_body, to), daemon=False).start()
 
 
 def send_new_user_notification(email: str, full_name: str | None, user_id: str) -> None:

@@ -358,10 +358,7 @@ export default function AccountExpiryBadge() {
   const tier  = getTier(days)
   const s     = TIER_STYLES[tier]
 
-  // Don't render if no expiry is set on this account
-  if (!user?.expires_at) return null
-
-  // Click-outside to close flyout
+  // Click-outside to close flyout — must be before any early return
   useEffect(() => {
     if (!flyoutOpen) return
     function handler(e: MouseEvent) {
@@ -372,6 +369,9 @@ export default function AccountExpiryBadge() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [flyoutOpen])
+
+  // Don't render if no expiry is set on this account
+  if (!user?.expires_at) return null
 
   const pillLabel =
     days === null           ? 'Account expiry'

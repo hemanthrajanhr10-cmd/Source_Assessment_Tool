@@ -3,13 +3,13 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Database, Mail, Lock, Eye, EyeOff, KeyRound,
   ArrowRight, Shield, CheckCircle2, Sparkles, Network,
-  Layers, Cloud, FileSpreadsheet, AlertCircle,
+  Layers, Cloud, FileSpreadsheet, AlertCircle, Clock, Send,
 } from 'lucide-react'
 import { SATAppLogo } from '../components/ui/SourceLogos'
 import { useAuth } from '../context/AuthContext'
 import { api, getApiErrorMessage } from '../api/client'
 
-type Step = 'credentials' | 'mfa'
+type Step = 'credentials' | 'mfa' | 'request-extension'
 type OAuthProvider = 'microsoft' | 'google' | 'apple'
 
 const BASE_URL = (import.meta as ImportMeta & { env: Record<string, string> }).env.VITE_API_URL || ''
@@ -41,6 +41,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [extensionDays, setExtensionDays] = useState('')
+  const [extensionSent, setExtensionSent] = useState(false)
   const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null)
   const [providers, setProviders] = useState<Record<OAuthProvider, boolean>>({
     microsoft: false,
@@ -98,6 +100,28 @@ export default function LoginPage() {
         setToken(res.data.access_token)
         navigate('/', { replace: true })
       }
+    } catch (err) {
+      const msg = getApiErrorMessage(err)
+      if (msg === 'retention_expired') {
+        setStep('request-extension')
+        setError('')
+      } else {
+        setError(msg)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleExtensionRequest(e: React.FormEvent) {
+    e.preventDefault()
+    const days = parseInt(extensionDays, 10)
+    if (!days || days < 1) return
+    setLoading(true)
+    setError('')
+    try {
+      await api.requestExtension({ email, requested_days: days })
+      setExtensionSent(true)
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {
@@ -396,6 +420,75 @@ export default function LoginPage() {
                         Create account
                       </Link>
                     </p>
+                  </>
+                ) : step === 'request-extension' ? (
+                  <>
+                    {/* Retention expired — request extension step */}
+                    <div className="flex flex-col items-center text-center mb-6">
+                      <div className="h-14 w-14 rounded-2xl flex items-center justify-center mb-4"
+                        style={{ background: 'rgba(108,189,181,0.10)', border: '1.5px solid rgba(108,189,181,0.35)' }}>
+                        <Clock className="h-7 w-7" style={{ color: '#4DA8A0' }} aria-hidden="true" />
+                      </div>
+                      <h2 className="text-xl font-black text-slate-900 font-display" style={{ letterSpacing: '-0.025em' }}>
+                        Access Expired
+                      </h2>
+                      <p className="text-sm text-slate-500 mt-2 max-w-xs leading-relaxed">
+                        Your retention period has ended. Request an extension and your administrator will be notified.
+                      </p>
+                    </div>
+
+                    {extensionSent ? (
+                      <div className="rounded-xl px-4 py-4 text-center"
+                        style={{ background: '#E5F5F3', border: '1px solid #B2DDD9' }}>
+                        <CheckCircle2 className="h-6 w-6 mx-auto mb-2" style={{ color: '#358F87' }} aria-hidden="true" />
+                        <p className="text-sm font-semibold" style={{ color: '#25706A' }}>Request sent!</p>
+                        <p className="text-xs mt-1" style={{ color: '#5A7A77' }}>
+                          Your administrator has been notified. You'll receive access once approved.
+                        </p>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleExtensionRequest} className="space-y-4">
+                        <div>
+                          <label className="form-label">Requested extension (days)</label>
+                          <input
+                            type="number" min="1" max="3650" required autoFocus
+                            value={extensionDays}
+                            onChange={(e) => setExtensionDays(e.target.value)}
+                            className="form-input"
+                            placeholder="e.g. 30"
+                          />
+                          <p className="text-xs mt-1.5" style={{ color: '#93CCC6' }}>
+                            Enter how many additional days you need.
+                          </p>
+                        </div>
+
+                        {error && (
+                          <div className="flex items-start gap-2.5 rounded-xl border border-red-200/80 bg-red-50/80 px-3.5 py-3 text-sm text-red-700" role="alert">
+                            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-red-500" aria-hidden="true" />
+                            <span>{error}</span>
+                          </div>
+                        )}
+
+                        <button
+                          type="submit" disabled={loading || !extensionDays}
+                          className="w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl text-sm font-semibold text-white btn-physics btn-shimmer focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50"
+                          style={{
+                            background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
+                            boxShadow: '0 4px 16px rgba(108,189,181,0.40), 0 1px 3px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.20)',
+                          }}
+                        >
+                          {loading ? 'Sending…' : <><Send className="h-4 w-4" aria-hidden="true" /><span>Send Extension Request</span></>}
+                        </button>
+                      </form>
+                    )}
+
+                    <button type="button"
+                      onClick={() => { setStep('credentials'); setExtensionDays(''); setExtensionSent(false); setError('') }}
+                      className="w-full text-sm text-slate-400 transition-colors py-2 mt-3 focus-visible:outline-none focus-visible:underline"
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#358F87' }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '' }}>
+                      ← Back to sign in
+                    </button>
                   </>
                 ) : (
                   <>

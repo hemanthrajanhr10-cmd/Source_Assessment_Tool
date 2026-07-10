@@ -158,12 +158,21 @@ async def login(body: LoginRequest, request: Request):
             expires_at = expires_at.replace(tzinfo=timezone.utc)
         if datetime.now(tz=timezone.utc) > expires_at:
             azure_store.expire_stale_users()
+            # Re-fetch to get updated is_active
+            user = azure_store.get_user_by_email(body.email)
 
     if not user.get("is_active"):
+        # Distinguish expired retention from pending-activation so the frontend
+        # can offer a "Request Extension" flow specifically for expired accounts.
+        has_expiry = user.get("expires_at") is not None
+        if has_expiry:
+            raise HTTPException(
+                status_code=403,
+                detail="retention_expired",
+            )
         raise HTTPException(
             status_code=403,
-            detail="Account is inactive. It may be pending activation or the retention period has expired. "
-                   "Please contact the administrator."
+            detail="Account is pending activation by an administrator."
         )
 
     # If MFA is enabled, return a challenge — no token yet (login info updated after MFA)
@@ -611,28 +620,268 @@ async def admin_set_retention(
     )
 
 
-def _admin_page(title: str, body: str, success: bool) -> str:
-    color = "#1a8a4a" if success else "#c0392b"
-    icon = "✅" if success else "❌"
-    return f"""<!DOCTYPE html>
-<html>
+# ── User: request retention extension ────────────────────────────────────────
+
+class ExtensionRequest(BaseModel):
+    email: str
+    requested_days: int = Field(..., ge=1, le=3650)
+
+@router.post("/request-extension", include_in_schema=False)
+async def request_extension(body: ExtensionRequest):
+    """
+    Called from the login page when a user's retention has expired.
+    Sends admin an email with Accept / Decline buttons (editable days).
+    """
+    from app.core.email_utils import send_extension_request_notification
+    user = azure_store.get_user_by_email(body.email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    send_extension_request_notification(
+        email=user["email"],
+        full_name=user.get("full_name"),
+        user_id=user["user_id"],
+        requested_days=body.requested_days,
+    )
+    return {"message": "Extension request sent to administrator."}
+
+
+# ── Admin: review extension request (browser page from email link) ────────────
+
+@router.get("/admin/review-extension", response_class=HTMLResponse, include_in_schema=False)
+async def admin_review_extension(
+    user_id: str = Query(...),
+    days: int = Query(..., ge=1, le=3650),
+):
+    """Browser page linked from the extension-request email. Admin can edit days and accept/decline."""
+    user = azure_store.get_user_by_id(user_id)
+    if not user:
+        return HTMLResponse(_admin_page("Error", "User not found.", success=False), status_code=404)
+    display = user.get("full_name") or user.get("email", user_id)
+    email_addr = user.get("email", "")
+    backend = settings.backend_url.rstrip("/")
+
+    return HTMLResponse(f"""<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>SAT Admin — {title}</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>SAT — Review Extension Request</title>
   <style>
-    body {{font-family:Arial,sans-serif;background:#f4f6f9;display:flex;
-           align-items:center;justify-content:center;min-height:100vh;margin:0;}}
-    .card {{background:#fff;border-radius:10px;padding:40px 48px;max-width:480px;
-            box-shadow:0 2px 16px rgba(0,0,0,.12);text-align:center;}}
-    h2 {{color:{color};}}
-    p {{color:#444;line-height:1.7;font-size:15px;}}
+    *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0;}}
+    body{{font-family:Arial,Helvetica,sans-serif;background:#F0FAF9;
+         display:flex;align-items:center;justify-content:center;
+         min-height:100vh;padding:24px;}}
+    .wrap{{width:100%;max-width:480px;}}
+    /* Logo bar */
+    .logo-bar{{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:24px;}}
+    .logo-icon{{width:38px;height:38px;background:#6CBDB5;border-radius:9px;
+                display:flex;align-items:center;justify-content:center;
+                font-size:20px;color:#fff;}}
+    .logo-name{{font-size:16px;font-weight:700;color:#0D1117;letter-spacing:-0.02em;}}
+    /* Card */
+    .card{{background:#fff;border:1px solid #B2DDD9;border-radius:16px;overflow:hidden;
+           box-shadow:0 4px 16px rgba(108,189,181,0.10),0 1px 4px rgba(0,0,0,0.04);}}
+    .card-stripe{{height:4px;background:#6CBDB5;}}
+    .card-body{{padding:32px 36px 36px;}}
+    /* Badge */
+    .badge{{display:inline-flex;align-items:center;gap:6px;
+            background:#E5F5F3;border:1px solid #C8E9E6;border-radius:9999px;
+            padding:4px 12px;font-size:11px;font-weight:700;color:#358F87;
+            letter-spacing:0.07em;text-transform:uppercase;margin-bottom:16px;}}
+    h2{{font-size:20px;font-weight:700;color:#0D1117;letter-spacing:-0.02em;margin-bottom:6px;}}
+    .sub{{font-size:13px;color:#5A7A77;line-height:1.6;margin-bottom:24px;}}
+    /* User detail block */
+    .detail{{background:#F0FAF9;border:1px solid #C8E9E6;border-radius:10px;
+             padding:16px 18px;margin-bottom:20px;}}
+    .detail-header{{font-size:10px;font-weight:700;color:#6CBDB5;letter-spacing:0.12em;
+                    text-transform:uppercase;margin-bottom:12px;}}
+    .detail-row{{display:flex;gap:12px;margin-bottom:8px;}}
+    .detail-row:last-child{{margin-bottom:0;}}
+    .detail-label{{font-size:10px;font-weight:700;color:#93CCC6;letter-spacing:0.1em;
+                   text-transform:uppercase;width:56px;flex-shrink:0;padding-top:2px;}}
+    .detail-value{{font-size:13px;color:#0D1117;font-weight:600;}}
+    .detail-value.mono{{font-family:'Courier New',monospace;font-size:12px;color:#5A7A77;word-break:break-all;}}
+    /* Form */
+    .field-label{{font-size:11px;font-weight:700;color:#5A7A77;letter-spacing:0.08em;
+                  text-transform:uppercase;display:block;margin-bottom:6px;margin-top:20px;}}
+    input[type=number]{{width:100%;padding:11px 14px;border:1.5px solid #B2DDD9;
+                        border-radius:8px;font-size:15px;color:#0D1117;background:#fff;
+                        outline:none;transition:border-color 0.15s;}}
+    input[type=number]:focus{{border-color:#6CBDB5;box-shadow:0 0 0 3px rgba(108,189,181,0.15);}}
+    .hint{{font-size:11px;color:#93CCC6;margin-top:5px;}}
+    /* Buttons */
+    .btn-row{{display:flex;gap:12px;margin-top:24px;}}
+    .btn{{flex:1;padding:13px;border:none;border-radius:10px;font-size:14px;
+          font-weight:700;cursor:pointer;text-align:center;transition:opacity 0.15s;}}
+    .btn:hover{{opacity:0.88;}}
+    .btn-accept{{background:#6CBDB5;color:#fff;}}
+    .btn-decline{{background:#FEE2E2;color:#DC2626;border:1px solid #FECACA;}}
+    /* Footer */
+    .footer{{text-align:center;margin-top:20px;font-size:11px;color:#93CCC6;}}
   </style>
 </head>
 <body>
-  <div class="card">
-    <h2>{icon} {title}</h2>
-    <p>{body}</p>
-    <p style="font-size:13px;color:#999;margin-top:24px;">SAT — Source Assessment Tool</p>
+  <div class="wrap">
+    <!-- Logo -->
+    <div class="logo-bar">
+      <div class="logo-icon">&#128447;</div>
+      <span class="logo-name">Source Assessment Tool</span>
+    </div>
+
+    <!-- Card -->
+    <div class="card">
+      <div class="card-stripe"></div>
+      <div class="card-body">
+        <div class="badge">&#x25CF;&nbsp; Extension Request</div>
+        <h2>Review Access Extension</h2>
+        <p class="sub">A user has requested an extension to their retention period. You can adjust the number of days before accepting.</p>
+
+        <div class="detail">
+          <div class="detail-header">User Details</div>
+          <div class="detail-row">
+            <span class="detail-label">Name</span>
+            <span class="detail-value">{display}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Email</span>
+            <span class="detail-value mono">{email_addr}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">User ID</span>
+            <span class="detail-value mono">{user_id}</span>
+          </div>
+        </div>
+
+        <label class="field-label" for="days">Extension Duration (days)</label>
+        <input type="number" id="days" name="days" min="1" max="3650"
+               value="{days}" placeholder="e.g. 30"/>
+        <p class="hint">Requested: <strong>{days} days</strong> — edit if needed before accepting.</p>
+
+        <div class="btn-row">
+          <button class="btn btn-decline" onclick="submitDecline()">Decline</button>
+          <button class="btn btn-accept" onclick="submitAccept()">Accept Extension</button>
+        </div>
+      </div>
+    </div>
+
+    <p class="footer">SAT &mdash; Source Assessment Tool &bull; UBTI</p>
+  </div>
+
+  <script>
+    function submitAccept() {{
+      var d = parseInt(document.getElementById('days').value, 10);
+      if (!d || d < 1 || d > 3650) {{ alert('Please enter a valid number of days (1–3650).'); return; }}
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{backend}/api/v1/auth/admin/accept-extension';
+      [['user_id', '{user_id}'], ['days', d]].forEach(function(p) {{
+        var i = document.createElement('input');
+        i.type = 'hidden'; i.name = p[0]; i.value = p[1];
+        form.appendChild(i);
+      }});
+      document.body.appendChild(form);
+      form.submit();
+    }}
+    function submitDecline() {{
+      if (!confirm('Decline this extension request?')) return;
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '{backend}/api/v1/auth/admin/decline-extension';
+      var i = document.createElement('input');
+      i.type = 'hidden'; i.name = 'user_id'; i.value = '{user_id}';
+      form.appendChild(i);
+      document.body.appendChild(form);
+      form.submit();
+    }}
+  </script>
+</body>
+</html>""")
+
+
+@router.post("/admin/accept-extension", response_class=HTMLResponse, include_in_schema=False)
+async def admin_accept_extension(
+    user_id: str = Form(...),
+    days: int = Form(..., ge=1, le=3650),
+):
+    """Admin accepted the extension: re-activate user with new expiry."""
+    user = azure_store.get_user_by_id(user_id)
+    if not user:
+        return HTMLResponse(_admin_page("Error", "User not found.", success=False), status_code=404)
+    expires_at = datetime.now(tz=timezone.utc) + timedelta(days=days)
+    azure_store.set_user_expiry(user_id, expires_at)
+    expiry_str = expires_at.strftime("%Y-%m-%d")
+    return HTMLResponse(_admin_page(
+        "Extension Accepted",
+        f"Account <strong>{user['email']}</strong> has been reactivated.<br/>"
+        f"New retention: <strong>{days} days</strong> (expires {expiry_str} UTC).",
+        success=True,
+    ))
+
+
+@router.post("/admin/decline-extension", response_class=HTMLResponse, include_in_schema=False)
+async def admin_decline_extension(user_id: str = Form(...)):
+    """Admin declined the extension: account stays inactive."""
+    user = azure_store.get_user_by_id(user_id)
+    if not user:
+        return HTMLResponse(_admin_page("Error", "User not found.", success=False), status_code=404)
+    return HTMLResponse(_admin_page(
+        "Extension Declined",
+        f"The extension request for <strong>{user['email']}</strong> has been declined.<br/>"
+        "The account will remain inactive.",
+        success=False,
+    ))
+
+
+def _admin_page(title: str, body: str, success: bool) -> str:
+    stripe = "#6CBDB5" if success else "#EF4444"
+    icon_bg = "#E5F5F3" if success else "#FEE2E2"
+    icon_color = "#358F87" if success else "#DC2626"
+    icon = "&#10003;" if success else "&#10007;"
+    text_color = "#358F87" if success else "#DC2626"
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>SAT &mdash; {title}</title>
+  <style>
+    *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0;}}
+    body{{font-family:Arial,Helvetica,sans-serif;background:#F0FAF9;
+         display:flex;align-items:center;justify-content:center;
+         min-height:100vh;padding:24px;}}
+    .logo-bar{{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:24px;}}
+    .logo-icon{{width:36px;height:36px;background:#6CBDB5;border-radius:8px;
+                display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;}}
+    .logo-name{{font-size:15px;font-weight:700;color:#0D1117;letter-spacing:-0.02em;}}
+    .card{{background:#fff;border:1px solid #B2DDD9;border-radius:16px;overflow:hidden;
+           box-shadow:0 4px 16px rgba(108,189,181,0.10),0 1px 4px rgba(0,0,0,0.04);
+           max-width:420px;width:100%;}}
+    .stripe{{height:4px;background:{stripe};}}
+    .body{{padding:40px 36px;text-align:center;}}
+    .icon-wrap{{width:56px;height:56px;border-radius:50%;background:{icon_bg};
+                display:flex;align-items:center;justify-content:center;margin:0 auto 18px;}}
+    .icon{{font-size:24px;color:{icon_color};font-weight:700;}}
+    h2{{font-size:20px;font-weight:700;color:{text_color};margin-bottom:10px;letter-spacing:-0.02em;}}
+    p{{color:#5A7A77;line-height:1.7;font-size:14px;}}
+    p strong{{color:#0D1117;}}
+    .footer{{font-size:11px;color:#93CCC6;margin-top:24px;}}
+  </style>
+</head>
+<body>
+  <div style="width:100%;max-width:420px;">
+    <div class="logo-bar">
+      <div class="logo-icon">&#128447;</div>
+      <span class="logo-name">Source Assessment Tool</span>
+    </div>
+    <div class="card">
+      <div class="stripe"></div>
+      <div class="body">
+        <div class="icon-wrap"><span class="icon">{icon}</span></div>
+        <h2>{title}</h2>
+        <p>{body}</p>
+        <p class="footer">SAT &mdash; Source Assessment Tool &bull; UBTI</p>
+      </div>
+    </div>
   </div>
 </body>
 </html>"""

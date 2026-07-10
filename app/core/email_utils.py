@@ -88,13 +88,16 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
     </div>
     <p>Please set the <strong>retention period</strong> (in days) for this account.
        The account will be automatically deactivated after this many days.</p>
-    <form method="POST" action="{backend}/api/v1/auth/admin/set-retention">
-      <input type="hidden" name="user_id" value="{user_id}"/>
-      <label for="days">Retention Period (days)</label>
-      <input type="number" id="days" name="days" min="1" max="3650"
-             placeholder="e.g. 30" required/>
-      <button type="submit">Set Retention &amp; Activate Account</button>
-    </form>
+    <p style="text-align:center; margin:24px 0;">
+      <a href="{backend}/api/v1/auth/admin/set-retention?user_id={user_id}"
+         style="display:inline-block; background:#1a73e8; color:#fff; text-decoration:none;
+                padding:14px 32px; border-radius:6px; font-size:15px; font-weight:bold;">
+        Set Retention &amp; Activate Account
+      </a>
+    </p>
+    <p style="font-size:12px; color:#888; text-align:center;">
+      Clicking the button will open a page in your browser where you can enter the number of days.
+    </p>
     <div class="footer">SAT — Source Assessment Tool &bull; hemanth.rajan@ubtiinc.com</div>
   </div>
 </body>

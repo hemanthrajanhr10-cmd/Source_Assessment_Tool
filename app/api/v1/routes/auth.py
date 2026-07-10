@@ -520,7 +520,65 @@ async def oauth_apple_callback(
     return RedirectResponse(f"{fe}/auth/callback?token={jwt_token}", status_code=303)
 
 
-# ── Admin: set retention period (called from the email form) ─────────────────
+# ── Admin: set retention period ──────────────────────────────────────────────
+
+@router.get("/admin/set-retention", response_class=HTMLResponse, include_in_schema=False)
+async def admin_set_retention_form(user_id: str = Query(...)):
+    """
+    Renders a browser-hosted form so the admin can set the retention period.
+    Linked from the notification email (Outlook blocks in-email forms).
+    """
+    user = azure_store.get_user_by_id(user_id)
+    if not user:
+        return HTMLResponse(
+            _admin_page("Error", "User not found.", success=False),
+            status_code=404,
+        )
+    display = user.get("full_name") or user.get("email", user_id)
+    email = user.get("email", "")
+    backend = settings.backend_url.rstrip("/")
+    return HTMLResponse(f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>SAT Admin — Set Retention Period</title>
+  <style>
+    body {{font-family:Arial,sans-serif;background:#f4f6f9;display:flex;
+           align-items:center;justify-content:center;min-height:100vh;margin:0;}}
+    .card {{background:#fff;border-radius:10px;padding:40px 48px;max-width:480px;width:100%;
+            box-shadow:0 2px 16px rgba(0,0,0,.12);}}
+    h2 {{color:#1a73e8;margin-top:0;}}
+    .info {{background:#f0f7ff;border-left:4px solid #1a73e8;padding:12px 16px;
+            border-radius:4px;margin:16px 0;font-size:14px;color:#333;}}
+    label {{display:block;font-size:13px;font-weight:bold;color:#333;margin-top:20px;}}
+    input[type=number] {{width:100%;padding:10px;border:1px solid #ccc;
+                          border-radius:6px;font-size:15px;margin-top:6px;box-sizing:border-box;}}
+    button {{margin-top:20px;background:#1a73e8;color:#fff;border:none;padding:12px 28px;
+             border-radius:6px;font-size:15px;cursor:pointer;width:100%;}}
+    button:hover {{background:#1557b0;}}
+    .footer {{text-align:center;margin-top:20px;font-size:12px;color:#999;}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Set Retention Period</h2>
+    <p style="color:#444;">Activate the account and set how many days it stays active.</p>
+    <div class="info">
+      <strong>Name:</strong> {display}<br/>
+      <strong>Email:</strong> {email}
+    </div>
+    <form method="POST" action="{backend}/api/v1/auth/admin/set-retention">
+      <input type="hidden" name="user_id" value="{user_id}"/>
+      <label for="days">Retention Period (days)</label>
+      <input type="number" id="days" name="days" min="1" max="3650"
+             placeholder="e.g. 30" required/>
+      <button type="submit">Set Retention &amp; Activate Account</button>
+    </form>
+    <div class="footer">SAT — Source Assessment Tool</div>
+  </div>
+</body>
+</html>""")
+
 
 @router.post("/admin/set-retention", response_class=HTMLResponse, include_in_schema=False)
 async def admin_set_retention(

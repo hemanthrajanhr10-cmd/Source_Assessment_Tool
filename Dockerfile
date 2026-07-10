@@ -18,8 +18,9 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci --prefer-offline
 
 # Copy source and build
+# VITE_API_URL='' forces relative URLs so the build works on any host (Azure, local, etc.)
 COPY frontend/ .
-RUN npm run build
+RUN VITE_API_URL='' npm run build
 # Output: /ui/dist/
 
 

@@ -56,6 +56,11 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
     backend = settings.backend_url.rstrip("/")
     action_url = f"{backend}/api/v1/auth/admin/set-retention?user_id={user_id}"
 
+    # Color palette mirrors the SAT application theme exactly
+    # Canvas: #F0FAF9 | Base: #FFFFFF | Brand-400: #6CBDB5 | Brand-300: #93CCC6
+    # Text primary: #0D1117 | Text secondary: #2D4A47 | Text tertiary: #5A7A77
+    # Border: #B2DDD9 | Subtle: #E5F5F3 | Muted: #C8E9E6
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,11 +74,13 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
   <![endif]-->
   <title>New User Registration</title>
 </head>
-<body style="margin:0;padding:0;background-color:#09090b;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+<body style="margin:0;padding:0;background-color:#F0FAF9;
+             font-family:Arial,Helvetica,sans-serif;
+             -webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
 
 <!-- Outer wrapper -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-       style="background-color:#09090b;min-width:100%;">
+       style="background-color:#F0FAF9;min-width:100%;">
   <tr>
     <td align="center" style="padding:40px 16px 48px;">
 
@@ -83,27 +90,21 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
 
         <!-- ── Logo bar ── -->
         <tr>
-          <td align="center" style="padding-bottom:32px;">
+          <td align="center" style="padding-bottom:28px;">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="background-color:#1c1a14;border:1px solid #3a3010;
-                           border-radius:10px;padding:10px 14px;vertical-align:middle;">
-                  <!-- Database icon (SVG, amber) -->
-                  <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                    <tr>
-                      <td style="vertical-align:middle;padding-right:10px;">
-                        <img src="https://img.icons8.com/ios-filled/28/f59e0b/database.png"
-                             width="28" height="28" alt="SAT"
-                             style="display:block;border:0;outline:none;"/>
-                      </td>
-                      <td style="vertical-align:middle;">
-                        <span style="font-family:Arial,Helvetica,sans-serif;font-size:17px;
-                                     font-weight:700;color:#f4f4f5;letter-spacing:-0.02em;">
-                          Source Assessment Tool
-                        </span>
-                      </td>
-                    </tr>
-                  </table>
+                <!-- Teal icon container -->
+                <td style="background-color:#6CBDB5;border-radius:10px;
+                           padding:9px 11px;vertical-align:middle;">
+                  <!-- Database SVG icon as inline image fallback using Unicode block -->
+                  <span style="font-family:Arial,Helvetica,sans-serif;font-size:18px;
+                               color:#FFFFFF;line-height:1;">&#128447;</span>
+                </td>
+                <td style="padding-left:12px;vertical-align:middle;">
+                  <span style="font-family:Arial,Helvetica,sans-serif;font-size:19px;
+                               font-weight:700;color:#0D1117;letter-spacing:-0.02em;">
+                    Source Assessment Tool
+                  </span>
                 </td>
               </tr>
             </table>
@@ -112,29 +113,35 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
 
         <!-- ── Main card ── -->
         <tr>
-          <td style="background-color:#18181b;border:1px solid #3f3f46;border-radius:12px;
-                     padding:0;overflow:hidden;">
+          <td style="background-color:#FFFFFF;
+                     border:1px solid #B2DDD9;
+                     border-radius:16px;
+                     padding:0;
+                     overflow:hidden;
+                     box-shadow:0 4px 16px rgba(108,189,181,0.10),0 1px 4px rgba(0,0,0,0.04);">
 
-            <!-- Amber top accent line -->
+            <!-- Teal gradient top bar -->
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="background-color:#f59e0b;height:3px;font-size:0;line-height:0;">&nbsp;</td>
+                <td style="background-color:#6CBDB5;height:4px;font-size:0;line-height:0;">&nbsp;</td>
               </tr>
             </table>
 
-            <!-- Card content -->
+            <!-- Card body -->
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+
+              <!-- Header section -->
               <tr>
-                <td style="padding:36px 40px 12px;">
+                <td style="padding:36px 40px 24px;">
 
                   <!-- Event badge -->
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0"
-                         style="margin-bottom:20px;">
+                         style="margin-bottom:18px;">
                     <tr>
-                      <td style="background-color:#1c1a14;border:1px solid #3a3010;
-                                 border-radius:9999px;padding:4px 12px;">
+                      <td style="background-color:#E5F5F3;border:1px solid #C8E9E6;
+                                 border-radius:9999px;padding:4px 14px;">
                         <span style="font-family:Arial,Helvetica,sans-serif;font-size:11px;
-                                     font-weight:700;color:#f59e0b;letter-spacing:0.08em;
+                                     font-weight:700;color:#358F87;letter-spacing:0.07em;
                                      text-transform:uppercase;">
                           &#x25CF;&nbsp; New Registration
                         </span>
@@ -144,12 +151,14 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
 
                   <!-- Headline -->
                   <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;
-                             font-size:22px;font-weight:700;color:#f4f4f5;line-height:1.2;
-                             letter-spacing:-0.02em;">
+                             font-size:22px;font-weight:700;color:#0D1117;
+                             line-height:1.2;letter-spacing:-0.02em;">
                     Action Required
                   </p>
-                  <p style="margin:0 0 28px;font-family:Arial,Helvetica,sans-serif;
-                             font-size:14px;color:#a1a1aa;line-height:1.6;">
+
+                  <!-- Sub-copy -->
+                  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;
+                             font-size:14px;color:#5A7A77;line-height:1.6;">
                     A new user has registered on SAT and is awaiting activation.
                     Set their retention period to grant access.
                   </p>
@@ -157,17 +166,28 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
                 </td>
               </tr>
 
+              <!-- Divider -->
+              <tr>
+                <td style="padding:0 40px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td style="background-color:#E5F5F3;height:1px;font-size:0;line-height:0;">&nbsp;</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
               <!-- ── User detail block ── -->
               <tr>
-                <td style="padding:0 40px 28px;">
+                <td style="padding:28px 40px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-                         style="background-color:#09090b;border:1px solid #3f3f46;border-radius:8px;">
+                         style="background-color:#F0FAF9;border:1px solid #C8E9E6;border-radius:10px;">
 
                     <!-- Block header -->
                     <tr>
-                      <td style="padding:12px 20px;border-bottom:1px solid #27272a;">
+                      <td style="padding:12px 20px;border-bottom:1px solid #C8E9E6;">
                         <span style="font-family:Arial,Helvetica,sans-serif;font-size:10px;
-                                     font-weight:700;color:#71717a;letter-spacing:0.1em;
+                                     font-weight:700;color:#6CBDB5;letter-spacing:0.12em;
                                      text-transform:uppercase;">
                           User Details
                         </span>
@@ -176,17 +196,17 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
 
                     <!-- Name row -->
                     <tr>
-                      <td style="padding:14px 20px 0;">
+                      <td style="padding:16px 20px 0;">
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tr>
-                            <td width="80" style="vertical-align:top;">
+                            <td width="76" style="vertical-align:top;padding-top:1px;">
                               <span style="font-family:Arial,Helvetica,sans-serif;font-size:10px;
-                                           font-weight:700;color:#71717a;letter-spacing:0.1em;
+                                           font-weight:700;color:#93CCC6;letter-spacing:0.1em;
                                            text-transform:uppercase;">Name</span>
                             </td>
                             <td style="vertical-align:top;">
                               <span style="font-family:Arial,Helvetica,sans-serif;font-size:14px;
-                                           font-weight:600;color:#f4f4f5;">{display}</span>
+                                           font-weight:600;color:#0D1117;">{display}</span>
                             </td>
                           </tr>
                         </table>
@@ -195,17 +215,17 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
 
                     <!-- Email row -->
                     <tr>
-                      <td style="padding:10px 20px 0;">
+                      <td style="padding:12px 20px 0;">
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tr>
-                            <td width="80" style="vertical-align:top;">
+                            <td width="76" style="vertical-align:top;padding-top:2px;">
                               <span style="font-family:Arial,Helvetica,sans-serif;font-size:10px;
-                                           font-weight:700;color:#71717a;letter-spacing:0.1em;
+                                           font-weight:700;color:#93CCC6;letter-spacing:0.1em;
                                            text-transform:uppercase;">Email</span>
                             </td>
                             <td style="vertical-align:top;">
                               <span style="font-family:'Courier New',Courier,monospace;font-size:13px;
-                                           color:#a1a1aa;">{email}</span>
+                                           color:#2D4A47;">{email}</span>
                             </td>
                           </tr>
                         </table>
@@ -214,17 +234,17 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
 
                     <!-- User ID row -->
                     <tr>
-                      <td style="padding:10px 20px 16px;">
+                      <td style="padding:12px 20px 18px;">
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tr>
-                            <td width="80" style="vertical-align:top;">
+                            <td width="76" style="vertical-align:top;padding-top:2px;">
                               <span style="font-family:Arial,Helvetica,sans-serif;font-size:10px;
-                                           font-weight:700;color:#71717a;letter-spacing:0.1em;
+                                           font-weight:700;color:#93CCC6;letter-spacing:0.1em;
                                            text-transform:uppercase;">User ID</span>
                             </td>
                             <td style="vertical-align:top;">
-                              <span style="font-family:'Courier New',Courier,monospace;font-size:12px;
-                                           color:#71717a;word-break:break-all;">{user_id}</span>
+                              <span style="font-family:'Courier New',Courier,monospace;font-size:11px;
+                                           color:#5A7A77;word-break:break-all;">{user_id}</span>
                             </td>
                           </tr>
                         </table>
@@ -239,13 +259,13 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
               <tr>
                 <td style="padding:0 40px 32px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
-                         style="background-color:#1c1a14;border:1px solid #3a3010;border-radius:8px;">
+                         style="background-color:#E5F5F3;border:1px solid #B2DDD9;border-radius:10px;">
                     <tr>
                       <td style="padding:14px 18px;">
                         <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;
-                                   color:#a1a1aa;line-height:1.6;">
-                          <span style="color:#f59e0b;font-weight:700;">&#9432;&nbsp;</span>
-                          The account is inactive until a retention period is set.
+                                   color:#2D4A47;line-height:1.6;">
+                          <span style="color:#4DA8A0;font-weight:700;">&#9432;&nbsp;</span>
+                          This account is inactive until a retention period is set.
                           Once activated, it will be automatically deactivated after the specified number of days.
                         </p>
                       </td>
@@ -256,29 +276,32 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
 
               <!-- ── CTA button ── -->
               <tr>
-                <td align="center" style="padding:0 40px 36px;">
+                <td align="center" style="padding:0 40px 40px;">
                   <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                     <tr>
-                      <td style="background-color:#f59e0b;border-radius:8px;">
+                      <td align="center"
+                          style="background-color:#6CBDB5;border-radius:10px;
+                                 box-shadow:0 4px 14px rgba(108,189,181,0.35);">
                         <a href="{action_url}"
-                           style="display:inline-block;padding:14px 36px;
-                                  font-family:Arial,Helvetica,sans-serif;font-size:14px;
-                                  font-weight:700;color:#09090b;text-decoration:none;
-                                  letter-spacing:0.01em;border-radius:8px;">
+                           style="display:inline-block;padding:14px 38px;
+                                  font-family:Arial,Helvetica,sans-serif;
+                                  font-size:14px;font-weight:700;
+                                  color:#FFFFFF;text-decoration:none;
+                                  letter-spacing:0.01em;border-radius:10px;">
                           Set Retention &amp; Activate Account &#8594;
                         </a>
                       </td>
                     </tr>
                   </table>
                   <p style="margin:14px 0 0;font-family:Arial,Helvetica,sans-serif;
-                             font-size:11px;color:#71717a;text-align:center;line-height:1.5;">
-                    Opens in your browser. You will be prompted to enter the number of days.
+                             font-size:11px;color:#93CCC6;text-align:center;line-height:1.5;">
+                    Opens a page in your browser where you can enter the number of days.
                   </p>
                 </td>
               </tr>
 
             </table>
-            <!-- end card content -->
+            <!-- end card body -->
 
           </td>
         </tr>
@@ -286,18 +309,17 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
 
         <!-- ── Footer ── -->
         <tr>
-          <td style="padding:28px 0 0;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <td style="padding:28px 0 0;" align="center">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="border-top:1px solid #27272a;padding-top:24px;" align="center">
-                  <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:12px;
-                             color:#71717a;letter-spacing:0.05em;">
-                    <span style="color:#f59e0b;">&#9632;</span>&nbsp;
-                    <strong style="color:#a1a1aa;">SAT</strong>
+                <td align="center">
+                  <p style="margin:0 0 5px;font-family:Arial,Helvetica,sans-serif;
+                             font-size:12px;color:#5A7A77;">
+                    <strong style="color:#6CBDB5;">SAT</strong>
                     &nbsp;&mdash;&nbsp;Source Assessment Tool
                   </p>
-                  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;
-                             color:#52525b;">
+                  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;
+                             font-size:11px;color:#93CCC6;">
                     UBTI &bull; hemanth.rajan@ubtiinc.com
                   </p>
                 </td>
@@ -312,7 +334,6 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
     </td>
   </tr>
 </table>
-<!-- end outer wrapper -->
 
 </body>
 </html>"""

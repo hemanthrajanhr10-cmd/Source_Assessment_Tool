@@ -38,6 +38,12 @@ services:
       SERVICE_BUS_CONNECTION_STRING: "Endpoint=sb://sat-servicebus-hr.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=mQWeDlTRAhw3w2hyltFQvJgYgbgUbNe8K+ASbHTuBKw="
       SERVICE_BUS_JOBS_QUEUE: sat-jobs
       SERVICE_BUS_RESULTS_QUEUE: sat-results
+      # Azure Communication Services — Email
+      ACS_EMAIL_CONNECTION_STRING: "endpoint=https://alertmessenger.india.communication.azure.com/;accesskey=9lCi0JLVpCNxi8H1b90mUCOVruxWYOVGHLVx4dU7nbx4mUgG5Ox3JQQJ99CGACULyCp7ZVsvAAAAAZCS5iXb"
+      ACS_EMAIL_SENDER: "DoNotReply@4fd50553-cbe3-45d5-816b-b436ccb8c264.azurecomm.net"
+      ADMIN_EMAIL: "hemanth.rajan@ubtiinc.com"
+      # Set this to your Azure hosted backend URL so email links work correctly
+      BACKEND_URL: "http://localhost:8000"
     volumes:
       # Persist generated Excel reports across restarts
       - reports_data:/app/reports

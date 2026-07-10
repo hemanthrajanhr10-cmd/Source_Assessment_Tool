@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import Button from '../ui/Button'
 import { useNotifications, type Notification, type NotifKind } from '../../context/NotificationContext'
+import AccountExpiryBadge from './AccountExpiryBadge'
 
 const ROUTE_META: Record<string, { label: string; section: string }> = {
   '/':                  { label: 'New Assessment',      section: 'SQL Server' },
@@ -191,6 +192,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <Activity className="h-3 w-3 text-grove-500" aria-hidden="true" />
           <span className="text-[10px] font-semibold text-grove-600 tracking-wide">Operational</span>
         </div>
+
+        {/* Account expiry badge */}
+        <AccountExpiryBadge />
 
         {/* Notification bell */}
         <div className="relative">

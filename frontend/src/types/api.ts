@@ -411,6 +411,8 @@ export interface MeResponse {
   full_name?: string
   mfa_enabled: boolean
   created_at: string
+  expires_at?: string | null
+  days_remaining?: number | null
 }
 
 export interface SetupMFAResponse {

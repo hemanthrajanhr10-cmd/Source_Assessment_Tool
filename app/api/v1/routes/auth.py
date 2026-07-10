@@ -240,6 +240,17 @@ async def confirm_mfa(body: ConfirmMFARequest, current_user: dict = Depends(get_
 
 @router.get("/me")
 async def me(current_user: dict = Depends(get_current_user)):
+    expires_at = current_user.get("expires_at")
+    expires_at_str = None
+    days_remaining = None
+    if expires_at is not None:
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        expires_at_str = expires_at.isoformat()
+        delta = expires_at - datetime.now(tz=timezone.utc)
+        days_remaining = max(0, delta.days)
     return {
         "user_id": current_user["user_id"],
         "email": current_user["email"],
@@ -248,6 +259,8 @@ async def me(current_user: dict = Depends(get_current_user)):
         "created_at": str(current_user.get("created_at", "")),
         "last_login_ip": current_user.get("last_login_ip"),
         "last_login_location": current_user.get("last_login_location"),
+        "expires_at": expires_at_str,
+        "days_remaining": days_remaining,
     }
 
 

@@ -3,8 +3,6 @@ Email helpers using Azure Communication Services (ACS).
 No SMTP credentials needed — uses the ACS connection string from Azure Portal.
 """
 
-import threading
-
 from app.config import settings
 from app.core.logging import get_logger
 
@@ -39,11 +37,6 @@ def _send(subject: str, html_body: str, to: str) -> None:
         logger.info("ACS email sent to %s — status: %s", to, result.get("status"))
     except Exception as exc:
         logger.error("ACS email to %s failed: %s", to, exc)
-
-
-def send_async(subject: str, html_body: str, to: str) -> None:
-    """Fire-and-forget — does not block the caller."""
-    threading.Thread(target=_send, args=(subject, html_body, to), daemon=False).start()
 
 
 def send_new_user_notification(email: str, full_name: str | None, user_id: str) -> None:
@@ -338,7 +331,7 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
 </body>
 </html>"""
 
-    send_async(
+    _send(
         subject=f"[SAT] New User Registration: {display}",
         html_body=html,
         to=settings.admin_email,
@@ -599,7 +592,7 @@ def send_extension_request_notification(
 </body>
 </html>"""
 
-    send_async(
+    _send(
         subject=f"[SAT] Retention Extension Request: {display}",
         html_body=html,
         to=settings.admin_email,

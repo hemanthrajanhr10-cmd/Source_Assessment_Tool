@@ -78,6 +78,12 @@ class Settings(BaseSettings):
     acs_email_connection_string: SecretStr = SecretStr("")
     acs_email_sender: str = ""           # e.g. donotreply@<yourname>.azurecomm.net
     admin_email: str = "hemanth.rajan@ubtiinc.com"
+    admin_emails: list[str] = [
+        "hemanth.rajan@ubtiinc.com",
+        "panneerselvi@ubtiinc.com",
+        "hariprasath.s@ubtiinc.com",
+        "Selvasubbaiah.a@ubtiinc.com",
+    ]
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

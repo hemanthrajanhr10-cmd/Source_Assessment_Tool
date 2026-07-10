@@ -9,14 +9,15 @@ from app.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def _send(subject: str, html_body: str, to: str) -> None:
-    """Send a single email via ACS. Called in a background thread."""
+def _send(subject: str, html_body: str, to: str | list[str]) -> None:
+    """Send an email via ACS to one or more recipients."""
     conn_str = settings.acs_email_connection_string.get_secret_value()
     sender = settings.acs_email_sender
+    recipients = [to] if isinstance(to, str) else to
     if not conn_str or not sender:
         logger.warning(
             "ACS email not configured (ACS_EMAIL_CONNECTION_STRING / ACS_EMAIL_SENDER unset) "
-            "— skipping email to %s", to
+            "— skipping email to %s", recipients
         )
         return
 
@@ -26,7 +27,7 @@ def _send(subject: str, html_body: str, to: str) -> None:
         client = EmailClient.from_connection_string(conn_str)
         message = {
             "senderAddress": sender,
-            "recipients": {"to": [{"address": to}]},
+            "recipients": {"to": [{"address": addr} for addr in recipients]},
             "content": {
                 "subject": subject,
                 "html": html_body,
@@ -34,9 +35,9 @@ def _send(subject: str, html_body: str, to: str) -> None:
         }
         poller = client.begin_send(message)
         result = poller.result()
-        logger.info("ACS email sent to %s — status: %s", to, result.get("status"))
+        logger.info("ACS email sent to %s — status: %s", recipients, result.get("status"))
     except Exception as exc:
-        logger.error("ACS email to %s failed: %s", to, exc)
+        logger.error("ACS email to %s failed: %s", recipients, exc)
 
 
 def send_new_user_notification(email: str, full_name: str | None, user_id: str) -> None:
@@ -334,7 +335,7 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
     _send(
         subject=f"[SAT] New User Registration: {display}",
         html_body=html,
-        to=settings.admin_email,
+        to=settings.admin_emails,
     )
 
 
@@ -595,5 +596,5 @@ def send_extension_request_notification(
     _send(
         subject=f"[SAT] Retention Extension Request: {display}",
         html_body=html,
-        to=settings.admin_email,
+        to=settings.admin_emails,
     )

@@ -343,3 +343,264 @@ def send_new_user_notification(email: str, full_name: str | None, user_id: str) 
         html_body=html,
         to=settings.admin_email,
     )
+
+
+def send_extension_request_notification(
+    email: str, full_name: str | None, user_id: str, requested_days: int
+) -> None:
+    """
+    Notifies admin that a user is requesting a retention period extension.
+    Email contains Accept and Decline buttons that open browser pages
+    (Outlook blocks in-email form submissions).
+    """
+    display = full_name or email
+    backend = settings.backend_url.rstrip("/")
+    accept_url = (
+        f"{backend}/api/v1/auth/admin/review-extension"
+        f"?user_id={user_id}&days={requested_days}"
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="x-apple-disable-message-reformatting"/>
+  <!--[if mso]>
+  <noscript>
+    <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
+  </noscript>
+  <![endif]-->
+  <title>Retention Extension Request</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F0FAF9;
+             font-family:Arial,Helvetica,sans-serif;
+             -webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+       style="background-color:#F0FAF9;min-width:100%;">
+  <tr>
+    <td align="center" style="padding:40px 16px 48px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+             style="max-width:560px;width:100%;">
+
+        <!-- Logo bar -->
+        <tr>
+          <td align="center" style="padding-bottom:28px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="background-color:#6CBDB5;border-radius:10px;
+                           padding:9px 11px;vertical-align:middle;">
+                  <span style="font-family:Arial,Helvetica,sans-serif;font-size:18px;
+                               color:#FFFFFF;line-height:1;">&#128447;</span>
+                </td>
+                <td style="padding-left:12px;vertical-align:middle;">
+                  <span style="font-family:Arial,Helvetica,sans-serif;font-size:19px;
+                               font-weight:700;color:#0D1117;letter-spacing:-0.02em;">
+                    Source Assessment Tool
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Main card -->
+        <tr>
+          <td style="background-color:#FFFFFF;border:1px solid #B2DDD9;border-radius:16px;
+                     padding:0;overflow:hidden;
+                     box-shadow:0 4px 16px rgba(108,189,181,0.10),0 1px 4px rgba(0,0,0,0.04);">
+
+            <!-- Amber-ish warning stripe — use orange-teal blend to signal "needs action" -->
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="background-color:#F59E0B;height:4px;font-size:0;line-height:0;">&nbsp;</td>
+              </tr>
+            </table>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+
+              <!-- Header -->
+              <tr>
+                <td style="padding:36px 40px 24px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0"
+                         style="margin-bottom:18px;">
+                    <tr>
+                      <td style="background-color:#FEF9EC;border:1px solid #FDE68A;
+                                 border-radius:9999px;padding:4px 14px;">
+                        <span style="font-family:Arial,Helvetica,sans-serif;font-size:11px;
+                                     font-weight:700;color:#B45309;letter-spacing:0.07em;
+                                     text-transform:uppercase;">
+                          &#x25CF;&nbsp; Extension Request
+                        </span>
+                      </td>
+                    </tr>
+                  </table>
+                  <p style="margin:0 0 8px;font-family:Arial,Helvetica,sans-serif;
+                             font-size:22px;font-weight:700;color:#0D1117;
+                             line-height:1.2;letter-spacing:-0.02em;">
+                    Action Required
+                  </p>
+                  <p style="margin:0;font-family:Arial,Helvetica,sans-serif;
+                             font-size:14px;color:#5A7A77;line-height:1.6;">
+                    A user's retention period has expired and they are requesting extended access.
+                    Review and accept or decline below.
+                  </p>
+                </td>
+              </tr>
+
+              <!-- Divider -->
+              <tr>
+                <td style="padding:0 40px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr><td style="background-color:#E5F5F3;height:1px;font-size:0;line-height:0;">&nbsp;</td></tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- User detail block -->
+              <tr>
+                <td style="padding:28px 40px 0;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                         style="background-color:#F0FAF9;border:1px solid #C8E9E6;border-radius:10px;">
+                    <tr>
+                      <td style="padding:12px 20px;border-bottom:1px solid #C8E9E6;">
+                        <span style="font-family:Arial,Helvetica,sans-serif;font-size:10px;
+                                     font-weight:700;color:#6CBDB5;letter-spacing:0.12em;
+                                     text-transform:uppercase;">User Details</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:14px 20px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td width="76" style="vertical-align:top;padding-top:1px;">
+                              <span style="font-family:Arial,Helvetica,sans-serif;font-size:10px;
+                                           font-weight:700;color:#93CCC6;letter-spacing:0.1em;
+                                           text-transform:uppercase;">Name</span>
+                            </td>
+                            <td>
+                              <span style="font-family:Arial,Helvetica,sans-serif;font-size:14px;
+                                           font-weight:600;color:#0D1117;">{display}</span>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:10px 20px 0;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td width="76" style="vertical-align:top;padding-top:2px;">
+                              <span style="font-family:Arial,Helvetica,sans-serif;font-size:10px;
+                                           font-weight:700;color:#93CCC6;letter-spacing:0.1em;
+                                           text-transform:uppercase;">Email</span>
+                            </td>
+                            <td>
+                              <span style="font-family:'Courier New',Courier,monospace;font-size:13px;
+                                           color:#2D4A47;">{email}</span>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:10px 20px 16px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td width="76" style="vertical-align:top;padding-top:2px;">
+                              <span style="font-family:Arial,Helvetica,sans-serif;font-size:10px;
+                                           font-weight:700;color:#93CCC6;letter-spacing:0.1em;
+                                           text-transform:uppercase;">User ID</span>
+                            </td>
+                            <td>
+                              <span style="font-family:'Courier New',Courier,monospace;font-size:11px;
+                                           color:#5A7A77;word-break:break-all;">{user_id}</span>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- Requested days highlight -->
+              <tr>
+                <td style="padding:16px 40px 28px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                         style="background-color:#FEF9EC;border:1px solid #FDE68A;border-radius:10px;">
+                    <tr>
+                      <td style="padding:14px 20px;">
+                        <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;
+                                   color:#92400E;line-height:1.6;">
+                          <span style="font-weight:700;">&#9432;&nbsp;Requested extension:</span>
+                          &nbsp;<span style="font-family:'Courier New',Courier,monospace;
+                                             font-size:15px;font-weight:700;color:#B45309;">
+                            {requested_days} days
+                          </span>
+                          &nbsp;&mdash;&nbsp;You can edit this amount on the review page.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- CTA button — single link opens browser review page with editable field -->
+              <tr>
+                <td align="center" style="padding:0 40px 40px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td align="center"
+                          style="background-color:#6CBDB5;border-radius:10px;
+                                 box-shadow:0 4px 14px rgba(108,189,181,0.35);">
+                        <a href="{accept_url}"
+                           style="display:inline-block;padding:14px 38px;
+                                  font-family:Arial,Helvetica,sans-serif;
+                                  font-size:14px;font-weight:700;
+                                  color:#FFFFFF;text-decoration:none;
+                                  letter-spacing:0.01em;border-radius:10px;">
+                          Review Request &#8594;
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                  <p style="margin:14px 0 0;font-family:Arial,Helvetica,sans-serif;
+                             font-size:11px;color:#93CCC6;text-align:center;line-height:1.5;">
+                    Opens in your browser. You can edit the number of days and then accept or decline.
+                  </p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:28px 0 0;" align="center">
+            <p style="margin:0 0 5px;font-family:Arial,Helvetica,sans-serif;
+                       font-size:12px;color:#5A7A77;">
+              <strong style="color:#6CBDB5;">SAT</strong>
+              &nbsp;&mdash;&nbsp;Source Assessment Tool
+            </p>
+            <p style="margin:0;font-family:Arial,Helvetica,sans-serif;
+                       font-size:11px;color:#93CCC6;">
+              UBTI &bull; hemanth.rajan@ubtiinc.com
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>"""
+
+    send_async(
+        subject=f"[SAT] Retention Extension Request: {display}",
+        html_body=html,
+        to=settings.admin_email,
+    )

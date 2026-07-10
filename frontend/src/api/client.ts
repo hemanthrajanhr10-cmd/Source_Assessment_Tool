@@ -106,9 +106,6 @@ export const api = {
   login: (data: LoginRequest) =>
     http.post<TokenResponse>('/api/v1/auth/login', data),
 
-  requestExtension: (data: { email: string; requested_days: number }) =>
-    http.post<{ message: string }>('/api/v1/auth/request-extension', data),
-
   verifyMFA: (data: VerifyMFARequest) =>
     http.post<TokenResponse>('/api/v1/auth/verify-mfa', data),
 

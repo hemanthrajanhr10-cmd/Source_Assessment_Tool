@@ -706,11 +706,12 @@ async def _run_fabric_assessment(
 
             try:
                 async with _sem:
-                    # Each model needs 2 API calls: metadata + TMDL extraction
-                    await fabric_rate_limiter.acquire(2)
-                    meta, raw_parts = await asyncio.gather(
+                    # 3 API calls: metadata + TMDL extraction + datasources
+                    await fabric_rate_limiter.acquire(3)
+                    meta, raw_parts, datasources = await asyncio.gather(
                         fabric_client.get_dataset_metadata(token, ws_id, model_id),
                         fabric_client.extract_semantic_model(token, ws_id, model_id),
+                        fabric_client.get_dataset_datasources(token, ws_id, model_id),
                     )
 
                 # CPU-bound parsing runs after the semaphore is released so
@@ -727,6 +728,11 @@ async def _run_fabric_assessment(
                 )
                 if meta.get("storage_mode"):
                     ds_dict["storage_mode"] = meta["storage_mode"]
+                # Attach datasources from Power BI API
+                if datasources:
+                    ds_dict["datasources"] = datasources
+                    # Enrich table source_lineage with API-level datasource info
+                    _enrich_table_lineage(ds_dict, datasources)
                 datasets_by_ws[ws_id].append(ds_dict)
                 await tracker.item_completed(f"Model: {model_name}", "model")
 
@@ -1276,6 +1282,54 @@ def _build_summary(workspaces: list[dict]) -> dict:
         "total_dataflow_entities": total_dataflow_entities,
         "total_dataflow_datasources": total_dataflow_datasources,
     }
+
+
+def _enrich_table_lineage(ds_dict: dict, datasources: list[dict]) -> None:
+    """
+    Cross-reference TMDL-parsed table source_lineage with the Power BI datasources
+    API response. When a table's source_lineage matches a known datasource type, we
+    promote the confidence and fill in any missing server/database details.
+    """
+    if not datasources:
+        return
+    # Build lookup: datasource_type (lower) → first matching datasource
+    ds_lookup: dict[str, dict] = {}
+    for ds in datasources:
+        key = (ds.get("datasource_type") or "").lower()
+        if key and key not in ds_lookup:
+            ds_lookup[key] = ds
+
+    for table in ds_dict.get("tables", []):
+        lineage = table.get("source_lineage")
+        if not lineage:
+            # Table has no TMDL-parsed lineage — try to infer from datasources API
+            # Only do this if there's exactly one datasource (unambiguous)
+            if len(datasources) == 1:
+                src = datasources[0]
+                table["source_lineage"] = {
+                    "datasource_type": src.get("datasource_type", "Unknown"),
+                    "server": src.get("server"),
+                    "database": src.get("database"),
+                    "url": src.get("url"),
+                    "gateway_id": src.get("gateway_id"),
+                    "credential_type": src.get("credential_type"),
+                    "confidence": "inferred",
+                    "notes": "Inferred from model-level datasource; table-level M expression not available.",
+                }
+            continue
+
+        # Match TMDL lineage type to API datasource
+        lineage_type = (lineage.get("datasource_type") or "").lower()
+        if lineage_type in ds_lookup:
+            api_ds = ds_lookup[lineage_type]
+            # Fill gaps: prefer TMDL values (more specific), fall back to API
+            lineage.setdefault("server", api_ds.get("server"))
+            lineage.setdefault("database", api_ds.get("database"))
+            lineage.setdefault("url", api_ds.get("url"))
+            lineage["gateway_id"] = api_ds.get("gateway_id")
+            lineage["credential_type"] = api_ds.get("credential_type")
+            if lineage.get("confidence") == "medium":
+                lineage["confidence"] = "high"
 
 
 def _stub_dataset(dataset_id: str, name: str, error: str) -> dict:

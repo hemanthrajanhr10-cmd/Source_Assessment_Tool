@@ -12,6 +12,7 @@ import {
   Search, X,
 } from 'lucide-react'
 import LineageTab from '../components/fabric/LineageTab'
+import SourceLineageSection from '../components/fabric/SourceLineageSection'
 import { api } from '../api/client'
 import type {
   FabricDataset, FabricWorkspace,
@@ -809,7 +810,7 @@ function TablesPanel({ tables }: { tables: FabricTable[] }) {
 
 // ── Dataset section (for Models tab) ─────────────────────────────────────────
 
-type ModelSubTab = 'source_feeds' | 'tables' | 'measures' | 'calc_cols' | 'calc_tables' | 'relationships'
+type ModelSubTab = 'source_feeds' | 'data_sources' | 'tables' | 'measures' | 'calc_cols' | 'calc_tables' | 'relationships'
 
 function DatasetSection({ ds, defaultOpen }: { ds: FabricDataset; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen ?? false)
@@ -821,8 +822,11 @@ function DatasetSection({ ds, defaultOpen }: { ds: FabricDataset; defaultOpen?: 
   const rec = ds.storage_recommendation
   const riskLevel = rec?.risk_level ?? 'Low'
 
+  const lineageCount = ds.tables.filter(t => t.source_lineage && !t.is_calculated).length
+
   const SUB_TABS: { id: ModelSubTab; label: string; count: number | string; icon?: React.ReactNode }[] = [
-    { id: 'source_feeds',   label: 'Source Feeds',   count: ds.table_count, icon: <Layers className="h-3 w-3" /> },
+    { id: 'source_feeds',   label: 'Source Feeds',   count: ds.table_count,  icon: <Layers className="h-3 w-3" /> },
+    { id: 'data_sources',   label: 'Data Sources',   count: lineageCount,    icon: <GitMerge className="h-3 w-3" /> },
     { id: 'tables',         label: 'Tables',         count: ds.table_count },
     { id: 'measures',       label: 'Measures',       count: ds.measure_count },
     { id: 'calc_cols',      label: 'Calc. Columns',  count: ds.calculated_column_count },
@@ -935,6 +939,10 @@ function DatasetSection({ ds, defaultOpen }: { ds: FabricDataset; defaultOpen?: 
               ds.tables.length > 0
                 ? <SourceFeedsPanel tables={ds.tables} ds={ds} />
                 : <p className="text-xs text-slate-400 italic">No table data available for source feeds analysis.</p>
+            )}
+
+            {subTab === 'data_sources' && (
+              <SourceLineageSection ds={ds} />
             )}
 
             {subTab === 'tables' && (

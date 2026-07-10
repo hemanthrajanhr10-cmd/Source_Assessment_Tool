@@ -415,6 +415,35 @@ async def get_dataset_metadata(token: str, workspace_id: str, dataset_id: str) -
     }
 
 
+async def get_dataset_datasources(token: str, workspace_id: str, dataset_id: str) -> list[dict]:
+    """
+    Fetch datasource connection details for a semantic model via Power BI API.
+    Returns list of {datasource_type, server, database, url, gateway_id, credential_type}.
+    Falls back to [] on 403/404 (requires Dataset.Read.All scope).
+    """
+    def _fetch():
+        url = f"{PBI_BASE}/groups/{workspace_id}/datasets/{dataset_id}/datasources"
+        resp = _http_get(url, token)
+        if not resp.ok:
+            logger.debug("datasources API returned %d for dataset %s", resp.status_code, dataset_id)
+            return []
+        data = resp.json()
+        results = []
+        for ds in data.get("value", []):
+            conn = ds.get("connectionDetails", {})
+            results.append({
+                "datasource_type": ds.get("datasourceType", "Unknown"),
+                "server": conn.get("server"),
+                "database": conn.get("database"),
+                "url": conn.get("url"),
+                "gateway_id": ds.get("gatewayId"),
+                "credential_type": ds.get("credentialDetails", {}).get("credentialType"),
+            })
+        return results
+
+    return await _run(_fetch)
+
+
 async def get_report_metadata(token: str, workspace_id: str, report_id: str) -> dict[str, Any]:
     """
     Fetch report metadata from Power BI API.

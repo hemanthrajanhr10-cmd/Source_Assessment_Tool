@@ -19,6 +19,92 @@ from typing import Any
 from app.fabric_assessment.scoring import score_dax, extract_column_deps
 
 
+# ── M-expression source lineage extractor ────────────────────────────────────
+
+# Maps M function name → normalized datasource_type string
+_M_SOURCE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r'Sql\.Database\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"', re.I), "Sql"),
+    (re.compile(r'PostgreSQL\.Database\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"', re.I), "PostgreSql"),
+    (re.compile(r'Oracle\.Database\s*\(\s*"([^"]+)"', re.I), "Oracle"),
+    (re.compile(r'MySQL\.Database\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"', re.I), "MySql"),
+    (re.compile(r'Teradata\.Database\s*\(\s*"([^"]+)"', re.I), "Teradata"),
+    (re.compile(r'Snowflake\.Databases\s*\(\s*"([^"]+)"', re.I), "Snowflake"),
+    (re.compile(r'GoogleBigQuery\.Database\s*\(\s*\[', re.I), "GoogleBigQuery"),
+    (re.compile(r'AmazonRedshift\.Database\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"', re.I), "AmazonRedshift"),
+    (re.compile(r'Databricks\.Catalogs\s*\(\s*"([^"]+)"', re.I), "Databricks"),
+    (re.compile(r'AzureDataLakeStorage\s*\.\w+\s*\(\s*"([^"]+)"', re.I), "AzureDataLakeStorage"),
+    (re.compile(r'AzureBlobs\.Contents\s*\(\s*"([^"]+)"', re.I), "AzureBlobs"),
+    (re.compile(r'SharePoint\.Tables\s*\(\s*"([^"]+)"', re.I), "SharePointList"),
+    (re.compile(r'SharePoint\.Files\s*\(\s*"([^"]+)"', re.I), "SharePointFiles"),
+    (re.compile(r'OData\.Feed\s*\(\s*"([^"]+)"', re.I), "OData"),
+    (re.compile(r'Lakehouse\.Contents\s*\(\s*"([^"]+)"', re.I), "Lakehouse"),
+    (re.compile(r'Warehouse\.Contents\s*\(\s*"([^"]+)"', re.I), "Warehouse"),
+    (re.compile(r'Dataflow\.Contents\s*\(', re.I), "Dataflow"),
+    (re.compile(r'SapHana\.Database\s*\(\s*"([^"]+)"', re.I), "SapHana"),
+    (re.compile(r'SapBusinessWarehouse\.Cubes\s*\(\s*"([^"]+)"', re.I), "SapBw"),
+    (re.compile(r'Salesforce\.Data\s*\(', re.I), "Salesforce"),
+    (re.compile(r'Dynamics365\.\w+\s*\(', re.I), "Dynamics365"),
+    (re.compile(r'CommonDataService\.Database\s*\(\s*"([^"]+)"', re.I), "Dataverse"),
+    (re.compile(r'Web\.Contents\s*\(\s*"([^"]+)"', re.I), "Web"),
+    (re.compile(r'Excel\.Workbook\s*\(', re.I), "Excel"),
+    (re.compile(r'Csv\.Document\s*\(', re.I), "CSV"),
+]
+
+# Matches `Source{[Schema="X", Item="Y"]}` or `Source{[Name="Y"]}` table navigation
+_M_TABLE_NAV = re.compile(
+    r'(?:Item|Name)\s*=\s*"([^"]+)"',
+    re.I,
+)
+_M_SCHEMA_NAV = re.compile(r'Schema\s*=\s*"([^"]+)"', re.I)
+
+
+def extract_m_source_lineage(m_expr: str) -> dict | None:
+    """
+    Parse a Power Query M expression from a TMDL partition and return
+    {datasource_type, server, database, url, source_table, confidence}.
+    Returns None when no recognizable source pattern is found.
+    """
+    if not m_expr or not m_expr.strip():
+        return None
+
+    for pattern, ds_type in _M_SOURCE_PATTERNS:
+        m = pattern.search(m_expr)
+        if not m:
+            continue
+
+        result: dict[str, Any] = {"datasource_type": ds_type, "confidence": "high"}
+
+        groups = m.groups()
+        if ds_type in ("Sql", "PostgreSql", "MySql", "AmazonRedshift"):
+            if len(groups) >= 2:
+                result["server"] = groups[0]
+                result["database"] = groups[1]
+        elif ds_type in ("Oracle", "Teradata", "SapHana", "SapBw", "Snowflake", "Databricks"):
+            if groups:
+                result["server"] = groups[0]
+        elif ds_type in ("SharePointList", "SharePointFiles", "OData", "Web", "AzureBlobs", "AzureDataLakeStorage"):
+            if groups:
+                result["url"] = groups[0]
+        elif ds_type in ("Lakehouse", "Warehouse"):
+            if groups:
+                result["database"] = groups[0]
+        elif ds_type == "Dataflow":
+            result["confidence"] = "medium"
+
+        # Try to extract source table name from navigation expression
+        tbl_match = _M_TABLE_NAV.search(m_expr)
+        if tbl_match:
+            schema_match = _M_SCHEMA_NAV.search(m_expr)
+            if schema_match:
+                result["source_table"] = f"{schema_match.group(1)}.{tbl_match.group(1)}"
+            else:
+                result["source_table"] = tbl_match.group(1)
+
+        return result
+
+    return None
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _unquote(name: str) -> str:
@@ -216,6 +302,11 @@ def _parse_table(content: str) -> dict[str, Any]:
                         table["dax_expression"] = expr
                 if storage:
                     table["storage_mode"] = _normalise_storage(storage)
+                # Extract source lineage from M expression (non-calculated partitions)
+                if mode != "calculated" and expr:
+                    lineage = extract_m_source_lineage(expr)
+                    if lineage:
+                        table["source_lineage"] = lineage
                 i = _skip_deeper(lines, i, ind)
                 continue
 

@@ -753,6 +753,20 @@ export interface ModelStorageRecommendation {
   tables_to_migrate: TableStorageMigration[]
 }
 
+export interface TableSourceLineage {
+  datasource_type: string          // e.g. "PostgreSql", "Sql", "SharePointList", "AzureBlobs"
+  server?: string
+  database?: string
+  url?: string                     // for SharePoint, OData, web sources
+  source_table?: string            // parsed from M partition expression
+  ingestion_method?: string        // "Dataflow Gen2", "Dataflow Gen1", "Pipeline", "Notebook", "Direct Import", "DirectQuery", "DirectLake"
+  dataflow_name?: string           // if ingested via dataflow
+  dataflow_id?: string
+  gateway_id?: string              // set if on-prem gateway is involved
+  confidence: 'high' | 'medium' | 'inferred'
+  notes?: string
+}
+
 export interface FabricTable {
   name: string
   storage_mode: string
@@ -760,6 +774,7 @@ export interface FabricTable {
   is_calculated: boolean
   columns?: FabricTableColumn[]
   source_feeds?: TableSourceFeed
+  source_lineage?: TableSourceLineage
 }
 
 export interface FabricCalculatedColumn {
@@ -830,6 +845,15 @@ export interface ReportPage {
 
 // ── Fabric: dataset ───────────────────────────────────────────────────────────
 
+export interface FabricDatasetDatasource {
+  datasource_type: string
+  server?: string
+  database?: string
+  url?: string
+  gateway_id?: string
+  credential_type?: string
+}
+
 export interface FabricDataset {
   id: string
   name: string
@@ -850,6 +874,7 @@ export interface FabricDataset {
   calculated_columns: FabricCalculatedColumn[]
   calculated_tables: FabricCalculatedTable[]
   relationships: FabricRelationship[]
+  datasources?: FabricDatasetDatasource[]
 }
 
 // ── Fabric: report ────────────────────────────────────────────────────────────

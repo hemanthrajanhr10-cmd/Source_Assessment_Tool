@@ -1044,6 +1044,26 @@ export interface FabricSessionRecord {
   results?: FabricResults
 }
 
+// ── Fabric PAL (Partner Admin Link) ────────────────────────────────────────────
+
+export type PalStatusValue = 'not_linked' | 'linking' | 'linked' | 'failed'
+export type PalFailureReason = 'access_not_granted' | 'auth_error' | 'wrong_tenant' | 'unknown'
+
+export interface FabricPalStatus {
+  assessment_id: string
+  client_tenant_id?: string | null
+  status: PalStatusValue
+  failure_reason?: PalFailureReason | null
+  linked_at?: string | null
+}
+
+export interface FabricPalConfig {
+  organization_name: string
+  docs_url: string
+  client_id: string
+  tenant_id: string
+}
+
 export interface SessionJobInfo {
   job_id: string
   server: string

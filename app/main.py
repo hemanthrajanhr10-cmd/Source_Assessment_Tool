@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api.v1.routes.assessment import router as assessment_router
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.fabric import router as fabric_router
+from app.api.v1.routes.fabric_pal import router as fabric_pal_router
 from app.api.v1.routes.gateway import router as gateway_router
 from app.api.v1.routes.hybrid_connections import router as hybrid_connections_router
 from app.api.v1.routes.user_connections import router as user_connections_router
@@ -152,6 +153,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(assessment_router, prefix="/api/v1", tags=["Assessment"])
 app.include_router(fabric_router, prefix="/api/v1/fabric", tags=["Fabric"])
+app.include_router(fabric_pal_router, prefix="/api/v1/fabric", tags=["Fabric PAL"])
 app.include_router(gateway_router, prefix="/api/v1/gateway", tags=["Gateway"])
 app.include_router(hybrid_connections_router, prefix="/api/v1/hybrid-connections", tags=["Hybrid Connections"])
 app.include_router(sessions_router, prefix="/api/v1", tags=["Sessions"])

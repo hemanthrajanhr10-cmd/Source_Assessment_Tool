@@ -1,4 +1,4 @@
-﻿import { useState, Component, type ReactNode, type ErrorInfo } from 'react'
+﻿import { useState, useRef, useEffect, Component, type ReactNode, type ErrorInfo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -26,6 +26,10 @@ import { formatDateTime } from '../utils/dateTime'
 import Loader3D from '../components/ui/Loader3D'
 import ReportsSegment from '../components/reports/ReportsSegment'
 import AssessmentProgress from '../components/AssessmentProgress'
+import PalStatusBadge from '../components/fabric/PalStatusBadge'
+import PalGateModal from '../components/fabric/PalGateModal'
+import PalGateCard from '../components/fabric/PalGateCard'
+import { useFabricPalLink } from '../hooks/useFabricPalLink'
 
 // ── Complexity helpers ────────────────────────────────────────────────────────
 
@@ -2795,6 +2799,11 @@ function FabricSessionDetailPageInner() {
   const [exporting,  setExporting]  = useState(false)
   const [exportingWord, setExportingWord] = useState(false)
 
+  const pal = useFabricPalLink(sessionId)
+  const [palModalOpen, setPalModalOpen] = useState(false)
+  const [palPendingAction, setPalPendingAction] = useState<'view' | 'excel' | 'word' | null>(null)
+  const palTriggerRef = useRef<HTMLButtonElement | null>(null)
+
   const { data: session, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['fabric-session', sessionId],
     queryFn:  () => api.getFabricSession(sessionId!).then(r => r.data),
@@ -2836,6 +2845,30 @@ function FabricSessionDetailPageInner() {
       setExportingWord(false)
     }
   }
+
+  // Gate view/export actions behind PAL status — the underlying handlers above
+  // run immediately once linked, otherwise the gating modal takes over.
+  const requestPalGatedAction = (action: 'view' | 'excel' | 'word', e: React.MouseEvent<HTMLButtonElement>) => {
+    if (pal.status === 'linked') {
+      if (action === 'excel') handleExport()
+      else if (action === 'word') handleWordExport()
+      return
+    }
+    palTriggerRef.current = e.currentTarget
+    setPalPendingAction(action)
+    setPalModalOpen(true)
+  }
+
+  // Resume the action the client originally clicked once PAL finishes linking —
+  // "without losing the user's place."
+  useEffect(() => {
+    if (pal.status !== 'linked' || !palPendingAction) return
+    if (palPendingAction === 'excel') handleExport()
+    else if (palPendingAction === 'word') handleWordExport()
+    setPalPendingAction(null)
+    setPalModalOpen(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pal.status])
 
   if (isLoading) return <Loader3D message="Loading session" size="lg" />
 
@@ -2907,6 +2940,7 @@ function FabricSessionDetailPageInner() {
                 {session.completed_at && ` · ${formatDateTime(session.completed_at)}`}
               </span>
             )}
+            {isCompleted && <PalStatusBadge status={pal.status} />}
             {session.status === 'failed' && (
               <span className="inline-flex items-center gap-1.5 text-sm text-red-400">
                 <XCircle className="h-4 w-4" /> Failed — {session.error}
@@ -2923,7 +2957,7 @@ function FabricSessionDetailPageInner() {
         {isCompleted && (
           <div className="flex items-center gap-2">
             <button
-              onClick={handleExport}
+              onClick={e => requestPalGatedAction('excel', e)}
               disabled={exporting}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-earth-50 hover:bg-earth-100 text-earth-700 border border-earth-200 disabled:opacity-50 transition-colors">
               {exporting
@@ -2931,7 +2965,7 @@ function FabricSessionDetailPageInner() {
                 : <><Download className="h-4 w-4" /> Export Excel</>}
             </button>
             <button
-              onClick={handleWordExport}
+              onClick={e => requestPalGatedAction('word', e)}
               disabled={exportingWord}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 disabled:opacity-50 transition-colors">
               {exportingWord
@@ -2955,6 +2989,16 @@ function FabricSessionDetailPageInner() {
 
       {/* ── Results dashboard ────────────────────────────────────────────────── */}
       {results && workspaces.length > 0 && (
+        pal.status !== 'linked' ? (
+          <PalGateCard
+            status={pal.status}
+            onConnect={e => {
+              palTriggerRef.current = e.currentTarget
+              setPalPendingAction('view')
+              setPalModalOpen(true)
+            }}
+          />
+        ) : (
         <>
           {/* Tab bar — animated underline pill */}
           <div className="flex items-center gap-0.5 overflow-x-auto pb-0"
@@ -3078,7 +3122,20 @@ function FabricSessionDetailPageInner() {
             </AnimatePresence>
           </div>
         </>
+        )
       )}
+
+      <PalGateModal
+        isOpen={palModalOpen}
+        onClose={() => setPalModalOpen(false)}
+        triggerRef={palTriggerRef}
+        status={pal.status}
+        connecting={pal.connecting}
+        failureMessage={pal.failureMessage}
+        docsUrl={pal.docsUrl}
+        onConnect={pal.connect}
+        onRefresh={pal.refresh}
+      />
     </div>
   )
 }

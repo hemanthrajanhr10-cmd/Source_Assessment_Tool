@@ -1,16 +1,19 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
   MonitorSmartphone, CheckCircle2, AlertCircle,
   Loader2, ExternalLink, Tag, ArrowRight, Copy,
   Building2, Database, FileText, Search, ChevronDown, ChevronRight, X, Zap,
-  KeyRound, Eye, EyeOff, UserCog,
+  KeyRound, Eye, EyeOff, UserCog, ShieldCheck,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { FabricWorkspaceInfo, FabricWorkspaceItems } from '../types/api'
 import Button from '../components/ui/Button'
+import Switch from '../components/ui/Switch'
 import { FabricLogo } from '../components/ui/SourceLogos'
 import { formatTime } from '../utils/dateTime'
+import { acquirePalToken } from '../utils/palAuth'
 import { useNotifications } from '../context/NotificationContext'
 
 // Steps: start → waiting (device code) → sp-connecting (service principal) → picking (workspaces) → picking-items → naming → submitting
@@ -26,12 +29,18 @@ const MAX_CONSECUTIVE_POLL_ERRORS = 5
 export default function FabricAssessmentPage() {
   const navigate = useNavigate()
   const { push: pushNotif } = useNotifications()
+  const { data: palConfig } = useQuery({
+    queryKey: ['fabric-pal-config'],
+    queryFn: () => api.getFabricPalConfig().then(r => r.data),
+    staleTime: Infinity,
+  })
   const [step, setStep]           = useState<Step>('start')
   const [authId, setAuthId]       = useState('')
   const [userCode, setUserCode]   = useState('')
   const [verificationUrl, setVerificationUrl] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
   const [label, setLabel]         = useState('')
+  const [palEnabled, setPalEnabled] = useState(false)
   const [error, setError]         = useState<string | null>(null)
   const [cancelInfo, setCancelInfo] = useState<string | null>(null)
   const [copied, setCopied]       = useState(false)
@@ -411,6 +420,20 @@ export default function FabricAssessmentPage() {
         `${selectedDatasetIds.size} model${selectedDatasetIds.size !== 1 ? 's' : ''}, ` +
         `${selectedDataflowIds.size} dataflow${selectedDataflowIds.size !== 1 ? 's' : ''}.`,
       )
+      if (palEnabled) {
+        // Fire-and-forget — never block navigation on the PAL link outcome.
+        // The report page's status badge / gating modal picks up the result.
+        void (async () => {
+          try {
+            const config = palConfig ?? await api.getFabricPalConfig().then(r => r.data)
+            if (!config) return
+            const token = await acquirePalToken(config.client_id, config.tenant_id)
+            await api.linkFabricPal(data.fabric_session_id, token)
+          } catch {
+            // Best-effort — client can retry from the report page.
+          }
+        })()
+      }
       navigate(`/fabric/sessions/${data.fabric_session_id}`)
     } catch (err) {
       const msg = getApiErrorMessage(err)
@@ -1103,6 +1126,35 @@ export default function FabricAssessmentPage() {
                 </div>
                 <p className="mt-1 text-xs text-slate-400">Optional. Used as the session name.</p>
               </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3.5">
+                <Switch
+                  checked={palEnabled}
+                  onChange={setPalEnabled}
+                  disabled={step === 'submitting'}
+                  label={
+                    <span className="inline-flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-earth-600" />
+                      Link this assessment to {palConfig?.organization_name ?? 'UBTI'} via Azure Partner Admin Link
+                    </span>
+                  }
+                  description={
+                    <>
+                      Optional — lets {palConfig?.organization_name ?? 'UBTI'} report this engagement toward our Microsoft
+                      partnership. Connecting later is fine too.{' '}
+                      <a
+                        href={palConfig?.docs_url ?? 'https://learn.microsoft.com/en-us/azure/cost-management-billing/manage/link-partner-id'}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-earth-600 hover:text-earth-700 underline underline-offset-2"
+                      >
+                        Learn more
+                      </a>
+                    </>
+                  }
+                />
+              </div>
+
               <p className="text-sm text-slate-500">
                 Will assess{' '}
                 <strong className="text-slate-800">{selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}</strong>,{' '}

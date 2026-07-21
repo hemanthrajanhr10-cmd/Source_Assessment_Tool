@@ -44,6 +44,7 @@ from app.core.logging import get_logger
 from app.db import azure_store
 from app.fabric_assessment import dataflow_parser, report_parser, tmdl_parser
 from app.services import fabric_client
+from app.services import pal_service
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -347,6 +348,14 @@ async def create_fabric_session(
 
     session_id = str(uuid.uuid4())
     azure_store.create_fabric_session(session_id, body.label, user_id)
+
+    # Seed PAL status now — if this client tenant already linked PAL on a prior
+    # assessment, carry that forward so the client is never asked again.
+    try:
+        client_tenant_id = pal_service.decode_tenant_id(token)
+        azure_store.init_fabric_pal_status_for_session(session_id, client_tenant_id)
+    except Exception as exc:
+        logger.warning("Failed to seed PAL status for session %s: %s", session_id, exc)
 
     if body.unified_session_id:
         try:

@@ -16,6 +16,8 @@ import type {
   FabricServicePrincipalAuthResponse,
   FabricSessionRecord,
   FabricWorkspaceInfo,
+  FabricPalStatus,
+  FabricPalConfig,
   FabricWorkspaceItems,
   Gateway,
   GatewayRegisterResponse,
@@ -320,6 +322,18 @@ export const api = {
     a.click()
     URL.revokeObjectURL(url)
   },
+
+  // ── Fabric PAL (Partner Admin Link) ───────────────────────────────────────
+  getFabricPalConfig: () =>
+    http.get<FabricPalConfig>('/api/v1/fabric/pal/config'),
+
+  getFabricPalStatus: (sessionId: string) =>
+    http.get<FabricPalStatus>(`/api/v1/fabric/sessions/${sessionId}/pal-status`),
+
+  linkFabricPal: (sessionId: string, aadAccessToken: string) =>
+    http.post<FabricPalStatus>(`/api/v1/fabric/sessions/${sessionId}/pal-link`, {
+      aad_access_token: aadAccessToken,
+    }),
 
   // ── SAP Assessments ───────────────────────────────────────────────────────
   sapTestConnection: (data: SapAssessmentRequest) =>

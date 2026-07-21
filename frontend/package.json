@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@azure/msal-browser": "5.17.1",
     "@tanstack/react-query": "^5.40.0",
     "axios": "^1.7.2",
     "framer-motion": "^12.38.0",

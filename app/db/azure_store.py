@@ -71,6 +71,22 @@ BEGIN
 END;
 """
 
+_FABRIC_PAL_LINKS_DDL = """
+IF OBJECT_ID('dbo.fabric_pal_links', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.fabric_pal_links (
+        assessment_id    VARCHAR(36)     NOT NULL,
+        client_tenant_id NVARCHAR(100)   NULL,
+        status           VARCHAR(20)     NOT NULL DEFAULT 'not_linked',
+        failure_reason   VARCHAR(20)     NULL,
+        linked_at        DATETIME2       NULL,
+        created_at       DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
+        updated_at       DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT PK_fabric_pal_links PRIMARY KEY (assessment_id)
+    );
+END;
+"""
+
 _SALESFORCE_SESSIONS_DDL = """
 IF OBJECT_ID('dbo.salesforce_sessions', 'U') IS NULL
 BEGIN
@@ -321,6 +337,7 @@ def init_schema() -> None:
             (_DB2_SESSIONS_DDL,          "db2_sessions"),
             (_INFOR_SESSIONS_DDL,        "infor_sessions"),
             (_DATABRICKS_SESSIONS_DDL,   "databricks_sessions"),
+            (_FABRIC_PAL_LINKS_DDL,      "fabric_pal_links"),
         ]:
             cur.execute(ddl_str)
             conn.commit()
@@ -328,6 +345,99 @@ def init_schema() -> None:
     except Exception as exc:
         logger.error("Schema init failed: %s", exc)
         raise
+    finally:
+        conn.close()
+
+
+# ── Fabric PAL link CRUD ──────────────────────────────────────────────────────
+
+def get_fabric_pal_status(assessment_id: str) -> Optional[dict[str, Any]]:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT assessment_id, client_tenant_id, status, failure_reason, linked_at "
+            "FROM dbo.fabric_pal_links WHERE assessment_id = ?",
+            (assessment_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return dict(zip([d[0] for d in cur.description], row))
+    finally:
+        conn.close()
+
+
+def get_fabric_pal_status_by_tenant(client_tenant_id: str) -> Optional[dict[str, Any]]:
+    """Most recent *linked* PAL record for this client tenant, across all assessments."""
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT TOP 1 assessment_id, client_tenant_id, status, failure_reason, linked_at "
+            "FROM dbo.fabric_pal_links WHERE client_tenant_id = ? AND status = 'linked' "
+            "ORDER BY linked_at DESC",
+            (client_tenant_id,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return dict(zip([d[0] for d in cur.description], row))
+    finally:
+        conn.close()
+
+
+def init_fabric_pal_status_for_session(assessment_id: str, client_tenant_id: Optional[str]) -> None:
+    """
+    Seed the PAL row for a newly created assessment. If this client tenant is
+    already linked via a prior assessment, carry that status forward so the
+    client is never asked to link again for the same tenant.
+    """
+    if not client_tenant_id:
+        return
+    already_linked = get_fabric_pal_status_by_tenant(client_tenant_id)
+    if already_linked:
+        upsert_fabric_pal_status(
+            assessment_id,
+            status="linked",
+            client_tenant_id=client_tenant_id,
+            linked_at=already_linked.get("linked_at"),
+        )
+    else:
+        upsert_fabric_pal_status(assessment_id, status="not_linked", client_tenant_id=client_tenant_id)
+
+
+def upsert_fabric_pal_status(
+    assessment_id: str,
+    status: str,
+    client_tenant_id: Optional[str] = None,
+    failure_reason: Optional[str] = None,
+    linked_at: Optional[datetime] = None,
+) -> None:
+    conn = _get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            MERGE dbo.fabric_pal_links AS target
+            USING (SELECT ? AS assessment_id) AS src ON target.assessment_id = src.assessment_id
+            WHEN MATCHED THEN UPDATE SET
+                status            = ?,
+                client_tenant_id  = COALESCE(?, target.client_tenant_id),
+                failure_reason    = ?,
+                linked_at         = COALESCE(?, target.linked_at),
+                updated_at        = SYSUTCDATETIME()
+            WHEN NOT MATCHED THEN INSERT
+                (assessment_id, status, client_tenant_id, failure_reason, linked_at)
+                VALUES (?, ?, ?, ?, ?);
+            """,
+            (
+                assessment_id,
+                status, client_tenant_id, failure_reason, linked_at,
+                assessment_id, status, client_tenant_id, failure_reason, linked_at,
+            ),
+        )
+        conn.commit()
     finally:
         conn.close()
 

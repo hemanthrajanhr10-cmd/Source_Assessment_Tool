@@ -5,7 +5,7 @@ import {
   ArrowRight, Shield, CheckCircle2, Sparkles, Network,
   Layers, Cloud, FileSpreadsheet, AlertCircle, Clock, Send,
 } from 'lucide-react'
-import { SATAppLogo } from '../components/ui/SourceLogos'
+import { SATAppLogo, UBTILogo } from '../components/ui/SourceLogos'
 import { useAuth } from '../context/AuthContext'
 import { api, getApiErrorMessage } from '../api/client'
 
@@ -245,9 +245,9 @@ export default function LoginPage() {
         </div>
 
         {/* Bottom tagline */}
-        <div className="relative z-10 flex items-center gap-2">
+        <div className="relative z-10 flex items-center gap-3">
           <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, rgba(108,189,181,0.40), transparent)' }} />
-          <p className="text-xs text-slate-400 tracking-widest uppercase">UBTI Platform</p>
+          <UBTILogo height={22} className="opacity-90" />
         </div>
       </div>
 
@@ -548,9 +548,11 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="mt-6 text-xs text-slate-400 text-center">
-          Protected by TLS encryption &nbsp;·&nbsp; UBTI Intelligence Platform
-        </p>
+        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
+          <span>Protected by TLS encryption</span>
+          <span aria-hidden="true">·</span>
+          <UBTILogo height={15} className="opacity-80" />
+        </div>
       </div>
     </div>
   )

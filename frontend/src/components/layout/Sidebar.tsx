@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   Layers, List, Network,
   LogOut, Shield, ChevronDown,
-  X, BarChart3, Sparkles, LayoutDashboard, Combine, PlusCircle, LayoutGrid,
+  X, BarChart3, LayoutDashboard, Combine, PlusCircle, LayoutGrid,
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
@@ -10,7 +10,7 @@ import {
   SqlServerLogo, FabricLogo, SapLogo,
   SageIntacctLogo, TableauLogo, SnowflakeIconLogo, DataverseIconLogo,
   SalesforceIconLogo, IbmDb2Logo, InforPNGLogo, DatabricksLogo,
-  SATAppLogo,
+  SATAppLogo, UBTILogo,
 } from '../ui/SourceLogos'
 import type { LucideIcon } from 'lucide-react'
 
@@ -537,11 +537,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             )}
           </div>
 
-          <div className="flex items-center justify-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-            <Sparkles className="h-2.5 w-2.5" style={{ color: '#6CBDB5' }} aria-hidden="true" />
-            <span className="text-[9px] text-slate-300 tracking-widest uppercase font-medium">
-              UBTI Intelligence
-            </span>
+          <div className="flex items-center justify-center mt-3 pt-2.5 border-t border-slate-100">
+            <UBTILogo height={14} className="opacity-70 transition-opacity duration-200 hover:opacity-100" />
           </div>
         </div>
       </aside>

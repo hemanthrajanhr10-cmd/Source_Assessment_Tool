@@ -15,6 +15,7 @@ import inforUrl        from '../../assets/src_logos/infor.png'
 
 import postgresqlUrl   from '../../assets/src_logos/Postgresql.png'
 import ibmDb2Url      from '../../assets/src_logos/IBM_Db2.png'
+import ubtiLogoUrl     from '../../assets/src_logos/UBTI_Logo.gif'
 import { Database } from 'lucide-react'
 
 type LogoProps = { size?: number; className?: string }
@@ -95,6 +96,25 @@ function WordmarkLogo({
         display: 'block',
         flexShrink: 0,
       }}
+    />
+  )
+}
+
+// ── UBTI parent-company wordmark ────────────────────────────────────────────
+
+/**
+ * UBTI corporate wordmark (animated). Source asset is a 400×90 GIF —
+ * always sized by height, width follows the intrinsic ~4.44:1 aspect ratio.
+ * Used wherever the product previously showed "UBTI Platform" as plain text.
+ */
+export function UBTILogo({ height = 18, className }: { height?: number; className?: string }) {
+  return (
+    <WordmarkLogo
+      src={ubtiLogoUrl}
+      alt="UBTI"
+      height={height}
+      maxWidth={height * (400 / 90)}
+      className={className}
     />
   )
 }

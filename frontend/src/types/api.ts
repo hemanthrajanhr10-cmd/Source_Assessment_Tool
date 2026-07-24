@@ -1060,8 +1060,17 @@ export interface FabricPalStatus {
 export interface FabricPalConfig {
   organization_name: string
   docs_url: string
-  client_id: string
-  tenant_id: string
+}
+
+export type PalLinkSessionStatus = 'starting' | 'waiting_for_user' | 'linking' | 'linked' | 'failed'
+
+export interface FabricPalLinkSession {
+  ps_auth_id: string
+  status: PalLinkSessionStatus
+  user_code?: string | null
+  verification_url?: string | null
+  expires_at?: string | null
+  failure_reason?: PalFailureReason | null
 }
 
 export interface SessionJobInfo {

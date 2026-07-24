@@ -13,7 +13,6 @@ import Button from '../components/ui/Button'
 import Switch from '../components/ui/Switch'
 import { FabricLogo } from '../components/ui/SourceLogos'
 import { formatTime } from '../utils/dateTime'
-import { acquirePalToken } from '../utils/palAuth'
 import { useNotifications } from '../context/NotificationContext'
 
 // Steps: start → waiting (device code) → sp-connecting (service principal) → picking (workspaces) → picking-items → naming → submitting
@@ -420,21 +419,12 @@ export default function FabricAssessmentPage() {
         `${selectedDatasetIds.size} model${selectedDatasetIds.size !== 1 ? 's' : ''}, ` +
         `${selectedDataflowIds.size} dataflow${selectedDataflowIds.size !== 1 ? 's' : ''}.`,
       )
-      if (palEnabled) {
-        // Fire-and-forget — never block navigation on the PAL link outcome.
-        // The report page's status badge / gating modal picks up the result.
-        void (async () => {
-          try {
-            const config = palConfig ?? await api.getFabricPalConfig().then(r => r.data)
-            if (!config) return
-            const token = await acquirePalToken(config.client_id, config.tenant_id)
-            await api.linkFabricPal(data.fabric_session_id, token)
-          } catch {
-            // Best-effort — client can retry from the report page.
-          }
-        })()
-      }
-      navigate(`/fabric/sessions/${data.fabric_session_id}`)
+      // PAL linking needs a device code the client must see and act on, so it
+      // can't be resolved invisibly here — the report page picks up the intent
+      // and presents the code the moment the client lands there.
+      navigate(`/fabric/sessions/${data.fabric_session_id}`, {
+        state: palEnabled ? { palEnabled: true } : undefined,
+      })
     } catch (err) {
       const msg = getApiErrorMessage(err)
       setError(msg)

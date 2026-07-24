@@ -2803,6 +2803,21 @@ function FabricSessionDetailPageInner() {
   const [palModalOpen, setPalModalOpen] = useState(false)
   const [palPendingAction, setPalPendingAction] = useState<'view' | 'excel' | 'word' | null>(null)
   const palTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const palAutoStarted = useRef(false)
+  const palEnabledIntent = (location.state as { palEnabled?: boolean } | null)?.palEnabled === true
+
+  // If the client opted in on the start screen, present the device code the
+  // moment they land here instead of waiting for a manual "Connect PAL" click —
+  // this is what stands in for "runs in the background immediately" now that
+  // linking requires the client to see and act on a device code.
+  useEffect(() => {
+    if (!palEnabledIntent || palAutoStarted.current || pal.isLoadingStatus) return
+    if (pal.status === 'linked') return
+    palAutoStarted.current = true
+    setPalModalOpen(true)
+    pal.start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [palEnabledIntent, pal.isLoadingStatus, pal.status])
 
   const { data: session, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['fabric-session', sessionId],
@@ -3129,12 +3144,12 @@ function FabricSessionDetailPageInner() {
         isOpen={palModalOpen}
         onClose={() => setPalModalOpen(false)}
         triggerRef={palTriggerRef}
-        status={pal.status}
-        connecting={pal.connecting}
+        linkStage={pal.linkStage}
+        deviceCode={pal.deviceCode}
         failureMessage={pal.failureMessage}
         docsUrl={pal.docsUrl}
-        onConnect={pal.connect}
-        onRefresh={pal.refresh}
+        onStart={pal.start}
+        onCancel={pal.cancel}
       />
     </div>
   )

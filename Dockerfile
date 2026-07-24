@@ -68,6 +68,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# ── PowerShell 7 + Az modules (Partner Admin Link linking) ────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends wget \
+    && wget -q https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \
+        -O /tmp/packages-microsoft-prod.deb \
+    && dpkg -i /tmp/packages-microsoft-prod.deb \
+    && rm /tmp/packages-microsoft-prod.deb \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends powershell \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pwsh -NoLogo -NonInteractive -Command \
+    "Set-PSRepository -Name PSGallery -InstallationPolicy Trusted; \
+     Install-Module -Name Az.Accounts,Az.ManagementPartner -Force -AllowClobber -Scope AllUsers -Repository PSGallery"
+
 WORKDIR /app
 
 # ── Python packages from build stage (no pip compile needed) ──────────────────

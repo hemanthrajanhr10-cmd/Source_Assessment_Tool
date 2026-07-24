@@ -59,15 +59,11 @@ class Settings(BaseSettings):
     oauth_apple_redirect_uri: str = "http://localhost:8000/api/v1/auth/oauth/apple/callback"
 
     # ── Azure Partner Admin Link (PAL) ────────────────────────────────────────
-    # Register an Azure AD app with delegated permission:
-    #   https://management.azure.com/user_impersonation
-    # Then set AZURE_PAL_CLIENT_ID as an env var (client ID is not secret —
-    # exposed to the frontend for the MSAL popup flow).
-    azure_pal_client_id: str = ""
-    azure_pal_tenant_id: str = "common"
-    # UBTI's Associated Partner ID from Partner Center — server-side only,
-    # never sent to the frontend. Set PAL_PARTNER_ID as an env var.
-    pal_partner_id: str = ""
+    # Linking is performed via a PowerShell subprocess (Az.Accounts +
+    # Az.ManagementPartner) using the client's own device-code sign-in — never
+    # sent to the frontend, never editable by the client. Override via
+    # PAL_PARTNER_ID env var if the Associated Partner ID ever changes.
+    pal_partner_id: str = "525616"
     pal_organization_name: str = "UBTI"
 
     # Frontend base URL — used to redirect back after OAuth callback

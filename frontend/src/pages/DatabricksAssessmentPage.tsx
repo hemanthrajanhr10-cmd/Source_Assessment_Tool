@@ -11,6 +11,7 @@ import { theme } from './databricks/theme'
 import { Button } from './databricks/components/Button'
 import { FieldLabel, InputField } from './databricks/components/Field'
 import { SectionHeader } from './databricks/components/Section'
+import { Reveal } from './databricks/components/Reveal'
 import GlobalStyles from './databricks/components/GlobalStyles'
 
 const coverage = [
@@ -87,7 +88,7 @@ export default function DatabricksAssessmentPage() {
           </div>
           <div>
             <h1 style={{
-              fontFamily: theme.font.display, fontSize: 21, fontWeight: 700,
+              fontFamily: theme.font.display, fontSize: 21, fontWeight: 800,
               color: theme.color.ink, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.2,
             }}>
               Databricks Assessment
@@ -116,7 +117,7 @@ export default function DatabricksAssessmentPage() {
           </div>
 
           <div style={{ display: 'grid', gap: 20, maxWidth: 560 }}>
-            <div>
+            <Reveal>
               <FieldLabel required>Workspace URL</FieldLabel>
               <InputField
                 icon={Globe}
@@ -125,9 +126,9 @@ export default function DatabricksAssessmentPage() {
                 onChange={setWorkspaceUrl}
                 hint="Your workspace URL from the Databricks UI (Azure, AWS, or GCP)"
               />
-            </div>
+            </Reveal>
 
-            <div>
+            <Reveal delay={0.05}>
               <FieldLabel required>Personal Access Token (PAT)</FieldLabel>
               <InputField
                 icon={Key}
@@ -138,9 +139,9 @@ export default function DatabricksAssessmentPage() {
                 mono
                 hint="Generate in User Settings → Developer → Access Tokens. Needs workspace admin or broad read access."
               />
-            </div>
+            </Reveal>
 
-            <div>
+            <Reveal delay={0.1}>
               <FieldLabel>Label (optional)</FieldLabel>
               <InputField
                 icon={Tag}
@@ -148,10 +149,10 @@ export default function DatabricksAssessmentPage() {
                 value={label}
                 onChange={setLabel}
               />
-            </div>
+            </Reveal>
 
             {/* Test connection */}
-            <div style={{ paddingTop: 20, borderTop: `1px solid ${theme.color.divider}`, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <Reveal delay={0.15} style={{ paddingTop: 20, borderTop: `1px solid ${theme.color.divider}`, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <Button variant="secondary" Icon={testing ? Loader2 : undefined} disabled={!canSubmit || testing} onClick={handleTest}>
                 {testing ? 'Testing…' : 'Test Connection'}
               </Button>
@@ -167,7 +168,7 @@ export default function DatabricksAssessmentPage() {
                   <AlertCircle style={{ width: 14, height: 14 }} /> {testError}
                 </span>
               )}
-            </div>
+            </Reveal>
 
             {startError && (
               <div style={{
@@ -186,7 +187,7 @@ export default function DatabricksAssessmentPage() {
           <SectionHeader title="Assessment Coverage" count={coverage.length} />
           <div style={{ display: 'grid', gap: 0, marginTop: 4 }}>
             {coverage.map((item, i) => (
-              <div key={item} style={{
+              <Reveal key={item} delay={0.1 + i * 0.03} style={{
                 display: 'flex', alignItems: 'flex-start', gap: 12,
                 padding: '9px 0', borderBottom: i < coverage.length - 1 ? `1px solid ${theme.color.divider}` : 'none',
               }}>
@@ -197,7 +198,7 @@ export default function DatabricksAssessmentPage() {
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <span style={{ fontSize: 12, color: theme.color.inkSecondary, lineHeight: 1.5 }}>{item}</span>
-              </div>
+              </Reveal>
             ))}
           </div>
 

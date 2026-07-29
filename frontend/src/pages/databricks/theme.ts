@@ -1,42 +1,45 @@
-// Databricks-scoped design tokens — "Light Precision" minimalism.
-// Deliberately isolated from the app-wide teal theme (frontend/src/pages/*, Sidebar.tsx,
-// tailwind.config.js) so this redesign doesn't affect other source integrations.
+// Databricks-scoped design tokens — minimalist structure on the app's existing
+// teal theme (same palette family as tailwind.config.js `brand` and the shared
+// SessionFilterBar), so these pages sit visually inside the rest of SAT while
+// keeping their own component layer.
 
 export const theme = {
   color: {
-    canvas:        '#FAFAFA',
+    canvas:        '#F6FFFE',
     surface:       '#FFFFFF',
-    surfaceSunken: '#F4F4F5',
-    border:        '#E4E4E7',
-    borderStrong:  '#D4D4D8',
-    divider:       '#ECECEF',
+    surfaceSunken: '#F0FAFA',
+    border:        '#B2DDD9',
+    borderStrong:  '#93CCC6',
+    divider:       '#D4EFEC',
 
-    ink:           '#18181B',
-    inkSecondary:  '#52525B',
-    inkMuted:      '#8A8A93',
-    inkFaint:      '#B4B4BB',
+    ink:           '#0D1117',
+    inkSecondary:  '#404555',
+    inkMuted:      '#767A8C',
+    inkFaint:      '#B0BAC4',
 
-    // Single restrained accent — Databricks red. Used for primary CTA, active
-    // tab underline, and one focal highlight per view. Not for card borders,
-    // icon chips, or ambient backgrounds.
-    accent:        '#FF3621',
-    accentHover:   '#E62E1B',
-    accentFaint:   'rgba(255,54,33,0.06)',
-    accentBorder:  'rgba(255,54,33,0.20)',
+    // App teal as the accent family. `accent` (brand-700) is dark enough for
+    // AA text and crisp underlines; `accentBright` (brand-500) is for graphics,
+    // chart series, focus borders, and progress fills.
+    accent:        '#25706A',
+    accentBright:  '#4DA8A0',
+    accentHover:   '#185750',
+    accentFaint:   'rgba(77,168,160,0.10)',
+    accentGlow:    'rgba(108,189,181,0.22)',
+    accentBorder:  'rgba(77,168,160,0.35)',
 
-    success:    '#0F9D63',
-    successBg:  'rgba(15,157,99,0.08)',
-    warning:    '#C27803',
-    warningBg:  'rgba(194,120,3,0.09)',
-    danger:     '#D0342C',
-    dangerBg:   'rgba(208,52,44,0.07)',
-    info:       '#2E67C7',
-    infoBg:     'rgba(46,103,199,0.07)',
-    neutral:    '#71717A',
-    neutralBg:  'rgba(24,24,27,0.045)',
+    success:    '#059669',
+    successBg:  'rgba(5,150,105,0.08)',
+    warning:    '#D97706',
+    warningBg:  'rgba(217,119,6,0.09)',
+    danger:     '#DC2626',
+    dangerBg:   'rgba(220,38,38,0.07)',
+    info:       '#2563EB',
+    infoBg:     'rgba(37,99,235,0.07)',
+    neutral:    '#767A8C',
+    neutralBg:  'rgba(13,17,23,0.045)',
   },
   font: {
-    display: `'Outfit', system-ui, sans-serif`,
+    display: `'Plus Jakarta Sans', system-ui, -apple-system, sans-serif`,
     body:    `'Plus Jakarta Sans', system-ui, -apple-system, sans-serif`,
     mono:    `'JetBrains Mono','Fira Code',monospace`,
   },
@@ -51,9 +54,9 @@ export const theme = {
   },
   radius: { sm: 6, md: 10, lg: 14 },
   shadow: {
-    xs: '0 1px 2px rgba(24,24,27,0.05)',
-    sm: '0 1px 3px rgba(24,24,27,0.07), 0 1px 2px rgba(24,24,27,0.04)',
-    md: '0 6px 16px rgba(24,24,27,0.07), 0 2px 6px rgba(24,24,27,0.04)',
+    xs: '0 1px 2px rgba(77,168,160,0.05)',
+    sm: '0 1px 3px rgba(77,168,160,0.06), 0 4px 16px rgba(77,168,160,0.08)',
+    md: '0 4px 12px rgba(77,168,160,0.10), 0 16px 40px rgba(77,168,160,0.12)',
   },
 } as const
 

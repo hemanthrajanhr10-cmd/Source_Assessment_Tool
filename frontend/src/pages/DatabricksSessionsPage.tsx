@@ -9,6 +9,7 @@ import SessionFilterBar from '../components/ui/SessionFilterBar'
 import { theme } from './databricks/theme'
 import { Button } from './databricks/components/Button'
 import { SessionStatusTag, CloudTag } from './databricks/components/StatusTag'
+import { Reveal } from './databricks/components/Reveal'
 import GlobalStyles from './databricks/components/GlobalStyles'
 
 function formatDate(iso: string): string {
@@ -110,7 +111,7 @@ function SessionRow({ s, onClick }: { s: DatabricksSessionRecord; onClick: () =>
           <span style={{ fontSize: 11, color: theme.color.inkMuted, minWidth: 78, textAlign: 'right' }} title={formatDate(s.created_at)}>
             {relativeTime(s.created_at)}
           </span>
-          <ChevronRight style={{ width: 15, height: 15, color: theme.color.inkFaint, flexShrink: 0 }} />
+          <ChevronRight className="db-row-chevron" style={{ width: 15, height: 15, color: theme.color.inkFaint, flexShrink: 0 }} />
         </div>
       </div>
 
@@ -160,7 +161,7 @@ export default function DatabricksSessionsPage() {
             <DatabricksLogo size={26} />
           </div>
           <div>
-            <h1 style={{ fontFamily: theme.font.display, fontSize: 18, fontWeight: 700, color: theme.color.ink, margin: 0, letterSpacing: '-0.02em' }}>
+            <h1 style={{ fontFamily: theme.font.display, fontSize: 18, fontWeight: 800, color: theme.color.ink, margin: 0, letterSpacing: '-0.02em' }}>
               Databricks Assessments
             </h1>
             <p style={{ fontSize: 11, color: theme.color.inkMuted, margin: '3px 0 0' }}>
@@ -188,7 +189,7 @@ export default function DatabricksSessionsPage() {
         {/* Content */}
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 0' }}>
-            <Loader2 style={{ width: 22, height: 22, animation: 'db-spin 1s linear infinite', color: theme.color.accent }} />
+            <Loader2 style={{ width: 22, height: 22, animation: 'db-spin 1s linear infinite', color: theme.color.accentBright }} />
           </div>
         ) : error ? (
           <div style={{
@@ -223,8 +224,10 @@ export default function DatabricksSessionsPage() {
           </div>
         ) : (
           <div>
-            {filtered.map(s => (
-              <SessionRow key={s.job_id} s={s} onClick={() => navigate(`/databricks/sessions/${s.job_id}`)} />
+            {filtered.map((s, i) => (
+              <Reveal key={s.job_id} delay={Math.min(i * 0.04, 0.4)}>
+                <SessionRow s={s} onClick={() => navigate(`/databricks/sessions/${s.job_id}`)} />
+              </Reveal>
             ))}
           </div>
         )}

@@ -1,4 +1,5 @@
 import { theme } from '../theme'
+import { CountUpText } from './CountUp'
 
 export interface Metric {
   Icon?: React.ElementType
@@ -8,10 +9,9 @@ export interface Metric {
   accent?: string
 }
 
-// Instrument-panel metric strip — replaces the hero-metric-template pattern
-// (icon chip + big number in a bordered card) that PRODUCT.md explicitly
-// flags as a generic-SaaS anti-reference. Metrics sit in one row, separated
-// by thin structural dividers, not individually boxed.
+// Instrument-panel metric strip — metrics sit in one row separated by thin
+// structural dividers, not individually boxed. Numeric values tick up on
+// mount via the CountUp ticker.
 export function MetricRow({ metrics }: { metrics: Metric[] }) {
   return (
     <div style={{
@@ -19,6 +19,7 @@ export function MetricRow({ metrics }: { metrics: Metric[] }) {
       border: `1px solid ${theme.color.border}`,
       borderRadius: theme.radius.md,
       background: theme.color.surface,
+      boxShadow: theme.shadow.xs,
       overflow: 'hidden',
     }}>
       {metrics.map((m, i) => (
@@ -45,7 +46,7 @@ export function MetricRow({ metrics }: { metrics: Metric[] }) {
             fontSize: 22, fontWeight: 600, lineHeight: 1,
             color: m.accent ?? theme.color.ink, margin: 0,
           }}>
-            {m.value}
+            <CountUpText value={m.value} />
           </p>
           {m.sub && (
             <p style={{ fontFamily: theme.font.body, fontSize: 11, color: theme.color.inkMuted, margin: '5px 0 0' }}>

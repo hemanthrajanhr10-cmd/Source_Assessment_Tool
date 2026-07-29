@@ -31,7 +31,7 @@ export function InputField({
       <div style={{ position: 'relative' }}>
         {Icon && (
           <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', display: 'flex' }}>
-            <Icon style={{ width: 14, height: 14, color: focused ? theme.color.accent : theme.color.inkMuted, transition: `color ${theme.motion.fast}ms` }} />
+            <Icon style={{ width: 14, height: 14, color: focused ? theme.color.accentBright : theme.color.inkMuted, transition: `color ${theme.motion.fast}ms` }} />
           </div>
         )}
         <input
@@ -47,9 +47,9 @@ export function InputField({
             borderRadius: theme.radius.sm, fontSize: 13,
             fontFamily: mono ? theme.font.mono : theme.font.body,
             background: focused ? theme.color.surface : theme.color.surfaceSunken,
-            border: `1px solid ${focused ? theme.color.accent : theme.color.border}`,
+            border: `1px solid ${focused ? theme.color.accentBright : theme.color.border}`,
             color: theme.color.ink, outline: 'none',
-            boxShadow: focused ? `0 0 0 3px ${theme.color.accentFaint}` : 'none',
+            boxShadow: focused ? `0 0 0 3px ${theme.color.accentGlow}` : 'none',
             transition: `all ${theme.motion.fast}ms ${theme.motion.easeCss}`,
           }}
         />

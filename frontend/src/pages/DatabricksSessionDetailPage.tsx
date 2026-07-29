@@ -28,6 +28,8 @@ import { TabBar, type TabDef } from './databricks/components/TabBar'
 import { SessionStatusTag, CheckStatusTag, RiskTag, StatusTag } from './databricks/components/StatusTag'
 import { Table, Thead, Tr, Td, EmptyRow, KV, InlineTable } from './databricks/components/Table'
 import { DonutChart, Legend, HBar } from './databricks/components/Charts'
+import { Reveal } from './databricks/components/Reveal'
+import { CountUp } from './databricks/components/CountUp'
 import { usePrefersReducedMotion } from './databricks/components/usePrefersReducedMotion'
 import GlobalStyles from './databricks/components/GlobalStyles'
 
@@ -273,7 +275,7 @@ export default function DatabricksSessionDetailPage() {
                 <DatabricksLogo size={32} />
               </div>
               <div>
-                <h1 style={{ fontFamily: theme.font.display, fontSize: 19, fontWeight: 700, color: theme.color.ink, margin: 0, letterSpacing: '-0.01em' }}>
+                <h1 style={{ fontFamily: theme.font.display, fontSize: 19, fontWeight: 800, color: theme.color.ink, margin: 0, letterSpacing: '-0.01em' }}>
                   {status?.label || 'Databricks Assessment'}
                 </h1>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 5, flexWrap: 'wrap' }}>
@@ -310,7 +312,8 @@ export default function DatabricksSessionDetailPage() {
               </div>
               <div style={{ height: 4, borderRadius: 4, background: theme.color.surfaceSunken, overflow: 'hidden' }}>
                 <motion.div animate={{ scaleX: progress / 100 }} transition={{ duration: 0.5, ease: theme.motion.ease }}
-                  style={{ height: '100%', borderRadius: 4, transformOrigin: 'left', background: theme.color.accent }} />
+                  className="db-shimmer"
+                  style={{ height: '100%', borderRadius: 4, transformOrigin: 'left', background: theme.color.accentBright }} />
               </div>
             </div>
           )}
@@ -324,7 +327,7 @@ export default function DatabricksSessionDetailPage() {
 
       {!result && (jobStatus === 'pending' || jobStatus === 'running') && (
         <div style={{ maxWidth: 1340, margin: '60px auto', padding: '0 32px', textAlign: 'center' }}>
-          <Loader2 style={{ width: 32, height: 32, color: theme.color.accent, animation: 'db-spin 1s linear infinite', margin: '0 auto 14px' }} />
+          <Loader2 style={{ width: 32, height: 32, color: theme.color.accentBright, animation: 'db-spin 1s linear infinite', margin: '0 auto 14px' }} />
           <p style={{ color: theme.color.inkMuted, fontSize: 13 }}>{status?.progress_message || 'Assessment running…'}</p>
         </div>
       )}
@@ -334,12 +337,13 @@ export default function DatabricksSessionDetailPage() {
 
           {/* ── Score panel — the single hero block for this page ───────────── */}
           {result.overall_score != null && (
+            <Reveal>
             <div style={{ marginBottom: 20, padding: '18px 24px', borderRadius: theme.radius.lg, background: theme.color.surface,
               border: `1px solid ${theme.color.border}`, display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
               <div style={{ minWidth: 76 }}>
                 <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: theme.color.inkMuted, marginBottom: 4 }}>Overall Score</p>
                 <p style={{ fontFamily: theme.font.mono, fontSize: 38, fontWeight: 700, lineHeight: 1, color: scoreColor }}>
-                  {result.overall_score.toFixed(0)}<span style={{ fontSize: 18 }}>%</span>
+                  <CountUp value={Math.round(result.overall_score)} duration={0.9} /><span style={{ fontSize: 18 }}>%</span>
                 </p>
               </div>
               <div style={{ flex: 1, minWidth: 220 }}>
@@ -368,18 +372,19 @@ export default function DatabricksSessionDetailPage() {
                 </div>
               )}
             </div>
+            </Reveal>
           )}
 
           {/* ── Health scorecard ─────────────────────────────────────────────── */}
-          <div style={{ marginBottom: 20 }}>
+          <Reveal delay={0.06} style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em', color: theme.color.inkMuted, marginBottom: 8 }}>Health Scorecard</p>
             <HealthRow tiles={healthTiles} />
-          </div>
+          </Reveal>
 
           {/* ── Tab bar ────────────────────────────────────────────────────── */}
-          <div style={{ marginBottom: 22 }}>
+          <Reveal delay={0.12} style={{ marginBottom: 22 }}>
             <TabBar tabs={TABS} active={tab} onChange={setTab} />
-          </div>
+          </Reveal>
 
           {/* ════════════════════════════════════════════════════════════════
               TAB PANELS
@@ -427,7 +432,7 @@ export default function DatabricksSessionDetailPage() {
                       <Section title="Identity Distribution" Icon={Users}>
                         <div style={{ padding: '16px 18px' }}>
                           <HBar labelW={100} data={[
-                            { label: 'Total Users',    value: sec.total_users,             color: theme.color.accent },
+                            { label: 'Total Users',    value: sec.total_users,             color: theme.color.accentBright },
                             { label: 'Active',         value: sec.active_users,            color: theme.color.success },
                             { label: 'Admins',         value: sec.admin_users,             color: sec.admin_users > 5 ? theme.color.danger : theme.color.warning },
                             { label: 'Svc Principals', value: sec.service_principal_count, color: theme.color.info },
@@ -444,7 +449,7 @@ export default function DatabricksSessionDetailPage() {
                             { label: 'Stopped', value: ml.model_serving_endpoint_count - ml.running_endpoints, color: theme.color.inkFaint },
                           ]} />
                           <Legend data={[
-                            { label: 'Experiments', value: ml.experiment_count,            color: theme.color.accent },
+                            { label: 'Experiments', value: ml.experiment_count,            color: theme.color.accentBright },
                             { label: 'Models',      value: ml.registered_model_count,      color: theme.color.info },
                             { label: 'Endpoints',   value: ml.model_serving_endpoint_count, color: theme.color.inkMuted },
                             { label: 'Vector Idx',  value: ml.vector_search_index_count,   color: theme.color.success },
@@ -531,7 +536,7 @@ export default function DatabricksSessionDetailPage() {
                       <Section title="Cluster Type Breakdown" Icon={BarChart3}>
                         <div style={{ padding: '16px 18px' }}>
                           <HBar labelW={130} data={[
-                            { label: 'All-Purpose',       value: cs.all_purpose_clusters,           color: theme.color.accent },
+                            { label: 'All-Purpose',       value: cs.all_purpose_clusters,           color: theme.color.accentBright },
                             { label: 'Job Clusters',      value: cs.job_clusters,                   color: theme.color.info },
                             { label: 'Single-Node',       value: cs.single_node_clusters,           color: theme.color.warning },
                             { label: 'Photon-Enabled',    value: cs.photon_enabled_clusters,        color: theme.color.success },
@@ -644,7 +649,7 @@ export default function DatabricksSessionDetailPage() {
                         <Section title="Data Asset Distribution" Icon={BarChart3}>
                           <div style={{ padding: '16px 18px' }}>
                             <HBar labelW={140} data={[
-                              { label: 'Catalogs',         value: uc.catalog_count,           color: theme.color.accent },
+                              { label: 'Catalogs',         value: uc.catalog_count,           color: theme.color.accentBright },
                               { label: 'Schemas (sampled)', value: uc.schema_count,            color: theme.color.info },
                               { label: 'Tables (sampled)',  value: uc.table_count,             color: theme.color.success },
                               { label: 'Views (sampled)',   value: uc.view_count,              color: theme.color.inkMuted },
@@ -727,7 +732,7 @@ export default function DatabricksSessionDetailPage() {
                             ]} />
                             <div style={{ flex: 1 }}>
                               <Legend data={[
-                                { label: 'Total Users',    value: sec.total_users,                     color: theme.color.accent },
+                                { label: 'Total Users',    value: sec.total_users,                     color: theme.color.accentBright },
                                 { label: 'Active',         value: sec.active_users,                    color: theme.color.success },
                                 { label: 'Inactive',       value: sec.total_users - sec.active_users,  color: theme.color.inkFaint },
                                 { label: 'Admins',         value: sec.admin_users,                     color: sec.admin_users > 5 ? theme.color.danger : theme.color.warning },
@@ -801,11 +806,11 @@ export default function DatabricksSessionDetailPage() {
                           <DonutChart size={120} label="jobs" data={[
                             { label: 'Scheduled',        value: js.scheduled_jobs,                color: theme.color.success },
                             { label: 'Manual/Triggered', value: js.total_jobs - js.scheduled_jobs, color: theme.color.inkFaint },
-                            { label: 'DLT Pipelines',    value: js.dlt_pipelines,                 color: theme.color.accent },
+                            { label: 'DLT Pipelines',    value: js.dlt_pipelines,                 color: theme.color.accentBright },
                           ]} />
                           <div style={{ flex: 1 }}>
                             <Legend data={[
-                              { label: 'Total Jobs',          value: js.total_jobs,                     color: theme.color.accent },
+                              { label: 'Total Jobs',          value: js.total_jobs,                     color: theme.color.accentBright },
                               { label: 'Scheduled',           value: js.scheduled_jobs,                 color: theme.color.success },
                               { label: 'Multi-Task',          value: js.multi_task_jobs,                color: theme.color.info },
                               { label: 'All-Purpose Compute', value: js.jobs_using_all_purpose_compute, color: theme.color.warning },
@@ -822,7 +827,7 @@ export default function DatabricksSessionDetailPage() {
                             { label: 'Using All-Purpose Compute', value: js.jobs_using_all_purpose_compute, color: theme.color.warning },
                             { label: 'Recent Failures',           value: js.jobs_with_failures_last_7d,     color: theme.color.danger },
                             { label: 'Multi-Task (complex)',      value: js.multi_task_jobs,                color: theme.color.info },
-                            { label: 'DLT Pipelines',             value: js.dlt_pipelines,                  color: theme.color.accent },
+                            { label: 'DLT Pipelines',             value: js.dlt_pipelines,                  color: theme.color.accentBright },
                           ]} />
                           {js.jobs_using_all_purpose_compute > 0 && (
                             <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: theme.radius.sm, background: theme.color.warningBg }}>
@@ -873,7 +878,7 @@ export default function DatabricksSessionDetailPage() {
                               <Legend data={[
                                 { label: 'Ready',     value: ml.running_endpoints,                                   color: theme.color.success },
                                 { label: 'Not Ready', value: ml.model_serving_endpoint_count - ml.running_endpoints, color: theme.color.inkFaint },
-                                { label: 'Total',     value: ml.model_serving_endpoint_count,                        color: theme.color.accent },
+                                { label: 'Total',     value: ml.model_serving_endpoint_count,                        color: theme.color.accentBright },
                               ]} />
                               <p style={{ marginTop: 12, padding: '8px 12px', borderRadius: theme.radius.sm, background: theme.color.surfaceSunken, fontSize: 11, color: theme.color.inkSecondary }}>
                                 {ml.running_endpoints === 0 ? 'No serving endpoints currently deployed' : `${ml.running_endpoints} endpoint(s) serving live inference`}
@@ -885,7 +890,7 @@ export default function DatabricksSessionDetailPage() {
                         <Section title="ML Asset Distribution" Icon={TrendingUp}>
                           <div style={{ padding: '16px 18px' }}>
                             <HBar labelW={140} data={[
-                              { label: 'Experiments',       value: ml.experiment_count,             color: theme.color.accent },
+                              { label: 'Experiments',       value: ml.experiment_count,             color: theme.color.accentBright },
                               { label: 'Registered Models', value: ml.registered_model_count,       color: theme.color.info },
                               { label: 'Serving Endpoints', value: ml.model_serving_endpoint_count, color: theme.color.inkMuted },
                               { label: 'Vector Indexes',    value: ml.vector_search_index_count,    color: theme.color.success },

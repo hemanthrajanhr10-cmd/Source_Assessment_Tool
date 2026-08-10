@@ -1,4 +1,4 @@
-import { forwardRef } from 'react'
+﻿import { forwardRef } from 'react'
 import Spinner from './Spinner'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
@@ -20,12 +20,10 @@ const variantStyles: Record<Variant, string> = {
   ].join(' '),
   secondary: [
     'bg-white text-slate-700 border border-slate-200',
-    'hover:border-violet-200 hover:text-violet-700 hover:bg-violet-50/60',
     'disabled:opacity-40',
   ].join(' '),
   ghost: [
     'text-slate-600',
-    'hover:text-violet-700 hover:bg-violet-50/60',
     'disabled:opacity-40',
   ].join(' '),
   danger: [
@@ -38,8 +36,8 @@ const variantStyles: Record<Variant, string> = {
 /* Inline styles per variant */
 const variantInlineStyle: Record<Variant, React.CSSProperties> = {
   primary: {
-    background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-    boxShadow: '0 4px 16px rgba(124, 58, 237, 0.32), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.15)',
+    background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
+    boxShadow: '0 4px 16px rgba(108, 189, 181, 0.38), 0 1px 3px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.20)',
   },
   secondary: {
     boxShadow: 'var(--elevation-1), var(--elevation-border-1)',
@@ -73,7 +71,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         className={`
           inline-flex items-center justify-center font-medium select-none
           focus:outline-none
-          focus-visible:ring-2 focus-visible:ring-violet-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white
+          focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white
           disabled:cursor-not-allowed
           ${!isDisabled ? 'btn-physics' : ''}
           ${variant === 'primary' && !isDisabled ? 'btn-shimmer' : ''}
@@ -90,7 +88,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         {loading ? (
           <Spinner
             size={size === 'sm' ? 'sm' : 'md'}
-            className={variant === 'primary' ? 'text-white/80' : 'text-violet-500'}
+            className={variant === 'primary' ? 'text-white/80' : 'text-brand-600'}
           />
         ) : (
           leftIcon

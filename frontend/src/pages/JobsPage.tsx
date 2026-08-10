@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+﻿import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { PlusCircle, RefreshCw, ExternalLink, ClipboardList } from 'lucide-react'
 import { api } from '../api/client'
@@ -6,6 +6,8 @@ import { StatusBadge } from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import { formatDateTime, elapsed } from '../utils/dateTime'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 export default function JobsPage() {
   const navigate = useNavigate()
@@ -20,9 +22,12 @@ export default function JobsPage() {
     },
   })
 
-  const sorted = [...(jobs ?? [])].sort(
+  const allJobs = [...(jobs ?? [])].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   )
+
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(allJobs)
+  const sorted = filteredRaw as typeof allJobs
 
   return (
     <div className="animate-fade-in">
@@ -30,33 +35,44 @@ export default function JobsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-display">Assessment Jobs</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {sorted.length > 0
-              ? `${sorted.length} job${sorted.length !== 1 ? 's' : ''} total`
+            {allJobs.length > 0
+              ? `${allJobs.length} job${allJobs.length !== 1 ? 's' : ''} total`
               : 'No jobs yet'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />}
-            onClick={() => refetch()}
-          >
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
-            onClick={() => navigate('/')}
-          >
-            New Assessment
-          </Button>
-        </div>
       </div>
+
+      <SessionFilterBar
+        filter={filter}
+        onField={setField}
+        onReset={reset}
+        isActive={isActive}
+        totalCount={allJobs.length}
+        filteredCount={sorted.length}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />}
+              onClick={() => refetch()}
+            >
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
+              onClick={() => navigate('/')}
+            >
+              New Assessment
+            </Button>
+          </div>
+        }
+      />
 
       {isLoading && (
         <div className="flex items-center justify-center py-24">
-          <Spinner size="xl" className="text-indigo-500" />
+          <Spinner size="xl" className="text-earth-600" />
         </div>
       )}
 
@@ -64,12 +80,12 @@ export default function JobsPage() {
         <div className="card p-8 text-center">
           <p className="font-medium text-red-600">Failed to load jobs.</p>
           <p className="mt-1 text-sm text-slate-500">
-            <button className="text-indigo-600 hover:text-indigo-700" onClick={() => refetch()}>Retry</button>
+            <button className="text-earth-700 hover:text-earth-800" onClick={() => refetch()}>Retry</button>
           </p>
         </div>
       )}
 
-      {!isLoading && !isError && sorted.length === 0 && (
+      {!isLoading && !isError && allJobs.length === 0 && (
         <div className="card flex flex-col items-center justify-center py-20 gap-4 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 border border-slate-200">
             <ClipboardList className="h-7 w-7 text-slate-400" />
@@ -84,6 +100,16 @@ export default function JobsPage() {
           >
             New Assessment
           </Button>
+        </div>
+      )}
+
+      {!isLoading && !isError && allJobs.length > 0 && sorted.length === 0 && (
+        <div className="card flex flex-col items-center justify-center py-16 gap-3 text-center">
+          <ClipboardList className="h-8 w-8 text-slate-300" />
+          <p className="font-semibold text-slate-500">No jobs match your filters</p>
+          <button className="text-sm text-earth-600 hover:text-earth-800 transition-colors" onClick={reset}>
+            Clear filters
+          </button>
         </div>
       )}
 
@@ -107,7 +133,7 @@ export default function JobsPage() {
                 {sorted.map((job, idx) => (
                   <tr
                     key={job.job_id}
-                    className={`transition-colors cursor-pointer hover:bg-indigo-50/40 ${
+                    className={`transition-colors cursor-pointer hover:bg-earth-50/40 ${
                       idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
                     }`}
                     onClick={() => navigate(`/jobs/${job.job_id}`)}
@@ -120,9 +146,11 @@ export default function JobsPage() {
                     </td>
                     <td className="px-5 py-3.5">
                       <StatusBadge status={job.status} />
-                      {job.progress_message && job.status === 'running' && (
-                        <p className="text-xs text-slate-500 mt-1 max-w-[200px] truncate">{job.progress_message}</p>
-                      )}
+                      {job.progress_message && job.status === 'running' && (() => {
+                        const m = job.progress_message.match(/^step:(\d+)\/(\d+):(.+)$/)
+                        const msg = m ? `${m[3]} (${m[1]}/${m[2]})` : job.progress_message
+                        return <p className="text-xs text-slate-500 mt-1 max-w-[200px] truncate">{msg}</p>
+                      })()}
                     </td>
                     <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap">
                       {formatDateTime(job.created_at)}
@@ -132,7 +160,7 @@ export default function JobsPage() {
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <button
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-500 hover:text-indigo-700 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-earth-600 hover:text-earth-800 transition-colors"
                         onClick={(e) => { e.stopPropagation(); navigate(`/jobs/${job.job_id}`) }}
                         aria-label={`View job ${job.job_id}`}
                       >

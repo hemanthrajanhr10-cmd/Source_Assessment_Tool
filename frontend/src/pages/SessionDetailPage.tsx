@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+﻿import { useState } from 'react'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft, RefreshCw, CheckCircle2, XCircle, FileText,
@@ -43,20 +43,40 @@ const ASSESSMENT_STEPS = [
   { key: 'persisting results', label: 'Persisting results' },
 ]
 
-function getCompletedSteps(progressMsg?: string, status?: string): number {
-  if (!progressMsg) return 0
-  if (status === 'completed') return ASSESSMENT_STEPS.length
+/** Parse progress_message in two formats:
+ *  1. New:  "step:N/T:Display name"  → returns { done: N-1, total: T, current: name }
+ *  2. Legacy: free text → falls back to keyword matching against ASSESSMENT_STEPS
+ */
+function parseProgress(progressMsg?: string, status?: string): { done: number; total: number; currentLabel?: string } {
+  const total = ASSESSMENT_STEPS.length
+  if (status === 'completed') return { done: total, total }
+  if (!progressMsg) return { done: 0, total }
+
+  // New structured format: "step:N/T:Display name"
+  const stepMatch = progressMsg.match(/^step:(\d+)\/(\d+):(.+)$/)
+  if (stepMatch) {
+    const n = parseInt(stepMatch[1], 10)
+    const t = parseInt(stepMatch[2], 10)
+    return {
+      done: Math.max(0, n - 1),
+      total: t,
+      currentLabel: stepMatch[3],
+    }
+  }
+
+  // Legacy text matching
   const lower = progressMsg.toLowerCase()
   const idx = ASSESSMENT_STEPS.findIndex((s) => lower.includes(s.key))
-  return idx === -1 ? 0 : idx
+  return { done: idx === -1 ? 0 : idx, total }
 }
 
 function ProgressDetails({ job }: { job: SessionJobInfo }) {
   const [open, setOpen] = useState(false)
   if (job.status !== 'running' && job.status !== 'completed') return null
 
-  const completedCount = getCompletedSteps(job.progress_message ?? undefined, job.status)
-  const total = ASSESSMENT_STEPS.length
+  const { done: completedCount, total, currentLabel } = parseProgress(job.progress_message ?? undefined, job.status)
+  const displayTotal = Math.max(total, ASSESSMENT_STEPS.length)
+  const pct = displayTotal > 0 ? Math.round((completedCount / displayTotal) * 100) : 0
 
   return (
     <div className="mt-3 border border-slate-200 rounded-xl overflow-hidden">
@@ -64,15 +84,24 @@ function ProgressDetails({ job }: { job: SessionJobInfo }) {
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-50 hover:bg-slate-100/40 transition-colors text-left"
       >
-        <ListChecks className="h-4 w-4 text-indigo-500 shrink-0" />
+        <ListChecks className="h-4 w-4 text-earth-600 shrink-0" />
         <span className="text-xs font-semibold text-slate-700 flex-1">
-          Assessment Progress — {completedCount} / {total} steps done
+          Assessment Progress — {completedCount} / {displayTotal} steps done
+          {currentLabel && job.status === 'running' && (
+            <span className="font-normal text-slate-400 ml-1">· {currentLabel}</span>
+          )}
         </span>
-        <span className="text-xs text-slate-400 tabular-nums mr-2">
-          {Math.round((completedCount / total) * 100)}%
-        </span>
+        <span className="text-xs text-slate-400 tabular-nums mr-2">{pct}%</span>
         {open ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
       </button>
+
+      {/* Inline progress bar */}
+      <div className="h-1 bg-slate-100 overflow-hidden">
+        <div
+          className="h-full bg-earth-500 transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
 
       {open && (
         <div className="px-4 py-3 bg-slate-50/40 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5">
@@ -82,14 +111,14 @@ function ProgressDetails({ job }: { job: SessionJobInfo }) {
             return (
               <div key={step.key} className="flex items-center gap-1.5">
                 {done ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-earth-400 shrink-0" />
                 ) : active ? (
                   <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin shrink-0" />
                 ) : (
                   <div className="h-3.5 w-3.5 rounded-full border border-slate-300 shrink-0" />
                 )}
                 <span className={`text-xs truncate ${
-                  done   ? 'text-emerald-400 font-medium' :
+                  done   ? 'text-earth-400 font-medium' :
                   active ? 'text-blue-400 font-medium' :
                            'text-slate-400'
                 }`}>
@@ -106,7 +135,7 @@ function ProgressDetails({ job }: { job: SessionJobInfo }) {
 
 function JobStatusIcon({ status }: { status: JobStatus }) {
   switch (status) {
-    case 'completed':  return <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+    case 'completed':  return <CheckCircle2 className="h-4 w-4 text-earth-400" />
     case 'failed':     return <XCircle className="h-4 w-4 text-red-400" />
     case 'running':    return <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
     case 'cancelled':  return <StopCircle className="h-4 w-4 text-slate-500" />
@@ -116,7 +145,7 @@ function JobStatusIcon({ status }: { status: JobStatus }) {
 
 function JobStatusBadge({ status }: { status: JobStatus }) {
   const map: Record<JobStatus, string> = {
-    completed:  'bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20',
+    completed:  'bg-earth-500/10 text-earth-400 ring-1 ring-earth-500/20',
     failed:     'bg-red-500/10    text-red-400    ring-1 ring-red-500/20',
     running:    'bg-blue-500/10   text-blue-400   ring-1 ring-blue-500/20',
     pending:    'bg-slate-100 text-slate-500 ring-1 ring-slate-200',
@@ -137,7 +166,7 @@ function SessionBanner({ status, completed, total, failed }: {
   const config: Record<SessionStatus, { border: string; text: string; bg: string; icon: React.ReactNode }> = {
     pending:   { bg: 'bg-slate-50',    border: 'border-slate-200',     text: 'text-slate-500',   icon: <Clock className="h-5 w-5" /> },
     running:   { bg: 'bg-blue-50',         border: 'border-blue-200',      text: 'text-blue-700',   icon: <Loader2 className="h-5 w-5 animate-spin" /> },
-    completed: { bg: 'bg-emerald-50',     border: 'border-emerald-200',   text: 'text-emerald-700', icon: <CheckCircle2 className="h-5 w-5" /> },
+    completed: { bg: 'bg-earth-50',     border: 'border-earth-200',   text: 'text-earth-700', icon: <CheckCircle2 className="h-5 w-5" /> },
     partial:   { bg: 'bg-amber-50',       border: 'border-amber-200',     text: 'text-amber-700',  icon: <AlertTriangle className="h-5 w-5" /> },
     failed:    { bg: 'bg-red-50',         border: 'border-red-200',       text: 'text-red-700',    icon: <XCircle className="h-5 w-5" /> },
     cancelled: { bg: 'bg-slate-100',    border: 'border-slate-200',     text: 'text-slate-500',   icon: <StopCircle className="h-5 w-5" /> },
@@ -160,7 +189,7 @@ function SessionBanner({ status, completed, total, failed }: {
       {total > 0 && (
         <div className="space-y-1">
           <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden flex">
-            <div className="h-full bg-emerald-500/70 transition-all duration-500" style={{ width: `${(completed / total) * 100}%` }} />
+            <div className="h-full bg-earth-500/70 transition-all duration-500" style={{ width: `${(completed / total) * 100}%` }} />
             <div className="h-full bg-red-500/70 transition-all duration-500" style={{ width: `${(failed / total) * 100}%` }} />
           </div>
           <p className={`text-xs ${text}`}>{pct}% complete</p>
@@ -205,9 +234,15 @@ function JobRow({ job, onNavigate }: { job: SessionJobInfo; onNavigate: (jobId: 
       </td>
       <td className="px-5 py-3.5">
         <JobStatusBadge status={job.status} />
-        {job.progress_message && job.status === 'running' && (
-          <p className="text-xs text-slate-400 mt-1 max-w-[180px] truncate">{job.progress_message}</p>
-        )}
+        {job.progress_message && job.status === 'running' && (() => {
+          const stepMatch = job.progress_message.match(/^step:(\d+)\/(\d+):(.+)$/)
+          const displayMsg = stepMatch
+            ? `${stepMatch[3]} (${stepMatch[1]}/${stepMatch[2]})`
+            : job.progress_message
+          return (
+            <p className="text-xs text-slate-400 mt-1 max-w-[180px] truncate">{displayMsg}</p>
+          )
+        })()}
         {job.error && (
           <p className="text-xs text-red-400 mt-1 max-w-[220px] truncate" title={job.error}>
             {job.error}
@@ -224,6 +259,9 @@ function JobRow({ job, onNavigate }: { job: SessionJobInfo; onNavigate: (jobId: 
 export default function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromConsolidated = (location.state as { fromConsolidated?: boolean } | null)?.fromConsolidated === true
+  const unifiedSessionId = (location.state as { unifiedSessionId?: string } | null)?.unifiedSessionId
   const queryClient = useQueryClient()
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [wordDownloading, setWordDownloading] = useState(false)
@@ -269,10 +307,13 @@ export default function SessionDetailPage() {
     return (
       <div className="max-w-3xl mx-auto">
         <button
-          onClick={() => navigate('/sessions')}
+          onClick={() => fromConsolidated && unifiedSessionId
+            ? navigate(`/unified/sessions/${unifiedSessionId}`)
+            : navigate('/sessions')}
           className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-6 transition-colors"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to Sessions
+          <ArrowLeft className="h-4 w-4" />
+          {fromConsolidated ? 'Back to Full Report' : 'Back to Sessions'}
         </button>
         <div className="card p-8 text-center">
           <p className="font-medium text-red-400">Session not found or failed to load.</p>
@@ -286,10 +327,13 @@ export default function SessionDetailPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
       <button
-        onClick={() => navigate('/sessions')}
+        onClick={() => fromConsolidated && unifiedSessionId
+          ? navigate(`/unified/sessions/${unifiedSessionId}`)
+          : navigate('/sessions')}
         className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
       >
-        <ArrowLeft className="h-4 w-4" /> Back to Sessions
+        <ArrowLeft className="h-4 w-4" />
+        {fromConsolidated ? 'Back to Full Report' : 'Back to Sessions'}
       </button>
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -365,7 +409,7 @@ export default function SessionDetailPage() {
       {session.jobs.length > 0 && (
         <div className="card overflow-hidden">
           <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-200 bg-slate-50">
-            <Database className="h-4 w-4 text-indigo-500" />
+            <Database className="h-4 w-4 text-earth-600" />
             <h2 className="text-sm font-semibold text-slate-800">Databases</h2>
             <span className="ml-auto text-xs text-slate-400">{session.jobs.length} total</span>
           </div>

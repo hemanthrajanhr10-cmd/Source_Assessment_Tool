@@ -1,28 +1,41 @@
-import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+﻿import { useState, useRef, useEffect, Component, type ReactNode, type ErrorInfo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Zap, Database, FileText, BarChart2, ChevronDown, ChevronUp,
+  Zap, Database, FileText, BarChart2, ChevronDown, ChevronUp, ChevronRight,
   Loader2, CheckCircle2, XCircle, AlertCircle, ExternalLink,
-  Table2, Hash, Calculator, Link2, Eye, Bookmark, Layers,
-  ArrowRight, Code2, StopCircle, Download, TrendingUp,
-  Activity, GitMerge, BookOpen, Filter,
+  Table2, Hash, Calculator, Link2, Eye,
+  ArrowLeft, ArrowRight, Code2, StopCircle, Download, TrendingUp,
+  Activity, GitMerge, BookOpen, Filter, Copy, Check, Network,
+  Layers, ArrowUpRight, Info, ShieldCheck, ShieldAlert, ShieldX,
+  Search, X,
 } from 'lucide-react'
+import LineageTab from '../components/fabric/LineageTab'
+import SourceLineageSection from '../components/fabric/SourceLineageSection'
 import { api } from '../api/client'
 import type {
-  FabricDataset, FabricReport, FabricWorkspace,
-  FabricMeasure, MeasureComplexity, ReportVisual, ReportPage, VisualField,
-  FabricCalculatedColumn, FabricCalculatedTable, FabricRelationship, FabricBookmark,
+  FabricDataset, FabricWorkspace,
+  FabricMeasure, MeasureComplexity,
+  FabricCalculatedColumn, FabricCalculatedTable, FabricRelationship,
   FabricTable, FabricTableColumn,
+  ModelStorageRecommendation, TableSourceFeed,
+  FabricDataflow,
 } from '../types/api'
 import { formatDateTime } from '../utils/dateTime'
 import Loader3D from '../components/ui/Loader3D'
+import ReportsSegment from '../components/reports/ReportsSegment'
+import AssessmentProgress from '../components/AssessmentProgress'
+import PalStatusBadge from '../components/fabric/PalStatusBadge'
+import PalGateModal from '../components/fabric/PalGateModal'
+import PalGateCard from '../components/fabric/PalGateCard'
+import { useFabricPalLink } from '../hooks/useFabricPalLink'
 
 // ── Complexity helpers ────────────────────────────────────────────────────────
 
 const COMPLEXITY_COLORS: Record<string, { bg: string; text: string; border: string; hex: string }> = {
   'None':         { bg: 'bg-slate-100/50',     text: 'text-slate-500',    border: 'border-slate-200',    hex: '#71717a' },
-  'Simple':       { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', hex: '#10b981' },
+  'Simple':       { bg: 'bg-earth-50', text: 'text-earth-700', border: 'border-earth-200', hex: '#10b981' },
   'Moderate':     { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200',   hex: '#f59e0b' },
   'Complex':      { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200',  hex: '#f97316' },
   'Very Complex': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200',     hex: '#ef4444' },
@@ -39,29 +52,37 @@ function ComplexityBadge({ c, small }: { c: MeasureComplexity; small?: boolean }
   )
 }
 
+const STORAGE_BADGE_STYLES: Record<string, string> = {
+  DirectLake:  'bg-teal-50 text-teal-800 border-teal-200',
+  DirectQuery: 'bg-blue-50 text-blue-700 border-blue-200',
+  Import:      'bg-slate-100 text-slate-600 border-slate-300',
+  Composite:   'bg-orange-50 text-orange-700 border-orange-200',
+  Dual:        'bg-purple-50 text-purple-700 border-purple-200',
+}
+
 function StorageBadge({ mode }: { mode: string }) {
-  const cls =
-    mode === 'DirectLake'  ? 'bg-violet-50 text-violet-700 border-violet-200' :
-    mode === 'DirectQuery' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-    mode === 'Composite'   ? 'bg-orange-50 text-orange-700 border-orange-200' :
-                             'bg-slate-100/50   text-slate-500   border-slate-200'
+  const cls = STORAGE_BADGE_STYLES[mode] ?? 'bg-slate-100/50 text-slate-500 border-slate-200'
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
-      {mode}
+      {mode || 'Unknown'}
     </span>
   )
 }
 
-function FieldTypeBadge({ type }: { type: string }) {
-  const map: Record<string, string> = {
-    measure: 'bg-violet-50 text-violet-700 border-violet-200',
-    column: 'bg-sky-50 text-sky-700 border-sky-200',
-    aggregation: 'bg-teal-50 text-teal-700 border-teal-200',
-    hierarchy: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  }
+function StorageRiskBadge({ risk }: { risk: string }) {
+  if (risk === 'Low') return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border bg-teal-50 text-teal-700 border-teal-200">
+      <ShieldCheck className="h-3 w-3" /> Low Risk
+    </span>
+  )
+  if (risk === 'Medium') return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border bg-amber-50 text-amber-700 border-amber-200">
+      <ShieldAlert className="h-3 w-3" /> Medium Risk
+    </span>
+  )
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border ${map[type] ?? 'bg-slate-100/50 text-slate-500 border-slate-200'}`}>
-      {type}
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border bg-red-50 text-red-700 border-red-200">
+      <ShieldX className="h-3 w-3" /> High Risk
     </span>
   )
 }
@@ -102,12 +123,12 @@ function DonutChart({ data, size = 130 }: {
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {arcs.map((a, i) => (
-        <path key={i} d={a.path} fill={a.color} stroke="#09090b" strokeWidth="1.5" />
+        <path key={i} d={a.path} fill={a.color} stroke="#ffffff" strokeWidth="2" />
       ))}
-      <text x={cx} y={cy - 2} textAnchor="middle" dominantBaseline="middle"
-        fontSize="13" fontWeight="700" fill="#f4f4f5">{total}</text>
+      <text x={cx} y={cy - 3} textAnchor="middle" dominantBaseline="middle"
+        fontSize="14" fontWeight="800" fill="#0D1117">{total}</text>
       <text x={cx} y={cy + 11} textAnchor="middle" dominantBaseline="middle"
-        fontSize="8" fill="#71717a">total</text>
+        fontSize="8" fontWeight="600" fill="#64748b">total</text>
     </svg>
   )
 }
@@ -150,38 +171,64 @@ function getComplexityDistribution(ds: FabricDataset) {
 
 // ── Tab navigation ────────────────────────────────────────────────────────────
 
-type Tab = 'overview' | 'models' | 'reports' | 'complexity'
+type Tab = 'overview' | 'models' | 'reports' | 'complexity' | 'lineage' | 'dataflows'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'overview',    label: 'Overview',           icon: <Activity className="h-4 w-4" /> },
-  { id: 'models',      label: 'Semantic Models',    icon: <Database className="h-4 w-4" /> },
-  { id: 'reports',     label: 'Reports & Visuals',  icon: <FileText className="h-4 w-4" /> },
-  { id: 'complexity',  label: 'Complexity Analysis', icon: <TrendingUp className="h-4 w-4" /> },
+  { id: 'overview',   label: 'Overview',            icon: <Activity className="h-4 w-4" /> },
+  { id: 'models',     label: 'Semantic Models',     icon: <Database className="h-4 w-4" /> },
+  { id: 'reports',    label: 'Reports & Visuals',   icon: <FileText className="h-4 w-4" /> },
+  { id: 'complexity', label: 'Complexity Analysis', icon: <TrendingUp className="h-4 w-4" /> },
+  { id: 'lineage',    label: 'Measure Lineage',     icon: <Network className="h-4 w-4" /> },
+  { id: 'dataflows',  label: 'Dataflows',           icon: <Zap className="h-4 w-4" /> },
 ]
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) }) }}
+      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all shrink-0"
+      style={{
+        background: copied ? 'rgba(13,148,136,0.10)' : 'rgba(77,168,160,0.07)',
+        color: copied ? '#0F766E' : '#4DA8A0',
+        border: `1px solid ${copied ? 'rgba(13,148,136,0.25)' : 'rgba(77,168,160,0.18)'}`,
+      }}
+      title="Copy DAX expression"
+    >
+      {copied ? <Check className="h-2.5 w-2.5" /> : <Copy className="h-2.5 w-2.5" />}
+      {copied ? 'Copied!' : 'Copy'}
+    </button>
+  )
+}
+
 function MeasureRow({ m }: { m: FabricMeasure }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
+    <div className="rounded-xl overflow-hidden transition-all" style={{ border: '1px solid rgba(168,226,221,0.8)', boxShadow: open ? '0 2px 12px rgba(77,168,160,0.08)' : undefined }}>
       <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-2 bg-slate-50/40 hover:bg-slate-100/50 transition-colors text-left">
-        <Hash className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors"
+        style={{ background: open ? 'linear-gradient(135deg, rgba(77,168,160,0.05) 0%, rgba(108,189,181,0.02) 100%)' : 'rgba(240,250,249,0.8)' }}>
+        <Hash className="h-3.5 w-3.5 text-brand-600 shrink-0" />
         <span className="flex-1 text-xs font-mono font-semibold text-slate-800 truncate">{m.name}</span>
-        {m.table && <span className="text-xs text-slate-500 shrink-0 mr-1">{m.table}</span>}
+        {m.table && <span className="text-xs text-slate-400 shrink-0 mr-1 bg-slate-100 px-1.5 py-0.5 rounded">{m.table}</span>}
         {m.complexity && <ComplexityBadge c={m.complexity} small />}
-        {open ? <ChevronUp className="h-3 w-3 text-slate-500 ml-1 shrink-0" />
-               : <ChevronDown className="h-3 w-3 text-slate-500 ml-1 shrink-0" />}
+        {open ? <ChevronUp className="h-3 w-3 text-slate-400 ml-1 shrink-0" />
+               : <ChevronDown className="h-3 w-3 text-slate-400 ml-1 shrink-0" />}
       </button>
       {open && (
-        <div className="border-t border-slate-100 bg-slate-50/40 p-3 space-y-2.5">
+        <div className="border-t p-3 space-y-2.5" style={{ borderColor: 'rgba(168,226,221,0.5)', background: 'rgba(240,250,249,0.6)' }}>
           {m.expression && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1">
-                <Code2 className="h-3 w-3" /> DAX Expression
-              </p>
-              <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-32">
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                  <Code2 className="h-3 w-3" /> DAX Expression
+                </p>
+                <CopyButton text={m.expression} />
+              </div>
+              <pre className="text-xs font-mono rounded-lg px-3 py-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-32 border"
+                style={{ background: 'rgba(77,168,160,0.03)', borderColor: 'rgba(77,168,160,0.10)' }}>
                 {m.expression}
               </pre>
             </div>
@@ -223,33 +270,38 @@ function CalcItemRow({ item, type }: { item: FabricCalculatedColumn | FabricCalc
   const cx = item.complexity
   const hasExpr = !!item.expression
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
+    <div className="rounded-xl overflow-hidden transition-all" style={{ border: '1px solid rgba(168,226,221,0.8)', boxShadow: open ? '0 2px 12px rgba(77,168,160,0.08)' : undefined }}>
       <button onClick={() => hasExpr && setOpen(o => !o)}
-        className={`w-full flex items-center gap-2 px-3 py-2 bg-slate-50/40 text-left ${hasExpr ? 'hover:bg-slate-100/50 cursor-pointer' : ''} transition-colors`}>
+        className={`w-full flex items-center gap-2 px-3 py-2.5 text-left ${hasExpr ? 'cursor-pointer' : ''} transition-colors`}
+        style={{ background: open ? 'linear-gradient(135deg, rgba(217,119,6,0.05) 0%, rgba(251,191,36,0.02) 100%)' : 'rgba(240,250,249,0.8)' }}>
         {type === 'col'
-          ? <Calculator className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-          : <Table2 className="h-3.5 w-3.5 text-orange-500 shrink-0" />}
+          ? <Calculator className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+          : <Table2 className="h-3.5 w-3.5 text-orange-600 shrink-0" />}
         <span className="flex-1 text-xs font-mono font-semibold text-slate-800 truncate">{item.name}</span>
         {'table' in item && item.table && (
-          <span className="text-xs text-slate-500 shrink-0 mr-1">{(item as FabricCalculatedColumn).table}</span>
+          <span className="text-xs text-slate-400 shrink-0 mr-1 bg-slate-100 px-1.5 py-0.5 rounded">{(item as FabricCalculatedColumn).table}</span>
         )}
         {'data_type' in item && (item as FabricCalculatedColumn).data_type && (
-          <span className="text-xs text-slate-500 bg-slate-100 rounded px-1.5 py-0.5 mr-1">
+          <span className="text-xs text-slate-400 bg-slate-100 rounded px-1.5 py-0.5 mr-1">
             {(item as FabricCalculatedColumn).data_type}
           </span>
         )}
         {cx && cx.level !== 'None' && <ComplexityBadge c={cx} small />}
         {hasExpr && (
-          open ? <ChevronUp className="h-3 w-3 text-slate-500 ml-1 shrink-0" />
-               : <ChevronDown className="h-3 w-3 text-slate-500 ml-1 shrink-0" />
+          open ? <ChevronUp className="h-3 w-3 text-slate-400 ml-1 shrink-0" />
+               : <ChevronDown className="h-3 w-3 text-slate-400 ml-1 shrink-0" />
         )}
       </button>
       {open && hasExpr && (
-        <div className="border-t border-slate-100 bg-slate-50/40 p-3">
-          <p className="text-xs font-semibold text-slate-500 mb-1 flex items-center gap-1">
-            <Code2 className="h-3 w-3" /> DAX Expression
-          </p>
-          <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-28">
+        <div className="border-t p-3" style={{ borderColor: 'rgba(168,226,221,0.5)', background: 'rgba(240,250,249,0.6)' }}>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+              <Code2 className="h-3 w-3" /> DAX Expression
+            </p>
+            <CopyButton text={item.expression!} />
+          </div>
+          <pre className="text-xs font-mono rounded-lg px-3 py-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-28 border"
+            style={{ background: 'rgba(77,168,160,0.03)', borderColor: 'rgba(77,168,160,0.10)' }}>
             {item.expression}
           </pre>
           {cx && cx.score > 0 && (
@@ -295,7 +347,7 @@ function RelationshipsTable({ rels }: { rels: FabricRelationship[] }) {
               <td className="px-3 py-1.5 text-slate-500">{r.cross_filter}</td>
               <td className="px-3 py-1.5">
                 {r.is_active
-                  ? <span className="text-emerald-400 font-medium">✓ Active</span>
+                  ? <span className="text-earth-400 font-medium">✓ Active</span>
                   : <span className="text-slate-400">Inactive</span>}
               </td>
             </tr>
@@ -306,117 +358,15 @@ function RelationshipsTable({ rels }: { rels: FabricRelationship[] }) {
   )
 }
 
-function VisualFieldRow({ f }: { f: VisualField }) {
-  const [open, setOpen] = useState(false)
-  const hasDeps = f.field_type === 'measure' && f.dependencies && f.dependencies.length > 0
-  return (
-    <div className="border border-slate-200 rounded overflow-hidden">
-      <div className={`flex items-center gap-2 px-3 py-1.5 bg-slate-50 text-left ${hasDeps ? 'cursor-pointer hover:bg-slate-100' : ''}`}
-        onClick={() => hasDeps && setOpen(o => !o)}>
-        <FieldTypeBadge type={f.field_type} />
-        <span className="flex-1 text-xs font-mono text-slate-700 truncate">{f.name}</span>
-        <span className="text-xs text-slate-500 shrink-0">{f.table}</span>
-        {f.field_type === 'aggregation' && f.agg_function && (
-          <span className="text-xs text-teal-400 shrink-0">{f.agg_function}</span>
-        )}
-        {f.complexity && f.complexity.level !== 'None' && <ComplexityBadge c={f.complexity} small />}
-        {hasDeps && (open
-          ? <ChevronUp className="h-3 w-3 text-slate-400 shrink-0" />
-          : <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />)}
-      </div>
-      {open && hasDeps && (
-        <div className="border-t border-slate-100 bg-slate-50 px-3 py-2 space-y-1.5">
-          {f.expression && (
-            <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap text-slate-500 max-h-20">
-              {f.expression}
-            </pre>
-          )}
-          <div className="flex flex-wrap gap-1.5">
-            {f.dependencies!.map((d, i) => (
-              <span key={i} className="inline-flex items-center gap-1 bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-mono">
-                <span className="text-slate-500">{d.table}</span>
-                <ArrowRight className="h-2.5 w-2.5 text-slate-300" />
-                <span className="text-slate-800 font-semibold">{d.column}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function VisualCard({ v }: { v: ReportVisual }) {
-  const [open, setOpen] = useState(false)
-  if (v.field_count === 0 && !v.title) return null
-  const mCount = v.fields.filter(f => f.field_type === 'measure').length
-  const cCount = v.fields.filter(f => f.field_type === 'column' || f.field_type === 'aggregation').length
-  return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-3 py-2.5 bg-slate-100/60 hover:bg-slate-100 transition-colors text-left">
-        <Eye className="h-3.5 w-3.5 text-blue-400 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-slate-800 truncate">{v.title || v.type}</p>
-          <p className="text-xs text-slate-500">
-            {v.type}{v.field_count > 0 && ` · ${v.field_count} fields`}
-            {mCount > 0 && ` · ${mCount} measures`}
-            {cCount > 0 && ` · ${cCount} cols`}
-          </p>
-        </div>
-        {open ? <ChevronUp className="h-3 w-3 text-slate-400 shrink-0" />
-               : <ChevronDown className="h-3 w-3 text-slate-400 shrink-0" />}
-      </button>
-      {open && v.fields.length > 0 && (
-        <div className="border-t border-slate-100 p-2 space-y-1">
-          {v.fields.map((f, i) => <VisualFieldRow key={i} f={f} />)}
-        </div>
-      )}
-      {open && v.fields.length === 0 && (
-        <div className="border-t border-slate-100 px-3 py-2 text-xs text-slate-400 italic">
-          No field bindings detected for this visual.
-        </div>
-      )}
-    </div>
-  )
-}
-
-function PageAccordion({ page }: { page: ReportPage }) {
-  const [open, setOpen] = useState(false)
-  const totalFields = page.visuals.reduce((s, v) => s + v.field_count, 0)
-  return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-100/60 hover:bg-slate-100 transition-colors text-left">
-        <Layers className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-        <span className="flex-1 text-sm font-semibold text-slate-700">{page.name}</span>
-        <span className="text-xs text-slate-500 shrink-0 mr-2">
-          {page.visual_count} visual{page.visual_count !== 1 ? 's' : ''}
-          {totalFields > 0 && ` · ${totalFields} fields`}
-        </span>
-        {open ? <ChevronUp className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-               : <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />}
-      </button>
-      {open && (
-        <div className="border-t border-slate-100 p-3 space-y-2">
-          {page.visuals.length > 0
-            ? page.visuals.map((v, i) => <VisualCard key={i} v={v} />)
-            : <p className="text-xs text-slate-400 italic px-1">No visual field data for this page.</p>}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Tables panel with expandable column drill-down ────────────────────────────
 
 const DATA_TYPE_COLORS: Record<string, string> = {
   string:   'bg-sky-500/10    text-sky-400    border-sky-500/30',
-  int64:    'bg-violet-500/10 text-violet-400 border-violet-500/30',
-  double:   'bg-violet-500/10 text-violet-400 border-violet-500/30',
-  decimal:  'bg-violet-500/10 text-violet-400 border-violet-500/30',
+  int64:    'bg-earth-500/10 text-earth-500 border-earth-500/30',
+  double:   'bg-earth-500/10 text-earth-500 border-earth-500/30',
+  decimal:  'bg-earth-500/10 text-earth-500 border-earth-500/30',
   boolean:  'bg-amber-50       text-amber-700  border-amber-200',
-  datetime: 'bg-teal-500/10   text-teal-400   border-teal-500/30',
+  datetime: 'bg-earth-500/10  text-earth-400  border-earth-500/30',
   binary:   'bg-slate-100/50   text-slate-500   border-slate-200',
 }
 
@@ -455,8 +405,15 @@ function ColumnRow({ col }: { col: FabricTableColumn }) {
         )}
       </div>
       {open && col.expression && (
-        <div className="ml-9 mr-3 mb-2 rounded bg-slate-50 text-emerald-400 font-mono text-xs p-2 overflow-x-auto border border-slate-200">
-          {col.expression}
+        <div className="ml-9 mr-3 mb-2">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1"><Code2 className="h-2.5 w-2.5" /> DAX</span>
+            <CopyButton text={col.expression} />
+          </div>
+          <pre className="rounded-lg font-mono text-xs p-2 overflow-x-auto border text-slate-700"
+            style={{ background: 'rgba(77,168,160,0.03)', borderColor: 'rgba(77,168,160,0.10)' }}>
+            {col.expression}
+          </pre>
         </div>
       )}
     </div>
@@ -521,12 +478,291 @@ function TableRow({ table }: { table: FabricTable }) {
               <div className="flex items-center gap-3 px-4 pb-3 text-xs text-slate-500">
                 <span>{visibleCols.length} visible</span>
                 {hiddenCols.length > 0 && <span>{hiddenCols.length} hidden</span>}
-                {calcCols.length > 0 && <span className="text-indigo-500">{calcCols.length} calculated</span>}
+                {calcCols.length > 0 && <span className="text-earth-600">{calcCols.length} calculated</span>}
               </div>
             </>
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Source feed colors per storage mode ──────────────────────────────────────
+
+const SOURCE_MODE_STYLES: Record<string, { bg: string; border: string; text: string; dot: string }> = {
+  DirectLake:  { bg: 'bg-teal-50',    border: 'border-teal-200',   text: 'text-teal-800',   dot: 'bg-teal-500'  },
+  DirectQuery: { bg: 'bg-blue-50',    border: 'border-blue-200',   text: 'text-blue-800',   dot: 'bg-blue-500'  },
+  Import:      { bg: 'bg-slate-50',   border: 'border-slate-200',  text: 'text-slate-700',  dot: 'bg-slate-400' },
+  Composite:   { bg: 'bg-orange-50',  border: 'border-orange-200', text: 'text-orange-800', dot: 'bg-orange-500'},
+  Dual:        { bg: 'bg-purple-50',  border: 'border-purple-200', text: 'text-purple-800', dot: 'bg-purple-500'},
+}
+
+function SourceFeedCard({ table }: { table: FabricTable }) {
+  const feed: TableSourceFeed | undefined = table.source_feeds
+  const style = SOURCE_MODE_STYLES[table.storage_mode] ?? SOURCE_MODE_STYLES['Import']
+
+  if (!feed) return null
+
+  const isOptimal = feed.recommended === 'DirectLake' && table.storage_mode === 'DirectLake'
+  const isNA = feed.recommended === 'N/A — DAX table'
+
+  return (
+    <div
+      className={`rounded-xl border p-3.5 ${style.bg} ${style.border}`}
+      style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`h-2 w-2 rounded-full shrink-0 mt-0.5 ${style.dot}`} />
+          <span className={`text-xs font-semibold truncate ${style.text}`}>{table.name}</span>
+          {table.is_hidden && (
+            <span className="text-[10px] text-slate-400 bg-slate-100 rounded px-1 py-0.5 border border-slate-200 shrink-0">Hidden</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <StorageBadge mode={table.storage_mode} />
+        </div>
+      </div>
+
+      <div className="space-y-1.5 text-xs">
+        <div className="flex items-start gap-1.5">
+          <span className="text-slate-400 shrink-0 font-medium w-20">Source Type</span>
+          <span className="text-slate-700 font-medium">{feed.source_type}</span>
+        </div>
+        <div className="flex items-start gap-1.5">
+          <span className="text-slate-400 shrink-0 font-medium w-20">Description</span>
+          <span className="text-slate-600">{feed.feed_description}</span>
+        </div>
+        <div className="flex items-start gap-1.5">
+          <span className="text-slate-400 shrink-0 font-medium w-20">Latency</span>
+          <span className="text-slate-600">{feed.latency}</span>
+        </div>
+      </div>
+
+      {!isNA && (
+        <div className={`mt-2.5 pt-2.5 border-t ${style.border}`}>
+          <div className="flex items-start gap-1.5">
+            {isOptimal ? (
+              <ShieldCheck className="h-3.5 w-3.5 text-teal-600 shrink-0 mt-0.5" />
+            ) : (
+              <ArrowUpRight className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+            )}
+            <div className="min-w-0">
+              <span className={`text-[11px] font-semibold ${isOptimal ? 'text-teal-700' : 'text-amber-700'}`}>
+                {isOptimal ? 'Optimal' : `Recommended: ${feed.recommended}`}
+              </span>
+              <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{feed.recommendation_reason}</p>
+            </div>
+          </div>
+        </div>
+      )}
+      {isNA && (
+        <div className={`mt-2.5 pt-2.5 border-t ${style.border}`}>
+          <div className="flex items-center gap-1.5">
+            <Info className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+            <p className="text-[11px] text-slate-400 italic">{feed.recommendation_reason}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Model-level storage recommendation panel ──────────────────────────────────
+
+function StorageRecommendationPanel({ rec, dsName }: { rec: ModelStorageRecommendation; dsName: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const riskColor =
+    rec.risk_level === 'Low'    ? { bg: 'bg-teal-50',   border: 'border-teal-200',   header: 'bg-teal-600' } :
+    rec.risk_level === 'Medium' ? { bg: 'bg-amber-50',  border: 'border-amber-200',  header: 'bg-amber-500' } :
+                                  { bg: 'bg-red-50',    border: 'border-red-200',    header: 'bg-red-600' }
+
+  const modeOrder = ['DirectLake', 'DirectQuery', 'Composite', 'Import', 'Dual']
+  const sortedModes = Object.entries(rec.mode_breakdown)
+    .sort(([a], [b]) => (modeOrder.indexOf(a) - modeOrder.indexOf(b)))
+
+  return (
+    <div className={`rounded-xl border overflow-hidden ${riskColor.border}`}
+      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+
+      {/* Header */}
+      <div className={`${riskColor.bg} px-4 py-3 flex items-center justify-between gap-3`}
+        style={{ borderBottom: `1px solid` }}>
+        <div className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-slate-600 shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-slate-800">Storage Mode Recommendation</p>
+            <p className="text-[11px] text-slate-500">{dsName}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <StorageRiskBadge risk={rec.risk_level} />
+          <span className="text-xs text-slate-400">Current:</span>
+          <StorageBadge mode={rec.current_mode} />
+          {rec.current_mode !== rec.overall_recommended && (
+            <>
+              <ArrowRight className="h-3 w-3 text-slate-400" />
+              <StorageBadge mode={rec.overall_recommended} />
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className={`px-4 py-3 ${riskColor.bg}`}>
+        <p className="text-xs text-slate-700 leading-relaxed">{rec.summary}</p>
+      </div>
+
+      {/* Mode breakdown */}
+      {sortedModes.length > 0 && (
+        <div className="px-4 pb-3 bg-white border-t border-slate-100">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-3 mb-2">Table Storage Breakdown</p>
+          <div className="flex flex-wrap gap-2">
+            {sortedModes.map(([mode, count]) => (
+              <div key={mode} className="flex items-center gap-1.5">
+                <StorageBadge mode={mode} />
+                <span className="text-xs font-bold text-slate-600">{count} table{count !== 1 ? 's' : ''}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Migration list */}
+      {rec.tables_to_migrate.length > 0 && (
+        <div className="border-t border-slate-100 bg-white">
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className="w-full flex items-center justify-between px-4 py-2.5 text-xs hover:bg-slate-50 transition-colors"
+          >
+            <span className="font-semibold text-amber-700 flex items-center gap-1.5">
+              <ArrowUpRight className="h-3.5 w-3.5" />
+              {rec.tables_to_migrate.length} table{rec.tables_to_migrate.length !== 1 ? 's' : ''} recommended for migration
+            </span>
+            {expanded
+              ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" />
+              : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+          </button>
+          {expanded && (
+            <div className="px-4 pb-4 space-y-2">
+              {rec.tables_to_migrate.map(t => (
+                <div key={t.table} className="rounded-lg border border-amber-100 bg-amber-50/60 p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Table2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                    <span className="text-xs font-mono font-semibold text-slate-800">{t.table}</span>
+                    <StorageBadge mode={t.current_mode} />
+                    <ArrowRight className="h-3 w-3 text-slate-400" />
+                    <StorageBadge mode={t.recommended_mode} />
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-relaxed ml-5">{t.reason}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Source feeds panel (table-wise breakdown) ─────────────────────────────────
+
+function SourceFeedsPanel({ tables, ds }: { tables: FabricTable[]; ds: FabricDataset }) {
+  const [filter, setFilter] = useState('')
+  const [modeFilter, setModeFilter] = useState('All')
+
+  const allModes = Array.from(new Set(tables.map(t => t.storage_mode).filter(Boolean)))
+  const calcTables = tables.filter(t => t.is_calculated)
+
+  const filtered = tables.filter(t => {
+    const nameMatch = !filter || t.name.toLowerCase().includes(filter.toLowerCase())
+    const modeMatch = modeFilter === 'All' || t.storage_mode === modeFilter
+    return nameMatch && modeMatch
+  })
+
+  return (
+    <div className="space-y-4">
+
+      {/* Model-level recommendation */}
+      {ds.storage_recommendation && (
+        <StorageRecommendationPanel rec={ds.storage_recommendation} dsName={ds.name} />
+      )}
+
+      {/* Quick stats bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {allModes.map(mode => {
+          const count = tables.filter(t => t.storage_mode === mode).length
+          const style = SOURCE_MODE_STYLES[mode] ?? SOURCE_MODE_STYLES['Import']
+          return (
+            <div key={mode}
+              className={`rounded-lg border px-3 py-2 flex items-center gap-2 cursor-pointer transition-all ${
+                modeFilter === mode ? 'ring-2 ring-offset-1 ring-slate-400' : ''
+              } ${style.bg} ${style.border}`}
+              onClick={() => setModeFilter(modeFilter === mode ? 'All' : mode)}
+            >
+              <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${style.dot}`} />
+              <div className="min-w-0">
+                <p className={`text-xs font-bold ${style.text}`}>{count}</p>
+                <p className="text-[10px] text-slate-500 truncate">{mode}</p>
+              </div>
+            </div>
+          )
+        })}
+        {calcTables.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full shrink-0 bg-amber-500" />
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-amber-800">{calcTables.length}</p>
+              <p className="text-[10px] text-slate-500 truncate">DAX Calculated</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+          <input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Filter tables by name…"
+            className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30"
+          />
+        </div>
+        {modeFilter !== 'All' && (
+          <button
+            onClick={() => setModeFilter('All')}
+            className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            Clear filter
+          </button>
+        )}
+      </div>
+
+      {/* Cards grid */}
+      {filtered.length === 0 ? (
+        <p className="text-xs text-slate-400 italic text-center py-4">No tables match your filter.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[36rem] overflow-y-auto pr-1">
+          {filtered.map(t => <SourceFeedCard key={t.name} table={t} />)}
+        </div>
+      )}
+
+      {/* Chained model notice */}
+      <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 flex gap-2.5">
+        <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+        <div className="text-xs text-slate-600 space-y-1">
+          <p className="font-semibold text-blue-800">Chained Semantic Model Flows</p>
+          <p>
+            This tool assesses each semantic model independently. When models are chained (e.g. an Import model feeds a DirectLake model, or a DirectLake model feeds into another model), the table-level storage mode shown here reflects <em>this model's</em> configuration only.
+          </p>
+          <p>
+            For chained flows, assess both models and cross-reference their <strong>dataset_id</strong> linkage in the Reports tab to understand the full data path.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -547,7 +783,7 @@ function TablesPanel({ tables }: { tables: FabricTable[] }) {
           value={filter}
           onChange={e => setFilter(e.target.value)}
           placeholder="Filter tables…"
-          className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+          className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-earth-600/40"
         />
       </div>
 
@@ -578,37 +814,46 @@ function TablesPanel({ tables }: { tables: FabricTable[] }) {
 
 // ── Dataset section (for Models tab) ─────────────────────────────────────────
 
-type ModelSubTab = 'tables' | 'measures' | 'calc_cols' | 'calc_tables' | 'relationships'
+type ModelSubTab = 'source_feeds' | 'data_sources' | 'tables' | 'measures' | 'calc_cols' | 'calc_tables' | 'relationships'
 
-function DatasetSection({ ds }: { ds: FabricDataset }) {
-  const [open, setOpen] = useState(false)
-  const [subTab, setSubTab] = useState<ModelSubTab>('tables')
+function DatasetSection({ ds, defaultOpen }: { ds: FabricDataset; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen ?? false)
+  const [subTab, setSubTab] = useState<ModelSubTab>('source_feeds')
   const complexityPct = Math.min(100, ds.complexity_score)
   const dist = getComplexityDistribution(ds)
 
-  const SUB_TABS: { id: ModelSubTab; label: string; count: number }[] = [
-    { id: 'tables',        label: 'Tables',        count: ds.table_count },
-    { id: 'measures',      label: 'Measures',      count: ds.measure_count },
-    { id: 'calc_cols',     label: 'Calc. Columns', count: ds.calculated_column_count },
-    { id: 'calc_tables',   label: 'Calc. Tables',  count: ds.calculated_table_count },
-    { id: 'relationships', label: 'Relationships', count: ds.relationship_count },
+  // Risk indicator for the header badge
+  const rec = ds.storage_recommendation
+  const riskLevel = rec?.risk_level ?? 'Low'
+
+  const lineageCount = ds.tables.filter(t => t.source_lineage && !t.is_calculated).length
+
+  const SUB_TABS: { id: ModelSubTab; label: string; count: number | string; icon?: React.ReactNode }[] = [
+    { id: 'source_feeds',   label: 'Source Feeds',   count: ds.table_count,  icon: <Layers className="h-3 w-3" /> },
+    { id: 'data_sources',   label: 'Data Sources',   count: lineageCount,    icon: <GitMerge className="h-3 w-3" /> },
+    { id: 'tables',         label: 'Tables',         count: ds.table_count },
+    { id: 'measures',       label: 'Measures',       count: ds.measure_count },
+    { id: 'calc_cols',      label: 'Calc. Columns',  count: ds.calculated_column_count },
+    { id: 'calc_tables',    label: 'Calc. Tables',   count: ds.calculated_table_count },
+    { id: 'relationships',  label: 'Relationships',  count: ds.relationship_count },
   ]
 
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <button className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100/50 transition-all text-left"
         onClick={() => setOpen(!open)}>
-        <Database className="h-4 w-4 text-indigo-500 shrink-0" />
+        <Database className="h-4 w-4 text-earth-600 shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-900 truncate">{ds.name}</p>
           <p className="text-xs text-slate-500">by {ds.configured_by || 'unknown'}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <StorageBadge mode={ds.storage_mode} />
+          <StorageRiskBadge risk={riskLevel} />
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
             complexityPct >= 60 ? 'bg-red-50 text-red-700 border-red-200'
             : complexityPct >= 25 ? 'bg-amber-50 text-amber-700 border-amber-200'
-            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            : 'bg-earth-50 text-earth-700 border-earth-200'
           }`}>
             <BarChart2 className="h-3 w-3" />
             {complexityPct >= 60 ? 'High' : complexityPct >= 25 ? 'Medium' : 'Low'} ({complexityPct})
@@ -625,7 +870,7 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-0 border-b border-slate-100">
             {[
               { icon: <Table2 className="h-3.5 w-3.5 text-slate-500" />,     label: 'Tables',      value: ds.table_count },
-              { icon: <Hash className="h-3.5 w-3.5 text-violet-400" />,     label: 'Measures',    value: ds.measure_count },
+              { icon: <Hash className="h-3.5 w-3.5 text-earth-500" />,     label: 'Measures',    value: ds.measure_count },
               { icon: <Calculator className="h-3.5 w-3.5 text-amber-400" />, label: 'Calc Cols',  value: ds.calculated_column_count },
               { icon: <Database className="h-3.5 w-3.5 text-orange-400" />, label: 'Calc Tables', value: ds.calculated_table_count },
               { icon: <Link2 className="h-3.5 w-3.5 text-blue-400" />,      label: 'Rels',        value: ds.relationship_count },
@@ -658,31 +903,52 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
               <div className={`h-2.5 rounded-full transition-all ${
                 complexityPct >= 60 ? 'bg-gradient-to-r from-orange-500 to-red-500'
                 : complexityPct >= 25 ? 'bg-gradient-to-r from-yellow-500 to-amber-500'
-                : 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                : 'bg-gradient-to-r from-earth-400 to-earth-300'
               }`} style={{ width: `${complexityPct}%` }} />
             </div>
           </div>
 
           {/* Sub-tab nav */}
-          <div className="flex border-b border-slate-200 bg-slate-50/40 px-4">
+          <div className="flex px-4 overflow-x-auto" style={{ borderBottom: '1px solid rgba(168,226,221,0.6)', background: 'rgba(240,250,249,0.6)' }}>
             {SUB_TABS.map(t => (
               <button key={t.id}
                 onClick={() => setSubTab(t.id)}
-                className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                  subTab === t.id
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                }`}>
+                className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors whitespace-nowrap"
+                style={{
+                  borderBottomColor: subTab === t.id
+                    ? (t.id === 'source_feeds' ? '#0F766E' : '#4DA8A0')
+                    : 'transparent',
+                  color: subTab === t.id
+                    ? (t.id === 'source_feeds' ? '#0F766E' : '#25706A')
+                    : '#64748B',
+                }}>
+                {t.icon && <span>{t.icon}</span>}
                 {t.label}
-                <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                  subTab === t.id ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-500'
-                }`}>{t.count}</span>
+                <span className="rounded-full px-1.5 py-0.5 text-xs font-semibold"
+                  style={{
+                    background: subTab === t.id
+                      ? (t.id === 'source_feeds' ? 'rgba(13,148,136,0.12)' : 'rgba(77,168,160,0.10)')
+                      : 'rgba(148,163,184,0.12)',
+                    color: subTab === t.id
+                      ? (t.id === 'source_feeds' ? '#0F766E' : '#25706A')
+                      : '#64748B',
+                  }}>{t.count}</span>
               </button>
             ))}
           </div>
 
           {/* Sub-tab content */}
           <div className="p-4">
+            {subTab === 'source_feeds' && (
+              ds.tables.length > 0
+                ? <SourceFeedsPanel tables={ds.tables} ds={ds} />
+                : <p className="text-xs text-slate-400 italic">No table data available for source feeds analysis.</p>
+            )}
+
+            {subTab === 'data_sources' && (
+              <SourceLineageSection ds={ds} />
+            )}
+
             {subTab === 'tables' && (
               ds.tables.length > 0
                 ? <TablesPanel tables={ds.tables} />
@@ -727,101 +993,10 @@ function DatasetSection({ ds }: { ds: FabricDataset }) {
           {ds.web_url && (
             <div className="px-4 pb-3">
               <a href={ds.web_url} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-700 hover:underline transition-colors">
+                className="inline-flex items-center gap-1.5 text-xs text-earth-700 hover:text-earth-800 hover:underline transition-colors">
                 <ExternalLink className="h-3.5 w-3.5" /> Open in Power BI
               </a>
             </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Report section (for Reports tab) ─────────────────────────────────────────
-
-function ReportSection({ rpt }: { rpt: FabricReport }) {
-  const [open, setOpen] = useState(false)
-  const [showBm, setShowBm] = useState(false)
-
-  return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors text-left">
-        <FileText className={`h-4 w-4 shrink-0 ${rpt.is_paginated ? 'text-orange-400' : 'text-blue-400'}`} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-slate-800 truncate">{rpt.name}</p>
-          <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500 flex-wrap">
-            {rpt.is_paginated ? (
-              <span className="text-orange-400 font-medium">Paginated (RDL)</span>
-            ) : (
-              <>
-                <span>{rpt.page_count ?? '?'} pages</span>
-                <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{rpt.visual_count} visuals</span>
-                {rpt.bookmark_count > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Bookmark className="h-3 w-3 text-indigo-400" />{rpt.bookmark_count} bookmarks
-                  </span>
-                )}
-                {rpt.layout_parsed
-                  ? <span className="text-emerald-400 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Full field analysis</span>
-                  : <span className="text-slate-300">Counts only</span>}
-              </>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {rpt.web_url && (
-            <a href={rpt.web_url} target="_blank" rel="noopener noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="text-slate-500 hover:text-indigo-500 transition-colors">
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          )}
-          {open ? <ChevronUp className="h-4 w-4 text-slate-400" />
-                : <ChevronDown className="h-4 w-4 text-slate-400" />}
-        </div>
-      </button>
-
-      {open && !rpt.is_paginated && (
-        <div className="border-t border-slate-100 p-4 space-y-3">
-          {rpt.bookmarks && rpt.bookmarks.length > 0 && (
-            <div>
-              <button onClick={() => setShowBm(o => !o)}
-                className="flex items-center gap-2 text-xs font-semibold text-indigo-400 hover:text-indigo-300 mb-1 transition-colors">
-                <Bookmark className="h-3.5 w-3.5" />
-                Bookmarks ({rpt.bookmarks.length})
-                {showBm ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </button>
-              {showBm && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {rpt.bookmarks.map((bm: FabricBookmark) => (
-                    <div key={bm.id} className="flex items-center gap-2 rounded-lg bg-indigo-500/5 border border-indigo-500/20 px-3 py-2">
-                      <Bookmark className="h-3 w-3 text-indigo-400 shrink-0" />
-                      <span className="text-xs font-medium text-indigo-300 flex-1 truncate">{bm.name}</span>
-                      {bm.target_page && (
-                        <span className="flex items-center gap-1 text-xs text-indigo-500 shrink-0">
-                          <ArrowRight className="h-2.5 w-2.5" />{bm.target_page}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {rpt.pages && rpt.pages.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                Pages ({rpt.pages.length})
-              </p>
-              {rpt.pages.map((page, i) => <PageAccordion key={i} page={page} />)}
-            </div>
-          )}
-
-          {(!rpt.pages || rpt.pages.length === 0) && (
-            <p className="text-xs text-slate-400 italic">No page data available for this report.</p>
           )}
         </div>
       )}
@@ -850,49 +1025,121 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
       label, value, color: COMPLEXITY_COLORS[label]?.hex ?? '#71717a'
     }))
 
+  const STORAGE_CHART_COLORS: Record<string, string> = {
+    DirectLake:  '#0D9488',
+    DirectQuery: '#3b82f6',
+    Import:      '#71717a',
+    Composite:   '#f97316',
+    Dual:        '#8B5CF6',
+  }
   const storageChartData = Object.entries(storageDist).map(([label, value]) => ({
     label, value,
-    color: label === 'DirectLake' ? '#8b5cf6' : label === 'DirectQuery' ? '#3b82f6' : label === 'Composite' ? '#f97316' : '#52525b',
+    color: STORAGE_CHART_COLORS[label] ?? '#94a3b8',
   }))
 
   const KPI_ITEMS = [
-    { label: 'Workspaces',      value: summary.workspace_count,          color: 'text-indigo-600',  bg: 'bg-indigo-50',      border: 'border-indigo-200',     icon: <Zap className="h-5 w-5 text-indigo-500" /> },
-    { label: 'Semantic Models', value: summary.dataset_count,            color: 'text-blue-600',    bg: 'bg-blue-50',        border: 'border-blue-200',       icon: <Database className="h-5 w-5 text-blue-500" /> },
-    { label: 'Reports',         value: summary.report_count,             color: 'text-indigo-600',  bg: 'bg-indigo-50',      border: 'border-indigo-200',     icon: <FileText className="h-5 w-5 text-indigo-500" /> },
-    { label: 'Paginated',       value: summary.paginated_report_count,   color: 'text-orange-600',  bg: 'bg-orange-50',      border: 'border-orange-200',     icon: <BookOpen className="h-5 w-5 text-orange-500" /> },
-    { label: 'Total Visuals',   value: summary.total_visuals ?? 0,       color: 'text-sky-600',     bg: 'bg-sky-50',         border: 'border-sky-200',        icon: <Eye className="h-5 w-5 text-sky-500" /> },
-    { label: 'Measures',        value: summary.total_measures,           color: 'text-violet-600',  bg: 'bg-violet-50',      border: 'border-violet-200',     icon: <Hash className="h-5 w-5 text-violet-500" /> },
-    { label: 'Calc. Tables',    value: summary.total_calculated_tables,  color: 'text-amber-700',   bg: 'bg-amber-50',       border: 'border-amber-200',      icon: <Table2 className="h-5 w-5 text-amber-600" /> },
-    { label: 'Calc. Columns',   value: summary.total_calculated_columns, color: 'text-teal-600',    bg: 'bg-teal-50',        border: 'border-teal-200',       icon: <Calculator className="h-5 w-5 text-teal-500" /> },
-    { label: 'Relationships',   value: summary.total_relationships ?? 0, color: 'text-emerald-700', bg: 'bg-emerald-50',     border: 'border-emerald-200',    icon: <GitMerge className="h-5 w-5 text-emerald-600" /> },
+    { label: 'Workspaces',      value: summary.workspace_count,              iconBg: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)',  glow: 'rgba(77,168,160,0.20)',   icon: <Zap className="h-4 w-4 text-white" />,        numColor: '#25706A' },
+    { label: 'Semantic Models', value: summary.dataset_count,                iconBg: 'linear-gradient(135deg,#0891B2,#22D3EE)',  glow: 'rgba(8,145,178,0.20)',  icon: <Database className="h-4 w-4 text-white" />,   numColor: '#0E7490' },
+    { label: 'Reports',         value: summary.report_count,                 iconBg: 'linear-gradient(135deg,#0D9488,#2DD4BF)',  glow: 'rgba(13,148,136,0.20)', icon: <FileText className="h-4 w-4 text-white" />,   numColor: '#0F766E' },
+    { label: 'Dataflows',       value: summary.dataflow_count ?? 0,          iconBg: 'linear-gradient(135deg,#F59E0B,#FCD34D)',  glow: 'rgba(245,158,11,0.20)', icon: <Layers className="h-4 w-4 text-white" />,     numColor: '#92400E' },
+    { label: 'Paginated',       value: summary.paginated_report_count,       iconBg: 'linear-gradient(135deg,#D97706,#FBBF24)',  glow: 'rgba(217,119,6,0.20)',  icon: <BookOpen className="h-4 w-4 text-white" />,   numColor: '#92400E' },
+    { label: 'Total Visuals',   value: summary.total_visuals ?? 0,           iconBg: 'linear-gradient(135deg,#93CCC6,#A8E2DD)',  glow: 'rgba(77,168,160,0.20)', icon: <Eye className="h-4 w-4 text-white" />,        numColor: '#4DA8A0' },
+    { label: 'Measures',        value: summary.total_measures,               iconBg: 'linear-gradient(135deg,#4DA8A0,#93CCC6)',  glow: 'rgba(77,168,160,0.20)',   icon: <Hash className="h-4 w-4 text-white" />,       numColor: '#25706A' },
+    { label: 'Calc. Tables',    value: summary.total_calculated_tables,      iconBg: 'linear-gradient(135deg,#F59E0B,#FCD34D)',  glow: 'rgba(245,158,11,0.20)', icon: <Table2 className="h-4 w-4 text-white" />,     numColor: '#92400E' },
+    { label: 'Calc. Columns',   value: summary.total_calculated_columns,     iconBg: 'linear-gradient(135deg,#F97316,#FB923C)',  glow: 'rgba(249,115,22,0.20)', icon: <Calculator className="h-4 w-4 text-white" />, numColor: '#9A3412' },
+    { label: 'Relationships',   value: summary.total_relationships ?? 0,     iconBg: 'linear-gradient(135deg,#8B5CF6,#A78BFA)',  glow: 'rgba(139,92,246,0.20)', icon: <GitMerge className="h-4 w-4 text-white" />,   numColor: '#5B21B6' },
   ]
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-9 gap-3">
-        {KPI_ITEMS.map(({ label, value, color, bg, border, icon }) => (
-          <div key={label} className={`rounded-xl ${bg} border ${border} p-3 flex flex-col items-center text-center`}>
-            <div className="mb-1">{icon}</div>
-            <p className={`text-xl font-bold ${color}`}>{value}</p>
-            <p className="text-xs text-slate-500 leading-tight mt-0.5">{label}</p>
+
+      {/* ── Hero banner ──────────────────────────────────────────────────────── */}
+      <div className="relative rounded-2xl overflow-hidden px-6 py-5"
+        style={{
+          background: 'linear-gradient(135deg, #4DA8A0 0%, #6CBDB5 50%, #0891B2 100%)',
+          boxShadow: '0 8px 32px rgba(77,168,160,0.28), 0 2px 8px rgba(0,0,0,0.08)',
+        }}>
+        {/* Decorative orbs */}
+        <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-10 -translate-y-12 translate-x-12"
+          style={{ background: 'radial-gradient(circle, #fff 0%, transparent 70%)' }} />
+        <div className="absolute bottom-0 left-16 w-32 h-32 rounded-full opacity-10 translate-y-8"
+          style={{ background: 'radial-gradient(circle, #93CCC6 0%, transparent 70%)' }} />
+
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-white/70 text-xs font-medium uppercase tracking-widest mb-0.5">Assessment Overview</p>
+            <h2 className="text-white text-xl font-bold leading-tight">
+              {summary.workspace_count} Workspace{summary.workspace_count !== 1 ? 's' : ''} Assessed
+            </h2>
+            <p className="text-white/60 text-xs mt-1">
+              {summary.dataset_count} models · {summary.report_count} reports · {summary.total_measures} measures
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-white/60 text-[10px] uppercase tracking-wider">Total Visuals</p>
+              <p className="text-white text-2xl font-black">{summary.total_visuals ?? 0}</p>
+            </div>
+            <div className="w-px h-10 bg-white/20" />
+            <div className="text-right">
+              <p className="text-white/60 text-[10px] uppercase tracking-wider">DAX Items</p>
+              <p className="text-white text-2xl font-black">
+                {(summary.total_measures ?? 0) + (summary.total_calculated_tables ?? 0) + (summary.total_calculated_columns ?? 0)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── KPI Cards ─────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-3">
+        {KPI_ITEMS.map(({ label, value, iconBg, glow, icon, numColor }) => (
+          <div key={label}
+            className="rounded-xl p-3 flex flex-col items-center text-center group cursor-default transition-all duration-200"
+            style={{
+              background: '#ffffff',
+              border: '1px solid rgba(168,226,221,0.8)',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget
+              el.style.transform = 'translateY(-2px)'
+              el.style.boxShadow = `0 8px 24px ${glow}, 0 2px 8px rgba(0,0,0,0.06)`
+              el.style.borderColor = glow
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget
+              el.style.transform = ''
+              el.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
+              el.style.borderColor = 'rgba(168,226,221,0.8)'
+            }}
+          >
+            <div className="mb-1.5 flex items-center justify-center h-8 w-8 rounded-xl"
+              style={{ background: iconBg, boxShadow: `0 2px 8px ${glow}` }}>
+              {icon}
+            </div>
+            <p className="text-lg font-black" style={{ color: numColor }}>{value}</p>
+            <p className="text-[10px] text-slate-400 leading-tight mt-0.5 font-medium">{label}</p>
           </div>
         ))}
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="card p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-indigo-500" />
+      {/* ── Charts row ────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(168,226,221,0.8)', boxShadow: '0 2px 8px rgba(77,168,160,0.04)' }}>
+          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+            <span className="flex items-center justify-center h-6 w-6 rounded-lg"
+              style={{ background: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)' }}>
+              <TrendingUp className="h-3.5 w-3.5 text-white" />
+            </span>
             DAX Complexity Distribution
           </h3>
           <div className="flex items-center gap-6">
             <DonutChart data={complexityChartData} size={130} />
-            <div className="flex-1 space-y-1.5">
+            <div className="flex-1 space-y-2">
               {complexityChartData.map(d => (
                 <div key={d.label} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: d.color }} />
+                  <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: d.color }} />
                   <span className="text-xs text-slate-500 flex-1">{d.label}</span>
                   <span className="text-xs font-bold text-slate-800">{d.value}</span>
                 </div>
@@ -901,9 +1148,12 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
           </div>
         </div>
 
-        <div className="card p-4">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
-            <Database className="h-4 w-4 text-blue-400" />
+        <div className="rounded-2xl border p-5" style={{ borderColor: 'rgba(168,226,221,0.8)', boxShadow: '0 2px 8px rgba(77,168,160,0.04)' }}>
+          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+            <span className="flex items-center justify-center h-6 w-6 rounded-lg"
+              style={{ background: 'linear-gradient(135deg,#0891B2,#22D3EE)' }}>
+              <Database className="h-3.5 w-3.5 text-white" />
+            </span>
             Storage Mode — Semantic Models
           </h3>
           {storageChartData.length > 0
@@ -912,31 +1162,44 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
         </div>
       </div>
 
-      {/* Workspace quick-view table */}
-      <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-          <Zap className="h-4 w-4 text-indigo-500" />
-          <h3 className="text-sm font-semibold text-slate-700">Workspaces</h3>
+      {/* ── Workspace table ───────────────────────────────────────────────────── */}
+      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'rgba(168,226,221,0.8)', boxShadow: '0 2px 8px rgba(77,168,160,0.04)' }}>
+        <div className="px-5 py-3.5 flex items-center gap-3"
+          style={{ background: 'linear-gradient(135deg, rgba(77,168,160,0.06) 0%, rgba(108,189,181,0.03) 100%)', borderBottom: '1px solid rgba(168,226,221,0.6)' }}>
+          <span className="flex items-center justify-center h-6 w-6 rounded-lg"
+            style={{ background: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)', boxShadow: '0 2px 6px rgba(77,168,160,0.25)' }}>
+            <Zap className="h-3.5 w-3.5 text-white" />
+          </span>
+          <h3 className="text-sm font-bold text-slate-800">Workspaces</h3>
+          <span className="ml-auto text-xs text-slate-400">{workspaces.length} workspace{workspaces.length !== 1 ? 's' : ''}</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                {['Workspace', 'Type', 'Models', 'Reports', 'Paginated', 'Visuals', 'Measures'].map(h => (
-                  <th key={h} className="text-left px-4 py-2 font-semibold text-slate-500">{h}</th>
+            <thead>
+              <tr style={{ background: 'rgba(239,246,255,0.7)', borderBottom: '1px solid rgba(168,226,221,0.6)' }}>
+                {['Workspace', 'Type', 'Models', 'Reports', 'Paginated', 'Dataflows', 'Visuals', 'Measures'].map((h, hi) => (
+                  <th key={h} className={`px-4 py-2.5 font-semibold text-slate-500 ${hi === 0 ? 'text-left' : 'text-center'}`}>{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
-              {workspaces.map(ws => (
-                <tr key={ws.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-2 font-medium text-slate-800">{ws.name}</td>
-                  <td className="px-4 py-2 text-slate-500">{ws.type}</td>
-                  <td className="px-4 py-2 font-semibold text-blue-400">{ws.dataset_count}</td>
-                  <td className="px-4 py-2 font-semibold text-indigo-400">{ws.report_count}</td>
-                  <td className="px-4 py-2 font-semibold text-orange-400">{ws.paginated_report_count}</td>
-                  <td className="px-4 py-2 text-sky-400">{ws.reports.reduce((s, r) => s + (r.visual_count ?? 0), 0)}</td>
-                  <td className="px-4 py-2 text-violet-400">{ws.datasets.reduce((s, d) => s + d.measure_count, 0)}</td>
+            <tbody>
+              {workspaces.map((ws) => (
+                <tr key={ws.id}
+                  className="transition-colors"
+                  style={{ borderBottom: '1px solid rgba(168,226,221,0.4)' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(77,168,160,0.03)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = '' }}
+                >
+                  <td className="px-4 py-2.5 font-semibold text-slate-800">{ws.name}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500">{ws.type}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#0891B2' }}>{ws.dataset_count}</td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#0D9488' }}>{ws.report_count}</td>
+                  <td className="px-4 py-2.5 text-center font-bold text-amber-600">{ws.paginated_report_count}</td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#D97706' }}>{ws.dataflow_count ?? (ws.dataflows || []).length}</td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#4DA8A0' }}>{ws.reports.reduce((s, r) => s + (r.visual_count ?? 0), 0)}</td>
+                  <td className="px-4 py-2.5 text-center font-bold" style={{ color: '#5B21B6' }}>{ws.datasets.reduce((s, d) => s + d.measure_count, 0)}</td>
                 </tr>
               ))}
             </tbody>
@@ -947,18 +1210,395 @@ function OverviewTab({ workspaces, summary }: { workspaces: FabricWorkspace[]; s
   )
 }
 
-// ── Complexity Analysis Tab ───────────────────────────────────────────────────
+// ── Models Tab — card-based workspace → model drill-down ─────────────────────
+
+type ModelsNavLevel = 'workspaces' | 'models' | 'detail'
+
+function ModelsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
+  const [navLevel, setNavLevel] = useState<ModelsNavLevel>('workspaces')
+  const [selectedWs, setSelectedWs] = useState<FabricWorkspace | null>(null)
+  const [selectedDs, setSelectedDs] = useState<FabricDataset | null>(null)
+  const [modelFilter, setModelFilter] = useState('')
+
+  const handleSelectWorkspace = (ws: FabricWorkspace) => {
+    setSelectedWs(ws)
+    setNavLevel('models')
+  }
+
+  const handleSelectModel = (ds: FabricDataset) => {
+    setSelectedDs(ds)
+    setNavLevel('detail')
+  }
+
+  const handleBackToWorkspaces = () => {
+    setNavLevel('workspaces')
+    setSelectedWs(null)
+    setSelectedDs(null)
+    setModelFilter('')
+  }
+
+  const handleBackToModels = () => {
+    setNavLevel('models')
+    setSelectedDs(null)
+  }
+
+  // ── Breadcrumb ──────────────────────────────────────────────────────────────
+  const breadcrumb = (
+    <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-4">
+      <button
+        onClick={handleBackToWorkspaces}
+        className={`flex items-center gap-1 font-medium transition-colors ${navLevel === 'workspaces' ? 'text-slate-800 cursor-default' : 'hover:text-brand-600 text-slate-500'}`}
+      >
+        <Database className="h-3.5 w-3.5" /> Semantic Models
+      </button>
+      {(navLevel === 'models' || navLevel === 'detail') && selectedWs && (
+        <>
+          <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />
+          <button
+            onClick={handleBackToModels}
+            className={`font-medium transition-colors truncate max-w-[180px] ${navLevel === 'models' ? 'text-slate-800 cursor-default' : 'hover:text-brand-600 text-slate-500'}`}
+          >
+            {selectedWs.name}
+          </button>
+        </>
+      )}
+      {navLevel === 'detail' && selectedDs && (
+        <>
+          <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />
+          <span className="font-medium text-slate-800 truncate max-w-[200px]">{selectedDs.name}</span>
+        </>
+      )}
+    </div>
+  )
+
+  // ── Level 1: Workspace picker cards ────────────────────────────────────────
+  if (navLevel === 'workspaces') {
+    return (
+      <div className="space-y-4">
+        {breadcrumb}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {workspaces.map((ws, wi) => {
+            const totalMeasures = ws.datasets.reduce((s, d) => s + d.measure_count, 0)
+            const dist: Record<string, number> = { 'Very Complex': 0, 'Complex': 0, 'Moderate': 0, 'Simple': 0 }
+            ws.datasets.forEach(ds => {
+              const d = getComplexityDistribution(ds)
+              Object.keys(dist).forEach(k => { dist[k] = (dist[k] || 0) + (d[k] || 0) })
+            })
+            const topComplexity = ['Very Complex', 'Complex', 'Moderate', 'Simple'].find(l => dist[l] > 0)
+
+            return (
+              <motion.button
+                key={ws.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', duration: 0.4, bounce: 0, delay: wi * 0.05 }}
+                onClick={() => handleSelectWorkspace(ws)}
+                className="group rounded-2xl border text-left transition-all duration-200 overflow-hidden"
+                style={{
+                  border: '1.5px solid rgba(168,226,221,0.8)',
+                  background: 'white',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.border = '1.5px solid rgba(77,168,160,0.42)'
+                  e.currentTarget.style.boxShadow = '0 8px 28px rgba(77,168,160,0.11), 0 2px 8px rgba(77,168,160,0.07)'
+                  e.currentTarget.style.transform = 'translateY(-3px)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.border = '1.5px solid rgba(168,226,221,0.8)'
+                  e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                }}
+              >
+                {/* Card header */}
+                <div className="flex items-center gap-3 px-4 py-3.5"
+                  style={{ background: 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(108,189,181,0.02) 100%)', borderBottom: '1px solid rgba(168,226,221,0.5)' }}>
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ background: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)', boxShadow: '0 2px 8px rgba(77,168,160,0.28)' }}>
+                    <Zap className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-slate-900 truncate">{ws.name}</p>
+                    <p className="text-xs text-slate-400">{ws.type}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-brand-500 transition-colors shrink-0" />
+                </div>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
+                  {[
+                    { label: 'Models', value: ws.dataset_count, color: '#0891B2' },
+                    { label: 'Measures', value: totalMeasures, color: '#5B21B6' },
+                    { label: 'Reports', value: ws.report_count, color: '#0F766E' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex flex-col items-center py-2.5">
+                      <p className="text-base font-black" style={{ color }}>{value}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Complexity hint */}
+                <div className="px-4 py-2.5 flex items-center justify-between">
+                  <span className="text-xs text-slate-400">
+                    {ws.dataset_count} semantic model{ws.dataset_count !== 1 ? 's' : ''}
+                  </span>
+                  {topComplexity && (
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${COMPLEXITY_COLORS[topComplexity].bg} ${COMPLEXITY_COLORS[topComplexity].text} ${COMPLEXITY_COLORS[topComplexity].border}`}>
+                      <BarChart2 className="h-2.5 w-2.5" />
+                      {dist[topComplexity]} {topComplexity}
+                    </span>
+                  )}
+                </div>
+              </motion.button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Level 2: Semantic model cards for selected workspace ────────────────────
+  if (navLevel === 'models' && selectedWs) {
+    const allGroups = selectedWs.datasets.map(ds => ({
+      ds,
+      reports: selectedWs.reports.filter(r => r.dataset_id === ds.id),
+      dist: getComplexityDistribution(ds),
+    }))
+    const groups = modelFilter
+      ? allGroups.filter(({ ds }) => ds.name.toLowerCase().includes(modelFilter.toLowerCase()))
+      : allGroups
+
+    return (
+      <div className="space-y-4">
+        {breadcrumb}
+
+        {/* Workspace summary banner */}
+        <div className="rounded-2xl overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #4DA8A0 0%, #6CBDB5 50%, #93CCC6 100%)', boxShadow: '0 4px 20px rgba(77,168,160,0.22)' }}>
+          <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-white/60 text-xs font-medium uppercase tracking-widest mb-0.5">Workspace</p>
+              <p className="text-white text-lg font-bold leading-tight">{selectedWs.name}</p>
+            </div>
+            <div className="flex items-center gap-4">
+              {[
+                { label: 'Models', value: selectedWs.dataset_count },
+                { label: 'Reports', value: selectedWs.report_count },
+                { label: 'Measures', value: selectedWs.datasets.reduce((s, d) => s + d.measure_count, 0) },
+              ].map(({ label, value }) => (
+                <div key={label} className="text-center">
+                  <p className="text-white text-xl font-black">{value}</p>
+                  <p className="text-white/60 text-[10px] uppercase tracking-wider">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Search / filter bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            className="form-input pl-9 py-2 text-sm w-full"
+            placeholder={`Filter ${selectedWs.dataset_count} model${selectedWs.dataset_count !== 1 ? 's' : ''}…`}
+            value={modelFilter}
+            onChange={e => setModelFilter(e.target.value)}
+          />
+          {modelFilter && (
+            <button
+              onClick={() => setModelFilter('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Model count hint */}
+        {modelFilter && (
+          <p className="text-xs text-slate-400">
+            Showing {groups.length} of {allGroups.length} model{allGroups.length !== 1 ? 's' : ''}
+          </p>
+        )}
+
+        {/* Lineage-style: model cards → their linked reports */}
+        {groups.length === 0 ? (
+          <p className="text-xs text-slate-400 italic text-center py-8">
+            {modelFilter ? `No models match "${modelFilter}"` : 'No semantic models in this workspace.'}
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {groups.map(({ ds, reports, dist }, gi) => {
+              const complexityPct = Math.min(100, ds.complexity_score)
+              const riskLevel = ds.storage_recommendation?.risk_level ?? 'Low'
+              const topItems = Object.entries(dist).filter(([, v]) => v > 0).sort(([a], [b]) =>
+                ['Very Complex', 'Complex', 'Moderate', 'Simple', 'None'].indexOf(a) -
+                ['Very Complex', 'Complex', 'Moderate', 'Simple', 'None'].indexOf(b)
+              )
+
+              return (
+                <motion.div
+                  key={ds.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0, delay: gi * 0.04 }}
+                  className="rounded-2xl border overflow-hidden"
+                  style={{ borderColor: 'rgba(168,226,221,0.8)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+                >
+                  {/* Model header — clickable */}
+                  <button
+                    onClick={() => handleSelectModel(ds)}
+                    className="w-full group flex items-center gap-3 px-4 py-3.5 text-left transition-all"
+                    style={{ background: 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(108,189,181,0.02) 100%)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(77,168,160,0.08) 0%, rgba(108,189,181,0.04) 100%)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(108,189,181,0.02) 100%)' }}
+                  >
+                    <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                      style={{ background: 'linear-gradient(135deg,#4DA8A0,#6CBDB5)', boxShadow: '0 2px 8px rgba(77,168,160,0.25)' }}>
+                      <Database className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{ds.name}</p>
+                      <p className="text-xs text-slate-500">by {ds.configured_by || 'unknown'} · {ds.storage_mode}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StorageRiskBadge risk={riskLevel} />
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                        complexityPct >= 60 ? 'bg-red-50 text-red-700 border-red-200'
+                        : complexityPct >= 25 ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-earth-50 text-earth-700 border-earth-200'
+                      }`}>
+                        <BarChart2 className="h-3 w-3" />
+                        {complexityPct >= 60 ? 'High' : complexityPct >= 25 ? 'Medium' : 'Low'} ({complexityPct})
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-brand-500 transition-colors" />
+                    </div>
+                  </button>
+
+                  {/* KPI strip */}
+                  <div className="grid grid-cols-4 sm:grid-cols-6 divide-x divide-slate-100 border-t border-slate-100">
+                    {[
+                      { label: 'Tables', value: ds.table_count, color: '#475569' },
+                      { label: 'Measures', value: ds.measure_count, color: '#5B21B6' },
+                      { label: 'Calc Cols', value: ds.calculated_column_count, color: '#D97706' },
+                      { label: 'Calc Tables', value: ds.calculated_table_count, color: '#F97316' },
+                      { label: 'Rels', value: ds.relationship_count, color: '#0891B2' },
+                      { label: 'Reports', value: reports.length, color: '#0F766E' },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} className="flex flex-col items-center py-2 hidden sm:flex">
+                        <p className="text-sm font-black" style={{ color }}>{value}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">{label}</p>
+                      </div>
+                    ))}
+                    {/* mobile: show only first 4 */}
+                    {[
+                      { label: 'Tables', value: ds.table_count, color: '#475569' },
+                      { label: 'Measures', value: ds.measure_count, color: '#5B21B6' },
+                      { label: 'Calc Cols', value: ds.calculated_column_count, color: '#D97706' },
+                      { label: 'Reports', value: reports.length, color: '#0F766E' },
+                    ].map(({ label, value, color }) => (
+                      <div key={`m-${label}`} className="flex flex-col items-center py-2 sm:hidden">
+                        <p className="text-sm font-black" style={{ color }}>{value}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Complexity bar + lineage connector to reports */}
+                  {(topItems.length > 0 || reports.length > 0) && (
+                    <div className="border-t border-slate-100 bg-slate-50/40 px-4 py-3">
+                      {/* Complexity mini distribution */}
+                      {topItems.length > 0 && (
+                        <div className="mb-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">DAX Complexity</span>
+                            <div className="flex-1 flex gap-0.5 h-1.5 rounded-full overflow-hidden">
+                              {topItems.map(([level, count]) => {
+                                const total = topItems.reduce((s, [, v]) => s + v, 0)
+                                return (
+                                  <div key={level} style={{ width: `${(count / total) * 100}%`, backgroundColor: COMPLEXITY_COLORS[level]?.hex ?? '#71717a' }} />
+                                )
+                              })}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {topItems.map(([level, count]) => (
+                              <span key={level} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${COMPLEXITY_COLORS[level]?.bg} ${COMPLEXITY_COLORS[level]?.text} ${COMPLEXITY_COLORS[level]?.border}`}>
+                                {count} {level}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Linked reports as lineage nodes */}
+                      {reports.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                            <Link2 className="h-3 w-3" /> Linked Reports ({reports.length})
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {reports.map(r => (
+                              <div key={r.id}
+                                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-700 font-medium"
+                                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                                <FileText className="h-3 w-3 text-earth-500 shrink-0" />
+                                <span className="truncate max-w-[160px]">{r.name}</span>
+                                {r.visual_count != null && (
+                                  <span className="text-[10px] text-slate-400 shrink-0">{r.visual_count}v</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Level 3: Full DatasetSection detail for selected model ──────────────────
+  if (navLevel === 'detail' && selectedDs) {
+    return (
+      <div className="space-y-4">
+        {breadcrumb}
+        <DatasetSection ds={selectedDs} defaultOpen />
+      </div>
+    )
+  }
+
+  return null
+}
+
+// ── Complexity Analysis Tab — workspace → model → measures drill-down ─────────
 
 type ComplexityItem = {
   workspace: string; model: string; type: 'Measure' | 'Calc Column' | 'Calc Table'
   name: string; table: string; level: string; score: number; expression: string
 }
 
+type ComplexityNavLevel = 'workspaces' | 'models' | 'measures'
+
 function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
-  const [filter, setFilter] = useState<string>('All')
+  const [complexityFilter, setComplexityFilter] = useState<string>('All')
   const [search, setSearch] = useState('')
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+  const [navLevel, setNavLevel] = useState<ComplexityNavLevel>('workspaces')
+  const [selectedWs, setSelectedWs] = useState<FabricWorkspace | null>(null)
+  const [selectedDs, setSelectedDs] = useState<FabricDataset | null>(null)
+  // track which empty workspace was clicked to show the message
+  const [emptyWsMessage, setEmptyWsMessage] = useState<string | null>(null)
+  const [emptyDsMessage, setEmptyDsMessage] = useState<string | null>(null)
 
+  // Build the full item list
   const all: ComplexityItem[] = []
   workspaces.forEach(ws => {
     ws.datasets.forEach(ds => {
@@ -978,121 +1618,495 @@ function ComplexityTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
   })
   all.sort((a, b) => b.score - a.score)
 
-  const levels = ['All', 'Very Complex', 'Complex', 'Moderate', 'Simple']
-  const filtered = all.filter(item =>
-    (filter === 'All' || item.level === filter) &&
-    (!search || item.name.toLowerCase().includes(search.toLowerCase()) || item.model.toLowerCase().includes(search.toLowerCase()))
-  )
-
   const typeBadge = (t: string) => {
     const map: Record<string, string> = {
-      'Measure':     'bg-violet-500/10 text-violet-400 border-violet-500/30',
-      'Calc Column': 'bg-amber-50       text-amber-700  border-amber-200',
+      'Measure':     'bg-earth-500/10 text-earth-500 border-earth-500/30',
+      'Calc Column': 'bg-amber-50 text-amber-700 border-amber-200',
       'Calc Table':  'bg-orange-500/10 text-orange-400 border-orange-500/30',
     }
     return <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-xs font-medium ${map[t] ?? 'bg-slate-100/50 text-slate-500 border-slate-200'}`}>{t}</span>
   }
 
-  return (
-    <div className="space-y-4">
-      {/* Summary cards per level */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {['Very Complex', 'Complex', 'Moderate', 'Simple'].map(level => {
-          const count = all.filter(x => x.level === level).length
-          const clr   = COMPLEXITY_COLORS[level]
-          return (
-            <button key={level}
-              onClick={() => setFilter(f => f === level ? 'All' : level)}
-              className={`rounded-xl p-3 border-2 text-left transition-all ${
-                filter === level ? `${clr.bg} ${clr.border}` : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-              }`}>
-              <p className={`text-xl font-bold ${clr.text}`}>{count}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{level}</p>
-            </button>
-          )
-        })}
-      </div>
+  // Context-aware counts: what scope are we in?
+  const contextItems = navLevel === 'workspaces'
+    ? all
+    : navLevel === 'models' && selectedWs
+      ? all.filter(x => x.workspace === selectedWs.name)
+      : navLevel === 'measures' && selectedDs
+        ? all.filter(x => x.model === selectedDs.name)
+        : all
 
-      {/* Filter & search bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 flex-1 min-w-48">
-          <Filter className="h-3.5 w-3.5 text-slate-500" />
-          <input
-            className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder-zinc-600"
-            placeholder="Search by name or model…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-1">
-          {levels.map(l => (
-            <button key={l}
-              onClick={() => setFilter(l)}
-              className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors ${
-                filter === l
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800'
-              }`}>{l}</button>
-          ))}
-        </div>
-        <span className="text-xs text-slate-400">{filtered.length} items</span>
-      </div>
+  // Summary card counts update based on navigation context
+  const summaryCountFor = (level: string) =>
+    contextItems.filter(x => x.level === level).length
 
-      {/* List */}
-      {filtered.length === 0 ? (
-        <div className="card p-8 text-center text-slate-400">
-          <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">No items match the current filter.</p>
-        </div>
-      ) : (
-        <div className="card overflow-hidden">
-          <div className="divide-y divide-slate-50">
-            {filtered.map((item, idx) => {
-              const clr   = COMPLEXITY_COLORS[item.level] ?? COMPLEXITY_COLORS['None']
-              const isExp = expandedIdx === idx
-              const maxScore = filtered[0].score || 1
-              const barPct = (item.score / maxScore) * 100
+  const handleSelectWorkspace = (ws: FabricWorkspace) => {
+    // Check if this workspace has any items matching the current filter
+    const wsItems = all.filter(x => x.workspace === ws.name &&
+      (complexityFilter === 'All' || x.level === complexityFilter))
+    if (wsItems.length === 0 && complexityFilter !== 'All') {
+      setEmptyWsMessage(ws.name)
+      return
+    }
+    setEmptyWsMessage(null)
+    setSelectedWs(ws)
+    setNavLevel('models')
+  }
 
-              return (
-                <div key={idx}>
-                  <button onClick={() => setExpandedIdx(isExp ? null : idx)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left">
-                    <span className="text-xs font-bold text-slate-400 w-6 shrink-0">#{idx + 1}</span>
-                    <div className="w-24 shrink-0">{typeBadge(item.type)}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 truncate">{item.name}</p>
-                      <p className="text-xs text-slate-500 truncate">{item.workspace} / {item.model}{item.table && item.table !== item.name ? ` · ${item.table}` : ''}</p>
-                    </div>
-                    <div className="w-24 hidden sm:block">
-                      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                        <div className="h-1.5 rounded-full transition-all"
-                          style={{ width: `${barPct}%`, backgroundColor: clr.hex }} />
-                      </div>
-                    </div>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${clr.bg} ${clr.text} ${clr.border} shrink-0`}>
-                      {item.level} <span className="opacity-60">({item.score})</span>
-                    </span>
-                    {isExp ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                           : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />}
-                  </button>
-                  {isExp && item.expression && (
-                    <div className="px-4 pb-3 border-t border-slate-100 bg-slate-50/60">
-                      <p className="text-xs font-semibold text-slate-500 mb-1 mt-2 flex items-center gap-1">
-                        <Code2 className="h-3 w-3" /> DAX Expression
-                      </p>
-                      <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-40">
-                        {item.expression}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+  const handleSelectModel = (ds: FabricDataset) => {
+    if (!selectedWs) return
+    const dsItems = all.filter(x => x.model === ds.name && x.workspace === selectedWs.name &&
+      (complexityFilter === 'All' || x.level === complexityFilter))
+    if (dsItems.length === 0 && complexityFilter !== 'All') {
+      setEmptyDsMessage(ds.name)
+      return
+    }
+    setEmptyDsMessage(null)
+    setSelectedDs(ds)
+    setNavLevel('measures')
+    setExpandedIdx(null)
+  }
+
+  const handleBackToWorkspaces = () => {
+    setNavLevel('workspaces')
+    setSelectedWs(null)
+    setSelectedDs(null)
+    setEmptyWsMessage(null)
+    setEmptyDsMessage(null)
+    setExpandedIdx(null)
+  }
+
+  const handleBackToModels = () => {
+    setNavLevel('models')
+    setSelectedDs(null)
+    setEmptyDsMessage(null)
+    setExpandedIdx(null)
+  }
+
+  // Breadcrumb
+  const breadcrumb = (
+    <div className="flex items-center gap-1.5 text-xs text-slate-500 flex-wrap">
+      <button
+        onClick={handleBackToWorkspaces}
+        className={`flex items-center gap-1 font-medium transition-colors ${navLevel === 'workspaces' ? 'text-slate-800 cursor-default' : 'hover:text-brand-600 text-slate-500'}`}
+      >
+        <TrendingUp className="h-3.5 w-3.5" /> Complexity Analysis
+      </button>
+      {(navLevel === 'models' || navLevel === 'measures') && selectedWs && (
+        <>
+          <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />
+          <button
+            onClick={handleBackToModels}
+            className={`font-medium transition-colors truncate max-w-[180px] ${navLevel === 'models' ? 'text-slate-800 cursor-default' : 'hover:text-brand-600 text-slate-500'}`}
+          >
+            {selectedWs.name}
+          </button>
+        </>
+      )}
+      {navLevel === 'measures' && selectedDs && (
+        <>
+          <ChevronRight className="h-3 w-3 text-slate-300 shrink-0" />
+          <span className="font-medium text-slate-800 truncate max-w-[200px]">{selectedDs.name}</span>
+        </>
       )}
     </div>
   )
+
+  // Summary cards (always shown, counts change with context)
+  const summaryCards = (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {['Very Complex', 'Complex', 'Moderate', 'Simple'].map(level => {
+        const count = summaryCountFor(level)
+        const isTotal = navLevel === 'workspaces'
+        const clr = COMPLEXITY_COLORS[level]
+        return (
+          <button key={level}
+            onClick={() => { setComplexityFilter(f => f === level ? 'All' : level); setEmptyWsMessage(null); setEmptyDsMessage(null) }}
+            className={`rounded-xl p-3.5 border-2 text-left transition-all ${
+              complexityFilter === level ? `${clr.bg} ${clr.border}` : 'bg-slate-50 border-slate-200 hover:border-slate-300'
+            }`}
+            style={{ boxShadow: complexityFilter === level ? `0 0 0 3px ${clr.hex}22` : undefined }}
+          >
+            <p className={`text-2xl font-black ${clr.text}`}>{count}</p>
+            <p className="text-xs text-slate-500 mt-0.5 font-medium">{level}</p>
+            {!isTotal && (
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {navLevel === 'models' ? 'in this workspace' : 'in this model'}
+              </p>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  // Complexity filter pills
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-2">
+      {['All', 'Very Complex', 'Complex', 'Moderate', 'Simple'].map(l => {
+        const clr = COMPLEXITY_COLORS[l]
+        return (
+          <button key={l}
+            onClick={() => { setComplexityFilter(l); setEmptyWsMessage(null); setEmptyDsMessage(null) }}
+            className={`px-2.5 py-1 text-xs rounded-full font-medium transition-colors border ${
+              complexityFilter === l
+                ? `${clr?.bg ?? 'bg-earth-600'} ${clr?.text ?? 'text-white'} ${clr?.border ?? 'border-earth-600'}`
+                : 'bg-slate-100 text-slate-500 border-transparent hover:bg-slate-200 hover:text-slate-800'
+            }`}>{l}</button>
+        )
+      })}
+    </div>
+  )
+
+  // ── Level 1: Workspace cards ────────────────────────────────────────────────
+  if (navLevel === 'workspaces') {
+    return (
+      <div className="space-y-4">
+        {summaryCards}
+        {filterBar}
+
+        {emptyWsMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2.5 text-sm text-amber-800"
+          >
+            <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">No {complexityFilter} measures in "{emptyWsMessage}"</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                None of the semantic models in this workspace contain any measures, calculated columns,
+                or calculated tables classified as <strong>{complexityFilter}</strong>.
+                Try selecting a different complexity level or view all workspaces with the "All" filter.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {workspaces.map((ws, wi) => {
+            const wsItems = all.filter(x => x.workspace === ws.name)
+            const wsFiltered = complexityFilter === 'All'
+              ? wsItems
+              : wsItems.filter(x => x.level === complexityFilter)
+            const hasMatches = wsFiltered.length > 0
+            const isEmpty = !hasMatches && complexityFilter !== 'All'
+
+            const wsDist: Record<string, number> = {}
+            wsItems.forEach(x => { wsDist[x.level] = (wsDist[x.level] || 0) + 1 })
+
+            return (
+              <motion.button
+                key={ws.id}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', duration: 0.4, bounce: 0, delay: wi * 0.05 }}
+                onClick={() => handleSelectWorkspace(ws)}
+                className="rounded-2xl border text-left transition-all duration-200 overflow-hidden"
+                style={{
+                  border: isEmpty
+                    ? '1.5px solid rgba(168,226,221,0.5)'
+                    : '1.5px solid rgba(168,226,221,0.8)',
+                  background: isEmpty ? 'rgba(248,250,252,0.7)' : 'white',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                  opacity: isEmpty ? 0.65 : 1,
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.border = isEmpty
+                    ? '1.5px solid rgba(148,163,184,0.5)'
+                    : '1.5px solid rgba(77,168,160,0.42)'
+                  e.currentTarget.style.boxShadow = isEmpty
+                    ? '0 4px 14px rgba(148,163,184,0.15)'
+                    : '0 8px 28px rgba(77,168,160,0.11), 0 2px 8px rgba(77,168,160,0.07)'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.opacity = '1'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.border = isEmpty
+                    ? '1.5px solid rgba(168,226,221,0.5)'
+                    : '1.5px solid rgba(168,226,221,0.8)'
+                  e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.opacity = isEmpty ? '0.65' : '1'
+                }}
+              >
+                <div className="flex items-center gap-3 px-4 py-3.5"
+                  style={{
+                    background: isEmpty
+                      ? 'rgba(248,250,252,0.8)'
+                      : 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(108,189,181,0.02) 100%)',
+                    borderBottom: '1px solid rgba(168,226,221,0.5)',
+                  }}>
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: isEmpty
+                        ? 'rgba(148,163,184,0.15)'
+                        : 'linear-gradient(135deg,#4DA8A0,#6CBDB5)',
+                      boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(77,168,160,0.28)',
+                    }}>
+                    <TrendingUp className={`h-4 w-4 ${isEmpty ? 'text-slate-400' : 'text-white'}`} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm font-bold truncate ${isEmpty ? 'text-slate-500' : 'text-slate-900'}`}>{ws.name}</p>
+                    <p className="text-xs text-slate-400">{ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''}</p>
+                  </div>
+                  {isEmpty
+                    ? <span className="text-xs text-slate-400 italic shrink-0">No match</span>
+                    : <ArrowRight className="h-4 w-4 text-slate-300 shrink-0" />}
+                </div>
+
+                {isEmpty ? (
+                  <div className="px-4 py-3 text-xs text-slate-400 italic">
+                    No <strong className="text-slate-500">{complexityFilter}</strong> DAX items in any model within this workspace.
+                    Click to confirm.
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
+                      {['Very Complex', 'Complex', 'Moderate'].map(level => (
+                        <div key={level} className="flex flex-col items-center py-2">
+                          <p className={`text-base font-black ${COMPLEXITY_COLORS[level].text}`}>{wsDist[level] || 0}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{level.replace(' ', ' ')}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="px-4 py-2.5 flex items-center justify-between">
+                      <span className="text-xs text-slate-400">{wsItems.length} total DAX items</span>
+                      <span className="text-xs font-semibold" style={{ color: '#4DA8A0' }}>{wsFiltered.length} matching</span>
+                    </div>
+                  </>
+                )}
+              </motion.button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Level 2: Semantic model cards for selected workspace ─────────────────────
+  if (navLevel === 'models' && selectedWs) {
+    const wsItems = all.filter(x => x.workspace === selectedWs.name)
+
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          {breadcrumb}
+          {filterBar}
+        </div>
+        {summaryCards}
+
+        {emptyDsMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+            className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2.5 text-sm text-amber-800"
+          >
+            <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">No {complexityFilter} measures in "{emptyDsMessage}"</p>
+              <p className="text-xs text-amber-600 mt-0.5">
+                This semantic model does not contain any DAX items classified as <strong>{complexityFilter}</strong>.
+                Try a different complexity filter to explore what's inside this model.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        <div className="space-y-3">
+          {selectedWs.datasets.map((ds, di) => {
+            const dsItems = wsItems.filter(x => x.model === ds.name)
+            const dsFiltered = complexityFilter === 'All'
+              ? dsItems
+              : dsItems.filter(x => x.level === complexityFilter)
+            const isEmpty = dsFiltered.length === 0 && complexityFilter !== 'All'
+            const dsDist: Record<string, number> = {}
+            dsItems.forEach(x => { dsDist[x.level] = (dsDist[x.level] || 0) + 1 })
+            const topLevel = ['Very Complex', 'Complex', 'Moderate', 'Simple'].find(l => dsDist[l] > 0)
+
+            return (
+              <motion.button
+                key={ds.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', duration: 0.38, bounce: 0, delay: di * 0.04 }}
+                onClick={() => handleSelectModel(ds)}
+                className="w-full rounded-2xl border text-left transition-all overflow-hidden"
+                style={{
+                  border: isEmpty ? '1.5px solid rgba(168,226,221,0.5)' : '1.5px solid rgba(168,226,221,0.8)',
+                  background: isEmpty ? 'rgba(248,250,252,0.7)' : 'white',
+                  opacity: isEmpty ? 0.65 : 1,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.border = isEmpty
+                    ? '1.5px solid rgba(148,163,184,0.5)'
+                    : '1.5px solid rgba(77,168,160,0.42)'
+                  e.currentTarget.style.opacity = '1'
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(77,168,160,0.10)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.border = isEmpty
+                    ? '1.5px solid rgba(168,226,221,0.5)'
+                    : '1.5px solid rgba(168,226,221,0.8)'
+                  e.currentTarget.style.opacity = isEmpty ? '0.65' : '1'
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
+                }}
+              >
+                <div className="flex items-center gap-3 px-4 py-3.5"
+                  style={{
+                    background: isEmpty
+                      ? 'rgba(248,250,252,0.8)'
+                      : 'linear-gradient(135deg, rgba(77,168,160,0.04) 0%, rgba(108,189,181,0.02) 100%)',
+                    borderBottom: '1px solid rgba(168,226,221,0.5)',
+                  }}>
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
+                    style={{
+                      background: isEmpty ? 'rgba(148,163,184,0.15)' : 'linear-gradient(135deg,#4DA8A0,#6CBDB5)',
+                      boxShadow: isEmpty ? 'none' : '0 2px 8px rgba(77,168,160,0.25)',
+                    }}>
+                    <Database className={`h-4 w-4 ${isEmpty ? 'text-slate-400' : 'text-white'}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold truncate ${isEmpty ? 'text-slate-500' : 'text-slate-900'}`}>{ds.name}</p>
+                    <p className="text-xs text-slate-400">{dsItems.length} DAX item{dsItems.length !== 1 ? 's' : ''} total</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {!isEmpty && topLevel && (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${COMPLEXITY_COLORS[topLevel].bg} ${COMPLEXITY_COLORS[topLevel].text} ${COMPLEXITY_COLORS[topLevel].border}`}>
+                        {dsDist[topLevel]} {topLevel}
+                      </span>
+                    )}
+                    {isEmpty
+                      ? <span className="text-xs text-slate-400 italic">No match</span>
+                      : <ArrowRight className="h-4 w-4 text-slate-300" />}
+                  </div>
+                </div>
+
+                {isEmpty ? (
+                  <div className="px-4 py-2.5 text-xs text-slate-400 italic">
+                    No <strong className="text-slate-500">{complexityFilter}</strong> DAX items in this model. Click to see what's here.
+                  </div>
+                ) : (
+                  <div className="px-4 py-2.5 flex items-center gap-3 flex-wrap">
+                    {Object.entries(dsDist)
+                      .filter(([, v]) => v > 0)
+                      .sort(([a], [b]) => ['Very Complex', 'Complex', 'Moderate', 'Simple'].indexOf(a) - ['Very Complex', 'Complex', 'Moderate', 'Simple'].indexOf(b))
+                      .map(([level, count]) => (
+                        <span key={level} className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${COMPLEXITY_COLORS[level]?.bg} ${COMPLEXITY_COLORS[level]?.text} ${COMPLEXITY_COLORS[level]?.border}`}>
+                          {count} {level}
+                        </span>
+                      ))}
+                    <span className="ml-auto text-xs font-semibold" style={{ color: '#4DA8A0' }}>
+                      {dsFiltered.length} matching
+                    </span>
+                  </div>
+                )}
+              </motion.button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Level 3: Measures list for selected model ────────────────────────────────
+  if (navLevel === 'measures' && selectedDs) {
+    const modelItems = all
+      .filter(x => x.model === selectedDs.name && (selectedWs ? x.workspace === selectedWs.name : true))
+      .filter(x => complexityFilter === 'All' || x.level === complexityFilter)
+      .filter(x => !search || x.name.toLowerCase().includes(search.toLowerCase()) || x.model.toLowerCase().includes(search.toLowerCase()))
+
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          {breadcrumb}
+          {filterBar}
+        </div>
+        {summaryCards}
+
+        {/* Search */}
+        <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <Filter className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+          <input
+            className="flex-1 text-sm outline-none bg-transparent text-slate-700 placeholder-slate-400"
+            placeholder="Search by measure name…"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setExpandedIdx(null) }}
+          />
+          <span className="text-xs text-slate-400 shrink-0">{modelItems.length} item{modelItems.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        {modelItems.length === 0 ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-6 text-center">
+            <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-30 text-amber-400" />
+            <p className="text-sm font-semibold text-amber-800">
+              No {complexityFilter !== 'All' ? complexityFilter : ''} DAX items in this model
+            </p>
+            <p className="text-xs text-amber-600 mt-1">
+              {complexityFilter !== 'All'
+                ? `"${selectedDs.name}" does not have any DAX items classified as ${complexityFilter}. Try clearing the filter to view all items.`
+                : `No DAX items with a complexity score were found in this model.`}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'rgba(168,226,221,0.8)', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div className="divide-y divide-slate-50">
+              {modelItems.map((item, idx) => {
+                const clr = COMPLEXITY_COLORS[item.level] ?? COMPLEXITY_COLORS['None']
+                const isExp = expandedIdx === idx
+                const maxScore = modelItems[0].score || 1
+                const barPct = (item.score / maxScore) * 100
+
+                return (
+                  <div key={idx}>
+                    <button onClick={() => setExpandedIdx(isExp ? null : idx)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left">
+                      <span className="text-xs font-bold text-slate-400 w-6 shrink-0">#{idx + 1}</span>
+                      <div className="w-24 shrink-0">{typeBadge(item.type)}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">{item.name}</p>
+                        {item.table && item.table !== item.name && (
+                          <p className="text-xs text-slate-400 truncate font-mono">{item.table}</p>
+                        )}
+                      </div>
+                      <div className="w-24 hidden sm:block">
+                        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                          <div className="h-1.5 rounded-full transition-all" style={{ width: `${barPct}%`, backgroundColor: clr.hex }} />
+                        </div>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${clr.bg} ${clr.text} ${clr.border} shrink-0`}>
+                        {item.level} <span className="opacity-60">({item.score})</span>
+                      </span>
+                      {isExp ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                             : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" />}
+                    </button>
+                    {isExp && item.expression && (
+                      <div className="px-4 pb-3 border-t border-slate-100 bg-slate-50/60">
+                        <div className="flex items-center justify-between mb-1 mt-2">
+                          <p className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                            <Code2 className="h-3 w-3" /> DAX Expression
+                          </p>
+                          <CopyButton text={item.expression} />
+                        </div>
+                        <pre className="text-xs font-mono bg-slate-50 border border-slate-200 rounded p-2 overflow-x-auto whitespace-pre-wrap text-slate-700 max-h-40">
+                          {item.expression}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return null
 }
 
 // ── Progress message parser ───────────────────────────────────────────────────
@@ -1114,83 +2128,704 @@ function parseProgress(raw: string | null | undefined): ProgressData | null {
   return null
 }
 
-function ProgressBar({ done, total, label, color }: {
-  done: number; total: number; label: string; color: string
-}) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0
+
+// ── Error Boundary ─────────────────────────────────────────────────────────────
+
+class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('FabricSessionDetailPage render error', error, info) }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+          <AlertCircle className="h-10 w-10 text-red-400" />
+          <p className="text-slate-700 font-medium">Something went wrong rendering this page.</p>
+          <p className="text-xs text-slate-500 max-w-sm">{(this.state.error as Error).message}</p>
+          <button
+            onClick={() => { this.setState({ error: null }); window.location.reload() }}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-earth-50 text-earth-700 border border-earth-200 hover:bg-earth-100 transition-colors"
+          >
+            Reload page
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+// ── Dataflows Tab ─────────────────────────────────────────────────────────────
+
+const DF_COMPLEXITY: Record<string, { dot: string; text: string; badge: string; bar: string }> = {
+  'None':         { dot: 'bg-slate-400',   text: 'text-slate-500',   badge: 'bg-slate-100 text-slate-500 border-slate-200',        bar: '#94a3b8' },
+  'Simple':       { dot: 'bg-emerald-500', text: 'text-emerald-700', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',   bar: '#10b981' },
+  'Moderate':     { dot: 'bg-amber-500',   text: 'text-amber-700',   badge: 'bg-amber-50 text-amber-700 border-amber-200',         bar: '#f59e0b' },
+  'Complex':      { dot: 'bg-orange-500',  text: 'text-orange-700',  badge: 'bg-orange-50 text-orange-700 border-orange-200',      bar: '#f97316' },
+  'Very Complex': { dot: 'bg-red-500',     text: 'text-red-700',     badge: 'bg-red-50 text-red-700 border-red-200',               bar: '#ef4444' },
+}
+
+// Spring config for Jakub-style enters: no bounce, fast settle
+const SPRING = { type: 'spring' as const, duration: 0.38, bounce: 0 }
+const SPRING_SLOW = { type: 'spring' as const, duration: 0.5, bounce: 0 }
+
+function DfComplexityBadge({ level, score }: { level: string; score?: number }) {
+  const c = DF_COMPLEXITY[level] ?? DF_COMPLEXITY['None']
   return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs">
-        <span className="font-medium text-slate-500 flex items-center gap-1.5">
-          {done === total && total > 0
-            ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-            : <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />}
-          {label}
-        </span>
-        <span className="font-semibold text-slate-700">{done} / {total || '…'}</span>
-      </div>
-      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-        <div
-          className="h-2 rounded-full transition-all duration-500"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
-      </div>
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border tracking-wide ${c.badge}`}>
+      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${c.dot}`} />
+      {level || 'None'}
+      {score != null && score > 0 && <span className="opacity-50 font-mono">{score}</span>}
+    </span>
+  )
+}
+
+// Complexity bar: thin horizontal progress bar representing score relative to 20
+function ComplexityBar({ score, level }: { score: number; level: string }) {
+  const c = DF_COMPLEXITY[level] ?? DF_COMPLEXITY['None']
+  const pct = Math.min(100, (score / 20) * 100)
+  return (
+    <div className="h-0.5 w-full rounded-full bg-slate-200 overflow-hidden">
+      <motion.div
+        className="h-full rounded-full"
+        style={{ background: c.bar }}
+        initial={{ width: 0 }}
+        animate={{ width: `${pct}%` }}
+        transition={{ ...SPRING_SLOW, delay: 0.1 }}
+      />
     </div>
   )
 }
 
-function RunningProgress({ progressMessage }: { progressMessage?: string | null }) {
-  const parsed = parseProgress(progressMessage)
-  const displayMsg = parsed ? parsed.msg : (progressMessage || 'Collecting Fabric workspace data…')
-  const hasCounters = parsed && (parsed.mt > 0 || parsed.rt > 0)
+// Merge kind pill — distinct style from complexity
+function MergeKindPill({ kind }: { kind: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-violet-50 text-violet-700 border-violet-200">
+      <GitMerge className="h-2.5 w-2.5" />
+      {kind}
+    </span>
+  )
+}
+
+// Named step list — renders the Advanced Query Editor step sequence
+function NamedStepsList({ steps }: { steps: string[] }) {
+  if (!steps || steps.length === 0) return null
+  return (
+    <div className="space-y-0.5">
+      {steps.map((step, i) => (
+        <motion.div
+          key={i}
+          className="flex items-center gap-2.5 group"
+          initial={{ opacity: 0, x: -6 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ ...SPRING, delay: i * 0.025 }}
+        >
+          {/* Step number */}
+          <span className="flex items-center justify-center h-4 w-4 rounded shrink-0 bg-slate-100 border border-slate-200 text-[9px] font-mono text-slate-500 group-hover:border-brand-400/50 group-hover:text-brand-600 transition-colors">
+            {i + 1}
+          </span>
+          {/* Connector line */}
+          {i < steps.length - 1 && (
+            <div className="absolute left-[17px] top-4 h-0.5 w-0 border-l border-dashed border-slate-200" style={{ height: '100%' }} />
+          )}
+          <span className="text-xs font-mono text-slate-700 truncate">{step.trim()}</span>
+        </motion.div>
+      ))}
+    </div>
+  )
+}
+
+// Destination row: shows table + lakehouse/warehouse destination
+function DestinationRow({ ent }: { ent: import('../types/api').FabricDataflowEntity }) {
+  const hasLakehouse = !!ent.destination_lakehouse
+  const hasWarehouse = !!ent.destination_warehouse
+  const destTable = ent.destination_table && ent.destination_table !== ent.name ? ent.destination_table : null
+
+  if (!hasLakehouse && !hasWarehouse && !destTable) return null
 
   return (
-    <div className="card p-6 space-y-4">
-      <div className="flex items-center gap-3">
-        <Loader2 className="h-6 w-6 animate-spin text-indigo-500 shrink-0" />
-        <div>
-          <p className="font-medium text-slate-800 text-sm">{displayMsg}</p>
-          <p className="text-xs text-slate-500 mt-0.5">Refreshes automatically every 4 seconds</p>
+    <div className="flex items-center gap-2 flex-wrap">
+      {destTable && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">
+          <Table2 className="h-2.5 w-2.5 text-slate-400" />
+          {destTable}
+        </span>
+      )}
+      {hasLakehouse && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-earth-700 bg-earth-50 border border-earth-200 rounded-full px-2 py-0.5">
+          <Database className="h-2.5 w-2.5" />
+          {ent.destination_lakehouse}
+        </span>
+      )}
+      {hasWarehouse && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-brand-700 bg-brand-50 border border-brand-200 rounded-full px-2 py-0.5">
+          <Database className="h-2.5 w-2.5" />
+          {ent.destination_warehouse}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// Entity expanded row — full detail per query table
+function EntityDetailRow({ ent, idx }: { ent: import('../types/api').FabricDataflowEntity; idx: number }) {
+  const [queryOpen, setQueryOpen] = useState(false)
+  const cx = ent.complexity ?? { score: 0, level: 'None', step_count: 0, function_count: 0, nesting_depth: 0, complex_functions: [] }
+
+  return (
+    <motion.div
+      className="rounded-lg border border-slate-200 bg-white overflow-hidden"
+      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.8)' }}
+      initial={{ opacity: 0, y: 6, filter: 'blur(2px)' }}
+      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      transition={{ ...SPRING, delay: idx * 0.04 }}
+    >
+      {/* Entity header */}
+      <div className="px-3 py-2.5 flex items-start gap-3 bg-slate-50/60">
+        {/* Step count badge */}
+        <div className="flex flex-col items-center shrink-0 mt-0.5">
+          <span className="flex items-center justify-center h-6 w-6 rounded border text-[10px] font-mono font-semibold"
+            style={{ background: 'rgba(108,189,181,0.12)', borderColor: 'rgba(108,189,181,0.35)', color: '#3D8B84' }}>
+            {ent.step_count ?? cx.step_count ?? 0}
+          </span>
+          <span className="text-[8px] text-slate-400 mt-0.5 leading-none">steps</span>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {/* Name + badges row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-slate-800 truncate">{ent.name}</span>
+            <DfComplexityBadge level={cx.level} score={cx.score} />
+            {ent.uses_merge && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-violet-50 text-violet-700 border-violet-200">
+                <GitMerge className="h-2.5 w-2.5" />
+                Merge
+              </span>
+            )}
+            {ent.column_count > 0 && (
+              <span className="text-[10px] text-slate-400 font-mono">{ent.column_count} col{ent.column_count !== 1 ? 's' : ''}</span>
+            )}
+          </div>
+
+          {/* Complexity bar */}
+          <div className="mt-1.5 mb-1">
+            <ComplexityBar score={cx.score} level={cx.level} />
+          </div>
+
+          {/* Destination row */}
+          <DestinationRow ent={ent} />
+
+          {/* Merge kinds */}
+          {(ent.merge_kinds || []).length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+              {ent.merge_kinds.map((k, i) => <MergeKindPill key={i} kind={k} />)}
+            </div>
+          )}
+
+          {/* Complex functions */}
+          {(cx.complex_functions || []).length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap mt-1.5">
+              {cx.complex_functions.slice(0, 4).map((fn, i) => (
+                <span key={i} className="text-[10px] font-mono text-slate-600 bg-slate-100 border border-slate-200 rounded px-1.5 py-0.5">
+                  {fn}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {hasCounters && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Assessment Progress</p>
-          {parsed!.mt > 0 && (
-            <ProgressBar
-              done={parsed!.md}
-              total={parsed!.mt}
-              label="Semantic Models"
-              color="#6366f1"
-            />
-          )}
-          {parsed!.rt > 0 && (
-            <ProgressBar
-              done={parsed!.rd}
-              total={parsed!.rt}
-              label="Reports"
-              color="#3b82f6"
-            />
-          )}
+      {/* Named steps section */}
+      {(ent.named_steps || []).length > 0 && (
+        <div className="border-t border-slate-100">
+          <button
+            className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-slate-50 transition-colors"
+            onClick={() => setQueryOpen(o => !o)}
+          >
+            <Code2 className="h-3 w-3 text-slate-400 shrink-0" />
+            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest flex-1">
+              Query Steps ({ent.named_steps.length})
+            </span>
+            <motion.div animate={{ rotate: queryOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="h-3 w-3 text-slate-400" />
+            </motion.div>
+          </button>
+          <AnimatePresence>
+            {queryOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={SPRING}
+                className="overflow-hidden"
+              >
+                <div className="px-3 pb-3 pt-1 relative">
+                  <NamedStepsList steps={ent.named_steps} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
+
+      {/* M expression raw view */}
+      {ent.m_expression && (
+        <div className="border-t border-slate-100 px-3 py-2">
+          <details className="group">
+            <summary className="flex items-center gap-2 cursor-pointer list-none text-[10px] font-semibold text-slate-500 uppercase tracking-widest hover:text-slate-700 transition-colors">
+              <Eye className="h-3 w-3" />
+              Advanced Query Editor
+              <ChevronDown className="h-3 w-3 ml-auto group-open:rotate-180 transition-transform" />
+            </summary>
+            <pre className="mt-2 text-[10px] font-mono text-slate-600 bg-slate-50 rounded-lg border border-slate-200 p-3 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-48 scrollbar-thin">
+              {ent.m_expression}
+            </pre>
+          </details>
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
+function DataflowCard({ df, wsName, index }: { df: FabricDataflow; wsName: string; index: number }) {
+  const [open, setOpen] = useState(false)
+  const cx = df.complexity ?? { score: 0, level: 'None', step_count: 0 }
+  const totalMerges = (df.entities || []).filter(e => e.uses_merge).length
+  const totalSteps = (df.entities || []).reduce((s, e) => s + (e.step_count ?? 0), 0)
+
+  return (
+    <motion.div
+      className="rounded-xl border overflow-hidden"
+      style={{
+        background: 'white',
+        borderColor: 'rgba(168,226,221,0.8)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+      }}
+      initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      transition={{ ...SPRING, delay: index * 0.055 }}
+      whileHover={{ boxShadow: '0 4px 16px rgba(77,168,160,0.12), 0 1px 4px rgba(0,0,0,0.06)', borderColor: 'rgba(108,189,181,0.6)' }}
+    >
+      {/* Header button */}
+      <button
+        className="w-full flex items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-earth-50/40"
+        style={{ background: 'linear-gradient(135deg, rgba(77,168,160,0.03) 0%, rgba(108,189,181,0.01) 100%)' }}
+        onClick={() => setOpen(o => !o)}
+      >
+        {/* Icon */}
+        <span
+          className="flex items-center justify-center h-8 w-8 rounded-lg shrink-0 mt-0.5"
+          style={{
+            background: 'rgba(108,189,181,0.12)',
+            border: '1px solid rgba(108,189,181,0.30)',
+            transition: 'box-shadow 0.25s ease',
+          }}
+        >
+          <Zap className="h-4 w-4" style={{ color: '#4DA8A0' }} />
+        </span>
+
+        <div className="flex-1 min-w-0">
+          {/* Name + badges */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-slate-800 truncate">{df.name}</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+              df.generation === 'Gen2'
+                ? 'bg-earth-50 text-earth-700 border-earth-200'
+                : 'bg-slate-100 text-slate-500 border-slate-200'
+            }`}>{df.generation}</span>
+            <DfComplexityBadge level={cx.level} score={cx.score} />
+            {totalMerges > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border bg-violet-50 text-violet-700 border-violet-200">
+                <GitMerge className="h-2.5 w-2.5" />
+                {totalMerges} merge{totalMerges !== 1 ? 's' : ''}
+              </span>
+            )}
+            {df._error && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-red-50 text-red-600 border border-red-200">
+                Extraction failed
+              </span>
+            )}
+          </div>
+
+          {/* Meta row */}
+          <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-500 flex-wrap">
+            <span className="flex items-center gap-1">
+              <Layers className="h-3 w-3" />
+              {df.entity_count} {df.entity_count !== 1 ? 'entities' : 'entity'}
+            </span>
+            {totalSteps > 0 && (
+              <span className="flex items-center gap-1 font-mono" style={{ color: '#4DA8A0' }}>
+                <Hash className="h-3 w-3" />
+                {totalSteps} steps
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <Link2 className="h-3 w-3" />
+              {df.datasource_count} source{df.datasource_count !== 1 ? 's' : ''}
+            </span>
+            {df.schedule_summary && df.schedule_summary !== 'Not scheduled' && (
+              <span className="flex items-center gap-1 text-slate-400">
+                <Activity className="h-3 w-3" />
+                {df.schedule_summary}
+              </span>
+            )}
+            {df.configured_by && typeof df.configured_by === 'string' && (
+              <span className="text-slate-400 truncate">by {df.configured_by}</span>
+            )}
+            <span className="ml-auto text-slate-400 text-[10px] font-mono truncate">{wsName}</span>
+          </div>
+        </div>
+
+        <motion.div
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+          className="shrink-0 mt-1"
+        >
+          <ChevronDown className="h-4 w-4 text-slate-400" />
+        </motion.div>
+      </button>
+
+      {/* Expanded panel */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={SPRING}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-slate-100">
+
+              {/* Entities section */}
+              {(df.entities || []).length > 0 && (
+                <div className="px-4 py-4">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                    <Table2 className="h-3 w-3" />
+                    Queries / Entities
+                    <span className="ml-1 font-mono text-slate-400">({df.entities.length})</span>
+                  </p>
+                  <div className="space-y-2">
+                    {df.entities.map((ent, i) => (
+                      <EntityDetailRow key={i} ent={ent} idx={i} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Data Sources section */}
+              {(df.datasources || []).length > 0 && (
+                <div className="px-4 py-3 border-t border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                    <ExternalLink className="h-3 w-3" />
+                    Data Sources
+                    <span className="ml-1 font-mono text-slate-400">({df.datasources.length})</span>
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {df.datasources.map((ds, i) => (
+                      <motion.div
+                        key={i}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px]"
+                        style={{
+                          background: 'rgba(77,168,160,0.06)',
+                          borderColor: 'rgba(77,168,160,0.20)',
+                          color: '#3D8B84',
+                        }}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ ...SPRING, delay: i * 0.04 }}
+                      >
+                        <Database className="h-3 w-3 opacity-70 shrink-0" />
+                        <span className="font-medium">{ds.datasource_type || ds.kind || 'Unknown'}</span>
+                        {(ds.path || ds.server) && (
+                          <span className="font-mono text-slate-400 text-[10px] max-w-[140px] truncate">
+                            {ds.path || String(ds.server)}
+                          </span>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Upstream Dataflows */}
+              {(df.upstream_dataflows || []).length > 0 && (
+                <div className="px-4 py-3 border-t border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                    <ArrowUpRight className="h-3 w-3" />
+                    Upstream Dependencies
+                    <span className="ml-1 font-mono text-slate-400">({df.upstream_dataflows.length})</span>
+                  </p>
+                  <div className="space-y-1.5">
+                    {df.upstream_dataflows.map((up, i) => (
+                      <motion.div
+                        key={i}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-xs"
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ ...SPRING, delay: i * 0.04 }}
+                      >
+                        <Zap className="h-3 w-3 shrink-0" style={{ color: '#4DA8A0' }} />
+                        <span className="font-semibold text-slate-700">{up.source_dataflow_name}</span>
+                        {up.entity_name && (
+                          <>
+                            <ArrowRight className="h-3 w-3 text-slate-300 shrink-0" />
+                            <span className="text-slate-500 font-mono">{up.entity_name}</span>
+                          </>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Refresh history */}
+              {(df.transactions || []).length > 0 && (
+                <div className="px-4 py-3 border-t border-slate-100">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+                    <Activity className="h-3 w-3" />
+                    Recent Refreshes
+                  </p>
+                  <div className="space-y-1">
+                    {df.transactions.slice(0, 5).map((txn, i) => (
+                      <div key={i} className="flex items-center gap-2.5 text-[11px] py-1">
+                        <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0 ${
+                          txn.status === 'Success'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-red-50 text-red-600 border-red-200'
+                        }`}>
+                          {txn.status === 'Success'
+                            ? <CheckCircle2 className="h-2.5 w-2.5" />
+                            : <XCircle className="h-2.5 w-2.5" />
+                          }
+                          {txn.status}
+                        </span>
+                        <span className="text-slate-500 font-mono text-[10px]">
+                          {txn.start_time ? txn.start_time.slice(0, 19).replace('T', ' ') : '—'}
+                        </span>
+                        <span className="text-slate-400 text-[10px]">{txn.type}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Error notice */}
+              {df._error && (
+                <div className="px-4 py-3 border-t border-slate-100">
+                  <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-xs text-red-600">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                    <span>{df._error}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  )
+}
+
+function DataflowsTab({ workspaces }: { workspaces: FabricWorkspace[] }) {
+  const [filter, setFilter] = useState('')
+  const [complexityFilter, setComplexityFilter] = useState<string>('All')
+
+  const allDataflows: { df: FabricDataflow; wsName: string }[] = workspaces.flatMap(ws =>
+    (ws.dataflows || []).map(df => ({ df, wsName: ws.name }))
+  )
+
+  const filtered = allDataflows.filter(({ df, wsName }) => {
+    const matchesText = !filter ||
+      df.name.toLowerCase().includes(filter.toLowerCase()) ||
+      wsName.toLowerCase().includes(filter.toLowerCase())
+    const matchesCx = complexityFilter === 'All' || (df.complexity?.level ?? 'None') === complexityFilter
+    return matchesText && matchesCx
+  })
+
+  // Aggregates
+  const totalEntities = allDataflows.reduce((s, { df }) => s + (df.entity_count ?? 0), 0)
+  const totalSteps = allDataflows.reduce((s, { df }) =>
+    s + (df.entities || []).reduce((es, e) => es + (e.step_count ?? 0), 0), 0
+  )
+  const totalMerges = allDataflows.reduce((s, { df }) =>
+    s + (df.entities || []).filter(e => e.uses_merge).length, 0
+  )
+  const gen1Count = allDataflows.filter(({ df }) => df.generation === 'Gen1').length
+  const gen2Count = allDataflows.filter(({ df }) => df.generation === 'Gen2').length
+
+  const complexityLevels = ['All', 'None', 'Simple', 'Moderate', 'Complex', 'Very Complex']
+
+  if (allDataflows.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+        <span
+          className="flex items-center justify-center h-14 w-14 rounded-2xl"
+          style={{ background: 'rgba(108,189,181,0.12)', border: '1px solid rgba(108,189,181,0.25)' }}
+        >
+          <Zap className="h-7 w-7" style={{ color: '#4DA8A0' }} />
+        </span>
+        <p className="text-slate-700 font-semibold">No dataflows assessed</p>
+        <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+          No dataflows were selected or found in the assessed workspaces. Select dataflows in Step 3 when creating a new assessment.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5 pt-4">
+      {/* Summary stats */}
+      <motion.div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={SPRING}
+      >
+        {[
+          { label: 'Dataflows', value: allDataflows.length, sub: `${gen1Count} Gen1 · ${gen2Count} Gen2`, icon: <Zap className="h-3.5 w-3.5" />, color: '#4DA8A0', bg: 'rgba(108,189,181,0.12)', border: 'rgba(108,189,181,0.30)' },
+          { label: 'Entities', value: totalEntities, sub: 'output tables', icon: <Table2 className="h-3.5 w-3.5" />, color: '#6D28D9', bg: 'rgba(109,40,217,0.08)', border: 'rgba(109,40,217,0.18)' },
+          { label: 'Total Steps', value: totalSteps, sub: 'M query steps', icon: <Hash className="h-3.5 w-3.5" />, color: '#059669', bg: 'rgba(5,150,105,0.08)', border: 'rgba(5,150,105,0.18)' },
+          { label: 'Merges', value: totalMerges, sub: 'join operations', icon: <GitMerge className="h-3.5 w-3.5" />, color: '#D97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.20)' },
+        ].map(({ label, value, sub, icon, color, bg, border }) => (
+          <div
+            key={label}
+            className="flex items-center gap-3 px-4 py-3.5 rounded-xl border"
+            style={{ background: 'white', borderColor: 'rgba(168,226,221,0.7)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+          >
+            <span
+              className="flex items-center justify-center h-8 w-8 rounded-lg shrink-0"
+              style={{ background: bg, border: `1px solid ${border}`, color }}
+            >
+              {icon}
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{label}</p>
+              <p className="text-xl font-black font-mono leading-tight" style={{ color }}>{value}</p>
+              <p className="text-[10px] text-slate-400 leading-tight">{sub}</p>
+            </div>
+          </div>
+        ))}
+      </motion.div>
+
+      {/* Filter bar + complexity chips */}
+      <motion.div
+        className="flex flex-col sm:flex-row gap-3"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ ...SPRING, delay: 0.1 }}
+      >
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            className="form-input pl-9 py-2 text-sm w-full"
+            placeholder="Search dataflows or workspaces…"
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+          />
+          {filter && (
+            <button
+              onClick={() => setFilter('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Complexity filter chips */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {complexityLevels.map(lvl => {
+            const active = complexityFilter === lvl
+            const c = DF_COMPLEXITY[lvl]
+            return (
+              <button
+                key={lvl}
+                onClick={() => setComplexityFilter(lvl)}
+                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-semibold border transition-all ${
+                  active
+                    ? (c ? `${c.badge} shadow-sm` : 'bg-earth-100 text-earth-700 border-earth-300')
+                    : 'bg-white text-slate-500 border-slate-200 hover:text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                {lvl}
+              </button>
+            )
+          })}
+        </div>
+      </motion.div>
+
+      {/* Dataflow list */}
+      <AnimatePresence mode="wait">
+        {filtered.length === 0 ? (
+          <motion.p
+            key="empty"
+            className="text-center text-sm text-slate-400 py-10"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            No dataflows match current filters
+          </motion.p>
+        ) : (
+          <motion.div
+            key="list"
+            className="space-y-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {filtered.map(({ df, wsName }, i) => (
+              <DataflowCard key={df.id} df={df} wsName={wsName} index={i} />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export default function FabricSessionDetailPage() {
+function FabricSessionDetailPageInner() {
   const { sessionId } = useParams<{ sessionId: string }>()
+  const navigate      = useNavigate()
+  const location      = useLocation()
+  const fromConsolidated = (location.state as { fromConsolidated?: boolean } | null)?.fromConsolidated === true
+  const unifiedSessionId = (location.state as { unifiedSessionId?: string } | null)?.unifiedSessionId
   const queryClient   = useQueryClient()
   const [activeTab, setActiveTab]   = useState<Tab>('overview')
   const [exporting,  setExporting]  = useState(false)
+  const [exportingWord, setExportingWord] = useState(false)
 
-  const { data: session, isLoading } = useQuery({
+  const pal = useFabricPalLink(sessionId)
+  const [palModalOpen, setPalModalOpen] = useState(false)
+  const [palPendingAction, setPalPendingAction] = useState<'view' | 'excel' | 'word' | null>(null)
+  const palTriggerRef = useRef<HTMLButtonElement | null>(null)
+  const palAutoStarted = useRef(false)
+  const palEnabledIntent = (location.state as { palEnabled?: boolean } | null)?.palEnabled === true
+
+  // If the client opted in on the start screen, present the device code the
+  // moment they land here instead of waiting for a manual "Connect PAL" click —
+  // this is what stands in for "runs in the background immediately" now that
+  // linking requires the client to see and act on a device code.
+  useEffect(() => {
+    if (!palEnabledIntent || palAutoStarted.current || pal.isLoadingStatus) return
+    if (pal.status === 'linked') return
+    palAutoStarted.current = true
+    setPalModalOpen(true)
+    pal.start()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [palEnabledIntent, pal.isLoadingStatus, pal.status])
+
+  const { data: session, isLoading, isError, error: queryError, refetch } = useQuery({
     queryKey: ['fabric-session', sessionId],
     queryFn:  () => api.getFabricSession(sessionId!).then(r => r.data),
-    refetchInterval: q => q.state.data?.status === 'running' ? 4000 : false,
+    refetchInterval: q => q.state.data?.status === 'running' ? 5000 : false,
+    staleTime: q => q.state.data?.status === 'completed' ? 5 * 60 * 1000 : 0,
+    retry: 3,
+    retryDelay: attempt => Math.min(1000 * 2 ** attempt, 10000),
     enabled: !!sessionId,
   })
 
@@ -1214,7 +2849,59 @@ export default function FabricSessionDetailPage() {
     }
   }
 
+  const handleWordExport = async () => {
+    if (!sessionId) return
+    setExportingWord(true)
+    try {
+      await api.downloadFabricWord(sessionId, session?.label)
+    } catch (e) {
+      console.error('Word export failed', e)
+    } finally {
+      setExportingWord(false)
+    }
+  }
+
+  // Gate view/export actions behind PAL status — the underlying handlers above
+  // run immediately once linked, otherwise the gating modal takes over.
+  const requestPalGatedAction = (action: 'view' | 'excel' | 'word', e: React.MouseEvent<HTMLButtonElement>) => {
+    if (pal.status === 'linked') {
+      if (action === 'excel') handleExport()
+      else if (action === 'word') handleWordExport()
+      return
+    }
+    palTriggerRef.current = e.currentTarget
+    setPalPendingAction(action)
+    setPalModalOpen(true)
+  }
+
+  // Resume the action the client originally clicked once PAL finishes linking —
+  // "without losing the user's place."
+  useEffect(() => {
+    if (pal.status !== 'linked' || !palPendingAction) return
+    if (palPendingAction === 'excel') handleExport()
+    else if (palPendingAction === 'word') handleWordExport()
+    setPalPendingAction(null)
+    setPalModalOpen(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pal.status])
+
   if (isLoading) return <Loader3D message="Loading session" size="lg" />
+
+  if (isError) return (
+    <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+      <AlertCircle className="h-10 w-10 text-red-400" />
+      <p className="text-slate-700 font-semibold">Failed to load session</p>
+      <p className="text-xs text-slate-500 max-w-sm">
+        {(queryError as Error)?.message ?? 'Network error. The server may be busy with a large assessment.'}
+      </p>
+      <button
+        onClick={() => refetch()}
+        className="px-4 py-2 rounded-lg text-sm font-medium bg-earth-50 text-earth-700 border border-earth-200 hover:bg-earth-100 transition-colors"
+      >
+        Retry
+      </button>
+    </div>
+  )
 
   if (!session) return (
     <div className="flex items-center gap-2 text-red-400">
@@ -1229,11 +2916,21 @@ export default function FabricSessionDetailPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
+      {/* ── Back to consolidated report (when accessed from unified session) ── */}
+      {fromConsolidated && unifiedSessionId && (
+        <button
+          onClick={() => navigate(`/unified/sessions/${unifiedSessionId}`)}
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to Full Report
+        </button>
+      )}
+
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-2.5">
-            <Zap className="h-6 w-6 text-indigo-500" />
+            <Zap className="h-6 w-6 text-earth-600" />
             {session.label || 'Fabric Assessment'}
           </h1>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -1253,11 +2950,12 @@ export default function FabricSessionDetailPage() {
               </>
             )}
             {session.status === 'completed' && (
-              <span className="inline-flex items-center gap-1.5 text-sm text-emerald-700">
+              <span className="inline-flex items-center gap-1.5 text-sm text-earth-700">
                 <CheckCircle2 className="h-4 w-4" /> Completed
                 {session.completed_at && ` · ${formatDateTime(session.completed_at)}`}
               </span>
             )}
+            {isCompleted && <PalStatusBadge status={pal.status} />}
             {session.status === 'failed' && (
               <span className="inline-flex items-center gap-1.5 text-sm text-red-400">
                 <XCircle className="h-4 w-4" /> Failed — {session.error}
@@ -1272,105 +2970,195 @@ export default function FabricSessionDetailPage() {
         </div>
 
         {isCompleted && (
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 disabled:opacity-50 transition-colors">
-            {exporting
-              ? <><Loader2 className="h-4 w-4 animate-spin" /> Exporting…</>
-              : <><Download className="h-4 w-4" /> Export Excel</>}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={e => requestPalGatedAction('excel', e)}
+              disabled={exporting}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-earth-50 hover:bg-earth-100 text-earth-700 border border-earth-200 disabled:opacity-50 transition-colors">
+              {exporting
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Exporting…</>
+                : <><Download className="h-4 w-4" /> Export Excel</>}
+            </button>
+            <button
+              onClick={e => requestPalGatedAction('word', e)}
+              disabled={exportingWord}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 disabled:opacity-50 transition-colors">
+              {exportingWord
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+                : <><Download className="h-4 w-4" /> Export Word</>}
+            </button>
+          </div>
         )}
       </div>
 
-      {/* ── Running placeholder ──────────────────────────────────────────────── */}
+      {/* ── Live progress dashboard ──────────────────────────────────────────── */}
       {session.status === 'running' && (
-        <RunningProgress progressMessage={session.progress_message} />
+        <div style={{ padding: '24px 0' }}>
+          <AssessmentProgress
+            sessionId={session.fabric_session_id}
+            sessionLabel={session.label}
+            onComplete={() => refetch()}
+          />
+        </div>
       )}
 
       {/* ── Results dashboard ────────────────────────────────────────────────── */}
       {results && workspaces.length > 0 && (
+        pal.status !== 'linked' ? (
+          <PalGateCard
+            status={pal.status}
+            onConnect={e => {
+              palTriggerRef.current = e.currentTarget
+              setPalPendingAction('view')
+              setPalModalOpen(true)
+            }}
+          />
+        ) : (
         <>
-          {/* Tab bar */}
-          <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+          {/* Tab bar — animated underline pill */}
+          <div className="flex items-center gap-0.5 overflow-x-auto pb-0"
+            style={{ borderBottom: '1px solid rgba(168,226,221,0.7)', position: 'relative' }}>
             {TABS.map(tab => (
               <button key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                }`}>
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap"
+                style={{
+                  position: 'relative',
+                  color: activeTab === tab.id ? '#25706A' : '#64748B',
+                  background: activeTab === tab.id ? 'rgba(77,168,160,0.05)' : 'transparent',
+                  border: 'none', cursor: 'pointer', outline: 'none',
+                  transition: 'color 150ms cubic-bezier(0.4,0,0.2,1), background 150ms cubic-bezier(0.4,0,0.2,1)',
+                }}
+                onMouseEnter={e => {
+                  if (activeTab !== tab.id) {
+                    (e.currentTarget as HTMLButtonElement).style.color = '#4DA8A0'
+                    ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(77,168,160,0.04)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (activeTab !== tab.id) {
+                    (e.currentTarget as HTMLButtonElement).style.color = '#64748B'
+                    ;(e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+                  }
+                }}
+              >
                 {tab.icon}
                 {tab.label}
+                {/* Animated bottom indicator */}
+                {activeTab === tab.id && (
+                  <motion.span
+                    layoutId="tab-underline"
+                    style={{
+                      position: 'absolute', bottom: -1, left: 0, right: 0, height: 2,
+                      background: 'linear-gradient(90deg, #4DA8A0, #6CBDB5)',
+                      borderRadius: '2px 2px 0 0',
+                    }}
+                    transition={{ type: 'spring', duration: 0.38, bounce: 0.2 }}
+                  />
+                )}
               </button>
             ))}
           </div>
 
-          {/* Tab panels */}
-          <div>
-            {activeTab === 'overview' && summary && (
-              <OverviewTab workspaces={workspaces} summary={summary} />
-            )}
+          {/* Tab panels — AnimatePresence fade+slide */}
+          <div style={{ position: 'relative' }}>
+            <AnimatePresence mode="wait">
+              {activeTab === 'overview' && summary && (
+                <motion.div
+                  key="overview"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <OverviewTab workspaces={workspaces} summary={summary} />
+                </motion.div>
+              )}
 
-            {activeTab === 'models' && (
-              <div className="space-y-4">
-                {workspaces.map(ws => (
-                  <div key={ws.id} className="card overflow-hidden border-2 border-slate-200">
-                    <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
-                      <Zap className="h-4 w-4 text-indigo-500" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900">{ws.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''} ·{' '}
-                          {ws.report_count} report{ws.report_count !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <span className="text-xs text-slate-400">{ws.type}</span>
-                    </div>
-                    {ws.datasets.length > 0 ? (
-                      <div className="p-4 space-y-3">
-                        {ws.datasets.map(ds => <DatasetSection key={ds.id} ds={ds} />)}
-                      </div>
-                    ) : (
-                      <p className="p-4 text-xs text-slate-400 italic">No semantic models in this workspace.</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+              {activeTab === 'models' && (
+                <motion.div
+                  key="models"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <ModelsTab workspaces={workspaces} />
+                </motion.div>
+              )}
 
-            {activeTab === 'reports' && (
-              <div className="space-y-4">
-                {workspaces.map(ws => (
-                  <div key={ws.id} className="card overflow-hidden border-2 border-slate-200">
-                    <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-200">
-                      <FileText className="h-4 w-4 text-blue-400" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-900">{ws.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {ws.report_count} interactive · {ws.paginated_report_count} paginated
-                        </p>
-                      </div>
-                    </div>
-                    {ws.reports.length > 0 ? (
-                      <div className="p-4 space-y-3">
-                        {ws.reports.map(r => <ReportSection key={r.id} rpt={r} />)}
-                      </div>
-                    ) : (
-                      <p className="p-4 text-xs text-slate-400 italic">No reports in this workspace.</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+              {activeTab === 'reports' && (
+                <motion.div
+                  key="reports"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <ReportsSegment workspaces={workspaces} />
+                </motion.div>
+              )}
 
-            {activeTab === 'complexity' && (
-              <ComplexityTab workspaces={workspaces} />
-            )}
+              {activeTab === 'complexity' && (
+                <motion.div
+                  key="complexity"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <ComplexityTab workspaces={workspaces} />
+                </motion.div>
+              )}
+
+              {activeTab === 'lineage' && (
+                <motion.div
+                  key="lineage"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <LineageTab workspaces={workspaces} />
+                </motion.div>
+              )}
+
+              {activeTab === 'dataflows' && (
+                <motion.div
+                  key="dataflows"
+                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: -6, filter: 'blur(2px)' }}
+                  transition={{ type: 'spring', duration: 0.38, bounce: 0 }}
+                >
+                  <DataflowsTab workspaces={workspaces} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </>
+        )
       )}
+
+      <PalGateModal
+        isOpen={palModalOpen}
+        onClose={() => setPalModalOpen(false)}
+        triggerRef={palTriggerRef}
+        linkStage={pal.linkStage}
+        deviceCode={pal.deviceCode}
+        failureMessage={pal.failureMessage}
+        docsUrl={pal.docsUrl}
+        onStart={pal.start}
+        onCancel={pal.cancel}
+      />
     </div>
+  )
+}
+
+export default function FabricSessionDetailPage() {
+  return (
+    <PageErrorBoundary>
+      <FabricSessionDetailPageInner />
+    </PageErrorBoundary>
   )
 }

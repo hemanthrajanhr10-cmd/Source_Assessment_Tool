@@ -45,12 +45,12 @@ def _run_assessment_task(job_id: str, request: AssessmentRequest) -> None:
     Executed in FastAPI's default thread-pool executor (not the event loop).
     Updates job state before, during, and after the assessment run.
     """
-    job_store.update_job(
-        job_id,
-        status=JobStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
-    )
     try:
+        job_store.update_job(
+            job_id,
+            status=JobStatus.RUNNING,
+            started_at=datetime.now(timezone.utc),
+        )
         results, report_path = assessment_service.run_assessment(job_id, request)
         job_store.update_job(
             job_id,
@@ -132,8 +132,13 @@ async def trigger_assessment(
 
     # ── Gateway path: publish to Relay / Service Bus / HTTP poll ─────────────
     if body.gateway_key:
+        # FIX: db_type was previously omitted from the connection payload, causing
+        # the gateway agent to always fall back to its default (mssql/pymssql) even
+        # when the assessment context is Oracle. It must be forwarded explicitly so
+        # the agent can select the correct driver and query set.
         payload = {
             "connection": {
+                "db_type":                  body.connection.db_type,
                 "server":                   body.connection.server,
                 "port":                     body.connection.port,
                 "database":                 body.connection.database,
@@ -141,9 +146,13 @@ async def trigger_assessment(
                 "password":                 body.connection.password.get_secret_value(),
                 "trust_server_certificate": body.connection.trust_server_certificate,
                 "encrypt":                  body.connection.encrypt,
+                # Forward GCP SA key so the gateway agent can authenticate
+                # with Cloud SQL Connector on the on-prem/gateway machine.
+                "gcp_sa_key":               body.connection.gcp_sa_key,
             },
             "include_null_analysis":      body.include_null_analysis,
             "null_analysis_sample_limit": body.null_analysis_sample_limit,
+            "access_level":               body.access_level,
         }
         record = JobRecord(job_id=job_id, label=body.label)
 
@@ -182,7 +191,26 @@ async def trigger_assessment(
             # ── Service Bus path — VPN-proof, agent receives via queue ────────
             job_store.create_job(record, user_id=user_id)
             job_store.update_job(job_id, progress_message="Waiting for gateway agent to pick up job…")
-            service_bus.publish_job(job_id, payload)
+            try:
+                service_bus.publish_job(job_id, payload)
+            except Exception as exc:
+                error_msg = (
+                    f"Failed to dispatch job to Service Bus: {exc}. "
+                    "Verify SERVICE_BUS_CONNECTION_STRING and that the 'sat-jobs' queue "
+                    "exists in the namespace."
+                )
+                logger.error(
+                    "Job %s Service Bus dispatch FAILED: %s", job_id, exc,
+                    extra={"job_id": job_id}, exc_info=True,
+                )
+                job_store.update_job(
+                    job_id,
+                    status=JobStatus.FAILED,
+                    completed_at=datetime.now(timezone.utc),
+                    error=error_msg,
+                    progress_message=None,
+                )
+                raise HTTPException(status_code=503, detail=error_msg)
             logger.info("Job %s published to Service Bus", job_id, extra={"job_id": job_id})
             return AssessmentResponse(
                 job_id=job_id,
@@ -199,6 +227,10 @@ async def trigger_assessment(
                 gateway_key=body.gateway_key,
                 gateway_payload=json.dumps(payload),
                 user_id=user_id,
+            )
+            job_store.update_job(
+                job_id,
+                progress_message="Queued for gateway agent — ensure the agent is running and polling this server…",
             )
             logger.info("Job %s queued (HTTP poll fallback) for gateway %s", job_id, body.gateway_key[:8], extra={"job_id": job_id})
             return AssessmentResponse(
@@ -298,6 +330,7 @@ async def get_results(job_id: str, current_user: dict = Depends(get_current_user
         heap_tables=raw.get("heap_tables", []),
         untrusted_constraints=raw.get("untrusted_constraints", []),
         sp_naming_violations=raw.get("sp_naming_violations", []),
+        sp_complexity=raw.get("sp_complexity", []),
         duplicate_indexes=raw.get("duplicate_indexes", []),
         database_options_audit=raw.get("database_options_audit", []),
         object_permissions=raw.get("object_permissions", []),
@@ -312,6 +345,26 @@ async def get_results(job_id: str, current_user: dict = Depends(get_current_user
         weak_sql_logins=raw.get("weak_sql_logins", []),
         server_permissions=raw.get("server_permissions", []),
         deprecated_features_in_use=raw.get("deprecated_features_in_use", []),
+        # Extended engine assessment
+        schema_classification=raw.get("schema_classification", []),
+        view_complexity=raw.get("view_complexity", []),
+        database_files=raw.get("database_files", []),
+        ssis_catalog_packages=raw.get("ssis_catalog_packages", []),
+        ssis_execution_history=raw.get("ssis_execution_history", []),
+        ssis_msdb_packages=raw.get("ssis_msdb_packages", []),
+        sql_agent_job_schedules=raw.get("sql_agent_job_schedules", []),
+        sql_agent_job_steps=raw.get("sql_agent_job_steps", []),
+        ssas_linked_servers=raw.get("ssas_linked_servers", []),
+        wait_statistics=raw.get("wait_statistics", []),
+        query_store_top_queries=raw.get("query_store_top_queries", []),
+        # PostgreSQL-specific extended sections
+        pg_extensions=raw.get("pg_extensions", []),
+        pg_triggers=raw.get("pg_triggers", []),
+        pg_sequences=raw.get("pg_sequences", []),
+        pg_partitions=raw.get("pg_partitions", []),
+        pg_matviews=raw.get("pg_matviews", []),
+        pg_table_bloat=raw.get("pg_table_bloat", []),
+        pg_connection_stats=raw.get("pg_connection_stats", []),
     )
 
 
@@ -339,7 +392,7 @@ async def download_report(job_id: str, current_user: dict = Depends(get_current_
     # This path is slow and may hit the 230s App Service timeout for large reports.
     from app.services.report_service import build_report
     raw = azure_store.load_full_results(job_id)
-    report_path = build_report(job_id, raw)
+    report_path = build_report(job_id, raw, db_type=raw.get("_db_type", "mssql"))
 
     return FileResponse(
         path=report_path,
@@ -353,17 +406,44 @@ WORD_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingm
 
 @router.get(
     "/jobs/{job_id}/word-report",
-    summary="Download the Word (.docx) Fabric Assessment Report",
+    summary="Download the AI-powered Word (.docx) Fabric Assessment Report",
+    description=(
+        "Serves a cached AI-generated report if one exists, avoiding redundant AI calls. "
+        "Pass `?regenerate=true` to force a fresh GPT-4o generation and overwrite the cache. "
+        "Pass `?client_name=Contoso` to override the report title on first generation."
+    ),
 )
-async def download_word_report(job_id: str, current_user: dict = Depends(get_current_user)) -> Response:
+async def download_word_report(
+    job_id: str,
+    client_name: str | None = None,
+    regenerate: bool = False,
+    current_user: dict = Depends(get_current_user),
+) -> Response:
     record = _require_completed(job_id, current_user["user_id"])
 
-    from app.services.word_report_service import build_word_report
-    raw = azure_store.load_full_results(job_id)
-    # Use job label as client name (falls back to database name inside the builder)
-    doc_bytes = build_word_report(job_id, raw, client_name=record.label or None)
+    safe_label = (client_name or record.label or job_id[:8]).replace(" ", "_")
+    filename   = f"fabric_assessment_{safe_label}.docx"
 
-    filename = f"fabric_assessment_{job_id[:8]}.docx"
+    # ── Serve from cache unless regenerate=true ──────────────────────────────
+    if not regenerate:
+        cached = azure_store.load_ai_report_bytes(job_id)
+        if cached:
+            logger.info("Job %s: serving cached AI report (%d bytes)", job_id, len(cached))
+            return Response(
+                content=cached,
+                media_type=WORD_MEDIA_TYPE,
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+
+    # ── Generate via AI, save to cache, serve ────────────────────────────────
+    from app.services.ai_report_service import build_ai_word_report
+    raw       = azure_store.load_full_results(job_id)
+    label     = client_name or record.label or None
+    doc_bytes = build_ai_word_report(job_id, raw, client_name=label, db_type=raw.get("_db_type", "mssql"))
+
+    azure_store.save_ai_report_bytes(job_id, doc_bytes)
+    logger.info("Job %s: AI report generated and cached (%d bytes)", job_id, len(doc_bytes))
+
     return Response(
         content=doc_bytes,
         media_type=WORD_MEDIA_TYPE,

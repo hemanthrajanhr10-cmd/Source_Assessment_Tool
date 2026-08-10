@@ -27,6 +27,26 @@ IF NOT EXISTS (
 )
     ALTER TABLE dbo.users ADD relay_namespace NVARCHAR(50) NULL;
 
+-- Migration: add last_login_ip and last_login_location columns
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.users') AND name = 'last_login_ip'
+)
+    ALTER TABLE dbo.users ADD last_login_ip NVARCHAR(45) NULL;
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.users') AND name = 'last_login_location'
+)
+    ALTER TABLE dbo.users ADD last_login_location NVARCHAR(200) NULL;
+
+-- Migration: add expires_at for retention-period enforcement
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.users') AND name = 'expires_at'
+)
+    ALTER TABLE dbo.users ADD expires_at DATETIME2 NULL;
+
 -- ─── Migration: remove old JSON-blob table (one-time) ────────────────────────
 IF OBJECT_ID('dbo.assessment_sections', 'U') IS NOT NULL
     DROP TABLE dbo.assessment_sections;
@@ -56,6 +76,10 @@ END;
 -- Migration: add excel_bytes cache column to jobs table
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'excel_bytes')
     ALTER TABLE dbo.jobs ADD excel_bytes VARBINARY(MAX) NULL;
+
+-- Migration: add ai_report_bytes cache column to jobs table
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'ai_report_bytes')
+    ALTER TABLE dbo.jobs ADD ai_report_bytes VARBINARY(MAX) NULL;
 
 -- Migration: add gateway columns to existing jobs table if not present
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.jobs') AND name = 'gateway_key')
@@ -900,7 +924,8 @@ IF OBJECT_ID('dbo.hybrid_connections', 'U') IS NULL
         endpoint_port              INT            NOT NULL DEFAULT 1433,
         service_bus_namespace      NVARCHAR(500)  NOT NULL,
         status                     VARCHAR(50)    NOT NULL DEFAULT 'created',
-        listener_connection_string NVARCHAR(MAX)  NULL,   -- Azure Relay listener conn string (for HCM)
+        listener_connection_string NVARCHAR(MAX)  NULL,   -- Azure Relay listener conn string (for HCM on-prem agent)
+        sender_connection_string   NVARCHAR(MAX)  NULL,   -- Azure Relay sender conn string (for SAT gateway relay config)
         created_at                 DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
         CONSTRAINT PK_hybrid_connections PRIMARY KEY (connection_id)
     );
@@ -912,6 +937,40 @@ IF NOT EXISTS (
     WHERE object_id = OBJECT_ID('dbo.hybrid_connections') AND name = 'listener_connection_string'
 )
     ALTER TABLE dbo.hybrid_connections ADD listener_connection_string NVARCHAR(MAX) NULL;
+-- Migration: add sender_connection_string to existing hybrid_connections table
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.hybrid_connections') AND name = 'sender_connection_string'
+)
+    ALTER TABLE dbo.hybrid_connections ADD sender_connection_string NVARCHAR(MAX) NULL;
+
+-- ─── unified_sessions (groups source + fabric assessments under one session) ───
+IF OBJECT_ID('dbo.unified_sessions', 'U') IS NULL
+    CREATE TABLE dbo.unified_sessions (
+        unified_session_id VARCHAR(36)    NOT NULL,
+        user_id            VARCHAR(36)    NULL,
+        label              NVARCHAR(200)  NULL,
+        mode               VARCHAR(10)    NOT NULL,   -- 'source' | 'fabric' | 'both'
+        source_session_id  VARCHAR(36)    NULL,        -- FK to dbo.sessions (set after source session created)
+        fabric_session_id  VARCHAR(36)    NULL,        -- FK to dbo.fabric_sessions (set after fabric session created)
+        created_at         DATETIME2      NOT NULL DEFAULT SYSUTCDATETIME(),
+        completed_at       DATETIME2      NULL,
+        CONSTRAINT PK_unified_sessions PRIMARY KEY (unified_session_id)
+    );
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_unified_sessions_user')
+    CREATE INDEX IX_unified_sessions_user ON dbo.unified_sessions (user_id, created_at DESC);
+
+-- Migration: add unified_session_id to sessions (enables reverse lookup)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.sessions') AND name = 'unified_session_id')
+    ALTER TABLE dbo.sessions ADD unified_session_id VARCHAR(36) NULL;
+
+-- Migration: add unified_session_id to fabric_sessions (enables reverse lookup)
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.fabric_sessions') AND name = 'unified_session_id')
+    ALTER TABLE dbo.fabric_sessions ADD unified_session_id VARCHAR(36) NULL;
+
+-- Migration: add word_bytes to fabric_sessions for cached AI Word reports
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.fabric_sessions') AND name = 'word_bytes')
+    ALTER TABLE dbo.fabric_sessions ADD word_bytes VARBINARY(MAX) NULL;
 
 -- ─── user_connections (Cloudflare Tunnel per-user SQL connection configs) ──────
 -- Credentials are AES-256-GCM encrypted before storage; the key lives in
@@ -932,3 +991,139 @@ IF OBJECT_ID('dbo.user_connections', 'U') IS NULL
     );
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_user_connections_user')
     CREATE INDEX IX_user_connections_user ON dbo.user_connections (user_id, created_at DESC);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- PostgreSQL-SPECIFIC EXTENDED ASSESSMENT TABLES
+-- These sections run only for postgres db_type; all other engines return [].
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- ─── pg_extensions — installed extensions inventory ──────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_extensions', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_extensions (
+        id             BIGINT IDENTITY(1,1) NOT NULL,
+        job_id         VARCHAR(36)          NOT NULL,
+        extension_name NVARCHAR(128)        NOT NULL,
+        version        NVARCHAR(50)         NULL,
+        schema_name    NVARCHAR(128)        NULL,
+        description    NVARCHAR(500)        NULL,
+        relocatable    NVARCHAR(3)          NULL,
+        category       NVARCHAR(60)         NULL,
+        CONSTRAINT PK_assessment_pg_extensions PRIMARY KEY (id),
+        CONSTRAINT FK_pg_extensions_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_triggers — trigger inventory ─────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_triggers', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_triggers (
+        id                   BIGINT IDENTITY(1,1) NOT NULL,
+        job_id               VARCHAR(36)          NOT NULL,
+        schema_name          NVARCHAR(128)        NULL,
+        trigger_name         NVARCHAR(128)        NOT NULL,
+        table_name           NVARCHAR(128)        NOT NULL,
+        trigger_event        NVARCHAR(50)         NULL,
+        trigger_timing       NVARCHAR(20)         NULL,
+        per_row_or_statement NVARCHAR(20)         NULL,
+        trigger_body         NVARCHAR(MAX)        NULL,
+        finding              NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_triggers PRIMARY KEY (id),
+        CONSTRAINT FK_pg_triggers_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_sequences — sequence analysis ────────────────────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_sequences', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_sequences (
+        id             BIGINT IDENTITY(1,1) NOT NULL,
+        job_id         VARCHAR(36)          NOT NULL,
+        schema_name    NVARCHAR(128)        NULL,
+        sequence_name  NVARCHAR(128)        NOT NULL,
+        data_type      NVARCHAR(50)         NULL,
+        start_value    NVARCHAR(30)         NULL,
+        minimum_value  NVARCHAR(30)         NULL,
+        maximum_value  NVARCHAR(30)         NULL,
+        increment      NVARCHAR(30)         NULL,
+        cycle_option   NVARCHAR(3)          NULL,
+        recommendation NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_sequences PRIMARY KEY (id),
+        CONSTRAINT FK_pg_sequences_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_partitions — partition / table inheritance analysis ──────────────────
+IF OBJECT_ID('dbo.assessment_pg_partitions', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_partitions (
+        id               BIGINT IDENTITY(1,1) NOT NULL,
+        job_id           VARCHAR(36)          NOT NULL,
+        schema_name      NVARCHAR(128)        NULL,
+        parent_table     NVARCHAR(128)        NOT NULL,
+        child_schema     NVARCHAR(128)        NULL,
+        child_table      NVARCHAR(128)        NOT NULL,
+        child_type       NVARCHAR(30)         NULL,
+        partition_bound  NVARCHAR(500)        NULL,
+        approx_row_count BIGINT               NULL,
+        finding          NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_partitions PRIMARY KEY (id),
+        CONSTRAINT FK_pg_partitions_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_matviews — materialized view inventory ───────────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_matviews', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_matviews (
+        id               BIGINT IDENTITY(1,1) NOT NULL,
+        job_id           VARCHAR(36)          NOT NULL,
+        schema_name      NVARCHAR(128)        NULL,
+        view_name        NVARCHAR(128)        NOT NULL,
+        create_date      NVARCHAR(30)         NULL,
+        modify_date      NVARCHAR(30)         NULL,
+        has_indexes      NVARCHAR(3)          NULL,
+        is_populated     NVARCHAR(3)          NULL,
+        approx_row_count BIGINT               NULL,
+        definition       NVARCHAR(MAX)        NULL,
+        finding          NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_matviews PRIMARY KEY (id),
+        CONSTRAINT FK_pg_matviews_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_table_bloat — dead tuple / bloat analysis ────────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_table_bloat', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_table_bloat (
+        id               BIGINT IDENTITY(1,1) NOT NULL,
+        job_id           VARCHAR(36)          NOT NULL,
+        schema_name      NVARCHAR(128)        NULL,
+        table_name       NVARCHAR(128)        NOT NULL,
+        live_rows        BIGINT               NULL,
+        dead_rows        BIGINT               NULL,
+        dead_row_pct     DECIMAL(6,2)         NULL,
+        last_vacuum      NVARCHAR(30)         NULL,
+        last_autovacuum  NVARCHAR(30)         NULL,
+        last_analyze     NVARCHAR(30)         NULL,
+        vacuum_count     INT                  NULL,
+        autovacuum_count INT                  NULL,
+        recommendation   NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_table_bloat PRIMARY KEY (id),
+        CONSTRAINT FK_pg_table_bloat_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );
+
+-- ─── pg_connection_stats — connection pool statistics ────────────────────────
+IF OBJECT_ID('dbo.assessment_pg_connection_stats', 'U') IS NULL
+    CREATE TABLE dbo.assessment_pg_connection_stats (
+        id                          BIGINT IDENTITY(1,1) NOT NULL,
+        job_id                      VARCHAR(36)          NOT NULL,
+        database_name               NVARCHAR(128)        NOT NULL,
+        total_connections           INT                  NULL,
+        active                      INT                  NULL,
+        idle                        INT                  NULL,
+        idle_in_transaction         INT                  NULL,
+        idle_in_transaction_aborted INT                  NULL,
+        blocked_by_lock             INT                  NULL,
+        max_duration_secs           INT                  NULL,
+        max_connections             INT                  NULL,
+        finding                     NVARCHAR(200)        NULL,
+        CONSTRAINT PK_assessment_pg_connection_stats PRIMARY KEY (id),
+        CONSTRAINT FK_pg_connection_stats_jobs FOREIGN KEY (job_id)
+            REFERENCES dbo.jobs (job_id) ON DELETE CASCADE
+    );

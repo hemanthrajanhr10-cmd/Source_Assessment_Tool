@@ -2,22 +2,35 @@
 FastAPI application factory.
 """
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.routes.assessment import router as assessment_router
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.fabric import router as fabric_router
+from app.api.v1.routes.fabric_pal import router as fabric_pal_router
 from app.api.v1.routes.gateway import router as gateway_router
 from app.api.v1.routes.hybrid_connections import router as hybrid_connections_router
 from app.api.v1.routes.user_connections import router as user_connections_router
 from app.api.v1.routes.sessions import router as sessions_router
+from app.api.v1.routes.unified_sessions import router as unified_sessions_router
+from app.api.v1.routes.sap import router as sap_router
+from app.api.v1.routes.sage_intacct import router as sage_intacct_router
+from app.api.v1.routes.tableau import router as tableau_router
+from app.api.v1.routes.snowflake import router as snowflake_router
+from app.api.v1.routes.dataverse import router as dataverse_router
+from app.api.v1.routes.salesforce import router as salesforce_router
+from app.api.v1.routes.db2 import router as db2_router
+from app.api.v1.routes.infor import router as infor_router
+from app.api.v1.routes.databricks import router as databricks_router
 from app.config import settings
 from app.core.logging import get_logger
 from app.db import azure_store
@@ -26,23 +39,38 @@ from app.db import service_bus
 logger = get_logger(__name__)
 
 
+async def _init_schema_background() -> None:
+    """
+    Run Azure SQL schema initialisation after a short delay so that the server
+    is already listening on port 8000 when Azure's health probe fires.
+    Retries every 30 s indefinitely — a serverless Azure SQL tier can take
+    several minutes to resume after auto-pause.
+    """
+    await asyncio.sleep(5)   # let uvicorn finish binding before the first attempt
+    while True:
+        try:
+            logger.info("Initialising Azure SQL schema…")
+            await asyncio.get_event_loop().run_in_executor(None, azure_store.init_schema)
+            logger.info("Azure SQL schema ready")
+            return
+        except Exception as exc:
+            logger.warning(
+                "Azure SQL schema init failed — will retry in 30 s. Error: %s", exc
+            )
+            await asyncio.sleep(30)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     settings.reports_dir.mkdir(parents=True, exist_ok=True)
     logger.info("Reports directory: %s", settings.reports_dir.resolve())
 
-    # Initialise Azure SQL schema — non-fatal: API still starts if DB is
-    # temporarily unreachable (firewall propagation, cold start, etc.)
-    logger.info("Initialising Azure SQL schema…")
-    try:
-        azure_store.init_schema()
-        logger.info("Azure SQL schema ready")
-    except Exception as exc:
-        logger.warning(
-            "Azure SQL schema init failed — API will start but persistence "
-            "is unavailable until the DB is reachable. Error: %s", exc
-        )
+    # Run schema init in a background task so the server binds to port 8000
+    # immediately and passes the Azure Container Apps health check.
+    # Azure SQL serverless tier can take 60–120 s to wake up on first connection;
+    # blocking here causes ContainerTimeout (230 s limit) before /health ever responds.
+    _schema_task = asyncio.create_task(_init_schema_background())
 
     # Start Service Bus result listener if configured
     if service_bus.is_available():
@@ -52,10 +80,53 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Service Bus not configured — gateway jobs will use direct HTTP polling")
 
+    # Watchdog: periodically fail jobs that have been Pending too long
+    # (covers relay/service-bus jobs whose agent crashed before submitting)
+    _watchdog_task = asyncio.create_task(_pending_job_watchdog())
+
+    # Retention watchdog: deactivate users whose retention period has expired
+    _retention_task = asyncio.create_task(_retention_watchdog())
+
     logger.info("SQL Server Assessment API started")
     yield
     # Shutdown
+    _watchdog_task.cancel()
+    _retention_task.cancel()
+    _schema_task.cancel()
     logger.info("SQL Server Assessment API stopped")
+
+
+async def _retention_watchdog(interval_s: int = 3600) -> None:
+    """Every hour, deactivate users whose retention period has lapsed."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            count = azure_store.expire_stale_users()
+            if count:
+                logger.info("Retention watchdog deactivated %d expired user(s)", count)
+        except Exception as exc:
+            logger.warning("Retention watchdog error (non-fatal): %s", exc)
+        await asyncio.sleep(interval_s)
+
+
+async def _pending_job_watchdog(interval_s: int = 300, timeout_minutes: int = 30) -> None:
+    """
+    Every `interval_s` seconds, mark any PENDING job older than `timeout_minutes`
+    as FAILED.  This prevents gateway jobs from staying Pending forever when the
+    agent is offline or crashes before posting results back.
+    """
+    await asyncio.sleep(interval_s)   # first run after 5 min, not immediately on startup
+    while True:
+        try:
+            count = azure_store.timeout_stale_pending_jobs(older_than_minutes=timeout_minutes)
+            if count:
+                logger.warning(
+                    "Watchdog timed out %d stale PENDING job(s) (threshold: %d min)",
+                    count, timeout_minutes,
+                )
+        except Exception as exc:
+            logger.warning("Pending-job watchdog error (non-fatal): %s", exc)
+        await asyncio.sleep(interval_s)
 
 
 app = FastAPI(
@@ -70,6 +141,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -80,11 +152,22 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(assessment_router, prefix="/api/v1", tags=["Assessment"])
+app.include_router(fabric_router, prefix="/api/v1/fabric", tags=["Fabric"])
+app.include_router(fabric_pal_router, prefix="/api/v1/fabric", tags=["Fabric PAL"])
 app.include_router(gateway_router, prefix="/api/v1/gateway", tags=["Gateway"])
 app.include_router(hybrid_connections_router, prefix="/api/v1/hybrid-connections", tags=["Hybrid Connections"])
 app.include_router(sessions_router, prefix="/api/v1", tags=["Sessions"])
-app.include_router(fabric_router, prefix="/api/v1/fabric", tags=["Fabric"])
+app.include_router(unified_sessions_router, prefix="/api/v1/unified-sessions", tags=["Unified Sessions"])
 app.include_router(user_connections_router, prefix="/api/v1/user-connections", tags=["User Connections"])
+app.include_router(sap_router, tags=["SAP"])
+app.include_router(sage_intacct_router, tags=["Sage Intacct"])
+app.include_router(tableau_router, tags=["Tableau"])
+app.include_router(snowflake_router, tags=["Snowflake"])
+app.include_router(dataverse_router, tags=["Dataverse"])
+app.include_router(salesforce_router, tags=["Salesforce"])
+app.include_router(db2_router, tags=["IBM Db2"])
+app.include_router(infor_router, tags=["Infor CloudSuite"])
+app.include_router(databricks_router, tags=["Databricks"])
 
 
 @app.get("/health", tags=["Health"])

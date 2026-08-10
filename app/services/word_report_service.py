@@ -19,6 +19,17 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# ── Engine metadata ──────────────────────────────────────────────────────────
+
+_ENGINE_LABEL: dict[str, str] = {
+    "mssql":    "SQL Server",
+    "postgres": "PostgreSQL",
+    "mysql":    "MySQL",
+    "oracle":   "Oracle",
+}
+
+_DOC_TITLE = "Source Assessment Report"  # appended to engine label on cover
+
 # ── Brand colours (matching PDF template) ───────────────────────────────────
 _DARK_BLUE   = RGBColor(0x1F, 0x38, 0x64)   # Main headings / cover title
 _MID_BLUE    = RGBColor(0x2E, 0x75, 0xB6)   # Sub-headings
@@ -147,7 +158,7 @@ def _font(run, bold=False, size=10, colour: RGBColor = _DARK_GRAY,
     run.font.name  = name
 
 
-def _setup_header(doc: Document, client_name: str) -> None:
+def _setup_header(doc: Document, client_name: str, doc_title: str = "Source Assessment Report") -> None:
     """Add branded header: blue left bar | title center | company right."""
     section = doc.sections[0]
     section.different_first_page_header_footer = True   # cover page has no header
@@ -173,7 +184,7 @@ def _setup_header(doc: Document, client_name: str) -> None:
     mc.width = Cm(11)
     _shd(mc, _LIGHT_GRAY)
     mc.paragraphs[0].clear()
-    r = mc.paragraphs[0].add_run("Microsoft Fabric Assessment Report")
+    r = mc.paragraphs[0].add_run(doc_title)
     _font(r, bold=True, size=10, colour=_DARK_BLUE)
     mc.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
     _cell_vert_center(mc)
@@ -223,7 +234,7 @@ def _setup_footer(doc: Document) -> None:
 
 # ── Cover page ───────────────────────────────────────────────────────────────
 
-def _cover_page(doc: Document, client_name: str, run_date: str) -> None:
+def _cover_page(doc: Document, client_name: str, run_date: str, doc_title: str = "Source Assessment Report") -> None:
     # Blue accent banner at top of cover
     banner = doc.add_paragraph()
     _para_shd(banner, _ACCENT_BLUE)
@@ -241,7 +252,7 @@ def _cover_page(doc: Document, client_name: str, run_date: str) -> None:
     # Main title
     title_p = doc.add_paragraph()
     title_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    tr = title_p.add_run("Microsoft Fabric Assessment Report")
+    tr = title_p.add_run(doc_title)
     _font(tr, bold=True, size=26, colour=_DARK_BLUE)
     title_p.paragraph_format.space_before = Pt(0)
     title_p.paragraph_format.space_after  = Pt(40)
@@ -369,15 +380,18 @@ def _write_db_sections(
     raw: dict,
     db_label: str,
     server_label: str,
+    db_type: str = "mssql",
 ) -> None:
     """Write all assessment sections for one database into doc."""
+    engine    = _ENGINE_LABEL.get(db_type, db_type.upper())
+    mssql     = db_type == "mssql"
     ov        = _overview(raw)
     db_name   = _s(ov.get("database_name"), db_label)
     size_mb   = ov.get("total_size_mb")
     size_gb   = f"{float(size_mb) / 1024:.2f}" if size_mb else "—"
-    db_type   = ("Datawarehouse"
-                 if any(k in db_name.lower() for k in ("dw", "warehouse", "mart", "dwh"))
-                 else "Transaction")
+    db_workload = ("Datawarehouse"
+                   if any(k in db_name.lower() for k in ("dw", "warehouse", "mart", "dwh"))
+                   else "Transaction")
     tbl_count = _s(ov.get("table_count"))
     view_count = _s(ov.get("view_count"))
     proc_count = _s(ov.get("stored_proc_count"))
@@ -406,7 +420,7 @@ def _write_db_sections(
         ls_rows = [[_s(r.get("linked_server_name")), _s(r.get("product") or r.get("provider"))]
                    for r in linked]
     else:
-        ls_rows = [["SQL Server (source)", server_label or db_name]]
+        ls_rows = [[f"{engine} (source)", server_label or db_name]]
     _table(doc, ["Source Systems", "Details"], ls_rows, [7, 9])
 
     _h2(doc, "Outbound Systems")
@@ -414,7 +428,7 @@ def _write_db_sections(
            [["Microsoft Fabric (OneLake)", "Target for migration"]], [7, 9])
 
     _h2(doc, "Types of Services offered")
-    svc = [["SQL Server – Relational DB", f"{db_type} workloads"]]
+    svc = [[f"{engine} – Relational DB", f"{db_workload} workloads"]]
     if cross_db:
         svc.append(["Cross-DB References", f"{len(cross_db)} references detected"])
     if broker and any(r.get("broker_status") == "Enabled" for r in broker):
@@ -423,39 +437,39 @@ def _write_db_sections(
 
     _h2(doc, "Data Source Availability by Data Format and Type")
     avail = [
-        ["Relational (SQL)",   "Azure SQL / SQL Server",  "Yes"],
+        ["Relational (SQL)",   engine,                    "Yes"],
         ["Structured Tables",  f"{tbl_count} tables",     "Yes"],
         ["Views",              f"{view_count} views",     "Yes"],
         ["Stored Procedures",  f"{proc_count} procedures","Yes"],
         ["Functions",          f"{fn_count} functions",   "Yes"],
     ]
-    if raw.get("clr_assemblies"):
+    if mssql and raw.get("clr_assemblies"):
         avail.append(["CLR Assemblies", f"{len(raw['clr_assemblies'])} found", "Yes"])
     _table(doc, ["Data Format", "Data Source Type", "Is Available"], avail, [5, 7, 4])
 
     _h2(doc, "Database Overview")
     _table(doc,
            ["DB Name", "Database Size (GB)", "Database Type", "Data Growth Rate"],
-           [[db_name, size_gb, db_type, "—"]], [5, 4, 4, 3])
+           [[db_name, size_gb, db_workload, "—"]], [5, 4, 4, 3])
 
     _h2(doc, "Summary")
     _table(doc,
            ["Data Type", "Sum of Database Size (GB)", "Count of Server Name"],
-           [[db_type, size_gb, "1"]], [5, 6, 5])
+           [[db_workload, size_gb, "1"]], [5, 6, 5])
 
     _h2(doc, "Data Loading Method")
-    if agent_jobs:
+    if mssql and agent_jobs:
         load_rows = [[_s(j.get("job_name")), "SQL Agent Job", "1"] for j in agent_jobs[:10]]
     else:
-        load_rows = [["—", "—", "—"]]
+        load_rows = [["Scheduled pipeline / cron", f"{engine} source", "—"]]
     _table(doc, ["Data Loading Process", "Details", "No of Jobs"], load_rows, [6, 7, 3])
 
     _h2(doc, "Data Refresh Frequency")
-    if agent_jobs:
+    if mssql and agent_jobs:
         freq_rows = [[_s(j.get("job_name")), _s(j.get("schedule") or "Scheduled"), "—"]
                      for j in agent_jobs[:10]]
     else:
-        freq_rows = [["—", "—", "—"]]
+        freq_rows = [["—", "Scheduled", "—"]]
     _table(doc, ["JobName", "Frequency", "Duration"], freq_rows, [7, 5, 4])
 
     # ── 2. Data Lifecycle Management ─────────────────────────────────────────
@@ -513,7 +527,7 @@ def _write_db_sections(
     _h2(doc, "Deployment Details")
     _table(doc,
            ["System Name", "Deployment Tool/Method", "Deployment Environment", "Deployment Contact Email"],
-           [[db_name, "SQL Server", server_label or "On-Premises / Azure SQL", "—"]],
+           [[db_name, engine, server_label or "On-Premises / Cloud", "—"]],
            [4, 4, 4, 4])
 
     # ── 4. BI Reports Assessment ─────────────────────────────────────────────
@@ -607,7 +621,7 @@ def _write_db_sections(
         ["Microsoft Purview",  "Cataloguing and lineage tracking for all Fabric items", "Yes"],
         ["Sensitivity Labels", f"Apply labels to {len(pii)} PII column(s)",
          "Yes" if pii else "No"],
-        ["Data Lineage",       "Track: SQL Server → Lakehouse → Report",               "Yes"],
+        ["Data Lineage",       f"Track: {engine} → Lakehouse → Report",       "Yes"],
     ]
     _table(doc, ["Activity", "Description", "Yes/No"], gov, [4, 9, 3])
 
@@ -662,7 +676,7 @@ def _write_db_sections(
         "Full Migration – Incremental pipelines for all databases.",
         "Validation – Data reconciliation between source and Fabric.",
         "Cutover – Redirect reports and consumers to Fabric semantic model.",
-        "Decommission – Retire legacy SQL Server / SSRS infrastructure.",
+        f"Decommission – Retire legacy {engine} infrastructure.",
     ]
     for i, step in enumerate(steps, 1):
         p = doc.add_paragraph(f"{i}.  {step}")
@@ -677,6 +691,7 @@ def _write_db_sections(
     _h2(doc, "Summary of Findings")
     summary = [
         ["Database",          db_name],
+        ["Engine",            engine],
         ["Server Version",    version_str],
         ["Edition",           edition],
         ["Total Tables",      tbl_count],
@@ -685,16 +700,20 @@ def _write_db_sections(
         ["Functions",         fn_count],
         ["Database Size",     f"{size_gb} GB"],
         ["PII Columns",       str(len(pii))],
-        ["Orphaned Users",    str(len(orphaned))],
         ["Dynamic SQL Usage", str(len(dyn_sql))],
     ]
+    if mssql:
+        summary.append(["Orphaned Users", str(len(orphaned))])
     _table(doc, ["Metric", "Value"], summary, [8, 8])
 
     _h2(doc, "Final Recommendations")
     recs = [
-        "Migrate to Microsoft Fabric Lakehouse using Data Factory pipelines.",
+        f"Migrate {engine} to Microsoft Fabric Lakehouse using Data Factory pipelines.",
         "Implement row-level security and sensitivity labels for PII columns.",
-        "Replace SQL Agent jobs with Fabric Data Activator triggers.",
+    ]
+    if mssql:
+        recs.append("Replace SQL Agent jobs with Fabric Data Activator triggers.")
+    recs += [
         "Adopt Direct Lake mode for Power BI reports to eliminate import overhead.",
         "Use Microsoft Purview for unified data governance and lineage.",
     ]
@@ -718,11 +737,14 @@ def build_word_report(
     job_id: str,
     raw: dict[str, Any],
     client_name: str | None = None,
+    db_type: str = "mssql",
 ) -> bytes:
     """
     Build a Word report for a single-database assessment.
     client_name defaults to the job label → database name.
     """
+    engine      = _ENGINE_LABEL.get(db_type, db_type.upper())
+    doc_title   = f"{engine} {_DOC_TITLE}"
     ov          = _overview(raw)
     db_name     = _s(ov.get("database_name"), "Unknown Database")
     server_name = _s(raw.get("_server") or ov.get("server_name"), "")
@@ -736,15 +758,15 @@ def build_word_report(
         section.left_margin   = Cm(2.5)
         section.right_margin  = Cm(2.5)
 
-    _setup_header(doc, label)
+    _setup_header(doc, label, doc_title=doc_title)
     _setup_footer(doc)
-    _cover_page(doc, label, run_date)
-    _write_db_sections(doc, raw, db_name, server_name)
+    _cover_page(doc, label, run_date, doc_title=doc_title)
+    _write_db_sections(doc, raw, db_name, server_name, db_type=db_type)
 
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)
-    logger.info("Word report built for job %s — client: %s", job_id, label)
+    logger.info("Word report built for job %s — engine: %s, client: %s", job_id, engine, label)
     return buf.getvalue()
 
 
@@ -752,12 +774,15 @@ def build_session_word_report(
     session_id: str,
     session_label: str | None,
     jobs_data: list[dict],
+    db_type: str = "mssql",
 ) -> bytes:
     """
     Build a combined Word report for a multi-database session.
 
     jobs_data: list of {job_id, server, database, label, results: raw_dict}
     """
+    engine      = _ENGINE_LABEL.get(db_type, db_type.upper())
+    doc_title   = f"{engine} {_DOC_TITLE}"
     client_name = session_label or f"Session {session_id[:8]}"
     run_date    = datetime.utcnow().strftime("%d %b %Y")
 
@@ -768,9 +793,9 @@ def build_session_word_report(
         section.left_margin   = Cm(2.5)
         section.right_margin  = Cm(2.5)
 
-    _setup_header(doc, client_name)
+    _setup_header(doc, client_name, doc_title=doc_title)
     _setup_footer(doc)
-    _cover_page(doc, client_name, run_date)
+    _cover_page(doc, client_name, run_date, doc_title=doc_title)
 
     # ── Session summary table ─────────────────────────────────────────────────
     _h1(doc, "Session Overview")
@@ -815,10 +840,10 @@ def build_session_word_report(
         banner.paragraph_format.space_before = Pt(0)
         banner.paragraph_format.space_after  = Pt(10)
 
-        _write_db_sections(doc, raw, db_lbl, srv_lbl)
+        _write_db_sections(doc, raw, db_lbl, srv_lbl, db_type=db_type)
 
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)
-    logger.info("Session Word report built — %s (%d databases)", session_id, len(jobs_data))
+    logger.info("Session Word report built — %s engine=%s (%d databases)", session_id, engine, len(jobs_data))
     return buf.getvalue()

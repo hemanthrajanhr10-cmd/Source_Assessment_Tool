@@ -112,6 +112,12 @@ async def create_session(
     session_id = str(uuid.uuid4())
     azure_store.create_session(session_id, body.label, datetime.now(timezone.utc), user_id=current_user["user_id"], total_jobs=total_jobs)
 
+    if body.unified_session_id:
+        try:
+            azure_store.link_unified_source(body.unified_session_id, session_id)
+        except Exception as exc:
+            logger.warning("Could not link source session %s to unified session %s: %s", session_id, body.unified_session_id, exc)
+
     background_tasks.add_task(session_service.run_session_background, session_id, body, current_user["user_id"])
 
     logger.info("Session %s created — %d job(s)", session_id, total_jobs)
@@ -198,8 +204,9 @@ async def download_session_report(session_id: str, current_user: dict = Depends(
     if not jobs_data:
         raise HTTPException(status_code=409, detail="Could not load results for any completed jobs.")
 
+    session_db_type = jobs_data[0]["results"].get("_db_type", "mssql") if jobs_data else "mssql"
     from app.services.report_service import build_session_report
-    report_path = build_session_report(session_id, jobs_data)
+    report_path = build_session_report(session_id, jobs_data, db_type=session_db_type)
 
     return FileResponse(
         path=report_path,
@@ -244,11 +251,13 @@ async def download_session_word_report(
     if not jobs_data:
         raise HTTPException(status_code=409, detail="Could not load results for any completed jobs.")
 
-    from app.services.word_report_service import build_session_word_report
-    doc_bytes = build_session_word_report(
+    word_db_type = jobs_data[0]["results"].get("_db_type", "mssql") if jobs_data else "mssql"
+    from app.services.ai_report_service import build_ai_session_word_report
+    doc_bytes = build_ai_session_word_report(
         session_id=session_id,
         session_label=row.get("label"),
         jobs_data=jobs_data,
+        db_type=word_db_type,
     )
 
     filename = f"fabric_assessment_{session_id[:8]}.docx"

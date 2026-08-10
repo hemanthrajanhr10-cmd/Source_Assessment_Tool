@@ -8,6 +8,10 @@ Compatible with PostgreSQL 11+ on any cloud platform:
 
 All queries produce the same column aliases as the SQL Server equivalents
 so the same section keys and report builder work without changes.
+
+PostgreSQL-specific extended queries (pg_* sections):
+  pg_extensions, pg_triggers, pg_sequences, pg_partitions,
+  pg_matviews, pg_table_bloat, pg_connection_stats
 """
 
 # ── Core metadata ─────────────────────────────────────────────────────────────
@@ -62,14 +66,20 @@ SELECT
     COALESCE(
         ROUND(
             pg_total_relation_size(
-                (quote_ident(t.table_schema) || '.' || quote_ident(t.table_name))::regclass
+                to_regclass(quote_ident(t.table_schema) || '.' || quote_ident(t.table_name))
             ) / (1024.0 * 1024.0), 4
         ), 0
     )                                                  AS size_mb,
-    NULL::text                                         AS row_count,
-    NULL::text                                         AS create_date,
-    NULL::text                                         AS modify_date
+    COALESCE(s.n_live_tup::text, '0')                  AS row_count,
+    'N/A'                                              AS create_date,
+    TO_CHAR(
+        COALESCE(s.last_analyze, s.last_autoanalyze),
+        'YYYY-MM-DD HH24:MI:SS'
+    )                                                  AS modify_date
 FROM information_schema.tables t
+LEFT JOIN pg_stat_user_tables s
+  ON s.schemaname = t.table_schema
+ AND s.relname    = t.table_name
 WHERE t.table_type = 'BASE TABLE'
   AND t.table_schema NOT IN ('information_schema','pg_catalog')
 ORDER BY t.table_schema, t.table_name
@@ -119,8 +129,8 @@ VIEWS = """
 SELECT
     table_schema    AS schema_name,
     table_name      AS view_name,
-    NULL::text      AS create_date,
-    NULL::text      AS modify_date,
+    'N/A'           AS create_date,
+    'N/A'           AS modify_date,
     view_definition AS definition
 FROM information_schema.views
 WHERE table_schema NOT IN ('information_schema','pg_catalog')
@@ -131,8 +141,8 @@ STORED_PROCEDURES = """
 SELECT
     routine_schema  AS schema_name,
     routine_name    AS procedure_name,
-    NULL::text      AS create_date,
-    NULL::text      AS modify_date,
+    'N/A'           AS create_date,
+    'N/A'           AS modify_date,
     COALESCE(
         (SELECT COUNT(*) FROM information_schema.parameters p
          WHERE p.specific_schema = r.routine_schema
@@ -149,8 +159,8 @@ SELECT
     routine_schema  AS schema_name,
     routine_name    AS function_name,
     data_type       AS function_type,
-    NULL::text      AS create_date,
-    NULL::text      AS modify_date
+    'N/A'           AS create_date,
+    'N/A'           AS modify_date
 FROM information_schema.routines
 WHERE routine_type = 'FUNCTION'
   AND routine_schema NOT IN ('information_schema','pg_catalog')
@@ -168,7 +178,7 @@ SELECT
     CASE WHEN ix.indisunique AND NOT ix.indisprimary
          THEN 'YES' ELSE 'NO' END                         AS is_unique_constraint,
     pi2.indexdef                                          AS indexed_columns,
-    NULL::int                                             AS fill_factor
+    COALESCE(c.relfillfactor, 0)                          AS fill_factor
 FROM pg_indexes pi2
 LEFT JOIN pg_class      c   ON c.relname    = pi2.indexname
                             AND c.relkind   = 'i'
@@ -226,14 +236,20 @@ ORDER BY t.table_schema, t.table_name
 
 INSERTION_FREQUENCY = """
 SELECT
-    t.table_schema  AS schema_name,
+    t.table_schema                                       AS schema_name,
     t.table_name,
-    NULL::bigint    AS current_rows,
-    NULL::text      AS create_date,
-    NULL::text      AS modify_date,
-    NULL::int       AS age_days,
-    NULL::float     AS avg_rows_per_day
+    COALESCE(s.n_live_tup, 0)                            AS current_rows,
+    'N/A'                                                AS create_date,
+    TO_CHAR(
+        COALESCE(s.last_analyze, s.last_autoanalyze),
+        'YYYY-MM-DD HH24:MI:SS'
+    )                                                    AS modify_date,
+    0                                                    AS age_days,
+    0.0                                                  AS avg_rows_per_day
 FROM information_schema.tables t
+LEFT JOIN pg_stat_user_tables s
+  ON s.schemaname = t.table_schema
+ AND s.relname    = t.table_name
 WHERE t.table_type = 'BASE TABLE'
   AND t.table_schema NOT IN ('information_schema','pg_catalog')
 ORDER BY t.table_schema, t.table_name
@@ -252,10 +268,16 @@ SELECT
         WHEN rolcanlogin THEN 'LOGIN'
         ELSE 'GROUP'
     END             AS principal_type,
-    NULL::text      AS create_date,
-    NULL::text      AS default_schema,
-    NULL::text      AS server_login,
-    NULL::text      AS roles
+    'N/A'           AS create_date,
+    'public'        AS default_schema,
+    rolname         AS server_login,
+    COALESCE(
+        (SELECT string_agg(r2.rolname, ', ' ORDER BY r2.rolname)
+         FROM pg_auth_members am2
+         JOIN pg_roles r2 ON r2.oid = am2.roleid
+         WHERE am2.member = pg_roles.oid),
+        'None'
+    )               AS roles
 FROM pg_roles
 WHERE rolname NOT LIKE 'pg_%'
   AND rolname NOT IN (
@@ -318,12 +340,12 @@ TDE_STATUS = """
 SELECT
     current_database()                                AS database_name,
     'N/A - Use SSL/TLS at connection level'           AS tde_status,
-    CASE WHEN ssl_is_used()
+    CASE WHEN (SELECT count(*) FROM pg_stat_ssl WHERE pid = pg_backend_pid()) > 0
          THEN 'SSL Active'
          ELSE 'No SSL at session level' END           AS encryption_state,
-    NULL::float                                       AS percent_complete,
-    NULL::text                                        AS key_algorithm,
-    NULL::int                                         AS key_length
+    0::float                                          AS percent_complete,
+    'N/A'                                             AS key_algorithm,
+    0::int                                            AS key_length
 """
 
 COLUMN_ENCRYPTION = """
@@ -461,4 +483,819 @@ SELECT
     false                                                     AS xp_cmdshell_enabled,
     false                                                     AS ole_automation_enabled,
     false                                                     AS adhoc_distributed_queries
+"""
+
+# ── Schema / Design checks ────────────────────────────────────────────────────
+
+TRUSTWORTHY_DATABASES = """
+SELECT
+    datname                                                   AS database_name,
+    CASE WHEN datistemplate THEN 'Template DB — RISK' ELSE 'Regular DB — OK' END AS trustworthy_status,
+    CASE WHEN NOT datallowconn THEN 'Connections Blocked' ELSE 'Connections Allowed' END AS cross_db_chaining,
+    'ONLINE'                                                  AS state_desc,
+    'N/A'                                                     AS recovery_model_desc
+FROM pg_database
+WHERE datname = current_database()
+"""
+
+DEPRECATED_DATA_TYPES = """
+SELECT
+    c.table_schema                                            AS schema_name,
+    c.table_name,
+    c.column_name,
+    c.data_type,
+    CASE c.data_type
+        WHEN 'money'
+            THEN 'CAUTION — rounding errors; use numeric(19,4)'
+        WHEN 'character'
+            THEN 'CAUTION — fixed char pads with spaces; use varchar'
+        WHEN 'timestamp without time zone'
+            THEN 'CAUTION — no timezone info; use timestamptz'
+        WHEN 'xml'
+            THEN 'CAUTION — limited driver support; consider jsonb'
+        ELSE 'REVIEW'
+    END                                                       AS recommendation
+FROM information_schema.columns c
+WHERE c.table_schema NOT IN ('information_schema','pg_catalog')
+  AND c.data_type IN (
+      'money','character','timestamp without time zone','xml'
+  )
+ORDER BY c.data_type, c.table_schema, c.table_name, c.column_name
+"""
+
+MISSING_PRIMARY_KEYS = """
+SELECT
+    t.table_schema                                            AS schema_name,
+    t.table_name,
+    NULL::bigint                                              AS row_count,
+    'No primary key constraint defined'                       AS finding
+FROM information_schema.tables t
+WHERE t.table_type = 'BASE TABLE'
+  AND t.table_schema NOT IN ('information_schema','pg_catalog')
+  AND NOT EXISTS (
+      SELECT 1 FROM information_schema.table_constraints tc
+      WHERE tc.table_schema    = t.table_schema
+        AND tc.table_name      = t.table_name
+        AND tc.constraint_type = 'PRIMARY KEY'
+  )
+ORDER BY t.table_schema, t.table_name
+"""
+
+HEAP_TABLES = """
+SELECT
+    t.table_schema                                            AS schema_name,
+    t.table_name,
+    NULL::bigint                                              AS row_count,
+    NULL::numeric                                             AS size_mb,
+    'No indexes defined — every query requires a full sequential scan' AS finding
+FROM information_schema.tables t
+WHERE t.table_type = 'BASE TABLE'
+  AND t.table_schema NOT IN ('information_schema','pg_catalog')
+  AND NOT EXISTS (
+      SELECT 1 FROM pg_indexes i
+      WHERE i.schemaname = t.table_schema
+        AND i.tablename  = t.table_name
+  )
+ORDER BY t.table_schema, t.table_name
+"""
+
+UNTRUSTED_CONSTRAINTS = """
+SELECT
+    CASE con.contype WHEN 'f' THEN 'FOREIGN KEY' ELSE 'CHECK CONSTRAINT' END AS constraint_type,
+    n.nspname                                                 AS schema_name,
+    c.relname                                                 AS table_name,
+    con.conname                                               AS constraint_name,
+    CASE WHEN con.convalidated THEN 'Validated' ELSE 'Not Validated — RISK' END AS trust_status,
+    'Enabled'                                                 AS enabled_status,
+    CASE WHEN NOT con.convalidated
+         THEN 'NOT VALID — optimizer ignores this constraint; data integrity not guaranteed'
+         ELSE 'OK'
+    END                                                       AS finding
+FROM pg_constraint con
+JOIN pg_class     c   ON c.oid       = con.conrelid
+JOIN pg_namespace n   ON n.oid       = c.relnamespace
+WHERE con.contype IN ('f','c')
+  AND NOT con.convalidated
+  AND n.nspname NOT IN ('information_schema','pg_catalog','pg_toast')
+ORDER BY constraint_type, schema_name, table_name
+"""
+
+SP_NAMING_VIOLATIONS = """
+SELECT
+    routine_schema                                            AS schema_name,
+    routine_name                                              AS procedure_name,
+    CASE
+        WHEN routine_name LIKE 'sp_%'
+            THEN 'sp_ prefix — no special meaning in PostgreSQL; causes confusion'
+        WHEN routine_name LIKE 'proc_%'
+            THEN 'proc_ prefix — redundant with routine_type'
+        WHEN routine_name ~ '[A-Z]'
+            THEN 'Mixed-case name — PostgreSQL folds unquoted names to lowercase'
+        ELSE 'Non-standard naming'
+    END                                                       AS finding
+FROM information_schema.routines
+WHERE routine_type IN ('PROCEDURE','FUNCTION')
+  AND routine_schema NOT IN ('information_schema','pg_catalog')
+  AND (routine_name LIKE 'sp_%'
+    OR routine_name LIKE 'proc_%'
+    OR routine_name ~ '[A-Z]')
+ORDER BY routine_schema, routine_name
+"""
+
+DUPLICATE_INDEXES = """
+SELECT
+    pi1.schemaname                                            AS schema_name,
+    pi1.tablename                                             AS table_name,
+    pi1.indexname                                             AS index1_name,
+    pi2.indexname                                             AS index2_name,
+    'BTREE'                                                   AS index_type,
+    pi1.indexdef                                              AS shared_key_columns,
+    'Duplicate index definition — consider consolidating'     AS finding
+FROM pg_indexes pi1
+JOIN pg_indexes pi2
+  ON  pi2.tablename  = pi1.tablename
+ AND  pi2.schemaname = pi1.schemaname
+ AND  pi2.indexname  > pi1.indexname
+ AND  pi2.indexdef   = pi1.indexdef
+WHERE pi1.schemaname NOT IN ('information_schema','pg_catalog','pg_toast')
+ORDER BY pi1.schemaname, pi1.tablename
+"""
+
+DATABASE_OPTIONS_AUDIT = """
+SELECT
+    current_database()                                        AS database_name,
+    current_setting('server_version', true)                   AS recovery_model_desc,
+    current_setting('default_transaction_isolation', true)    AS page_verify_option_desc,
+    current_setting('server_version_num', true)               AS compatibility_level,
+    pg_encoding_to_char(encoding)                             AS collation_name,
+    'ONLINE'                                                  AS state_desc,
+    CASE WHEN current_setting('autovacuum', true) = 'on'
+         THEN 'OK — autovacuum enabled'
+         ELSE 'RISK: autovacuum disabled — tables will bloat' END AS auto_close,
+    CASE WHEN current_setting('track_counts', true) = 'on'
+         THEN 'OK — stat tracking enabled'
+         ELSE 'RISK: track_counts off — autovacuum cannot function' END AS auto_shrink,
+    current_setting('wal_level', true)                        AS page_verify_status,
+    CASE WHEN current_setting('autovacuum', true) = 'on'
+         THEN 'Enabled' ELSE 'RISK: Disabled' END             AS auto_update_stats,
+    CASE WHEN current_setting('autovacuum', true) = 'on'
+         THEN 'Enabled' ELSE 'RISK: Disabled' END             AS auto_create_stats,
+    CASE WHEN current_setting('default_transaction_read_only', true) = 'on'
+         THEN 'Read-Only' ELSE 'Read-Write' END               AS access_mode
+FROM pg_database
+WHERE datname = current_database()
+"""
+
+OBJECT_PERMISSIONS = """
+SELECT
+    privilege_type                                            AS permission_state,
+    privilege_type                                            AS permission_name,
+    'TABLE'                                                   AS object_class,
+    table_name                                                AS object_name,
+    table_schema                                              AS schema_name,
+    grantee,
+    'USER/ROLE'                                               AS grantee_type
+FROM information_schema.role_table_grants
+WHERE table_schema NOT IN ('information_schema','pg_catalog')
+  AND grantee NOT IN ('PUBLIC')
+ORDER BY table_schema, table_name, grantee
+"""
+
+# ── Performance checks ────────────────────────────────────────────────────────
+
+MISSING_INDEXES = """
+SELECT
+    schemaname                                                AS schema_name,
+    relname                                                   AS table_name,
+    'N/A'                                                     AS equality_columns,
+    'N/A'                                                     AS inequality_columns,
+    'N/A'                                                     AS included_columns,
+    seq_scan                                                  AS improvement_score,
+    seq_scan                                                  AS user_seeks,
+    seq_tup_read                                              AS user_scans,
+    0::numeric                                                AS avg_impact_pct,
+    'N/A'                                                     AS last_user_seek
+FROM pg_stat_user_tables
+WHERE seq_scan > 0
+  AND schemaname NOT IN ('information_schema','pg_catalog')
+ORDER BY seq_scan DESC
+LIMIT 50
+"""
+
+INDEX_USAGE_STATS = """
+SELECT
+    schemaname                                                AS schema_name,
+    relname                                                   AS table_name,
+    indexrelname                                              AS index_name,
+    'BTREE'                                                   AS type_desc,
+    idx_scan                                                  AS user_seeks,
+    0::bigint                                                 AS user_scans,
+    0::bigint                                                 AS user_lookups,
+    idx_tup_read + idx_tup_fetch                              AS user_updates,
+    'N/A'                                                     AS last_user_seek,
+    'N/A'                                                     AS last_user_update,
+    CASE
+        WHEN idx_scan = 0                        THEN 'Never Used'
+        WHEN idx_scan < 100                      THEN 'Rarely Used'
+        ELSE                                          'Active'
+    END                                                       AS index_status
+FROM pg_stat_user_indexes
+WHERE schemaname NOT IN ('information_schema','pg_catalog')
+ORDER BY idx_scan
+"""
+
+FRAGMENTATION_REPORT = """
+SELECT
+    schemaname                                                AS schema_name,
+    relname                                                   AS table_name,
+    'heap'                                                    AS index_name,
+    'heap'                                                    AS type_desc,
+    ROUND(
+        100.0 * n_dead_tup / NULLIF(n_live_tup + n_dead_tup, 0), 2
+    )                                                         AS fragmentation_pct,
+    n_live_tup                                                AS page_count,
+    CASE
+        WHEN n_dead_tup::float / NULLIF(n_live_tup + n_dead_tup, 0) > 0.30
+            THEN 'VACUUM recommended (>30% dead tuples)'
+        WHEN n_dead_tup::float / NULLIF(n_live_tup + n_dead_tup, 0) > 0.10
+            THEN 'Consider VACUUM (10-30% dead tuples)'
+        ELSE 'OK'
+    END                                                       AS recommendation
+FROM pg_stat_user_tables
+WHERE n_live_tup + n_dead_tup > 100
+  AND schemaname NOT IN ('information_schema','pg_catalog')
+ORDER BY (n_dead_tup::float / NULLIF(n_live_tup + n_dead_tup, 0)) DESC NULLS LAST
+LIMIT 100
+"""
+
+STATISTICS_HEALTH = """
+SELECT
+    schemaname                                                AS schema_name,
+    relname                                                   AS table_name,
+    'table_stats'                                             AS stat_name,
+    TO_CHAR(COALESCE(last_analyze, last_autoanalyze), 'YYYY-MM-DD HH24:MI:SS') AS last_updated,
+    n_live_tup                                                AS rows,
+    n_live_tup                                                AS rows_sampled,
+    100.0                                                     AS sample_pct,
+    n_mod_since_analyze                                       AS modification_counter,
+    CASE
+        WHEN last_analyze IS NULL AND last_autoanalyze IS NULL
+            THEN 'STALE — never analyzed'
+        WHEN COALESCE(last_analyze, last_autoanalyze) < NOW() - INTERVAL '30 days'
+            THEN 'OLD — not analyzed in 30+ days'
+        WHEN n_mod_since_analyze > n_live_tup * 0.20
+            THEN 'STALE — >20% rows modified since last analyze'
+        ELSE 'OK'
+    END                                                       AS status
+FROM pg_stat_user_tables
+WHERE schemaname NOT IN ('information_schema','pg_catalog')
+ORDER BY n_mod_since_analyze DESC NULLS LAST
+LIMIT 100
+"""
+
+# ── Reliability / config checks ───────────────────────────────────────────────
+
+BACKUP_HISTORY = """
+SELECT
+    current_database()                                        AS database_name,
+    TO_CHAR(last_archived_time, 'YYYY-MM-DD HH24:MI:SS')     AS last_full_backup,
+    'N/A (WAL archiving — no differential backups)'           AS last_diff_backup,
+    'N/A (continuous WAL streaming)'                          AS last_log_backup,
+    COALESCE(
+        ROUND(EXTRACT(EPOCH FROM (NOW() - last_archived_time)) / 3600.0, 1),
+        -1
+    )                                                         AS hours_since_full_backup,
+    0::numeric                                                AS hours_since_log_backup,
+    CASE
+        WHEN archived_count > 0 THEN 'WAL Archiving'
+        ELSE 'NOARCHIVELOG / cloud-managed'
+    END                                                       AS recovery_model_desc,
+    CASE
+        WHEN archived_count = 0 AND failed_count = 0
+            THEN 'INFO: No WAL archives recorded — archiving may be cloud-managed or disabled'
+        WHEN last_archived_time IS NULL
+            THEN 'WARNING: No WAL files archived yet'
+        WHEN NOW() - last_archived_time > INTERVAL '1 day'
+            THEN 'WARNING: Last WAL archive > 1 day ago'
+        ELSE 'OK — WAL archiving active'
+    END                                                       AS backup_status
+FROM pg_stat_archiver
+"""
+
+SERVER_CONFIGURATIONS = """
+SELECT
+    name                                                      AS config_name,
+    setting                                                   AS configured_value,
+    setting                                                   AS running_value,
+    min_val                                                   AS min_value,
+    max_val                                                   AS max_value,
+    short_desc                                                AS description,
+    CASE
+        WHEN name = 'max_connections'         AND setting::int > 500
+            THEN 'WARNING: High max_connections — consider PgBouncer'
+        WHEN name = 'shared_buffers'          AND setting::int < 131072
+            THEN 'RECOMMEND: shared_buffers should be ~25% of RAM'
+        WHEN name = 'autovacuum'              AND setting = 'off'
+            THEN 'RISK: autovacuum disabled — table bloat will accumulate'
+        WHEN name = 'log_min_duration_statement' AND (setting = '-1' OR setting::int > 5000)
+            THEN 'RECOMMEND: enable slow query logging (e.g., 1000 ms)'
+        WHEN name = 'wal_level'              AND setting = 'minimal'
+            THEN 'CAUTION: minimal WAL — replication and PITR limited'
+        WHEN name = 'idle_in_transaction_session_timeout' AND setting = '0'
+            THEN 'RECOMMEND: set a timeout to release idle-in-transaction locks'
+        ELSE 'OK'
+    END                                                       AS recommendation
+FROM pg_settings
+WHERE name IN (
+    'max_connections','shared_buffers','effective_cache_size','work_mem',
+    'maintenance_work_mem','autovacuum','log_min_duration_statement',
+    'wal_level','archive_mode','max_wal_size','checkpoint_completion_target',
+    'default_statistics_target','track_counts','track_activities',
+    'log_lock_waits','deadlock_timeout',
+    'idle_in_transaction_session_timeout','lock_timeout','statement_timeout'
+)
+ORDER BY name
+"""
+
+WEAK_SQL_LOGINS = """
+SELECT
+    usename                                                   AS login_name,
+    CASE WHEN usesuper THEN 'SUPERUSER' ELSE 'USER' END       AS type_desc,
+    CASE WHEN valuntil IS NULL OR valuntil > NOW()
+         THEN 'Enabled' ELSE 'Expired' END                    AS login_status,
+    'N/A (requires superuser)'                                AS password_policy,
+    CASE WHEN valuntil IS NULL THEN 'NO — RISK' ELSE 'Yes' END AS expiration_policy,
+    'N/A'                                                     AS password_last_set,
+    0::int                                                    AS bad_password_count,
+    CASE WHEN valuntil IS NOT NULL
+         THEN EXTRACT(DAY FROM (valuntil - NOW()))::int
+         ELSE NULL
+    END                                                       AS days_until_expiration,
+    CASE
+        WHEN valuntil IS NULL
+            THEN 'RISK: No password expiry configured'
+        WHEN valuntil < NOW()
+            THEN 'RISK: Password has expired'
+        ELSE 'OK'
+    END                                                       AS assessment
+FROM pg_user
+WHERE usename NOT LIKE 'pg_%'
+  AND usename NOT IN ('rdsadmin','azure_superuser','cloudsqlsuperuser','azuresu','cloudsqladmin')
+ORDER BY usename
+"""
+
+SERVER_PERMISSIONS = """
+SELECT
+    CASE
+        WHEN rolsuper       THEN 'superuser'
+        WHEN rolcreaterole  THEN 'createrole'
+        WHEN rolcreatedb    THEN 'createdb'
+        WHEN rolbypassrls   THEN 'bypassrls'
+        ELSE 'member'
+    END                                                       AS server_role,
+    rolname                                                   AS member_name,
+    CASE WHEN rolcanlogin THEN 'LOGIN' ELSE 'NOLOGIN' END     AS type_desc,
+    CASE WHEN rolcanlogin THEN 'Enabled' ELSE 'No Login' END  AS login_status,
+    'N/A'                                                     AS member_since
+FROM pg_roles
+WHERE rolname NOT LIKE 'pg_%'
+  AND rolname NOT IN (
+      'rds_ad','rdsadmin','rds_superuser','azure_pg_admin',
+      'azuresu','replication','azure_superuser','cloudsqlsuperuser'
+  )
+  AND (rolsuper OR rolcreaterole OR rolcreatedb OR rolbypassrls)
+ORDER BY rolsuper DESC, rolcreaterole DESC, rolname
+"""
+
+DEPRECATED_FEATURES_IN_USE = """
+SELECT
+    data_type                                                 AS deprecated_feature,
+    COUNT(*)                                                  AS usage_count_since_restart
+FROM information_schema.columns
+WHERE table_schema NOT IN ('information_schema','pg_catalog')
+  AND data_type IN (
+      'money','character','timestamp without time zone','xml'
+  )
+GROUP BY data_type
+ORDER BY COUNT(*) DESC
+"""
+
+# ── Schema / ETL classification ───────────────────────────────────────────────
+
+SCHEMA_CLASSIFICATION = """
+SELECT
+    s.schema_name,
+    (SELECT COUNT(*) FROM information_schema.tables t
+     WHERE t.table_schema = s.schema_name AND t.table_type = 'BASE TABLE') AS table_count,
+    (SELECT COUNT(*) FROM information_schema.views v
+     WHERE v.table_schema = s.schema_name)                   AS view_count,
+    (SELECT COUNT(*) FROM information_schema.routines r
+     WHERE r.routine_schema = s.schema_name)                 AS proc_count,
+    CASE
+        WHEN s.schema_name IN ('stg','staging','raw','bronze','landing')
+            THEN 'Staging / Landing'
+        WHEN s.schema_name IN ('etl','ctrl','control','pipeline','meta','metadata')
+            THEN 'ETL Control'
+        WHEN s.schema_name IN ('lkp','lookup','ref','reference','dim','config')
+            THEN 'Lookup / Reference'
+        WHEN s.schema_name IN ('public','reporting','rpt','fact','mart','gold','silver')
+            THEN 'Business / Reporting'
+        WHEN s.schema_name IN ('error','err','log','audit','trace')
+            THEN 'Error / Audit'
+        WHEN s.schema_name IN ('bi','dwh','dw','warehouse','ods','datamart')
+            THEN 'Data Warehouse'
+        ELSE 'Other — review'
+    END                                                       AS schema_classification,
+    CASE
+        WHEN s.schema_name IN ('stg','staging','raw','bronze','landing')
+            THEN 'Transient staging — migrate pipelines to Fabric Bronze/Silver'
+        WHEN s.schema_name IN ('etl','ctrl','control','pipeline','meta','metadata')
+            THEN 'ETL orchestration — replace with Fabric Data Pipelines'
+        WHEN s.schema_name IN ('lkp','lookup','ref','reference','dim','config')
+            THEN 'Reference data — move to Fabric Gold layer'
+        WHEN s.schema_name IN ('public','reporting','rpt','fact','mart','gold','silver')
+            THEN 'Core business logic — migrate to Fabric Gold Warehouse'
+        WHEN s.schema_name IN ('error','err','log','audit','trace')
+            THEN 'Operational logs — replace with Fabric Monitor Hub'
+        WHEN s.schema_name IN ('bi','dwh','dw','warehouse','ods','datamart')
+            THEN 'Data warehouse layer — migrate to Fabric Lakehouse'
+        ELSE 'Review and classify before migration planning'
+    END                                                       AS migration_recommendation
+FROM information_schema.schemata s
+WHERE s.schema_name NOT IN (
+    'information_schema','pg_catalog','pg_toast',
+    'pg_temp_1','pg_toast_temp_1'
+)
+ORDER BY schema_classification, s.schema_name
+"""
+
+SP_COMPLEXITY = """
+SELECT
+    routine_schema                                            AS schema_name,
+    routine_name                                              AS procedure_name,
+    'N/A'                                                     AS create_date,
+    'N/A'                                                     AS modify_date,
+    COALESCE(
+        (SELECT COUNT(*) FROM information_schema.parameters p
+         WHERE p.specific_schema = r.routine_schema
+           AND p.specific_name   = r.specific_name), 0
+    )                                                         AS param_count,
+    COALESCE(LENGTH(routine_definition), 0)                  AS char_length,
+    COALESCE(
+        ARRAY_LENGTH(STRING_TO_ARRAY(routine_definition, E'\n'), 1), 0
+    )                                                         AS line_count,
+    CASE WHEN routine_definition ILIKE '%CURSOR%'   THEN 'Yes' ELSE 'No' END AS uses_cursor,
+    CASE WHEN routine_definition ILIKE '%TEMP%'
+          OR  routine_definition ILIKE '%TEMPORARY%' THEN 'Yes' ELSE 'No' END AS uses_temp_table,
+    CASE WHEN routine_definition ILIKE '%EXECUTE%'
+          OR  routine_definition ILIKE '%FORMAT(%'   THEN 'Yes' ELSE 'No' END AS uses_dynamic_sql,
+    CASE WHEN routine_definition ILIKE '%EXCEPTION%' THEN 'Yes' ELSE 'No' END AS has_error_handling,
+    CASE WHEN routine_definition ILIKE '%COMMIT%'
+          OR  routine_definition ILIKE '%ROLLBACK%'  THEN 'Yes' ELSE 'No' END AS uses_transactions,
+    CASE
+        WHEN LENGTH(COALESCE(routine_definition, '')) > 10000 THEN 'HIGH — refactor candidate'
+        WHEN LENGTH(COALESCE(routine_definition, '')) >  3000 THEN 'MEDIUM'
+        ELSE 'LOW'
+    END                                                       AS complexity_level
+FROM information_schema.routines r
+WHERE routine_type IN ('PROCEDURE','FUNCTION')
+  AND routine_schema NOT IN ('information_schema','pg_catalog')
+ORDER BY char_length DESC
+"""
+
+VIEW_COMPLEXITY = """
+SELECT
+    table_schema                                              AS schema_name,
+    table_name                                                AS view_name,
+    'N/A'                                                     AS create_date,
+    'N/A'                                                     AS modify_date,
+    COALESCE(LENGTH(view_definition), 0)                     AS char_length,
+    COALESCE(
+        ARRAY_LENGTH(STRING_TO_ARRAY(view_definition, E'\n'), 1), 0
+    )                                                         AS line_count,
+    (LENGTH(UPPER(COALESCE(view_definition,''))) -
+     LENGTH(REPLACE(UPPER(COALESCE(view_definition,'')), 'JOIN', ''))) / 4 AS join_count,
+    GREATEST(
+        (LENGTH(UPPER(COALESCE(view_definition,''))) -
+         LENGTH(REPLACE(UPPER(COALESCE(view_definition,'')), 'SELECT', ''))
+        ) / 6 - 1, 0
+    )                                                         AS subquery_count,
+    CASE WHEN UPPER(COALESCE(view_definition,'')) LIKE '%UNION%'
+         THEN 'Yes' ELSE 'No' END                            AS has_union,
+    CASE WHEN UPPER(COALESCE(view_definition,'')) LIKE '%WITH%AS%(%'
+          OR  UPPER(COALESCE(view_definition,'')) LIKE '%WITH%AS%SELECT%'
+         THEN 'Yes' ELSE 'No' END                            AS has_cte,
+    CASE
+        WHEN LENGTH(COALESCE(view_definition,'')) > 5000 THEN 'HIGH — consider materializing'
+        WHEN LENGTH(COALESCE(view_definition,'')) > 1500 THEN 'MEDIUM'
+        ELSE 'LOW'
+    END                                                       AS complexity_level
+FROM information_schema.views
+WHERE table_schema NOT IN ('information_schema','pg_catalog')
+ORDER BY char_length DESC
+"""
+
+DATABASE_FILES = """
+SELECT
+    current_database()                                        AS file_name,
+    'N/A (managed by host OS)'                               AS physical_name,
+    'DATABASE'                                                AS file_type,
+    ROUND(pg_database_size(current_database()) / (1024.0*1024.0), 2) AS size_mb,
+    'Unlimited'                                               AS max_size,
+    'Managed by PostgreSQL'                                   AS auto_growth,
+    'ONLINE'                                                  AS file_state,
+    'OK — PostgreSQL manages file allocation automatically'   AS recommendation
+"""
+
+# ── SQL Server-only stubs (return empty result set with correct columns) ──────
+
+SSIS_CATALOG_PACKAGES = """
+SELECT NULL::text AS folder_name, NULL::text AS project_name,
+       NULL::text AS package_name, NULL::text AS description,
+       NULL::text AS last_deployed, NULL::text AS entry_type,
+       NULL::int  AS package_format_version
+WHERE false
+"""
+
+SSIS_EXECUTION_HISTORY = """
+SELECT NULL::text AS folder_name, NULL::text AS project_name,
+       NULL::text AS package_name, NULL::text AS status,
+       NULL::text AS start_time,   NULL::text AS end_time,
+       NULL::int  AS duration_sec, NULL::text AS executed_as_name
+WHERE false
+"""
+
+SSIS_MSDB_PACKAGES = """
+SELECT NULL::text AS folder_name, NULL::text AS package_name,
+       NULL::text AS create_date,  NULL::text AS package_type,
+       NULL::int  AS vermajor,     NULL::int  AS verminor
+WHERE false
+"""
+
+SQL_AGENT_JOB_SCHEDULES = """
+SELECT NULL::text AS job_name,      NULL::text AS job_status,
+       NULL::text AS schedule_name, NULL::text AS schedule_status,
+       NULL::text AS frequency_type,NULL::int  AS freq_interval,
+       NULL::text AS intraday_frequency,
+       NULL::text AS active_start_time, NULL::text AS active_end_time,
+       NULL::text AS next_run_date
+WHERE false
+"""
+
+SQL_AGENT_JOB_STEPS = """
+SELECT NULL::text AS job_name,  NULL::text AS job_status,
+       NULL::int  AS step_id,   NULL::text AS step_name,
+       NULL::text AS step_type, NULL::text AS database_name,
+       NULL::int  AS retry_attempts, NULL::int AS retry_interval_min,
+       NULL::text AS on_success, NULL::text AS on_fail
+WHERE false
+"""
+
+SSAS_LINKED_SERVERS = """
+SELECT NULL::text AS linked_server_name, NULL::text AS product,
+       NULL::text AS provider,            NULL::text AS data_source,
+       NULL::text AS remote_login_enabled,NULL::text AS modify_date,
+       NULL::text AS finding
+WHERE false
+"""
+
+# ── Performance — wait stats & query store ─────────────────────────────────────
+
+WAIT_STATISTICS = """
+SELECT
+    COALESCE(wait_event_type, 'CPU') || ': ' || COALESCE(wait_event, 'running') AS wait_type,
+    COUNT(*)                                                  AS total_wait_sec,
+    0::numeric                                                AS max_wait_sec,
+    COUNT(*)                                                  AS waiting_tasks_count,
+    ROUND(100.0 * COUNT(*) / NULLIF(SUM(COUNT(*)) OVER(), 0), 2) AS pct_total_wait,
+    CASE wait_event_type
+        WHEN 'Lock'    THEN 'Locking — blocking / deadlock pressure'
+        WHEN 'IO'      THEN 'I/O — disk read bottleneck'
+        WHEN 'IPC'     THEN 'IPC — inter-process communication waits'
+        WHEN 'Timeout' THEN 'Timeout — lock or statement timeout'
+        WHEN 'LWLock'  THEN 'Lightweight lock — shared memory contention'
+        WHEN 'Client'  THEN 'Network — client consuming results slowly'
+        ELSE 'Other — review'
+    END                                                       AS interpretation
+FROM pg_stat_activity
+WHERE state != 'idle'
+  AND wait_event IS NOT NULL
+GROUP BY wait_event_type, wait_event
+ORDER BY COUNT(*) DESC
+LIMIT 25
+"""
+
+QUERY_STORE_TOP_QUERIES = """
+SELECT
+    queryid::text                                             AS query_id,
+    LEFT(query, 500)                                          AS query_text,
+    ROUND(mean_exec_time::numeric, 2)                         AS avg_duration_ms,
+    ROUND(max_exec_time::numeric,  2)                         AS max_duration_ms,
+    ROUND(mean_exec_time::numeric, 2)                         AS avg_cpu_ms,
+    ROUND((shared_blks_hit + shared_blks_read)::numeric, 0)  AS avg_logical_reads,
+    calls                                                     AS total_executions,
+    'N/A'                                                     AS last_executed,
+    CASE
+        WHEN mean_exec_time > 5000 THEN 'CRITICAL: avg > 5 sec'
+        WHEN mean_exec_time > 1000 THEN 'WARNING: avg > 1 sec'
+        ELSE 'OK'
+    END                                                       AS performance_flag
+FROM pg_stat_statements
+WHERE query NOT LIKE '%pg_stat%'
+ORDER BY mean_exec_time DESC
+LIMIT 25
+"""
+
+
+# ── PostgreSQL-specific extended assessment queries ───────────────────────────
+# These sections only run for postgres db_type; other engines return empty via
+# the default fallback in _get_query_steps ("SELECT NULL WHERE 1=0").
+
+PG_EXTENSIONS = """
+SELECT
+    e.extname                                                 AS extension_name,
+    e.extversion                                              AS version,
+    n.nspname                                                 AS schema_name,
+    COALESCE(d.description, '')                               AS description,
+    CASE WHEN e.extrelocatable THEN 'YES' ELSE 'NO' END       AS relocatable,
+    CASE
+        WHEN e.extname IN (
+            'pg_stat_statements','pg_trgm','pgcrypto','uuid-ossp',
+            'pg_partman','timescaledb','postgis','vector','hstore','citext'
+        ) THEN 'Commonly used'
+        WHEN e.extname IN ('pg_cron','pg_repack','pg_squeeze')
+            THEN 'Maintenance'
+        ELSE 'Other'
+    END                                                       AS category
+FROM pg_extension e
+LEFT JOIN pg_namespace n ON n.oid = e.extnamespace
+LEFT JOIN pg_description d ON d.objoid = e.oid
+                           AND d.classoid = 'pg_extension'::regclass
+ORDER BY e.extname
+"""
+
+PG_TRIGGERS = """
+SELECT
+    t.trigger_schema                                          AS schema_name,
+    t.trigger_name,
+    t.event_object_table                                      AS table_name,
+    t.event_manipulation                                      AS trigger_event,
+    t.action_timing                                           AS trigger_timing,
+    t.action_orientation                                      AS per_row_or_statement,
+    LEFT(COALESCE(t.action_statement, ''), 500)               AS trigger_body,
+    CASE
+        WHEN t.action_timing = 'BEFORE' AND t.event_manipulation = 'DELETE'
+            THEN 'REVIEW — BEFORE DELETE triggers can block cascade deletes'
+        WHEN t.action_orientation = 'ROW' AND t.event_manipulation IN ('INSERT','UPDATE')
+            THEN 'ROW-level trigger — check for performance impact on bulk loads'
+        ELSE 'OK'
+    END                                                       AS finding
+FROM information_schema.triggers t
+WHERE t.trigger_schema NOT IN ('information_schema','pg_catalog')
+ORDER BY t.trigger_schema, t.event_object_table, t.trigger_name
+"""
+
+PG_SEQUENCES = """
+SELECT
+    s.sequence_schema                                         AS schema_name,
+    s.sequence_name,
+    s.data_type,
+    s.start_value,
+    s.minimum_value,
+    s.maximum_value,
+    s.increment,
+    s.cycle_option,
+    CASE
+        WHEN s.data_type = 'smallint'
+            THEN 'CAUTION: smallint max 32767 — upgrade to integer or bigint'
+        WHEN s.data_type = 'integer'
+            THEN 'OK — integer (max 2.1B); monitor high-volume tables'
+        ELSE 'OK — bigint'
+    END                                                       AS recommendation
+FROM information_schema.sequences s
+WHERE s.sequence_schema NOT IN ('information_schema','pg_catalog')
+ORDER BY s.sequence_schema, s.sequence_name
+"""
+
+PG_PARTITIONS = """
+SELECT
+    n_parent.nspname                                          AS schema_name,
+    p.relname                                                 AS parent_table,
+    n_child.nspname                                           AS child_schema,
+    c.relname                                                 AS child_table,
+    CASE c.relkind
+        WHEN 'r' THEN 'TABLE'
+        WHEN 'p' THEN 'PARTITIONED TABLE'
+        ELSE c.relkind::text
+    END                                                       AS child_type,
+    COALESCE(
+        pg_get_expr(c.relpartbound, c.oid),
+        'INHERITED (pre-PG10 style)'
+    )                                                         AS partition_bound,
+    COALESCE(s.n_live_tup, 0)                                 AS approx_row_count,
+    CASE
+        WHEN s.n_live_tup > 1000000 THEN 'LARGE partition — ensure partition pruning works'
+        ELSE 'OK'
+    END                                                       AS finding
+FROM pg_inherits i
+JOIN pg_class p        ON p.oid = i.inhparent
+JOIN pg_class c        ON c.oid = i.inhrelid
+JOIN pg_namespace n_parent ON n_parent.oid = p.relnamespace
+JOIN pg_namespace n_child  ON n_child.oid  = c.relnamespace
+LEFT JOIN pg_stat_user_tables s ON s.schemaname = n_child.nspname
+                                AND s.relname    = c.relname
+WHERE n_parent.nspname NOT IN ('information_schema','pg_catalog','pg_toast')
+ORDER BY n_parent.nspname, p.relname, c.relname
+"""
+
+PG_MATVIEWS = """
+SELECT
+    m.schemaname                                              AS schema_name,
+    m.matviewname                                             AS view_name,
+    'N/A'                                                     AS create_date,
+    'N/A'                                                     AS modify_date,
+    CASE WHEN m.hasindexes THEN 'YES' ELSE 'NO' END           AS has_indexes,
+    CASE WHEN m.ispopulated THEN 'YES' ELSE 'NO' END          AS is_populated,
+    COALESCE(s.n_live_tup, 0)                                 AS approx_row_count,
+    LEFT(COALESCE(m.definition, ''), 500)                     AS definition,
+    CASE
+        WHEN NOT m.ispopulated
+            THEN 'WARNING: not yet populated — run REFRESH MATERIALIZED VIEW'
+        WHEN NOT m.hasindexes
+            THEN 'RECOMMEND: add index to improve query performance'
+        ELSE 'OK'
+    END                                                       AS finding
+FROM pg_matviews m
+LEFT JOIN pg_stat_user_tables s ON s.schemaname = m.schemaname
+                                AND s.relname    = m.matviewname
+WHERE m.schemaname NOT IN ('information_schema','pg_catalog','pg_toast')
+ORDER BY m.schemaname, m.matviewname
+"""
+
+PG_TABLE_BLOAT = """
+SELECT
+    schemaname                                                AS schema_name,
+    relname                                                   AS table_name,
+    COALESCE(n_live_tup, 0)                                   AS live_rows,
+    COALESCE(n_dead_tup, 0)                                   AS dead_rows,
+    CASE
+        WHEN (n_live_tup + n_dead_tup) > 0
+            THEN ROUND(
+                100.0 * n_dead_tup / (n_live_tup + n_dead_tup), 2
+            )
+        ELSE 0
+    END                                                       AS dead_row_pct,
+    TO_CHAR(last_vacuum,      'YYYY-MM-DD HH24:MI:SS')        AS last_vacuum,
+    TO_CHAR(last_autovacuum,  'YYYY-MM-DD HH24:MI:SS')        AS last_autovacuum,
+    TO_CHAR(last_analyze,     'YYYY-MM-DD HH24:MI:SS')        AS last_analyze,
+    COALESCE(vacuum_count, 0)                                 AS vacuum_count,
+    COALESCE(autovacuum_count, 0)                             AS autovacuum_count,
+    CASE
+        WHEN n_dead_tup::float / NULLIF(n_live_tup + n_dead_tup, 0) > 0.30
+            THEN 'CRITICAL: VACUUM required (>30% dead tuples)'
+        WHEN n_dead_tup::float / NULLIF(n_live_tup + n_dead_tup, 0) > 0.10
+            THEN 'WARNING: VACUUM recommended (>10% dead tuples)'
+        WHEN last_autovacuum IS NULL AND last_vacuum IS NULL
+             AND n_live_tup > 10000
+            THEN 'CAUTION: never vacuumed — check autovacuum settings'
+        ELSE 'OK'
+    END                                                       AS recommendation
+FROM pg_stat_user_tables
+WHERE schemaname NOT IN ('information_schema','pg_catalog')
+ORDER BY dead_row_pct DESC NULLS LAST, n_dead_tup DESC
+"""
+
+PG_CONNECTION_STATS = """
+SELECT
+    COALESCE(datname, '(all databases)')                      AS database_name,
+    COUNT(*)                                                  AS total_connections,
+    COUNT(*) FILTER (WHERE state = 'active')                  AS active,
+    COUNT(*) FILTER (WHERE state = 'idle')                    AS idle,
+    COUNT(*) FILTER (WHERE state = 'idle in transaction')     AS idle_in_transaction,
+    COUNT(*) FILTER (
+        WHERE state = 'idle in transaction (aborted)'
+    )                                                         AS idle_in_transaction_aborted,
+    COUNT(*) FILTER (WHERE wait_event_type = 'Lock')          AS blocked_by_lock,
+    COALESCE(
+        MAX(EXTRACT(EPOCH FROM (NOW() - state_change))::int), 0
+    )                                                         AS max_duration_secs,
+    (
+        SELECT setting::int
+        FROM pg_settings
+        WHERE name = 'max_connections'
+    )                                                         AS max_connections,
+    CASE
+        WHEN COUNT(*) * 1.0 / NULLIF(
+            (SELECT setting::int FROM pg_settings WHERE name = 'max_connections'), 0
+        ) > 0.80
+            THEN 'CRITICAL: >80% of max_connections used — consider connection pooling'
+        WHEN COUNT(*) FILTER (WHERE state = 'idle in transaction') > 5
+            THEN 'WARNING: idle-in-transaction connections detected — check for long transactions'
+        WHEN COUNT(*) FILTER (WHERE wait_event_type = 'Lock') > 0
+            THEN 'WARNING: lock-waiting connections detected'
+        ELSE 'OK'
+    END                                                       AS finding
+FROM pg_stat_activity
+GROUP BY datname
+ORDER BY total_connections DESC
 """

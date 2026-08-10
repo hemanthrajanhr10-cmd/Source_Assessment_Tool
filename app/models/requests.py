@@ -29,7 +29,7 @@ class ServerTarget(BaseModel):
     server: str = Field(..., description="Hostname or IP")
     port: int = Field(1433, description="Port (default 1433 for SQL Server, 5432 for PostgreSQL, 3306 for MySQL)")
     username: str = Field(..., description="Login username")
-    password: SecretStr = Field(..., description="Login password")
+    password: SecretStr = Field(default="", description="Login password (leave empty when using Azure Managed Identity)")
     trust_server_certificate: bool = Field(True)
     encrypt: bool = Field(True)
     databases: list[DatabaseTarget] = Field(default_factory=list)
@@ -39,12 +39,16 @@ class ServerTarget(BaseModel):
         "db_datareader",
         description="SQL Server access level granted to the login — controls which assessments are run"
     )
+    gcp_sa_key: str | None = Field(None, description="GCP service account key JSON for Cloud SQL connector auth (optional — leave blank to use ADC/Workload Identity)")
+    gcp_private_ip: bool = Field(False, description="Connect via private IP (VPC) instead of public IP for GCP Cloud SQL")
+    azure_managed_identity: bool = Field(False, description="Use Azure Managed Identity (Entra ID) instead of a password — for Azure PostgreSQL Flexible/Single Server")
 
 
 class SessionRequest(BaseModel):
     """Create a multi-server assessment session."""
     label: str | None = Field(None, description="Optional session label")
     servers: list[ServerTarget] = Field(..., min_length=1)
+    unified_session_id: str | None = Field(None, description="Optional unified session ID to link this source assessment to")
 
 
 class ConnectivityTestRequest(BaseModel):
@@ -65,9 +69,12 @@ class ConnectionParams(BaseModel):
     port: int = Field(1433, description="Port")
     database: str = Field(..., description="Target database name")
     username: str = Field(..., description="Login username")
-    password: SecretStr = Field(..., description="Login password")
+    password: SecretStr = Field(default="", description="Login password (leave empty when using Azure Managed Identity)")
     trust_server_certificate: bool = Field(True, description="Skip TLS certificate validation (SQL Server)")
     encrypt: bool = Field(True, description="Require encrypted connection (SQL Server)")
+    gcp_sa_key: str | None = Field(None, description="GCP service account key JSON for Cloud SQL connector auth (optional — leave blank to use ADC/Workload Identity)")
+    gcp_private_ip: bool = Field(False, description="Connect via private IP (VPC) instead of public IP for GCP Cloud SQL")
+    azure_managed_identity: bool = Field(False, description="Use Azure Managed Identity (Entra ID) instead of a password — for Azure PostgreSQL Flexible/Single Server")
 
     model_config = {"json_schema_extra": {"example": {
         "db_type": "mssql",

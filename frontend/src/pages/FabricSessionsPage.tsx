@@ -1,16 +1,19 @@
-import { useNavigate } from 'react-router-dom'
+﻿import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Zap, PlusCircle, CheckCircle2, XCircle, Loader2, Clock, StopCircle, BarChart3 } from 'lucide-react'
+import { Zap, PlusCircle, CheckCircle2, XCircle, Loader2, Clock, StopCircle } from 'lucide-react'
 import { api } from '../api/client'
 import type { FabricSessionRecord } from '../types/api'
 import { formatDateTime } from '../utils/dateTime'
 import Button from '../components/ui/Button'
 import Loader3D from '../components/ui/Loader3D'
+import { FabricLogo } from '../components/ui/SourceLogos'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 function FabricStatusBadge({ status }: { status: string }) {
   if (status === 'completed')
     return (
-      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-earth-50 text-earth-700 ring-1 ring-earth-200">
         <CheckCircle2 className="h-3 w-3" /> Completed
       </span>
     )
@@ -48,12 +51,18 @@ export default function FabricSessionsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['fabric-sessions'] }),
   })
 
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(sessions)
+  const filtered = filteredRaw as FabricSessionRecord[]
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-2.5">
-            <BarChart3 className="h-6 w-6 text-indigo-500" />
+          <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+              style={{ background: '#F0FAF9', border: '1px solid #A8E2DD', boxShadow: '0 2px 8px rgba(77,168,160,0.10)' }}>
+              <FabricLogo size={26} />
+            </div>
             Fabric Assessments
           </h1>
           <p className="mt-1 text-sm text-slate-500">Power BI / Fabric workspace assessment history</p>
@@ -66,6 +75,23 @@ export default function FabricSessionsPage() {
         </Button>
       </div>
 
+      <SessionFilterBar
+        filter={filter}
+        onField={setField}
+        onReset={reset}
+        isActive={isActive}
+        totalCount={sessions.length}
+        filteredCount={filtered.length}
+        actions={
+          <Button
+            leftIcon={<PlusCircle className="h-4 w-4" />}
+            onClick={() => navigate('/fabric/new')}
+          >
+            New Fabric Assessment
+          </Button>
+        }
+      />
+
       {isLoading ? (
         <Loader3D message="Loading sessions" />
       ) : sessions.length === 0 ? (
@@ -77,6 +103,14 @@ export default function FabricSessionsPage() {
           <p className="text-sm text-slate-500 mt-1">
             Click "New Fabric Assessment" to get started.
           </p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="card p-12 text-center">
+          <p className="text-slate-700 font-semibold">No sessions match your filters</p>
+          <p className="text-sm text-slate-500 mt-1">Try adjusting your search or filter criteria.</p>
+          <button onClick={reset} className="mt-4 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#4DA8A0]">
+            Clear filters
+          </button>
         </div>
       ) : (
         <div className="card overflow-hidden">
@@ -91,11 +125,11 @@ export default function FabricSessionsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {sessions.map((s: FabricSessionRecord, idx: number) => (
+              {filtered.map((s: FabricSessionRecord, idx: number) => (
                 <tr
                   key={s.fabric_session_id}
                   onClick={() => navigate(`/fabric/sessions/${s.fabric_session_id}`)}
-                  className={`cursor-pointer transition-colors hover:bg-indigo-50/40 ${
+                  className={`cursor-pointer transition-colors hover:bg-earth-50/40 ${
                     idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
                   }`}
                 >

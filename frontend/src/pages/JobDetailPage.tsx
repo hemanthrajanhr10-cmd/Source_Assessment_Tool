@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+﻿import { useState, useCallback, useRef, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -10,7 +10,7 @@ import {
   Bot, Link2, Network, GitBranch, MessageSquare, MonitorCheck,
   ShieldCheck, AlertCircle, TrendingUp, BarChart, Layers,
   Settings, History, Key, ServerCog, FlaskConical, Wrench, PackageSearch,
-  HardDrive,
+  HardDrive, Map, Package, Archive, Calendar, ListOrdered, Gauge,
 } from 'lucide-react'
 import { api } from '../api/client'
 import { StatusBadge } from '../components/ui/Badge'
@@ -27,7 +27,7 @@ function AccessLevelBadge({ level }: { level: AccessLevel }) {
     db_datareader:       'bg-slate-100 text-slate-600 ring-1 ring-slate-200',
     view_database_state: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',
     db_owner:            'bg-amber-50 text-amber-700 ring-1 ring-amber-200',
-    sysadmin:            'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200',
+    sysadmin:            'bg-earth-50 text-earth-700 ring-1 ring-earth-200',
   }
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[level]}`}>
@@ -44,8 +44,8 @@ function LockedTabOverlay({ requiredLevel, currentLevel }: { requiredLevel: Acce
       <div
         className="flex items-center justify-center h-14 w-14 rounded-2xl"
         style={{
-          background: 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(99,102,241,0.04) 100%)',
-          border: '1px solid rgba(196,181,253,0.30)',
+          background: 'linear-gradient(135deg, rgba(77,168,160,0.05) 0%, rgba(8,145,178,0.03) 100%)',
+          border: '1px solid rgba(77,168,160,0.20)',
           boxShadow: 'var(--elevation-1)',
         }}
       >
@@ -70,7 +70,7 @@ function pctCell(value: unknown) {
   const cls =
     n > 75 ? 'bg-red-50 text-red-700'     :
     n > 25 ? 'bg-amber-50 text-amber-700' :
-              'bg-emerald-50 text-emerald-700'
+              'bg-earth-50 text-earth-700'
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
       {pct}
@@ -93,11 +93,13 @@ const TAB_GROUPS = [
   {
     label: 'Schema & Design',
     ids: ['deprecated_data_types', 'missing_primary_keys', 'heap_tables',
-          'untrusted_constraints', 'sp_naming_violations', 'duplicate_indexes'],
+          'untrusted_constraints', 'sp_naming_violations', 'sp_complexity', 'view_complexity',
+          'duplicate_indexes', 'schema_classification', 'database_files'],
   },
   {
     label: 'Performance',
-    ids: ['missing_indexes', 'index_usage_stats', 'fragmentation_report', 'statistics_health'],
+    ids: ['missing_indexes', 'index_usage_stats', 'fragmentation_report', 'statistics_health',
+          'wait_statistics', 'query_store_top_queries'],
   },
   {
     label: 'Configuration',
@@ -106,8 +108,136 @@ const TAB_GROUPS = [
   {
     label: 'Features & Risks',
     ids: ['sql_agent_jobs', 'linked_servers', 'backup_history',
-          'cross_db_references', 'replication_status', 'service_broker'],
+          'cross_db_references', 'replication_status', 'service_broker',
+          'ssis_catalog_packages', 'ssis_execution_history', 'ssis_msdb_packages',
+          'sql_agent_job_schedules', 'sql_agent_job_steps', 'ssas_linked_servers'],
   },
+]
+
+function complexityBadge(value: unknown) {
+  const v = String(value ?? '')
+  const cfg =
+    v.startsWith('HIGH')   ? { cls: 'bg-red-50 text-red-700 ring-1 ring-red-200',       dot: 'bg-red-400'   } :
+    v === 'MEDIUM'         ? { cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200', dot: 'bg-amber-400' } :
+                             { cls: 'bg-earth-50 text-earth-700 ring-1 ring-earth-200', dot: 'bg-earth-400' }
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      {v}
+    </span>
+  )
+}
+
+function recommendationBadge(value: unknown) {
+  const v = String(value ?? '')
+  const cfg =
+    v.startsWith('RISK')    ? { cls: 'bg-red-50 text-red-700 ring-1 ring-red-200',       dot: 'bg-red-400'   } :
+    v.startsWith('CAUTION') ? { cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200', dot: 'bg-amber-400' } :
+                              { cls: 'bg-earth-50 text-earth-700 ring-1 ring-earth-200', dot: 'bg-earth-400' }
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      {v}
+    </span>
+  )
+}
+
+function ssisStatusBadge(value: unknown) {
+  const v = String(value ?? '')
+  const cfg =
+    v === 'Failed' || v === 'Ended Unexpectedly'
+      ? { cls: 'bg-red-50 text-red-700 ring-1 ring-red-200',       dot: 'bg-red-400'   } :
+    v === 'Succeeded' || v === 'Completed'
+      ? { cls: 'bg-earth-50 text-earth-700 ring-1 ring-earth-200', dot: 'bg-earth-400' } :
+    v === 'Running'
+      ? { cls: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200',    dot: 'bg-blue-400'  } :
+      { cls: 'bg-slate-50 text-slate-600 ring-1 ring-slate-200',   dot: 'bg-slate-400' }
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      {v}
+    </span>
+  )
+}
+
+function perfFlagBadge(value: unknown) {
+  const v = String(value ?? '')
+  const cfg =
+    v.startsWith('CRITICAL') ? { cls: 'bg-red-50 text-red-700 ring-1 ring-red-200',       dot: 'bg-red-400'   } :
+    v.startsWith('WARNING')  ? { cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200', dot: 'bg-amber-400' } :
+                               { cls: 'bg-earth-50 text-earth-700 ring-1 ring-earth-200', dot: 'bg-earth-400' }
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold ${cfg.cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      {v}
+    </span>
+  )
+}
+
+const VIEW_COMPLEXITY_COLUMNS: ColumnDef[] = [
+  { key: 'schema_name',      header: 'Schema',       align: 'left'  },
+  { key: 'view_name',        header: 'View',         align: 'left'  },
+  { key: 'line_count',       header: 'Lines',        align: 'right' },
+  { key: 'join_count',       header: 'JOINs',        align: 'right' },
+  { key: 'subquery_count',   header: 'Subqueries',   align: 'right' },
+  { key: 'has_union',        header: 'UNION',        align: 'left'  },
+  { key: 'has_cte',          header: 'CTE',          align: 'left'  },
+  { key: 'complexity_level', header: 'Complexity',   align: 'left', render: complexityBadge },
+]
+
+const DATABASE_FILES_COLUMNS: ColumnDef[] = [
+  { key: 'file_name',     header: 'File',         align: 'left'  },
+  { key: 'file_type',     header: 'Type',         align: 'left'  },
+  { key: 'size_mb',       header: 'Size (MB)',     align: 'right' },
+  { key: 'max_size',      header: 'Max Size',     align: 'left'  },
+  { key: 'auto_growth',   header: 'Auto Growth',  align: 'left'  },
+  { key: 'file_state',    header: 'State',        align: 'left'  },
+  { key: 'recommendation', header: 'Status',      align: 'left', render: recommendationBadge },
+]
+
+const SSIS_EXEC_COLUMNS: ColumnDef[] = [
+  { key: 'folder_name',    header: 'Folder',       align: 'left'  },
+  { key: 'project_name',   header: 'Project',      align: 'left'  },
+  { key: 'package_name',   header: 'Package',      align: 'left'  },
+  { key: 'status',         header: 'Status',       align: 'left', render: ssisStatusBadge },
+  { key: 'start_time',     header: 'Start',        align: 'left'  },
+  { key: 'end_time',       header: 'End',          align: 'left'  },
+  { key: 'duration_sec',   header: 'Duration (s)', align: 'right' },
+  { key: 'executed_as_name', header: 'Executed By', align: 'left' },
+]
+
+const WAIT_STATS_COLUMNS: ColumnDef[] = [
+  { key: 'wait_type',          header: 'Wait Type',        align: 'left'  },
+  { key: 'total_wait_sec',     header: 'Total Wait (s)',   align: 'right' },
+  { key: 'max_wait_sec',       header: 'Max Wait (s)',     align: 'right' },
+  { key: 'waiting_tasks_count', header: 'Tasks Waiting',  align: 'right' },
+  { key: 'pct_total_wait',     header: '% of Total',      align: 'right', render: pctCell },
+  { key: 'interpretation',     header: 'Interpretation',  align: 'left'  },
+]
+
+const QUERY_STORE_COLUMNS: ColumnDef[] = [
+  { key: 'query_id',          header: 'ID',           align: 'right' },
+  { key: 'query_text',        header: 'Query',        align: 'left'  },
+  { key: 'avg_duration_ms',   header: 'Avg (ms)',     align: 'right' },
+  { key: 'max_duration_ms',   header: 'Max (ms)',     align: 'right' },
+  { key: 'avg_cpu_ms',        header: 'Avg CPU (ms)', align: 'right' },
+  { key: 'avg_logical_reads', header: 'Logical Reads', align: 'right' },
+  { key: 'total_executions',  header: 'Executions',   align: 'right' },
+  { key: 'last_executed',     header: 'Last Run',     align: 'left'  },
+  { key: 'performance_flag',  header: 'Flag',         align: 'left', render: perfFlagBadge },
+]
+
+const SP_COMPLEXITY_COLUMNS: ColumnDef[] = [
+  { key: 'schema_name',        header: 'Schema',          align: 'left'  },
+  { key: 'procedure_name',     header: 'Procedure',       align: 'left'  },
+  { key: 'line_count',         header: 'Lines',           align: 'right' },
+  { key: 'param_count',        header: 'Params',          align: 'right' },
+  { key: 'uses_cursor',        header: 'Cursor',          align: 'left'  },
+  { key: 'uses_temp_table',    header: 'Temp Table',      align: 'left'  },
+  { key: 'uses_dynamic_sql',   header: 'Dynamic SQL',     align: 'left'  },
+  { key: 'has_error_handling', header: 'Error Handling',  align: 'left'  },
+  { key: 'uses_transactions',  header: 'Transactions',    align: 'left'  },
+  { key: 'complexity_level',   header: 'Complexity',      align: 'left', render: complexityBadge },
 ]
 
 interface TabDef {
@@ -154,7 +284,19 @@ const TABS: TabDef[] = [
   { id: 'heap_tables',    label: 'Heap Tables',   icon: <Layers className="h-3.5 w-3.5" />,          getData: (r) => r.heap_tables,    emptyMessage: 'No heap tables found.' },
   { id: 'untrusted_constraints', label: 'Untrusted Constraints', icon: <AlertTriangle className="h-3.5 w-3.5" />, getData: (r) => r.untrusted_constraints, emptyMessage: 'All constraints are trusted.' },
   { id: 'sp_naming_violations', label: 'SP Naming', icon: <FlaskConical className="h-3.5 w-3.5" />, getData: (r) => r.sp_naming_violations, emptyMessage: 'No sp_ prefix violations found.' },
-  { id: 'duplicate_indexes', label: 'Duplicate Indexes', icon: <Wrench className="h-3.5 w-3.5" />,  getData: (r) => r.duplicate_indexes, emptyMessage: 'No duplicate indexes detected.' },
+  { id: 'sp_complexity',         label: 'SP Complexity',      icon: <BarChart className="h-3.5 w-3.5" />,       getData: (r) => r.sp_complexity,         columns: SP_COMPLEXITY_COLUMNS,    emptyMessage: 'No stored procedure complexity data.' },
+  { id: 'view_complexity',       label: 'View Complexity',    icon: <BarChart2 className="h-3.5 w-3.5" />,      getData: (r) => r.view_complexity,       columns: VIEW_COMPLEXITY_COLUMNS,  emptyMessage: 'No view complexity data.' },
+  { id: 'duplicate_indexes',     label: 'Duplicate Indexes',  icon: <Wrench className="h-3.5 w-3.5" />,         getData: (r) => r.duplicate_indexes,     emptyMessage: 'No duplicate indexes detected.' },
+  { id: 'schema_classification', label: 'Schema Classes',     icon: <Map className="h-3.5 w-3.5" />,            getData: (r) => r.schema_classification, emptyMessage: 'No schema classification data.' },
+  { id: 'database_files',        label: 'Database Files',     icon: <HardDrive className="h-3.5 w-3.5" />,      getData: (r) => r.database_files,        columns: DATABASE_FILES_COLUMNS,   emptyMessage: 'No database file data.' },
+  { id: 'ssis_catalog_packages', label: 'SSIS Packages',      icon: <Package className="h-3.5 w-3.5" />,        getData: (r) => r.ssis_catalog_packages, emptyMessage: 'No SSIS catalog packages found.' },
+  { id: 'ssis_execution_history', label: 'SSIS Executions',   icon: <History className="h-3.5 w-3.5" />,        getData: (r) => r.ssis_execution_history, columns: SSIS_EXEC_COLUMNS,        emptyMessage: 'No SSIS execution history (30d).' },
+  { id: 'ssis_msdb_packages',    label: 'SSIS Legacy',        icon: <Archive className="h-3.5 w-3.5" />,        getData: (r) => r.ssis_msdb_packages,    emptyMessage: 'No legacy SSIS msdb packages.' },
+  { id: 'sql_agent_job_schedules', label: 'Agent Schedules',  icon: <Calendar className="h-3.5 w-3.5" />,       getData: (r) => r.sql_agent_job_schedules, emptyMessage: 'No SQL Agent job schedules found.' },
+  { id: 'sql_agent_job_steps',   label: 'Agent Job Steps',    icon: <ListOrdered className="h-3.5 w-3.5" />,    getData: (r) => r.sql_agent_job_steps,   emptyMessage: 'No SQL Agent job steps found.' },
+  { id: 'ssas_linked_servers',   label: 'SSAS Servers',       icon: <Cpu className="h-3.5 w-3.5" />,            getData: (r) => r.ssas_linked_servers,   emptyMessage: 'No SSAS linked servers detected.' },
+  { id: 'wait_statistics',       label: 'Wait Statistics',    icon: <Gauge className="h-3.5 w-3.5" />,          getData: (r) => r.wait_statistics,       columns: WAIT_STATS_COLUMNS,       emptyMessage: 'No wait statistics available.' },
+  { id: 'query_store_top_queries', label: 'Query Store',      icon: <Zap className="h-3.5 w-3.5" />,            getData: (r) => r.query_store_top_queries, columns: QUERY_STORE_COLUMNS,     emptyMessage: 'No Query Store data (may be disabled).' },
   { id: 'missing_indexes', label: 'Missing Indexes', icon: <TrendingUp className="h-3.5 w-3.5" />,  getData: (r) => r.missing_indexes, emptyMessage: 'No missing index recommendations.' },
   { id: 'index_usage_stats', label: 'Index Usage', icon: <BarChart className="h-3.5 w-3.5" />,      getData: (r) => r.index_usage_stats, emptyMessage: 'No index usage statistics.' },
   { id: 'fragmentation_report', label: 'Fragmentation', icon: <BarChart2 className="h-3.5 w-3.5" />, getData: (r) => r.fragmentation_report, emptyMessage: 'No significant fragmentation.' },
@@ -203,8 +345,13 @@ function guessProgress(msg?: string): number {
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
   const [activeTab, setActiveTab] = useState('schemas')
+  const contentScrollRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
   const [downloadingWord, setDownloadingWord] = useState(false)
+
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+  }, [activeTab])
 
   const handleDownload = useCallback(async () => {
     if (!jobId || downloading) return
@@ -261,7 +408,7 @@ export default function JobDetailPage() {
         }}
       >
         <p className="font-medium">Job not found.</p>
-        <Link to="/jobs" className="mt-2 inline-block text-sm text-violet-600 hover:text-violet-700 transition-colors">
+        <Link to="/jobs" className="mt-2 inline-block text-sm text-earth-700 hover:text-earth-800 transition-colors">
           Back to Jobs
         </Link>
       </div>
@@ -294,7 +441,7 @@ export default function JobDetailPage() {
         {/* Top accent line */}
         <div
           className="h-0.5"
-          style={{ background: 'linear-gradient(90deg, #7c3aed, #6366f1, #a78bfa, transparent)' }}
+          style={{ background: 'linear-gradient(90deg, #4DA8A0, #6CBDB5, #93CCC6, transparent)' }}
           aria-hidden="true"
         />
 
@@ -307,12 +454,12 @@ export default function JobDetailPage() {
                 <div
                   className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0"
                   style={{
-                    background: 'linear-gradient(135deg, rgba(124,58,237,0.10) 0%, rgba(99,102,241,0.06) 100%)',
-                    border: '1px solid rgba(196,181,253,0.35)',
+                    background: 'linear-gradient(135deg, rgba(77,168,160,0.08) 0%, rgba(8,145,178,0.04) 100%)',
+                    border: '1px solid rgba(77,168,160,0.25)',
                     boxShadow: 'var(--elevation-1)',
                   }}
                 >
-                  <Database className="h-4.5 w-4.5 text-violet-600" style={{ height: '18px', width: '18px' }} aria-hidden="true" />
+                  <Database className="h-4.5 w-4.5 text-earth-700" style={{ height: '18px', width: '18px' }} aria-hidden="true" />
                 </div>
                 <h1 className="text-xl font-bold text-slate-900 font-display tracking-tight">
                   {status.label ?? 'Unlabeled Assessment'}
@@ -365,7 +512,7 @@ export default function JobDetailPage() {
               value: (
                 <span className="tabular-nums font-medium text-slate-700">
                   {elapsed(status.started_at, status.completed_at)}
-                  {isRunning && <span className="ml-1 text-violet-400 animate-pulse">…</span>}
+                  {isRunning && <span className="ml-1 text-earth-500 animate-pulse">…</span>}
                 </span>
               ),
             },
@@ -402,7 +549,7 @@ export default function JobDetailPage() {
           <div className="px-6 pb-5 space-y-2">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400 shrink-0" aria-hidden="true" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-earth-500 shrink-0" aria-hidden="true" />
                 <span className="text-xs text-slate-500 truncate max-w-sm">
                   {status.status === 'pending' ? 'Queued — waiting to start…' : (status.progress_message ?? 'Running assessment…')}
                 </span>
@@ -410,20 +557,20 @@ export default function JobDetailPage() {
               <span
                 className="text-xs font-bold tabular-nums px-2 py-0.5 rounded-full shrink-0"
                 style={{
-                  background: 'rgba(124,58,237,0.08)',
-                  color: '#7c3aed',
-                  border: '1px solid rgba(196,181,253,0.35)',
+                  background: 'rgba(77,168,160,0.07)',
+                  color: '#4DA8A0',
+                  border: '1px solid rgba(77,168,160,0.25)',
                 }}
               >
                 {progress}%
               </span>
             </div>
-            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(124,58,237,0.08)' }}>
+            <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(77,168,160,0.08)' }}>
               <div
                 className="h-full rounded-full transition-all duration-700 ease-out"
                 style={{
                   width: `${progress}%`,
-                  background: 'linear-gradient(90deg, #7c3aed, #6366f1)',
+                  background: 'linear-gradient(90deg, #4DA8A0, #6CBDB5)',
                 }}
                 role="progressbar"
                 aria-valuenow={progress}
@@ -467,7 +614,7 @@ export default function JobDetailPage() {
           {/* Header row */}
           <div className="px-5 py-3.5 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500 shrink-0" style={{ height: '18px', width: '18px' }} aria-hidden="true" />
+              <CheckCircle2 className="h-4.5 w-4.5 text-earth-500 shrink-0" style={{ height: '18px', width: '18px' }} aria-hidden="true" />
               <span className="text-sm font-semibold text-slate-800">
                 {overview.database_name}
               </span>
@@ -560,9 +707,9 @@ export default function JobDetailPage() {
                         <li key={id}>
                           <button
                             onClick={() => setActiveTab(id)}
-                            className={`w-full flex items-center gap-2 px-3 py-1.5 mx-1 text-xs transition-all duration-120 rounded-lg focus-visible:ring-2 focus-visible:ring-violet-500/40 focus-visible:outline-none ${
+                            className={`w-full flex items-center gap-2 px-3 py-1.5 mx-1 text-xs transition-all duration-120 rounded-lg focus-visible:ring-2 focus-visible:ring-earth-600/35 focus-visible:outline-none ${
                               isActive
-                                ? 'bg-violet-50 text-violet-700 font-semibold'
+                                ? 'bg-earth-50 text-earth-800 font-semibold'
                                 : isLocked
                                   ? 'text-slate-300 cursor-default'
                                   : 'text-slate-500 hover:bg-slate-100/70 hover:text-slate-800'
@@ -574,7 +721,7 @@ export default function JobDetailPage() {
                             aria-selected={isActive}
                             role="tab"
                           >
-                            <span className={`shrink-0 ${isActive ? 'text-violet-600' : isLocked ? 'text-slate-300' : 'text-slate-400'}`}>
+                            <span className={`shrink-0 ${isActive ? 'text-earth-700' : isLocked ? 'text-slate-300' : 'text-slate-400'}`}>
                               {tab.icon}
                             </span>
                             <span className="truncate flex-1 text-left">{tab.label}</span>
@@ -584,7 +731,7 @@ export default function JobDetailPage() {
                               <span
                                 className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold shrink-0 ${
                                   isActive
-                                    ? 'bg-violet-100 text-violet-600'
+                                    ? 'bg-earth-100 text-earth-700'
                                     : 'bg-slate-100 text-slate-400'
                                 }`}
                               >
@@ -635,9 +782,9 @@ export default function JobDetailPage() {
                       <span
                         className="text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-full"
                         style={{
-                          background: 'rgba(124,58,237,0.07)',
-                          color: '#7c3aed',
-                          border: '1px solid rgba(196,181,253,0.30)',
+                          background: 'rgba(77,168,160,0.07)',
+                          color: '#4DA8A0',
+                          border: '1px solid rgba(77,168,160,0.22)',
                         }}
                       >
                         {data.length.toLocaleString()} row{data.length !== 1 ? 's' : ''}
@@ -651,7 +798,7 @@ export default function JobDetailPage() {
                     </div>
 
                     {/* Data table */}
-                    <div className="flex-1 overflow-auto p-5">
+                    <div ref={contentScrollRef} className="flex-1 overflow-auto p-5">
                       <DataTable
                         key={activeTab}
                         data={data}

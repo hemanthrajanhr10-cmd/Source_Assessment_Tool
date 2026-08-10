@@ -1,6 +1,5 @@
 name: Build & Push to ACR
 
-# Triggers on push to dev or main
 on:
   push:
     branches:
@@ -11,6 +10,7 @@ jobs:
   build-and-push:
     name: Build Image & Push to ACR
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
 
@@ -18,30 +18,47 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Log in to Azure Container Registry
+      # 2. Set up Docker Buildx (enables BuildKit — required for cache-from/cache-to)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 3. Log in to Azure Container Registry
       - name: Log in to ACR
-        run: |
-          echo "${{ secrets.ACR_PASSWORD }}" | docker login "${{ secrets.ACR_LOGIN_SERVER }}" \
-            -u "${{ secrets.ACR_USERNAME }}" --password-stdin
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
 
-      # 3. Build the combined image (React + FastAPI in one)
-      #    root Dockerfile: node-builder → py-deps → runtime
-      - name: Build image
-        run: |
-          docker build \
-            -t "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:latest" \
-            -t "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}" \
-            -f Dockerfile \
-            .
+      # 4. Build & push with GHA layer cache and explicit step timeout.
+      #    cache-from/to: type=gha reuses GitHub Actions cache across runs
+      #    (dramatically faster rebuilds when only app code changes).
+      #    timeout-minutes guards against ACR push hangs; the job-level
+      #    timeout-minutes:30 above is a hard ceiling.
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        timeout-minutes: 25
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.ACR_LOGIN_SERVER }}/sat-app:latest
+            ${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      # 4. Push both tags to ACR
-      #    Pushing :latest triggers the ACR webhook → Azure Web App auto-restarts
-      - name: Push image to ACR
+      # 5. Verify image is reachable in ACR (3 retries, 15s backoff).
+      #    Guards against transient ACR 5xx after the push completes.
+      - name: Verify image reachable in ACR
         run: |
-          docker push "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:latest"
-          docker push "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}"
+          for attempt in 1 2 3; do
+            docker manifest inspect "${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}" && break
+            echo "Attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
 
-      # 5. Print the deployed image info
+      # 6. Print summary
       - name: Summary
         run: |
           echo "Image pushed: ${{ secrets.ACR_LOGIN_SERVER }}/sat-app:${{ github.sha }}"

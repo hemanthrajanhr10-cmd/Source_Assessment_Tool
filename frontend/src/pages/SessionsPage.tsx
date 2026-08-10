@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+﻿import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   PlusCircle, RefreshCw, ExternalLink, Layers,
@@ -9,10 +9,12 @@ import Button from '../components/ui/Button'
 import Loader3D from '../components/ui/Loader3D'
 import type { SessionStatus } from '../types/api'
 import { formatDateTime, elapsed } from '../utils/dateTime'
+import { useSessionFilter } from '../hooks/useSessionFilter'
+import SessionFilterBar from '../components/ui/SessionFilterBar'
 
 function SessionStatusBadge({ status }: { status: SessionStatus }) {
   const map: Record<SessionStatus, { icon: React.ReactNode; label: string; cls: string }> = {
-    completed: { icon: <CheckCircle2 className="h-3 w-3" />, label: 'Completed', cls: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' },
+    completed: { icon: <CheckCircle2 className="h-3 w-3" />, label: 'Completed', cls: 'bg-earth-50 text-earth-700 ring-1 ring-earth-200' },
     partial:   { icon: <AlertTriangle className="h-3 w-3" />, label: 'Partial',   cls: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'    },
     failed:    { icon: <XCircle className="h-3 w-3" />,       label: 'Failed',    cls: 'bg-red-50 text-red-700 ring-1 ring-red-200'           },
     running:   { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: 'Running', cls: 'bg-blue-50 text-blue-700 ring-1 ring-blue-200'  },
@@ -31,7 +33,7 @@ function ProgressBar({ completed, total, failed }: { completed: number; total: n
   if (total === 0) return null
   return (
     <div className="w-28 h-1.5 rounded-full bg-slate-200 overflow-hidden flex">
-      <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(completed / total) * 100}%` }} />
+      <div className="h-full bg-earth-500 transition-all" style={{ width: `${(completed / total) * 100}%` }} />
       <div className="h-full bg-red-400 transition-all"     style={{ width: `${(failed / total) * 100}%` }} />
     </div>
   )
@@ -49,9 +51,12 @@ export default function SessionsPage() {
     },
   })
 
-  const sorted = [...(sessions ?? [])].sort(
+  const allSessions = [...(sessions ?? [])].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   )
+
+  const { filter, filtered: filteredRaw, setField, reset, isActive } = useSessionFilter(allSessions)
+  const sorted = filteredRaw as typeof allSessions
 
   return (
     <div className="animate-fade-in">
@@ -59,29 +64,40 @@ export default function SessionsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 font-display">Assessment Sessions</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {sorted.length > 0
-              ? `${sorted.length} session${sorted.length !== 1 ? 's' : ''} total`
+            {allSessions.length > 0
+              ? `${allSessions.length} session${allSessions.length !== 1 ? 's' : ''} total`
               : 'No sessions yet'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />}
-            onClick={() => refetch()}
-          >
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
-            onClick={() => navigate('/')}
-          >
-            New Assessment
-          </Button>
-        </div>
       </div>
+
+      <SessionFilterBar
+        filter={filter}
+        onField={setField}
+        onReset={reset}
+        isActive={isActive}
+        totalCount={allSessions.length}
+        filteredCount={sorted.length}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />}
+              onClick={() => refetch()}
+            >
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              leftIcon={<PlusCircle className="h-3.5 w-3.5" />}
+              onClick={() => navigate('/')}
+            >
+              New Assessment
+            </Button>
+          </div>
+        }
+      />
 
       {isLoading && <Loader3D message="Loading sessions" />}
 
@@ -89,12 +105,12 @@ export default function SessionsPage() {
         <div className="card p-8 text-center">
           <p className="font-medium text-red-600">Failed to load sessions.</p>
           <p className="mt-1 text-sm text-slate-500">
-            <button className="text-indigo-600 hover:text-indigo-700" onClick={() => refetch()}>Retry</button>
+            <button className="text-earth-700 hover:text-earth-800" onClick={() => refetch()}>Retry</button>
           </p>
         </div>
       )}
 
-      {!isLoading && !isError && sorted.length === 0 && (
+      {!isLoading && !isError && allSessions.length === 0 && (
         <div className="card flex flex-col items-center justify-center py-20 gap-4 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 border border-slate-200">
             <Layers className="h-7 w-7 text-slate-400" />
@@ -109,7 +125,16 @@ export default function SessionsPage() {
         </div>
       )}
 
-      {!isLoading && sorted.length > 0 && (
+      {!isLoading && !isError && allSessions.length > 0 && sorted.length === 0 && (
+        <div className="card flex flex-col items-center justify-center py-12 gap-3 text-center">
+          <p className="font-semibold text-slate-500">No sessions match your filters</p>
+          <button onClick={reset} className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#4DA8A0]">
+            Clear filters
+          </button>
+        </div>
+      )}
+
+      {!isLoading && sorted.length > 0 && allSessions.length > 0 && (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto scrollbar-thin">
             <table className="min-w-full divide-y divide-slate-100 text-sm">
@@ -129,7 +154,7 @@ export default function SessionsPage() {
                 {sorted.map((session, idx) => (
                   <tr
                     key={session.session_id}
-                    className={`transition-colors cursor-pointer hover:bg-indigo-50/40 ${
+                    className={`transition-colors cursor-pointer hover:bg-earth-50/40 ${
                       idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'
                     }`}
                     onClick={() => navigate(`/sessions/${session.session_id}`)}
@@ -170,7 +195,7 @@ export default function SessionsPage() {
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <button
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-500 hover:text-indigo-700 transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-earth-600 hover:text-earth-800 transition-colors"
                         onClick={(e) => { e.stopPropagation(); navigate(`/sessions/${session.session_id}`) }}
                       >
                         View <ExternalLink className="h-3.5 w-3.5" />

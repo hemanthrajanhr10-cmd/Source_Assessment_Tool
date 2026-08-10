@@ -18,8 +18,9 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci --prefer-offline
 
 # Copy source and build
+# VITE_API_URL='' forces relative URLs so the build works on any host (Azure, local, etc.)
 COPY frontend/ .
-RUN npm run build
+RUN VITE_API_URL='' npm run build
 # Output: /ui/dist/
 
 
@@ -27,6 +28,17 @@ RUN npm run build
 FROM python:3.11-slim AS py-deps
 
 WORKDIR /deps
+
+# Build tools needed by packages that compile C extensions:
+#   libpq-dev  → psycopg2 (required by cloud-sql-python-connector[psycopg2])
+#   libxml2-dev / libpam0g-dev → ibm_db native extension
+#   gcc / g++ / python3-dev → any C/C++ extension compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ python3-dev \
+    libpq-dev \
+    libxml2-dev \
+    libpam0g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
@@ -42,6 +54,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gnupg2 \
         apt-transport-https \
         unixodbc \
+        libxml2 \
+        libpam0g \
+        libstdc++6 \
     && curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor \
         -o /usr/share/keyrings/microsoft-prod.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] \
@@ -52,6 +67,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         msodbcsql18 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# ── PowerShell 7 + Az modules (Partner Admin Link linking) ────────────────────
+RUN apt-get update && apt-get install -y --no-install-recommends wget \
+    && wget -q https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb \
+        -O /tmp/packages-microsoft-prod.deb \
+    && dpkg -i /tmp/packages-microsoft-prod.deb \
+    && rm /tmp/packages-microsoft-prod.deb \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends powershell \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pwsh -NoLogo -NonInteractive -Command \
+    "Set-PSRepository -Name PSGallery -InstallationPolicy Trusted; \
+     Install-Module -Name Az.Accounts,Az.ManagementPartner -Force -AllowClobber -Scope AllUsers -Repository PSGallery"
 
 WORKDIR /app
 
@@ -82,7 +112,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "75"]

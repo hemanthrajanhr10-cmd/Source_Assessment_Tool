@@ -8,6 +8,7 @@ interface AuthContextValue {
   isLoading: boolean
   setToken: (token: string) => void
   logout: () => void
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -47,8 +48,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
+  async function refreshUser() {
+    if (!token) return
+    try {
+      const res = await api.me()
+      setUser(res.data)
+    } catch {
+      // ignore — existing error handling in the useEffect covers token invalidation
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, setToken, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, setToken, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

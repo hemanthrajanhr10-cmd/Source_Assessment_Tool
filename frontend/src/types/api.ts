@@ -2,6 +2,288 @@ export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancel
 export type SessionStatus = 'pending' | 'running' | 'completed' | 'partial' | 'failed' | 'cancelled'
 export type DbType = 'mssql' | 'postgres' | 'mysql' | 'oracle'
 
+// ── SAP ───────────────────────────────────────────────────────────────────────
+
+export type SapVariant =
+  | 'ecc'
+  | 's4hana'
+  | 'bw'
+  | 'hana'
+  | 'crm'
+  | 'srm'
+  | 'scm'
+  | 'pi_po'
+  | 'mdg'
+  | 'successfactors'
+
+export type SapConnectivityProtocol = 'rfc' | 'jdbc' | 'rest' | 'odata'
+
+export interface SapVariantMeta {
+  value: SapVariant
+  label: string
+  shortLabel: string
+  protocol: SapConnectivityProtocol
+  description: string
+}
+
+export const SAP_VARIANTS: SapVariantMeta[] = [
+  { value: 'ecc',            label: 'SAP ECC',                       shortLabel: 'ECC',           protocol: 'rfc',   description: 'ERP Central Component — RFC, ABAP programs, module volumes' },
+  { value: 's4hana',         label: 'SAP S/4HANA',                   shortLabel: 'S/4HANA',       protocol: 'rfc',   description: 'On-premise & Cloud — Fiori apps, BAdIs, migration objects' },
+  { value: 'bw',             label: 'SAP BW / BW/4HANA',             shortLabel: 'BW',            protocol: 'rfc',   description: 'Business Warehouse — InfoProviders, Process Chains, DTPs' },
+  { value: 'hana',           label: 'SAP HANA (Standalone)',          shortLabel: 'HANA',          protocol: 'jdbc',  description: 'In-memory DB — schemas, column/row store, calculation views' },
+  { value: 'crm',            label: 'SAP CRM',                       shortLabel: 'CRM',           protocol: 'rfc',   description: 'Customer Relationship Management — BPs, IC config, campaigns' },
+  { value: 'srm',            label: 'SAP SRM',                       shortLabel: 'SRM',           protocol: 'rfc',   description: 'Supplier Relationship Management — vendors, POs, catalogs' },
+  { value: 'scm',            label: 'SAP SCM / APO',                 shortLabel: 'SCM',           protocol: 'rfc',   description: 'Supply Chain — liveCache, planning areas, CIF systems' },
+  { value: 'pi_po',          label: 'SAP PI / PO',                   shortLabel: 'PI/PO',         protocol: 'rest',  description: 'Process Integration — iFlows, adapters, message monitoring' },
+  { value: 'mdg',            label: 'SAP MDG',                       shortLabel: 'MDG',           protocol: 'rfc',   description: 'Master Data Governance — governed entities, change requests' },
+  { value: 'successfactors', label: 'SAP SuccessFactors',            shortLabel: 'SFSF',          protocol: 'odata', description: 'Cloud HCM — modules, employees, MDF objects, integrations' },
+]
+
+/** RFC-based connection parameters (ECC, S/4HANA, BW, CRM, SRM, SCM, MDG) */
+export interface SapRfcParams {
+  host: string
+  sysnr: string
+  client: string
+  username: string
+  password: string
+}
+
+/** OData/REST extension used by S/4HANA alongside RFC */
+export interface SapODataParams {
+  api_base_url: string
+}
+
+/** JDBC connection parameters for standalone SAP HANA */
+export interface SapHanaParams {
+  host: string
+  port: number
+  instance_number: string
+  schema: string
+  username: string
+  password: string
+}
+
+/** REST/HTTP parameters for SAP PI/PO */
+export interface SapPiPoParams {
+  host: string
+  port: number
+  username: string
+  password: string
+  use_https: boolean
+}
+
+/** OAuth2 + OData parameters for SAP SuccessFactors */
+export interface SapSuccessFactorsParams {
+  api_url: string
+  company_id: string
+  client_id: string
+  client_secret: string
+  user_id: string
+}
+
+export interface SapAssessmentRequest {
+  variant: SapVariant
+  label?: string
+  /** RFC variants */
+  rfc?: SapRfcParams
+  /** S/4HANA OData extension */
+  odata?: SapODataParams
+  /** HANA JDBC */
+  hana?: SapHanaParams
+  /** PI/PO REST */
+  pi_po?: SapPiPoParams
+  /** SuccessFactors OAuth2 */
+  successfactors?: SapSuccessFactorsParams
+}
+
+// ── SAP Assessment Result ─────────────────────────────────────────────────────
+
+export interface SapSystemInfo {
+  system_id: string
+  client: string
+  basis_release: string
+  kernel_version: string
+  os_platform: string
+  db_layer: string
+}
+
+export interface SapObjectInventory {
+  total_repository_objects: number
+  custom_objects: number
+  standard_objects: number
+  custom_ratio_pct: number
+  deprecated_objects: number
+}
+
+export interface SapDataVolume {
+  key_object: string
+  row_count: number
+  size_mb: number
+}
+
+export interface SapUserProfile {
+  active_users: number
+  locked_users: number
+  dialog_users: number
+  system_users: number
+  role_count: number
+  profile_count: number
+}
+
+export interface SapPerformanceIndicators {
+  avg_response_ms: number
+  active_background_jobs: number
+  work_process_utilization_pct: number
+  short_dumps_last_24h: number
+}
+
+export interface SapExtractionReadiness {
+  supported_methods: string[]
+  delta_enabled_objects: number
+  existing_extractors: number
+  odp_available: boolean
+  slt_configured: boolean
+}
+
+// Variant-specific detail blocks
+export interface SapEccDetails {
+  z_table_count: number
+  standard_table_count: number
+  z_table_ratio_pct: number
+  abap_program_count: number
+  transport_landscape: string[]
+  module_volumes: Record<string, number>
+}
+
+export interface SapS4HanaDetails {
+  activated_business_functions: number
+  fiori_app_count: number
+  embedded_hana: boolean
+  badi_count: number
+  enhancement_spot_count: number
+  migration_object_count: number
+}
+
+export interface SapBwDetails {
+  info_cube_count: number
+  dso_adso_count: number
+  info_object_count: number
+  composite_provider_count: number
+  multi_provider_count: number
+  process_chain_count: number
+  transformation_count: number
+  dtp_count: number
+  source_system_connections: number
+  query_workbook_count: number
+  delta_mechanism_types: string[]
+}
+
+export interface SapHanaDetails {
+  schema_count: number
+  row_store_tables: number
+  column_store_tables: number
+  calculation_views: number
+  analytic_views: number
+  attribute_views: number
+  stored_procedures: number
+  sql_script_objects: number
+  replication_status: string
+  total_data_volume_gb: number
+}
+
+export interface SapCrmDetails {
+  business_partner_count: number
+  ic_profiles: number
+  campaign_objects: number
+  middleware_queues: number
+  custom_objects: number
+}
+
+export interface SapSrmDetails {
+  vendor_master_count: number
+  shopping_cart_count: number
+  purchase_order_count: number
+  catalog_items: number
+  workflow_tasks: number
+  backend_system_connections: number
+}
+
+export interface SapScmDetails {
+  live_cache_status: string
+  planning_area_count: number
+  model_version_count: number
+  cif_connected_systems: number
+  data_object_count: number
+}
+
+export interface SapPiPoDetails {
+  iflow_count: number
+  interface_count: number
+  adapter_types: string[]
+  avg_daily_messages: number
+  error_rate_pct: number
+  business_systems: number
+}
+
+export interface SapMdgDetails {
+  governed_entity_types: number
+  workflow_rule_count: number
+  governance_model: string
+  open_change_requests: number
+  consolidation_rules: number
+}
+
+export interface SapSuccessFactorsDetails {
+  active_modules: string[]
+  employee_count: number
+  mdf_object_count: number
+  integration_center_connections: number
+  replication_status: string
+}
+
+export interface SapAssessmentResult {
+  job_id: string
+  variant: SapVariant
+  label?: string
+  assessed_at: string
+  status: 'completed' | 'failed'
+  error?: string
+  system_info?: SapSystemInfo
+  object_inventory?: SapObjectInventory
+  data_volumes?: SapDataVolume[]
+  user_profile?: SapUserProfile
+  performance?: SapPerformanceIndicators
+  extraction_readiness?: SapExtractionReadiness
+  // Variant-specific
+  ecc?: SapEccDetails
+  s4hana?: SapS4HanaDetails
+  bw?: SapBwDetails
+  hana?: SapHanaDetails
+  crm?: SapCrmDetails
+  srm?: SapSrmDetails
+  scm?: SapScmDetails
+  pi_po?: SapPiPoDetails
+  mdg?: SapMdgDetails
+  successfactors?: SapSuccessFactorsDetails
+}
+
+export interface SapJobResponse {
+  job_id: string
+  status: JobStatus
+  message: string
+}
+
+export interface SapSessionRecord {
+  job_id: string
+  variant: SapVariant
+  label?: string
+  status: JobStatus
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: SapAssessmentResult
+}
+
 /** SQL Server access level — determines which assessments are run */
 export type AccessLevel = 'db_datareader' | 'view_database_state' | 'db_owner' | 'sysadmin'
 
@@ -77,6 +359,19 @@ export const TAB_MIN_ACCESS: Record<string, AccessLevel> = {
   weak_sql_logins: 'sysadmin',
   server_permissions: 'sysadmin',
   deprecated_features_in_use: 'sysadmin',
+  ssis_msdb_packages: 'sysadmin',
+  sql_agent_job_schedules: 'sysadmin',
+  sql_agent_job_steps: 'sysadmin',
+  ssas_linked_servers: 'sysadmin',
+  // view_database_state
+  wait_statistics: 'view_database_state',
+  query_store_top_queries: 'view_database_state',
+  // db_datareader (extended)
+  schema_classification: 'db_datareader',
+  view_complexity: 'db_datareader',
+  database_files: 'db_datareader',
+  ssis_catalog_packages: 'db_datareader',
+  ssis_execution_history: 'db_datareader',
 }
 
 export const ACCESS_LEVEL_RANK: Record<AccessLevel, number> = {
@@ -116,6 +411,8 @@ export interface MeResponse {
   full_name?: string
   mfa_enabled: boolean
   created_at: string
+  expires_at?: string | null
+  days_remaining?: number | null
 }
 
 export interface SetupMFAResponse {
@@ -222,6 +519,7 @@ export interface AssessmentResults {
   heap_tables?: Record<string, unknown>[]
   untrusted_constraints?: Record<string, unknown>[]
   sp_naming_violations?: Record<string, unknown>[]
+  sp_complexity?: Record<string, unknown>[]
   duplicate_indexes?: Record<string, unknown>[]
   database_options_audit?: Record<string, unknown>[]
   // New: db_owner
@@ -237,6 +535,18 @@ export interface AssessmentResults {
   weak_sql_logins?: Record<string, unknown>[]
   server_permissions?: Record<string, unknown>[]
   deprecated_features_in_use?: Record<string, unknown>[]
+  // Extended engine assessment
+  schema_classification?: Record<string, unknown>[]
+  view_complexity?: Record<string, unknown>[]
+  database_files?: Record<string, unknown>[]
+  ssis_catalog_packages?: Record<string, unknown>[]
+  ssis_execution_history?: Record<string, unknown>[]
+  ssis_msdb_packages?: Record<string, unknown>[]
+  sql_agent_job_schedules?: Record<string, unknown>[]
+  sql_agent_job_steps?: Record<string, unknown>[]
+  ssas_linked_servers?: Record<string, unknown>[]
+  wait_statistics?: Record<string, unknown>[]
+  query_store_top_queries?: Record<string, unknown>[]
 }
 
 // ── Gateway ───────────────────────────────────────────────────────────────────
@@ -266,7 +576,8 @@ export interface HybridConnection {
   service_bus_namespace: string
   status: 'created' | 'provisioned' | 'config_missing' | 'error'
   created_at: string
-  listener_connection_string?: string | null
+  listener_connection_string?: string | null  // for HCM on-prem agent
+  sender_connection_string?: string | null    // for SAT gateway relay config
   error_detail?: string | null
 }
 
@@ -296,11 +607,15 @@ export interface ServerTarget {
   use_gateway: boolean
   gateway_key?: string
   access_level?: AccessLevel
+  gcp_sa_key?: string
+  gcp_private_ip?: boolean
+  azure_managed_identity?: boolean
 }
 
 export interface SessionRequest {
   label?: string
   servers: ServerTarget[]
+  unified_session_id?: string
 }
 
 export interface CreateSessionResponse {
@@ -346,10 +661,17 @@ export interface FabricWorkspaceReportEntry {
   report_type: string
 }
 
+export interface FabricWorkspaceDataflowEntry {
+  id: string
+  name: string
+  generation: string
+}
+
 export interface FabricWorkspaceItems {
   workspace_id: string
   datasets: FabricWorkspaceItemEntry[]
   reports: FabricWorkspaceReportEntry[]
+  dataflows: FabricWorkspaceDataflowEntry[]
 }
 
 export interface FabricAuthStartResponse {
@@ -362,6 +684,17 @@ export interface FabricAuthStartResponse {
 export interface FabricAuthStatus {
   status: 'starting' | 'pending' | 'ready' | 'error' | 'not_found'
   error?: string
+}
+
+export interface FabricServicePrincipalAuthRequest {
+  tenant_id: string
+  client_id: string
+  client_secret: string
+}
+
+export interface FabricServicePrincipalAuthResponse {
+  auth_id: string
+  status: 'ready'
 }
 
 // ── Fabric: measure complexity ────────────────────────────────────────────────
@@ -398,12 +731,52 @@ export interface FabricTableColumn {
   complexity?: MeasureComplexity
 }
 
+export interface TableSourceFeed {
+  source_type: string
+  feed_description: string
+  latency: string
+  recommended: string
+  recommendation_reason: string
+}
+
+export interface TableStorageMigration {
+  table: string
+  current_mode: string
+  recommended_mode: string
+  reason: string
+}
+
+export interface ModelStorageRecommendation {
+  current_mode: string
+  overall_recommended: string
+  risk_level: 'Low' | 'Medium' | 'High'
+  summary: string
+  mode_breakdown: Record<string, number>
+  tables_to_migrate: TableStorageMigration[]
+}
+
+export interface TableSourceLineage {
+  datasource_type: string          // e.g. "PostgreSql", "Sql", "SharePointList", "AzureBlobs"
+  server?: string
+  database?: string
+  url?: string                     // for SharePoint, OData, web sources
+  source_table?: string            // parsed from M partition expression
+  ingestion_method?: string        // "Dataflow Gen2", "Dataflow Gen1", "Pipeline", "Notebook", "Direct Import", "DirectQuery", "DirectLake"
+  dataflow_name?: string           // if ingested via dataflow
+  dataflow_id?: string
+  gateway_id?: string              // set if on-prem gateway is involved
+  confidence: 'high' | 'medium' | 'inferred'
+  notes?: string
+}
+
 export interface FabricTable {
   name: string
   storage_mode: string
   is_hidden: boolean
   is_calculated: boolean
   columns?: FabricTableColumn[]
+  source_feeds?: TableSourceFeed
+  source_lineage?: TableSourceLineage
 }
 
 export interface FabricCalculatedColumn {
@@ -456,6 +829,11 @@ export interface ReportVisual {
   title: string
   field_count: number
   fields: VisualField[]
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  text_content?: string
 }
 
 export interface ReportPage {
@@ -463,9 +841,20 @@ export interface ReportPage {
   order: number
   visual_count: number
   visuals: ReportVisual[]
+  page_width?: number
+  page_height?: number
 }
 
 // ── Fabric: dataset ───────────────────────────────────────────────────────────
+
+export interface FabricDatasetDatasource {
+  datasource_type: string
+  server?: string
+  database?: string
+  url?: string
+  gateway_id?: string
+  credential_type?: string
+}
 
 export interface FabricDataset {
   id: string
@@ -473,6 +862,7 @@ export interface FabricDataset {
   configured_by: string
   is_refreshable: boolean
   storage_mode: string
+  storage_recommendation?: ModelStorageRecommendation
   web_url: string
   table_count: number
   measure_count: number
@@ -486,6 +876,7 @@ export interface FabricDataset {
   calculated_columns: FabricCalculatedColumn[]
   calculated_tables: FabricCalculatedTable[]
   relationships: FabricRelationship[]
+  datasources?: FabricDatasetDatasource[]
 }
 
 // ── Fabric: report ────────────────────────────────────────────────────────────
@@ -505,6 +896,68 @@ export interface FabricReport {
   pages: ReportPage[]
 }
 
+export interface FabricDataflow {
+  id: string
+  name: string
+  generation: string
+  description: string
+  configured_by: string
+  modified_at: string
+  refresh_schedule: Record<string, unknown>
+  schedule_summary: string
+  entity_count: number
+  datasource_count: number
+  upstream_dataflow_count: number
+  entities: FabricDataflowEntity[]
+  datasources: FabricDataflowDatasource[]
+  upstream_dataflows: FabricDataflowUpstream[]
+  transactions: FabricDataflowTransaction[]
+  complexity: { score: number; level: string; function_count: number; step_count: number; nesting_depth: number; complex_functions: string[] }
+  has_refresh_errors: boolean
+  _error?: string
+}
+
+export interface FabricDataflowEntity {
+  name: string
+  query_name: string
+  m_expression: string
+  column_count: number
+  columns: { name: string; type: string }[]
+  complexity: { score: number; level: string; function_count: number; step_count: number; nesting_depth: number; complex_functions: string[] }
+  datasource_types: string[]
+  step_count: number
+  named_steps: string[]
+  destination_table: string
+  destination_lakehouse: string
+  destination_warehouse: string
+  uses_merge: boolean
+  merge_kinds: string[]
+}
+
+export interface FabricDataflowDatasource {
+  kind?: string
+  datasource_type: string
+  path?: string
+  server?: string
+  database?: string
+  gateway_id?: string
+  credential_type?: string
+}
+
+export interface FabricDataflowUpstream {
+  source_dataflow_id: string
+  source_dataflow_name: string
+  entity_name: string
+}
+
+export interface FabricDataflowTransaction {
+  id: string
+  status: string
+  start_time: string
+  end_time: string
+  type: string
+}
+
 export interface FabricWorkspace {
   id: string
   name: string
@@ -513,8 +966,10 @@ export interface FabricWorkspace {
   dataset_count: number
   report_count: number
   paginated_report_count: number
+  dataflow_count: number
   datasets: FabricDataset[]
   reports: FabricReport[]
+  dataflows: FabricDataflow[]
 }
 
 export interface FabricSummary {
@@ -522,17 +977,60 @@ export interface FabricSummary {
   dataset_count: number
   report_count: number
   paginated_report_count: number
+  dataflow_count: number
   total_measures: number
   total_calculated_tables: number
   total_calculated_columns: number
   total_relationships: number
   total_visuals: number
+  total_dataflow_entities: number
+  total_dataflow_datasources: number
 }
 
 export interface FabricResults {
   assessed_at: string
   workspaces: FabricWorkspace[]
   summary: FabricSummary
+}
+
+// ── Fabric: async assessment progress ────────────────────────────────────────
+
+export interface PhaseProgress {
+  done: boolean
+  count?: number   // discovery
+  total?: number   // models / reports
+  processed?: number
+}
+
+export interface ActivityEvent {
+  ts: string
+  status: 'ok' | 'error'
+  name: string
+  type: string
+  error?: string
+}
+
+export interface AssessmentProgressState {
+  assessment_id: string
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
+  phase: 'discovery' | 'semantic_models' | 'reports' | 'dataflows' | 'crosslinking' | 'saving'
+  total_items: number
+  processed_items: number
+  failed_items: number
+  current_item_name: string
+  failure_reason: string | null
+  phase_progress: {
+    discovery: PhaseProgress
+    semantic_models: PhaseProgress
+    reports: PhaseProgress
+    dataflows: PhaseProgress
+    crosslinking: PhaseProgress
+    saving: PhaseProgress
+  }
+  started_at: string
+  estimated_completion: string | null
+  errors: { item: string; error: string }[]
+  activity_log: ActivityEvent[]
 }
 
 export interface FabricSessionRecord {
@@ -544,6 +1042,35 @@ export interface FabricSessionRecord {
   error?: string
   progress_message?: string
   results?: FabricResults
+}
+
+// ── Fabric PAL (Partner Admin Link) ────────────────────────────────────────────
+
+export type PalStatusValue = 'not_linked' | 'linking' | 'linked' | 'failed'
+export type PalFailureReason = 'access_not_granted' | 'auth_error' | 'wrong_tenant' | 'unknown'
+
+export interface FabricPalStatus {
+  assessment_id: string
+  client_tenant_id?: string | null
+  status: PalStatusValue
+  failure_reason?: PalFailureReason | null
+  linked_at?: string | null
+}
+
+export interface FabricPalConfig {
+  organization_name: string
+  docs_url: string
+}
+
+export type PalLinkSessionStatus = 'starting' | 'waiting_for_user' | 'linking' | 'linked' | 'failed'
+
+export interface FabricPalLinkSession {
+  ps_auth_id: string
+  status: PalLinkSessionStatus
+  user_code?: string | null
+  verification_url?: string | null
+  expires_at?: string | null
+  failure_reason?: PalFailureReason | null
 }
 
 export interface SessionJobInfo {
@@ -567,4 +1094,2157 @@ export interface SessionStatusResponse {
   created_at: string
   completed_at?: string
   jobs: SessionJobInfo[]
+}
+
+// ── Unified Assessment Session ─────────────────────────────────────────────────
+
+export type AssessmentMode = 'source' | 'fabric' | 'both'
+export type UnifiedSessionStatus =
+  | 'pending'
+  | 'running'
+  | 'source_done'
+  | 'completed'
+  | 'partial'
+  | 'failed'
+  | 'cancelled'
+
+export interface UnifiedSessionSourceData {
+  session_id: string
+  label?: string
+  status: SessionStatus
+  total_jobs: number
+  completed_jobs: number
+  failed_jobs: number
+  created_at: string
+  completed_at?: string
+  jobs: SessionJobInfo[]
+}
+
+export interface UnifiedSessionFabricData {
+  fabric_session_id: string
+  label?: string
+  status: 'running' | 'completed' | 'failed' | 'cancelled'
+  created_at: string
+  completed_at?: string
+  error?: string
+  progress_message?: string
+  results?: FabricResults
+}
+
+export interface UnifiedSession {
+  unified_session_id: string
+  label?: string
+  mode: AssessmentMode
+  status: UnifiedSessionStatus
+  created_at: string
+  completed_at?: string
+  source_session_id?: string
+  fabric_session_id?: string
+  source_status?: string
+  fabric_status?: string
+  source?: UnifiedSessionSourceData
+  fabric?: UnifiedSessionFabricData
+}
+
+// ── Sage Intacct ──────────────────────────────────────────────────────────────
+
+export interface SageIntacctCredentials {
+  company_id: string
+  user_id: string
+  user_password: string
+  sender_id: string
+  sender_password: string
+  entity_id?: string
+}
+
+export interface SageIntacctAssessmentRequest {
+  credentials: SageIntacctCredentials
+  label?: string
+  include_transaction_details?: boolean
+  include_custom_objects?: boolean
+}
+
+export interface SageCompanyProfile {
+  company_id: string
+  company_name: string
+  entity_count: number
+  base_currency: string
+  fiscal_year_end_month: number
+  timezone: string
+  subscription_plan: string
+  modules_enabled: string[]
+}
+
+export interface SageUserProfile {
+  total_users: number
+  active_users: number
+  inactive_users: number
+  admin_users: number
+  role_count: number
+  permission_groups: number
+}
+
+export interface SageChartOfAccounts {
+  total_accounts: number
+  active_accounts: number
+  asset_accounts: number
+  liability_accounts: number
+  equity_accounts: number
+  revenue_accounts: number
+  expense_accounts: number
+  other_accounts: number
+  account_groups: number
+}
+
+export interface SageFinancialDimensions {
+  department_count: number
+  location_count: number
+  class_count: number
+  project_count: number
+  customer_count: number
+  vendor_count: number
+  employee_count: number
+  warehouse_count: number
+  item_count: number
+}
+
+export interface SageTransactionVolumes {
+  open_ar_invoices: number
+  closed_ar_invoices: number
+  total_ar_invoices: number
+  open_ap_bills: number
+  closed_ap_bills: number
+  total_ap_bills: number
+  gl_journal_entries: number
+  purchase_orders: number
+  sales_orders: number
+  contracts: number
+  expense_reports: number
+}
+
+export interface SageCashManagement {
+  checking_accounts: number
+  savings_accounts: number
+  credit_card_accounts: number
+  total_bank_accounts: number
+}
+
+export interface SageFixedAssets {
+  total_assets: number
+  active_assets: number
+  disposed_assets: number
+  depreciation_methods: string[]
+}
+
+export interface SageCustomization {
+  custom_dimensions: number
+  platform_extensions: number
+  user_defined_fields: number
+  custom_report_count: number
+  smart_rules_count: number
+  smart_events_count: number
+}
+
+export interface SageIntegrationHealth {
+  web_services_version: string
+  api_endpoint: string
+  session_timeout_minutes: number
+  multi_entity_enabled: boolean
+  consolidation_enabled: boolean
+}
+
+export interface SageDataQualityFlags {
+  vendors_without_gl_account: number
+  customers_without_terms: number
+  open_invoices_past_due: number
+  accounts_with_no_activity_days: number
+  duplicate_vendor_names: number
+  unposted_journal_entries: number
+}
+
+export interface SageIntacctAssessmentResult {
+  job_id: string
+  label?: string
+  assessed_at: string
+  status: 'completed' | 'failed'
+  error?: string
+  company_profile?: SageCompanyProfile
+  user_profile?: SageUserProfile
+  chart_of_accounts?: SageChartOfAccounts
+  financial_dimensions?: SageFinancialDimensions
+  transaction_volumes?: SageTransactionVolumes
+  cash_management?: SageCashManagement
+  fixed_assets?: SageFixedAssets
+  customization?: SageCustomization
+  integration_health?: SageIntegrationHealth
+  data_quality?: SageDataQualityFlags
+}
+
+export interface SageIntacctJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface SageIntacctSessionRecord {
+  job_id: string
+  label?: string
+  status: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: SageIntacctAssessmentResult
+}
+
+// ── Tableau ───────────────────────────────────────────────────────────────────
+
+export interface TableauCredentials {
+  server_url: string
+  site_name?: string
+  username?: string
+  password?: string
+  token_name?: string
+  token_secret?: string
+}
+
+export interface TableauAssessmentRequest {
+  credentials: TableauCredentials
+  label?: string
+  include_permissions?: boolean
+  include_extract_health?: boolean
+  include_flows?: boolean
+}
+
+export interface TableauServerInfo {
+  server_url: string
+  site_name: string
+  server_version: string
+  site_id: string
+  content_url: string
+}
+
+export interface TableauWorkbook {
+  id: string
+  name: string
+  project_name: string
+  owner_name: string
+  created_at?: string
+  updated_at?: string
+  view_count: number
+  size_mb: number
+  show_tabs: boolean
+  tag_count: number
+}
+
+export interface TableauView {
+  id: string
+  name: string
+  workbook_name: string
+  owner_name: string
+  view_type: string
+  total_views: number
+}
+
+export interface TableauDatasource {
+  id: string
+  name: string
+  project_name: string
+  owner_name: string
+  datasource_type: string
+  content_url: string
+  created_at?: string
+  updated_at?: string
+  is_certified: boolean
+  is_published: boolean
+  size_mb: number
+  connection_type: string
+  has_extracts: boolean
+  tag_count: number
+}
+
+export interface TableauUserProfile {
+  total_users: number
+  active_users: number
+  admin_users: number
+  site_admin_users: number
+  creator_users: number
+  explorer_users: number
+  viewer_users: number
+  unlicensed_users: number
+}
+
+export interface TableauGroup {
+  id: string
+  name: string
+  domain_name?: string
+  member_count: number
+}
+
+export interface TableauProject {
+  id: string
+  name: string
+  description?: string
+  content_permissions: string
+  workbook_count: number
+  datasource_count: number
+}
+
+export interface TableauFlow {
+  id: string
+  name: string
+  project_name: string
+  owner_name: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface TableauExtractHealth {
+  total_schedules: number
+  active_schedules: number
+  suspended_schedules: number
+  total_refresh_jobs: number
+  successful_jobs: number
+  failed_jobs: number
+  cancelled_jobs: number
+  stale_datasources: number
+}
+
+export interface TableauDataQualityFlags {
+  workbooks_with_no_views: number
+  datasources_with_no_workbooks: number
+  users_with_no_activity: number
+  failed_extract_jobs: number
+  stale_extracts_over_7_days: number
+  uncertified_published_datasources: number
+}
+
+export interface TableauWorkbookSummary {
+  total_workbooks: number
+  total_views: number
+  total_sheets: number
+  total_dashboards: number
+  workbooks_with_extracts: number
+  avg_views_per_workbook: number
+}
+
+export interface TableauDatasourceSummary {
+  total_datasources: number
+  published_datasources: number
+  embedded_datasources: number
+  certified_datasources: number
+  extract_datasources: number
+  live_datasources: number
+  connection_types: string[]
+}
+
+export interface WorkbookMigrationScore {
+  workbook_name: string
+  project_name: string
+  owner_name: string
+  data_source_complexity: number
+  calc_field_complexity: number
+  table_calc_complexity: number
+  dashboard_action_complexity: number
+  rls_complexity: number
+  extension_complexity: number
+  viz_type_complexity: number
+  parameter_complexity: number
+  total_score: number
+  complexity_level: 'Simple' | 'Moderate' | 'Complex' | 'Very Complex'
+  migration_blockers: string[]
+  migration_warnings: string[]
+  pbi_equivalent_notes: string[]
+  view_count: number
+  size_mb: number
+}
+
+export interface FeatureMapping {
+  tableau: string
+  power_bi: string
+  feasibility: 'Direct' | 'Moderate' | 'Complex'
+  notes: string
+}
+
+export interface MigrationFeasibilityReport {
+  total_workbooks_assessed: number
+  simple_workbooks: number
+  moderate_workbooks: number
+  complex_workbooks: number
+  very_complex_workbooks: number
+  overall_feasibility: 'High' | 'Moderate' | 'Low'
+  estimated_migration_weeks: number
+  has_lod_expressions: boolean
+  has_table_calculations: boolean
+  has_tableau_extensions: boolean
+  has_viz_in_tooltip: boolean
+  has_custom_geocoding: boolean
+  has_rls: boolean
+  has_custom_sql: boolean
+  has_prep_flows: boolean
+  has_embedded_analytics: boolean
+  has_parameter_actions: boolean
+  migratable_connections: string[]
+  complex_connections: string[]
+  feature_mapping: FeatureMapping[]
+  workbook_scores: WorkbookMigrationScore[]
+  migration_blockers: string[]
+  recommended_migration_order: string[]
+}
+
+export interface CalcFieldSummary {
+  name: string
+  formula: string
+  datatype: string
+  role: string
+  is_lod: boolean
+  lod_type?: string
+  is_table_calc: boolean
+  table_calc_type?: string
+  dependencies: string[]
+  nested_lod_count: number
+}
+
+export interface LODSummary {
+  name: string
+  formula: string
+  lod_type: string
+  is_nested: boolean
+}
+
+export interface TableCalcSummary {
+  name: string
+  formula: string
+  calc_type: string
+}
+
+export interface ParameterSummary {
+  name: string
+  caption?: string
+  datatype: string
+  current_value?: string
+  allowable_values_type: string
+  list_values: string[]
+}
+
+export interface DatasourceDetailSummary {
+  name: string
+  connection_type: string
+  has_custom_sql: boolean
+  has_extract: boolean
+  join_count: number
+  join_types: string[]
+  has_stored_proc: boolean
+}
+
+export interface MarkTypeEntry {
+  worksheet: string
+  mark_type: string
+  has_dual_axis: boolean
+  has_viz_in_tooltip: boolean
+}
+
+export interface DashboardSummaryEntry {
+  name: string
+  object_count: number
+  has_floating_objects: boolean
+  has_device_layouts: boolean
+  device_types: string[]
+}
+
+export interface ActionSummaryEntry {
+  name: string
+  action_type: string
+  source_sheet?: string
+  target_sheet?: string
+}
+
+export interface SetSummaryEntry {
+  name: string
+  set_type: string
+  member_count: number
+  is_combined: boolean
+}
+
+export interface HierarchySummaryEntry {
+  name: string
+  levels: string[]
+}
+
+export interface ExtensionSummaryEntry {
+  name: string
+  url?: string
+  version?: string
+  is_dashboard_extension: boolean
+}
+
+export interface WorkbookDeepAnalysis {
+  workbook_name: string
+  parse_errors: string[]
+
+  // §3 Data model
+  datasource_details: DatasourceDetailSummary[]
+  has_data_blending: boolean
+  has_cross_database_join: boolean
+  has_custom_sql: boolean
+  has_stored_procedures: boolean
+
+  // §4 Fields
+  total_dimensions: number
+  total_measures: number
+  total_hidden_fields: number
+
+  // §5 Calculated fields
+  calc_fields: CalcFieldSummary[]
+  total_calc_fields: number
+
+  // §6 LOD
+  lod_expressions: LODSummary[]
+  total_lod_count: number
+  has_nested_lod: boolean
+  lod_type_counts: Record<string, number>
+
+  // §7 Table calcs
+  table_calcs: TableCalcSummary[]
+  total_table_calc_count: number
+  table_calc_types_used: string[]
+
+  // §8 Parameters
+  parameters: ParameterSummary[]
+  total_parameter_count: number
+  has_parameter_actions: boolean
+
+  // §9 Filters
+  extract_filter_count: number
+  datasource_filter_count: number
+  context_filter_count: number
+  dimension_filter_count: number
+  measure_filter_count: number
+  total_filter_count: number
+
+  // §10 Sorting
+  sort_count: number
+  custom_sort_count: number
+
+  // §11 Sets
+  sets: SetSummaryEntry[]
+  has_set_actions: boolean
+  combined_set_count: number
+
+  // §12 Groups & hierarchies
+  group_count: number
+  hierarchy_count: number
+  hierarchies: HierarchySummaryEntry[]
+
+  // §13 Mark types
+  mark_types: MarkTypeEntry[]
+  has_viz_in_tooltip: boolean
+  has_custom_marks: boolean
+  unique_mark_types: string[]
+
+  // §14 Dashboards
+  dashboards: DashboardSummaryEntry[]
+  total_dashboards: number
+  has_floating_objects: boolean
+  has_device_layouts: boolean
+
+  // §15 Actions
+  actions: ActionSummaryEntry[]
+  filter_action_count: number
+  highlight_action_count: number
+  url_action_count: number
+  set_action_count: number
+  parameter_action_count: number
+
+  // §16 Formatting
+  has_custom_number_formats: boolean
+  custom_font_count: number
+
+  // §20 Stories
+  story_count: number
+  story_point_count: number
+
+  // §21 Extensions
+  extensions: ExtensionSummaryEntry[]
+  total_extensions: number
+
+  // §23 Embedded analytics
+  has_javascript_api: boolean
+  has_embedding_params: boolean
+
+  // Refined migration scores
+  refined_calc_field_complexity?: number
+  refined_table_calc_complexity?: number
+  refined_parameter_complexity?: number
+  refined_rls_complexity?: number
+  refined_extension_complexity?: number
+  refined_viz_type_complexity?: number
+  refined_dashboard_action_complexity?: number
+  refined_total_score?: number
+  refined_complexity_level?: string
+
+  raw_worksheet_count: number
+}
+
+export interface TableauAssessmentResult {
+  job_id: string
+  label?: string
+  assessed_at: string
+  status: 'completed' | 'failed'
+  error?: string
+  server_info?: TableauServerInfo
+  workbook_summary?: TableauWorkbookSummary
+  datasource_summary?: TableauDatasourceSummary
+  user_profile?: TableauUserProfile
+  extract_health?: TableauExtractHealth
+  data_quality?: TableauDataQualityFlags
+  migration_feasibility?: MigrationFeasibilityReport
+  workbook_deep_analysis?: WorkbookDeepAnalysis[]
+  projects?: TableauProject[]
+  workbooks?: TableauWorkbook[]
+  datasources?: TableauDatasource[]
+  views?: TableauView[]
+  users_list?: Record<string, string>[]
+  groups?: TableauGroup[]
+  flows?: TableauFlow[]
+  permissions?: TableauPermissionEntry[]
+}
+
+export interface TableauPermissionEntry {
+  workbook_or_datasource_name: string
+  grantee_name: string
+  grantee_type: string
+  capability_name: string
+  capability_mode: string
+}
+
+export interface TableauJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface TableauSessionRecord {
+  job_id: string
+  label?: string
+  status: string
+  server_url?: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: TableauAssessmentResult
+}
+
+// ── Snowflake ─────────────────────────────────────────────────────────────────
+
+export type SnowflakeAuthMethod =
+  | 'username_password'
+  | 'browser_sso'
+  | 'browser_sso_cached'
+  | 'mfa_push'
+  | 'mfa_totp'
+  | 'key_pair'
+  | 'oauth_token'
+  | 'oauth_auth_code'
+  | 'oauth_client_credentials'
+  | 'workload_identity'
+  | 'toml_profile'
+
+export interface SnowflakeCredentials {
+  auth_method: SnowflakeAuthMethod
+  // Common connection fields
+  account?: string
+  username?: string
+  role?: string
+  warehouse?: string
+  database?: string
+  // Password-based (username_password, mfa_push, mfa_totp)
+  password?: string
+  // MFA TOTP
+  passcode?: string
+  // Key-pair
+  private_key_path?: string
+  private_key_passphrase?: string
+  // OAuth — bring your own token
+  oauth_token?: string
+  // OAuth flows (auth_code + client_credentials)
+  oauth_client_id?: string
+  oauth_client_secret?: string
+  oauth_auth_url?: string
+  oauth_token_url?: string
+  oauth_scope?: string
+  // Workload Identity
+  workload_identity_provider?: string
+  // TOML profile
+  toml_connection_name?: string
+}
+
+export interface SnowflakeAuthRequest {
+  credentials: SnowflakeCredentials
+}
+
+export interface SnowflakeAuthResponse {
+  auth_id: string
+  status: string
+  message: string
+}
+
+export interface SnowflakeAuthStatusResponse {
+  auth_id: string
+  status: 'pending' | 'authenticated' | 'failed'
+  auth_method?: string
+  account?: string
+  current_user?: string
+  current_role?: string
+  error?: string
+}
+
+export interface SnowflakeAssessmentRequest {
+  auth_id: string
+  label?: string
+  include_query_history?: boolean
+  include_storage_usage?: boolean
+  include_warehouse_metering?: boolean
+  include_login_history?: boolean
+  include_access_history?: boolean
+  include_governance?: boolean
+  include_integrations?: boolean
+  max_databases?: number
+}
+
+export interface SnowflakeAccountInfo {
+  account_name: string
+  organization_name?: string
+  account_locator?: string
+  cloud_provider?: string
+  region?: string
+  edition?: string
+  snowflake_version?: string
+  current_role?: string
+  current_warehouse?: string
+  current_user?: string
+  default_data_retention_days?: number
+}
+
+export interface SnowflakeWarehouse {
+  name: string
+  state: string
+  wh_type: string
+  size: string
+  auto_suspend: number
+  auto_resume: boolean
+  cluster_count?: number
+  max_cluster_count?: number
+  running: number
+  queued: number
+  is_default: boolean
+  owner?: string
+  comment?: string
+  scaling_policy?: string
+}
+
+export interface SnowflakeWarehouseMetrics {
+  total_warehouses: number
+  active_warehouses: number
+  suspended_warehouses: number
+  warehouses_by_size: Record<string, number>
+  multi_cluster_warehouses: number
+}
+
+export interface SnowflakeDatabase {
+  name: string
+  origin?: string
+  owner?: string
+  comment?: string
+  retention_time: number
+  created_on?: string
+  is_default: boolean
+  is_transient: boolean
+}
+
+export interface SnowflakeSchema {
+  database_name: string
+  name: string
+  owner?: string
+  retention_time: number
+  comment?: string
+  is_managed_access: boolean
+  is_transient: boolean
+}
+
+export interface SnowflakeTable {
+  database_name: string
+  schema_name: string
+  name: string
+  table_type: string
+  row_count?: number
+  bytes?: number
+  clustering_key?: string
+  is_transient: boolean
+  retention_time: number
+  created?: string
+  last_altered?: string
+}
+
+export interface SnowflakeDatabaseSummary {
+  total_databases: number
+  total_schemas: number
+  total_tables: number
+  total_views: number
+  total_external_tables: number
+  total_materialized_views: number
+  total_size_bytes: number
+}
+
+export interface SnowflakeObjectInventory {
+  stages: number
+  pipes: number
+  tasks: number
+  streams: number
+  procedures: number
+  functions: number
+  sequences: number
+  file_formats: number
+  dynamic_tables: number
+  shares_outbound: number
+  shares_inbound: number
+  resource_monitors: number
+  network_policies: number
+  masking_policies: number
+  row_access_policies: number
+}
+
+export interface SnowflakeUserProfile {
+  total_users: number
+  disabled_users: number
+  users_without_mfa: number
+  admin_users: number
+  service_accounts: number
+  total_roles: number
+  custom_roles: number
+  system_roles: number
+}
+
+export interface SnowflakeSecurityPosture {
+  network_policies_count: number
+  users_without_mfa: number
+  users_with_default_role_public: number
+  masking_policies_count: number
+  row_access_policies_count: number
+  shares_total: number
+  resource_monitors_count: number
+}
+
+export interface SnowflakeQueryMetrics {
+  total_queries_last_7d: number
+  failed_queries_last_7d: number
+  avg_execution_ms: number
+  p95_execution_ms: number
+  bytes_scanned_total: number
+  bytes_spilled_local: number
+  bytes_spilled_remote: number
+  partitions_scanned_pct: number
+  most_expensive_queries: Record<string, unknown>[]
+  query_error_types: Record<string, number>
+  query_types: Record<string, number>
+}
+
+export interface SnowflakeStorageMetrics {
+  storage_bytes: number
+  stage_bytes: number
+  failsafe_bytes: number
+  total_bytes: number
+  trend: Record<string, unknown>[]
+}
+
+export interface SnowflakeCostMetrics {
+  credits_used_last_30d: number
+  compute_credits: number
+  cloud_services_credits: number
+  top_warehouses_by_credit: Record<string, unknown>[]
+  by_service_type: Record<string, unknown>[]
+  daily_trend: Record<string, unknown>[]
+}
+
+export interface SnowflakeLoginHistory {
+  total_logins_30d: number
+  failed_logins_30d: number
+  unique_users_30d: number
+  client_types: Record<string, number>
+  failed_reasons: Record<string, number>
+}
+
+export interface SnowflakeAccessHistory {
+  total_access_events_30d: number
+  distinct_objects_accessed: number
+  top_users_by_access: Record<string, unknown>[]
+}
+
+export interface SnowflakeIntegrations {
+  storage_integrations: Record<string, unknown>[]
+  notification_integrations: Record<string, unknown>[]
+  security_integrations: Record<string, unknown>[]
+  api_integrations: Record<string, unknown>[]
+  catalog_integrations: Record<string, unknown>[]
+}
+
+export interface SnowflakeGovernance {
+  projection_policies: number
+  aggregation_policies: number
+  authentication_policies: number
+  password_policies: number
+  session_policies: number
+  total_tags: number
+  tags: Record<string, unknown>[]
+}
+
+export interface SnowflakeAlertsSummary {
+  total_alerts: number
+  enabled_alerts: number
+  alerts: Record<string, unknown>[]
+}
+
+export interface SnowflakeReplication {
+  replication_groups: number
+  failover_groups: number
+  replicated_databases: Record<string, unknown>[]
+}
+
+export interface SnowflakeOperationalMetrics {
+  auto_clustering_credits: number
+  auto_clustering_bytes_reclustered: number
+  auto_clustering_tables: number
+  pipe_credits: number
+  pipe_files_inserted: number
+  pipe_bytes_inserted: number
+  task_runs_7d: number
+  task_succeeded_7d: number
+  task_failed_7d: number
+  search_opt_credits: number
+  mv_refresh_credits: number
+  data_transfer_bytes: number
+  data_transfer_by_cloud: Record<string, number>
+}
+
+export interface SnowflakeAssessmentResult {
+  job_id: string
+  label?: string
+  assessed_at: string
+  status: 'completed' | 'failed'
+  error?: string
+  account_info?: SnowflakeAccountInfo
+  warehouse_metrics?: SnowflakeWarehouseMetrics
+  database_summary?: SnowflakeDatabaseSummary
+  object_inventory?: SnowflakeObjectInventory
+  user_profile?: SnowflakeUserProfile
+  security_posture?: SnowflakeSecurityPosture
+  login_history?: SnowflakeLoginHistory
+  access_history?: SnowflakeAccessHistory
+  integrations?: SnowflakeIntegrations
+  governance?: SnowflakeGovernance
+  alerts?: SnowflakeAlertsSummary
+  replication?: SnowflakeReplication
+  query_metrics?: SnowflakeQueryMetrics
+  storage_metrics?: SnowflakeStorageMetrics
+  cost_metrics?: SnowflakeCostMetrics
+  operational_metrics?: SnowflakeOperationalMetrics
+  warehouses?: SnowflakeWarehouse[]
+  databases?: SnowflakeDatabase[]
+  schemas?: SnowflakeSchema[]
+  tables?: SnowflakeTable[]
+  users?: Record<string, unknown>[]
+  roles?: Record<string, unknown>[]
+}
+
+export interface SnowflakeJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface SnowflakeJobStatusResponse {
+  job_id: string
+  status: string
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+}
+
+export interface SnowflakeSessionRecord {
+  job_id: string
+  label?: string
+  status: string
+  account?: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: SnowflakeAssessmentResult
+}
+
+// ─── Dataverse Assessment ───────────────────────────────────────────────────
+
+export type DataverseAuthMethod = 'client_credentials' | 'username_password'
+
+export interface DataverseCredentials {
+  auth_method: DataverseAuthMethod
+  environment_url: string
+  tenant_id?: string
+  client_id?: string
+  client_secret?: string
+  username?: string
+  password?: string
+}
+
+export interface DataverseAssessmentRequest {
+  credentials: DataverseCredentials
+  label?: string
+  include_data_volume?: boolean
+  include_data_quality?: boolean
+  include_security?: boolean
+  include_flows?: boolean
+  include_plugins?: boolean
+  include_ui?: boolean
+  include_audit?: boolean
+  include_ai?: boolean
+  max_entities?: number
+}
+
+export interface DataverseCheckResult {
+  check_id: string
+  name: string
+  domain: string
+  risk: 'critical' | 'high' | 'medium' | 'low'
+  status: 'passed' | 'warning' | 'critical' | 'info' | 'error' | 'skipped'
+  count?: number
+  value?: Record<string, unknown>
+  details?: string
+  recommendation?: string
+}
+
+export interface DataverseDomainSummary {
+  domain: string
+  total_checks: number
+  critical: number
+  high: number
+  medium: number
+  low: number
+  passed: number
+  errors: number
+  score: number
+}
+
+export interface DataverseAssessmentResult {
+  job_id: string
+  status: 'completed' | 'failed'
+  environment_url: string
+  organization_name?: string
+  organization_version?: string
+  total_checks: number
+  critical_findings: number
+  high_findings: number
+  medium_findings: number
+  low_findings: number
+  overall_score: number
+  domain_summaries: DataverseDomainSummary[]
+  check_results: DataverseCheckResult[]
+  errors: string[]
+  completed_at?: string
+  duration_seconds?: number
+}
+
+export interface DataverseJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface DataverseJobStatusResponse {
+  job_id: string
+  status: string
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+  checks_completed: number
+  total_checks: number
+}
+
+export interface DataverseSessionRecord {
+  job_id: string
+  status: string
+  label?: string
+  environment_url: string
+  organization_name?: string
+  total_checks: number
+  critical_findings: number
+  high_findings: number
+  overall_score: number
+  created_at: string
+  completed_at?: string
+  duration_seconds?: number
+}
+
+// ── Salesforce ────────────────────────────────────────────────────────────────
+
+export type SalesforceAuthMethod =
+  | 'username_password'
+  | 'oauth_client_credentials'
+  | 'connected_app_token'
+
+export type SalesforceApiScope =
+  | 'rest_api'
+  | 'metadata_api'
+  | 'tooling_api'
+  | 'bulk_api'
+  | 'analytics_api'
+  | 'security'
+  | 'automation'
+  | 'integration'
+
+export interface SalesforceCredentials {
+  auth_method: SalesforceAuthMethod
+  api_version?: string
+  /** username_password only: "login" | "test" | custom domain name */
+  domain?: string
+  /** Required for oauth_client_credentials and connected_app_token */
+  instance_url?: string
+  username?: string
+  password?: string
+  security_token?: string
+  client_id?: string
+  client_secret?: string
+  access_token?: string
+}
+
+export interface SalesforceAssessmentRequest {
+  credentials: SalesforceCredentials
+  label?: string
+  api_scopes?: SalesforceApiScope[]
+  include_objects?: boolean
+  include_fields?: boolean
+  include_relationships?: boolean
+  include_validation?: boolean
+  include_apex?: boolean
+  include_flows?: boolean
+  include_security?: boolean
+  include_bulk?: boolean
+  include_analytics?: boolean
+  include_integrations?: boolean
+  max_objects?: number
+}
+
+export interface SalesforceCheckResult {
+  check_id: string
+  name: string
+  domain: string
+  api_surface: string
+  risk: 'critical' | 'high' | 'medium' | 'low'
+  status: 'passed' | 'warning' | 'critical' | 'info' | 'error' | 'skipped'
+  count?: number
+  value?: unknown
+  details?: string
+  recommendation?: string
+}
+
+export interface SalesforceDomainSummary {
+  domain: string
+  api_surface: string
+  total_checks: number
+  critical: number
+  high: number
+  medium: number
+  low: number
+  passed: number
+  errors: number
+  score: number
+}
+
+export interface SalesforceAssessmentResult {
+  job_id: string
+  status: 'completed' | 'failed'
+  instance_url: string
+  org_name?: string
+  org_id?: string
+  org_type?: string
+  sf_version?: string
+  total_checks: number
+  critical_findings: number
+  high_findings: number
+  medium_findings: number
+  low_findings: number
+  overall_score: number
+  custom_object_count: number
+  standard_object_count: number
+  total_field_count: number
+  apex_class_count: number
+  flow_count: number
+  active_user_count: number
+  profile_count: number
+  permission_set_count: number
+  domain_summaries: SalesforceDomainSummary[]
+  check_results: SalesforceCheckResult[]
+  errors: string[]
+  completed_at?: string
+  duration_seconds?: number
+}
+
+export interface SalesforceJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface SalesforceJobStatusResponse {
+  job_id: string
+  status: string
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+  checks_completed: number
+  total_checks: number
+}
+
+export interface SalesforceSessionRecord {
+  job_id: string
+  status: string
+  label?: string
+  instance_url: string
+  org_name?: string
+  org_type?: string
+  total_checks: number
+  critical_findings: number
+  high_findings: number
+  overall_score: number
+  created_at: string
+  completed_at?: string
+  duration_seconds?: number
+}
+
+// ── IBM Db2 ───────────────────────────────────────────────────────────────────
+
+// ── IBM Db2 for LUW ───────────────────────────────────────────────────────────
+
+export interface Db2ConnectionParams {
+  hostname: string
+  port: number
+  database: string
+  username: string
+  password: string
+  ssl_enabled?: boolean
+  ssl_server_certificate?: string
+  // Azure Hybrid Connection Manager
+  use_hcm?: boolean
+  hcm_local_host?: string
+  hcm_local_port?: number
+  hcm_relay_namespace?: string
+  hcm_connection_name?: string
+  schema_filter?: string
+  label?: string
+}
+
+export interface Db2InstanceInfo {
+  db2_version?: string
+  instance_name?: string
+  host_name?: string
+  service_level?: string
+  fix_pack_num?: number
+  platform?: string
+  bit_width?: string
+  num_db_partitions: number
+  is_dpf: boolean
+  is_puresale: boolean
+}
+
+export interface Db2DatabaseInfo {
+  db_name: string
+  territory?: string
+  codeset?: string
+  collation_sequence?: string
+  blu_enabled: boolean
+}
+
+export interface Db2Schema {
+  schema_name: string
+  owner?: string
+  create_time?: string
+  table_count: number
+  view_count: number
+  proc_count: number
+}
+
+export interface Db2Table {
+  schema_name: string
+  table_name: string
+  table_type?: string
+  org_type?: string
+  row_count?: number
+  data_pages?: number
+  overflow_pages?: number
+  tablespace_name?: string
+  create_time?: string
+  alter_time?: string
+  is_column_org: boolean
+}
+
+export interface Db2View {
+  schema_name: string
+  view_name: string
+  readonly?: string
+  create_time?: string
+}
+
+export interface Db2Index {
+  schema_name: string
+  table_name: string
+  index_name: string
+  uniquerule?: string
+  index_type?: string
+  clustered?: string
+  nleaf?: number
+  nlevels?: number
+  clusterratio?: number
+  density?: number
+  index_columns?: string
+  num_key_cols?: number
+}
+
+export interface Db2StoredProcedure {
+  schema_name: string
+  proc_name: string
+  language?: string
+  parm_count?: number
+  create_time?: string
+  alter_time?: string
+}
+
+export interface Db2Function {
+  schema_name: string
+  func_name: string
+  func_type?: string
+  language?: string
+  create_time?: string
+}
+
+export interface Db2Trigger {
+  schema_name: string
+  trigger_name: string
+  table_schema?: string
+  table_name?: string
+  trigger_type?: string
+  trigger_time?: string
+  enabled?: string
+  create_time?: string
+}
+
+export interface Db2Sequence {
+  schema_name: string
+  seq_name: string
+  seq_type?: string
+  data_type?: string
+  start?: string
+  increment?: string
+  min_val?: string
+  max_val?: string
+  cycle?: string
+  create_time?: string
+}
+
+export interface Db2UserDefinedType {
+  schema_name: string
+  type_name: string
+  metatype?: string
+  source_name?: string
+  create_time?: string
+}
+
+export interface Db2Package {
+  pkg_schema: string
+  pkg_name: string
+  pkg_version?: string
+  language?: string
+  owner?: string
+  create_time?: string
+}
+
+export interface Db2EventMonitor {
+  evmonname: string
+  target_type?: string
+  enabled?: string
+  event_mon_group?: string
+}
+
+export interface Db2Tablespace {
+  tbspace: string
+  tbspace_type?: string
+  data_tag?: string
+  page_size?: number
+  extent_size?: number
+  prefetch_size?: number
+  total_pages?: number
+  usable_pages?: number
+  used_pages?: number
+  free_pages?: number
+  overhead?: number
+  bufferpool_name?: string
+  utilization_pct?: number
+}
+
+export interface Db2Bufferpool {
+  bpname: string
+  npages?: number
+  automatic?: string
+  pagesize?: number
+  numblockpages?: number
+  hit_ratio?: number
+  logical_reads?: number
+  physical_reads?: number
+}
+
+export interface Db2StorageGroup {
+  sgname: string
+  owner?: string
+  create_time?: string
+  default_tbspace?: string
+}
+
+export interface Db2DbConfigParam {
+  name: string
+  value?: string
+  default?: string
+  flags?: string
+}
+
+export interface Db2DbmConfigParam {
+  name: string
+  value?: string
+  default?: string
+  flags?: string
+}
+
+export interface Db2ObjectInventory {
+  schema_count: number
+  table_count: number
+  column_count: number
+  view_count: number
+  index_count: number
+  procedure_count: number
+  function_count: number
+  trigger_count: number
+  sequence_count: number
+  alias_count: number
+  mqt_count: number
+  udt_count: number
+  package_count: number
+  event_monitor_count: number
+  tablespace_count: number
+  bufferpool_count: number
+  storage_group_count: number
+  nickname_count: number
+  wrapper_count: number
+}
+
+export interface Db2SecuritySummary {
+  total_users: number
+  users_with_dbadm: number
+  users_with_secadm: number
+  users_with_dataaccess: number
+  users_with_bindadd: number
+  users_with_connect: number
+  total_roles: number
+  role_member_count: number
+  rcac_row_permissions: number
+  rcac_col_masks: number
+  schemas_with_rcac: number
+  trusted_contexts_count: number
+  audit_policies_count: number
+  table_grants_count: number
+  column_grants_count: number
+  schema_grants_count: number
+  package_grants_count: number
+}
+
+export interface Db2PerformanceSummary {
+  db_status?: string
+  catalog_node_name?: string
+  total_cons?: number
+  appls_cur_cons?: number
+  lock_waits?: number
+  lock_timeouts?: number
+  lock_escals?: number
+  deadlocks?: number
+  sort_overflows?: number
+  rows_read?: number
+  rows_written?: number
+  pkg_cache_hit_ratio?: number
+  bp_hit_ratio?: number
+  log_utilization_pct?: number
+  total_log_used?: number
+  total_log_available?: number
+  db_heap_top?: number
+  direct_reads?: number
+  direct_writes?: number
+}
+
+export interface Db2ActiveConnection {
+  agent_id?: number
+  appl_name?: string
+  appl_status?: string
+  authid?: string
+  client_platform?: string
+  workload_name?: string
+  num_locks_held?: number
+  status_change_time?: string
+}
+
+export interface Db2TopSql {
+  stmt_text: string
+  exec_count?: number
+  total_exec_time?: number
+  avg_exec_time?: number
+  rows_read?: number
+  rows_returned?: number
+  total_sorts?: number
+  sort_overflows?: number
+}
+
+export interface Db2SpecificFeatures {
+  column_org_tables: number
+  row_org_tables: number
+  rcac_row_permissions: number
+  rcac_col_masks: number
+  federation_enabled: boolean
+  wrapper_count: number
+  server_count: number
+  nickname_count: number
+  wlm_service_classes: number
+  wlm_workloads: number
+  wlm_thresholds: number
+  sequence_count: number
+  alias_count: number
+  mqt_count: number
+  typed_table_count: number
+  udt_count: number
+  event_monitor_count: number
+  package_count: number
+  xsr_count: number
+  storage_group_count: number
+}
+
+export interface Db2FederationWrapper {
+  wrapname: string
+  library?: string
+  create_time?: string
+}
+
+export interface Db2FederationServer {
+  servername: string
+  servertype?: string
+  wrapname?: string
+  create_time?: string
+  nickname_count: number
+}
+
+export interface Db2WlmServiceClass {
+  serviceclassname: string
+  parentserviceclassname?: string
+  enabled?: string
+  create_time?: string
+}
+
+export interface Db2WlmWorkload {
+  workloadname: string
+  enabled?: string
+  create_time?: string
+}
+
+export interface Db2AssessmentResult {
+  job_id: string
+  label?: string
+  assessed_at: string
+  status: 'completed' | 'failed'
+  error?: string
+  hostname?: string
+  database?: string
+  port?: number
+  via_hcm: boolean
+  hcm_relay_namespace?: string
+  hcm_connection_name?: string
+  // Core metadata
+  instance_info?: Db2InstanceInfo
+  database_info?: Db2DatabaseInfo
+  object_inventory?: Db2ObjectInventory
+  security_summary?: Db2SecuritySummary
+  performance?: Db2PerformanceSummary
+  db2_features?: Db2SpecificFeatures
+  // Schema objects
+  schemas?: Db2Schema[]
+  tables?: Db2Table[]
+  views?: Db2View[]
+  indexes?: Db2Index[]
+  procedures?: Db2StoredProcedure[]
+  functions?: Db2Function[]
+  triggers?: Db2Trigger[]
+  sequences?: Db2Sequence[]
+  user_defined_types?: Db2UserDefinedType[]
+  packages?: Db2Package[]
+  event_monitors?: Db2EventMonitor[]
+  // Storage
+  tablespaces?: Db2Tablespace[]
+  bufferpools?: Db2Bufferpool[]
+  storage_groups?: Db2StorageGroup[]
+  // Configuration
+  db_config?: Db2DbConfigParam[]
+  dbm_config?: Db2DbmConfigParam[]
+  // Performance
+  active_connections?: Db2ActiveConnection[]
+  top_sql?: Db2TopSql[]
+  // Federation
+  federation_wrappers?: Db2FederationWrapper[]
+  federation_servers?: Db2FederationServer[]
+  // WLM
+  wlm_service_classes?: Db2WlmServiceClass[]
+  wlm_workloads?: Db2WlmWorkload[]
+}
+
+export interface Db2JobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface Db2JobStatusResponse {
+  job_id: string
+  status: string
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+  via_hcm: boolean
+}
+
+export interface Db2SessionRecord {
+  job_id: string
+  label?: string
+  status: string
+  hostname?: string
+  database?: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: Db2AssessmentResult
+}
+
+// ── Infor CloudSuite ──────────────────────────────────────────────────────────
+
+export type InforEngine = 'm3' | 'ln' | 'csi'
+
+export interface InforEngineMeta {
+  value: InforEngine
+  label: string
+  shortLabel: string
+  description: string
+  apiSurface: string
+  deploymentNote: string
+}
+
+export const INFOR_ENGINES: InforEngineMeta[] = [
+  {
+    value: 'm3',
+    label: 'Infor M3',
+    shortLabel: 'M3',
+    description: 'CloudSuite Fashion / Food & Beverage / Distribution — MRS001/002/003 + MDBREADMI API repository',
+    apiSurface: 'MRS001 / MRS002 / MRS003 / MDBREADMI',
+    deploymentNote: 'On-prem or cloud; on-prem requires Hybrid Connection relay',
+  },
+  {
+    value: 'ln',
+    label: 'Infor LN',
+    shortLabel: 'LN',
+    description: 'CloudSuite Automotive / Aerospace & Defense — BOD catalog, VRC customisations, ION integration bus',
+    apiSurface: 'ION BOD API / VRC / LN BSP Tools',
+    deploymentNote: 'Typically on-prem; requires Hybrid Connection relay for direct API access',
+  },
+  {
+    value: 'csi',
+    label: 'Infor CSI / SyteLine',
+    shortLabel: 'CSI',
+    description: 'CloudSuite Industrial — SyteLine data model, SaaS on AWS; no Hybrid Connection needed',
+    apiSurface: 'ION Grid REST / SyteLine ODBC',
+    deploymentNote: 'SaaS on AWS — direct connectivity via ION Grid REST API',
+  },
+]
+
+/** Edition → engine mapping for the edition-selection dropdown */
+export const INFOR_EDITION_OPTIONS: { label: string; edition: string; engine: InforEngine }[] = [
+  { label: 'CloudSuite Fashion',          edition: 'cloudsuite_fashion',          engine: 'm3' },
+  { label: 'CloudSuite Food & Beverage',  edition: 'cloudsuite_food_beverage',    engine: 'm3' },
+  { label: 'CloudSuite Distribution',     edition: 'cloudsuite_distribution',      engine: 'm3' },
+  { label: 'CloudSuite Retail',           edition: 'cloudsuite_retail',            engine: 'm3' },
+  { label: 'CloudSuite Rental',           edition: 'cloudsuite_rental',            engine: 'm3' },
+  { label: 'CloudSuite Equipment',        edition: 'cloudsuite_equipment',         engine: 'm3' },
+  { label: 'CloudSuite Automotive',       edition: 'cloudsuite_automotive',        engine: 'ln' },
+  { label: 'CloudSuite Aerospace & Defense', edition: 'cloudsuite_aerospace',     engine: 'ln' },
+  { label: 'CloudSuite Industrial Enterprise (LN)', edition: 'cloudsuite_industrial_enterprise', engine: 'ln' },
+  { label: 'CloudSuite Industrial (SyteLine)', edition: 'cloudsuite_industrial',  engine: 'csi' },
+  { label: 'SyteLine (standalone)',       edition: 'syteline',                    engine: 'csi' },
+]
+
+export interface InforIonCredentials {
+  tenant_id: string
+  ion_api_url: string
+  client_id: string
+  client_secret: string
+  username?: string
+  password?: string
+  use_hcm: boolean
+  hcm_local_host?: string
+  hcm_local_port?: number
+}
+
+export interface InforAssessmentRequest {
+  engine?: InforEngine
+  edition?: string
+  label?: string
+  credentials: InforIonCredentials
+}
+
+// ── Infor result sub-models ───────────────────────────────────────────────────
+
+export interface InforCheckResult {
+  domain: string
+  check: string
+  status: 'pass' | 'warn' | 'fail' | 'info' | 'n/a'
+  risk: 'critical' | 'high' | 'medium' | 'low' | 'none'
+  count?: number
+  details?: string
+  recommendation?: string
+}
+
+export interface InforEngineInfo {
+  engine: InforEngine
+  edition?: string
+  version?: string
+  tenant_id: string
+  deployment: 'cloud' | 'on_prem' | 'hybrid'
+  ion_api_version?: string
+  detection_method: 'explicit' | 'edition_map' | 'auto_probe'
+}
+
+export interface InforM3ApiRepository {
+  program_count: number
+  table_count: number
+  field_count: number
+  custom_program_count: number
+  custom_table_count: number
+  mrs001_accessible: boolean
+  mrs002_accessible: boolean
+  mrs003_accessible: boolean
+  mdbreadmi_accessible: boolean
+  api_completeness_pct: number
+}
+
+export interface InforM3CustomizationFootprint {
+  custom_program_count: number
+  custom_table_count: number
+  custom_field_count: number
+  modification_count: number
+  third_party_addon_count: number
+}
+
+export interface InforM3MultiSite {
+  company_count: number
+  division_count: number
+  facility_count: number
+  warehouse_count: number
+  multi_currency: boolean
+  multi_language: boolean
+}
+
+export interface InforLnBodCatalog {
+  total_bods: number
+  bod_verb_counts: Record<string, number>
+  ion_integration_count: number
+  connection_point_count: number
+  data_flow_count: number
+}
+
+export interface InforLnVrc {
+  vrc_package_count: number
+  custom_component_count: number
+  customization_layers: number
+  vrc_packages: string[]
+}
+
+export interface InforLnMultiSite {
+  company_count: number
+  financial_company_count: number
+  logistical_company_count: number
+  warehouse_count: number
+  multi_currency: boolean
+  multi_language: boolean
+}
+
+export interface InforLnPackages {
+  installed_packages: string[]
+  module_count: number
+  active_module_count: number
+}
+
+export interface InforCsiSchema {
+  table_count: number
+  custom_table_count: number
+  view_count: number
+  stored_procedure_count: number
+  trigger_count: number
+  site_count: number
+  user_defined_field_count: number
+  event_handler_count: number
+  custom_form_count: number
+}
+
+export interface InforOsPlatformHealth {
+  ion_api_accessible: boolean
+  mingle_accessible: boolean
+  data_fabric_catalog_present: boolean
+  birst_active: boolean
+  coleman_ai_active: boolean
+  ion_message_volume_daily?: number
+  mfa_enabled: boolean
+  grc_configured: boolean
+  ion_api_version?: string
+  mingle_tenant_count: number
+  ion_connection_point_count: number
+}
+
+export interface InforUserProfile {
+  total_users: number
+  active_users: number
+  role_count: number
+  mfa_enabled_users: number
+  security_role_count: number
+  admin_user_count: number
+}
+
+export interface InforIntegrationFootprint {
+  ion_api_endpoint_count: number
+  active_connection_points: number
+  external_system_count: number
+  middleware_types: string[]
+  webhook_count: number
+}
+
+export interface InforAssessmentResult {
+  job_id: string
+  engine: InforEngine
+  engine_info?: InforEngineInfo
+  label?: string
+  m3_api_repository?: InforM3ApiRepository
+  m3_customization?: InforM3CustomizationFootprint
+  m3_multi_site?: InforM3MultiSite
+  ln_bod_catalog?: InforLnBodCatalog
+  ln_vrc?: InforLnVrc
+  ln_multi_site?: InforLnMultiSite
+  ln_packages?: InforLnPackages
+  csi_schema?: InforCsiSchema
+  platform_health?: InforOsPlatformHealth
+  user_profile?: InforUserProfile
+  integration_footprint?: InforIntegrationFootprint
+  checks: InforCheckResult[]
+  total_checks: number
+  passed_checks: number
+  warnings: number
+  critical_findings: number
+  high_findings: number
+  overall_score?: number
+  assessment_timestamp: string
+  duration_seconds?: number
+  error?: string
+}
+
+export interface InforJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface InforJobStatusResponse {
+  job_id: string
+  status: string
+  engine?: InforEngine
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+}
+
+export interface InforSessionRecord {
+  job_id: string
+  engine?: InforEngine
+  label?: string
+  tenant_id?: string
+  status: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: InforAssessmentResult
+}
+
+// ── Databricks ────────────────────────────────────────────────────────────────
+
+export interface DatabricksCredentials {
+  workspace_url: string
+  access_token: string
+  cloud?: 'azure' | 'aws' | 'gcp'
+}
+
+export interface DatabricksAssessmentRequest {
+  credentials: DatabricksCredentials
+  label?: string
+  include_clusters?: boolean
+  include_warehouses?: boolean
+  include_unity_catalog?: boolean
+  include_jobs?: boolean
+  include_security?: boolean
+  include_integrations?: boolean
+  include_mlflow?: boolean
+  include_cost_signals?: boolean
+}
+
+export interface DatabricksWorkspaceInfo {
+  workspace_id?: string
+  workspace_name?: string
+  deployment_name?: string
+  cloud?: string
+  region?: string
+  metastore_id?: string
+}
+
+export interface DatabricksClusterSummary {
+  total_clusters: number
+  running_clusters: number
+  terminated_clusters: number
+  all_purpose_clusters: number
+  job_clusters: number
+  clusters_without_autoterminate: number
+  photon_enabled_clusters: number
+  legacy_runtime_clusters: number
+  policy_compliant_clusters: number
+  single_node_clusters: number
+}
+
+export interface DatabricksCluster {
+  cluster_id: string
+  cluster_name?: string
+  cluster_source?: string
+  state?: string
+  spark_version?: string
+  node_type_id?: string
+  autotermination_minutes?: number
+  runtime_engine?: string
+  num_workers?: number
+  autoscale_min?: number
+  autoscale_max?: number
+  policy_id?: string
+  creator_user_name?: string
+}
+
+export interface DatabricksWarehouseSummary {
+  total_warehouses: number
+  running_warehouses: number
+  stopped_warehouses: number
+  serverless_warehouses: number
+  classic_warehouses: number
+  warehouses_without_auto_stop: number
+}
+
+export interface DatabricksWarehouse {
+  id: string
+  name?: string
+  cluster_size?: string
+  min_num_clusters?: number
+  max_num_clusters?: number
+  auto_stop_mins?: number
+  state?: string
+  warehouse_type?: string
+  enable_photon?: boolean
+  channel_name?: string
+  creator_name?: string
+  num_active_sessions?: number
+}
+
+export interface DatabricksUnityCatalogSummary {
+  metastore_name?: string
+  metastore_id?: string
+  storage_root?: string
+  catalog_count: number
+  schema_count: number
+  table_count: number
+  view_count: number
+  external_location_count: number
+  storage_credential_count: number
+  volume_count: number
+  delta_sharing_enabled: boolean
+  data_sharing_recipient_count: number
+}
+
+export interface DatabricksCatalog {
+  name: string
+  catalog_type?: string
+  comment?: string
+  owner?: string
+  metastore_id?: string
+  storage_location?: string
+  schema_count: number
+  table_count: number
+  created_at?: string
+  updated_at?: string
+}
+
+export interface DatabricksJobSummary {
+  total_jobs: number
+  continuous_jobs: number
+  scheduled_jobs: number
+  multi_task_jobs: number
+  jobs_with_failures_last_7d: number
+  jobs_using_all_purpose_compute: number
+  dlt_pipelines: number
+}
+
+export interface DatabricksJob {
+  job_id: number
+  name?: string
+  creator_user_name?: string
+  schedule?: string
+  job_cluster_count: number
+  task_count: number
+  uses_all_purpose_compute: boolean
+  last_run_status?: string
+  created_time?: string
+}
+
+export interface DatabricksSecuritySummary {
+  total_users: number
+  active_users: number
+  admin_users: number
+  service_principal_count: number
+  group_count: number
+  workspace_admins: number
+  ip_access_list_count: number
+  secrets_scope_count: number
+  pat_count: number
+  token_lifetime_configured: boolean
+  unity_catalog_enabled: boolean
+  audit_log_configured: boolean
+}
+
+export interface DatabricksUser {
+  id?: string
+  user_name?: string
+  display_name?: string
+  active?: boolean
+  is_admin: boolean
+}
+
+export interface DatabricksIntegrationSummary {
+  external_location_count: number
+  storage_credential_count: number
+  git_credential_count: number
+  secret_scope_count: number
+  network_policy_count: number
+  dbfs_mount_count: number
+  delta_sharing_enabled: boolean
+  lakehouse_monitor_count: number
+}
+
+export interface DatabricksMLflowSummary {
+  experiment_count: number
+  registered_model_count: number
+  model_serving_endpoint_count: number
+  running_endpoints: number
+  vector_search_index_count: number
+  dlt_pipeline_count: number
+}
+
+export interface DatabricksCheckResult {
+  domain: string
+  check: string
+  status: 'pass' | 'warn' | 'fail' | 'info' | 'n/a'
+  risk: 'critical' | 'high' | 'medium' | 'low' | 'none'
+  count?: number
+  details?: string
+  recommendation?: string
+}
+
+export interface DatabricksAssessmentResult {
+  job_id: string
+  label?: string
+  workspace_url?: string
+  workspace_info?: DatabricksWorkspaceInfo
+  cluster_summary?: DatabricksClusterSummary
+  warehouse_summary?: DatabricksWarehouseSummary
+  unity_catalog?: DatabricksUnityCatalogSummary
+  job_summary?: DatabricksJobSummary
+  security_summary?: DatabricksSecuritySummary
+  integration_summary?: DatabricksIntegrationSummary
+  mlflow_summary?: DatabricksMLflowSummary
+  clusters: DatabricksCluster[]
+  warehouses: DatabricksWarehouse[]
+  catalogs: DatabricksCatalog[]
+  jobs: DatabricksJob[]
+  users: DatabricksUser[]
+  checks: DatabricksCheckResult[]
+  total_checks: number
+  passed_checks: number
+  warnings: number
+  critical_findings: number
+  high_findings: number
+  overall_score?: number
+  assessment_timestamp: string
+  duration_seconds?: number
+  error?: string
+}
+
+export interface DatabricksJobResponse {
+  job_id: string
+  status: string
+  message: string
+}
+
+export interface DatabricksJobStatusResponse {
+  job_id: string
+  status: string
+  label?: string
+  progress_message?: string
+  error?: string
+  created_at: string
+  completed_at?: string
+  workspace_url?: string
+}
+
+export interface DatabricksSessionRecord {
+  job_id: string
+  label?: string
+  workspace_url?: string
+  workspace_name?: string
+  cloud?: string
+  cluster_count?: number
+  warehouse_count?: number
+  catalog_count?: number
+  job_count?: number
+  total_checks?: number
+  passed_checks?: number
+  critical_findings?: number
+  high_findings?: number
+  overall_score?: number
+  status: string
+  created_at: string
+  completed_at?: string
+  error?: string
+  results?: DatabricksAssessmentResult
 }

@@ -95,6 +95,16 @@ _STEP_KEYS = [
     # Performance — view_database_state
     ("wait_statistics",         "WAIT_STATISTICS",         "Wait statistics",                  "view_database_state"),
     ("query_store_top_queries", "QUERY_STORE_TOP_QUERIES", "Query Store top queries (7d)",     "view_database_state"),
+    # ── PostgreSQL-specific extended sections — db_datareader / view_database_state
+    # PG_* attributes only exist in queries_postgres; other engines fall back to
+    # the "SELECT NULL WHERE 1=0" default in _get_query_steps and return [].
+    ("pg_extensions",       "PG_EXTENSIONS",       "Extensions inventory",              "db_datareader"),
+    ("pg_triggers",         "PG_TRIGGERS",         "Triggers",                          "db_datareader"),
+    ("pg_sequences",        "PG_SEQUENCES",        "Sequences",                         "db_datareader"),
+    ("pg_partitions",       "PG_PARTITIONS",       "Partitions / table inheritance",    "db_datareader"),
+    ("pg_matviews",         "PG_MATVIEWS",         "Materialized views",                "db_datareader"),
+    ("pg_table_bloat",      "PG_TABLE_BLOAT",      "Table bloat (dead tuples)",         "view_database_state"),
+    ("pg_connection_stats", "PG_CONNECTION_STATS", "Connection pool statistics",        "view_database_state"),
 ]
 
 _QUERY_MODULE = {
@@ -146,6 +156,12 @@ def _safe_fetch(cursor, sql: str) -> list[dict[str, Any]]:
         return _cursor_rows_to_dicts(cursor)
     except Exception as exc:
         logger.warning("Query failed: %s", exc)
+        # Roll back any aborted transaction so subsequent queries can still run.
+        # Required when autocommit=False (psycopg2 default); harmless when True.
+        try:
+            cursor.connection.rollback()
+        except Exception:
+            pass
         return []
 
 
@@ -332,8 +348,13 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
     access_rank = ACCESS_LEVEL_RANK.get(access_level, 1)
 
     try:
-        raw: dict[str, Any] = {}
+        raw: dict[str, Any] = {"_db_type": db_type}
 
+        step_num = 0
+        total_steps = sum(
+            1 for _, _, _, min_level in query_steps
+            if ACCESS_LEVEL_RANK.get(min_level, 1) <= access_rank
+        )
         for key, sql, display_name, min_level in query_steps:
             min_rank = ACCESS_LEVEL_RANK.get(min_level, 1)
             if access_rank < min_rank:
@@ -341,13 +362,14 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
                 raw[key] = []
                 logger.debug("Skipped %s (requires %s, have %s)", key, min_level, access_level, extra=extra)
                 continue
+            step_num += 1
             logger.info("Running query: %s", display_name, extra=extra)
-            job_store.update_job(job_id, progress_message=f"Collecting {display_name}…")
+            job_store.update_job(job_id, progress_message=f"step:{step_num}/{total_steps}:{display_name}")
             raw[key] = _safe_fetch(cursor, sql)
 
         if request.include_null_analysis:
             logger.info("Running null analysis (limit=%d)", request.null_analysis_sample_limit, extra=extra)
-            job_store.update_job(job_id, progress_message="Running null/blank analysis…")
+            job_store.update_job(job_id, progress_message=f"step:{total_steps + 1}/{total_steps + 2}:Null analysis")
             raw["null_analysis"] = _run_null_analysis(
                 cursor, raw.get("tables", []), request.null_analysis_sample_limit,
                 db_type=db_type,
@@ -355,13 +377,14 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
         else:
             raw["null_analysis"] = []
 
-        job_store.update_job(job_id, progress_message="Persisting results to Azure SQL…")
+        final_steps = total_steps + (2 if request.include_null_analysis else 0)
+        job_store.update_job(job_id, progress_message=f"step:{final_steps - 1}/{final_steps}:Persisting results")
         overview_dict = _extract_overview(raw.get("overview", []))
         azure_store.save_overview(job_id, overview_dict, access_level=access_level)
         azure_store.save_sections(job_id, raw)
 
-        job_store.update_job(job_id, progress_message="Building Excel report…")
-        report_path = report_service.build_report(job_id, raw)
+        job_store.update_job(job_id, progress_message=f"step:{final_steps}/{final_steps}:Building Excel report")
+        report_path = report_service.build_report(job_id, raw, db_type=db_type)
 
         results: dict[str, Any] = {
             "job_id": job_id,
@@ -429,6 +452,14 @@ def run_assessment(job_id: str, request: AssessmentRequest) -> tuple[dict[str, A
             "ssas_linked_servers":        raw.get("ssas_linked_servers", []),
             "wait_statistics":            raw.get("wait_statistics", []),
             "query_store_top_queries":    raw.get("query_store_top_queries", []),
+            # PostgreSQL-specific extended sections
+            "pg_extensions":              raw.get("pg_extensions", []),
+            "pg_triggers":                raw.get("pg_triggers", []),
+            "pg_sequences":               raw.get("pg_sequences", []),
+            "pg_partitions":              raw.get("pg_partitions", []),
+            "pg_matviews":                raw.get("pg_matviews", []),
+            "pg_table_bloat":             raw.get("pg_table_bloat", []),
+            "pg_connection_stats":        raw.get("pg_connection_stats", []),
         }
 
         logger.info("Assessment completed", extra=extra)

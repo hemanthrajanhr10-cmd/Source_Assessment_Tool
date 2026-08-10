@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Loader3D — Compact inline 3D loading animation.
  *
  * Lightweight version of SplashScreen for in-page loading states.
@@ -74,7 +74,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
                 position: 'absolute',
                 inset: 0,
                 borderRadius: '50%',
-                border: '1.5px solid rgba(139,92,246,0.35)',
+                border: '1.5px solid rgba(77,168,160,0.30)',
                 animation: `l3d-pulse 2.4s ease-out ${i * 1.2}s infinite`,
               }}
               aria-hidden="true"
@@ -87,7 +87,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
               position: 'absolute',
               inset: -16 * scale,
               borderRadius: '50%',
-              border: '1px solid rgba(139,92,246,0.2)',
+              border: '1px solid rgba(77,168,160,0.20)',
               animation: 'l3d-orbit-slow 8s linear infinite',
             }}
             aria-hidden="true"
@@ -95,8 +95,8 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
             <div style={{
               position: 'absolute', top: -3, left: '50%',
               width: 6, height: 6, borderRadius: '50%',
-              background: 'radial-gradient(circle, #a78bfa, #7c3aed)',
-              boxShadow: '0 0 6px #a78bfa',
+              background: 'radial-gradient(circle, #A8E2DD, #4DA8A0)',
+              boxShadow: '0 0 6px #A8E2DD',
               transform: 'translateX(-50%)',
             }} />
           </div>
@@ -107,7 +107,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
               position: 'absolute',
               inset: -8 * scale,
               borderRadius: '50%',
-              border: '1px solid rgba(99,102,241,0.25)',
+              border: '1px solid rgba(77,168,160,0.25)',
               animation: 'l3d-orbit-counter 6s linear infinite',
             }}
             aria-hidden="true"
@@ -115,8 +115,8 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
             <div style={{
               position: 'absolute', bottom: -3, right: '25%',
               width: 5, height: 5, borderRadius: '50%',
-              background: 'radial-gradient(circle, #818cf8, #4f46e5)',
-              boxShadow: '0 0 5px #818cf8',
+              background: 'radial-gradient(circle, #93CCC6, #4DA8A0)',
+              boxShadow: '0 0 5px #93CCC6',
             }} />
           </div>
 
@@ -138,7 +138,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
               <div key={i} style={{
                 position: 'absolute', inset: 0,
                 borderRadius: 18 * scale,
-                background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+                background: 'linear-gradient(135deg, #4DA8A0, #6CBDB5)',
                 transform: `translateZ(${z}px)`,
                 opacity: op,
                 filter: `blur(${blur}px)`,
@@ -149,8 +149,8 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
             <div style={{
               position: 'absolute', inset: 0,
               borderRadius: 18 * scale,
-              background: 'linear-gradient(145deg, #8b5cf6 0%, #6d28d9 40%, #4f46e5 100%)',
-              boxShadow: '0 8px 24px rgba(109,40,217,0.45), 0 2px 8px rgba(109,40,217,0.3), inset 0 1px 0 rgba(255,255,255,0.25)',
+              background: 'linear-gradient(145deg, #93CCC6 0%, #358F87 40%, #4DA8A0 100%)',
+              boxShadow: '0 8px 24px rgba(77,168,160,0.45), 0 2px 8px rgba(77,168,160,0.3), inset 0 1px 0 rgba(255,255,255,0.25)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -196,7 +196,7 @@ export default function Loader3D({ message = 'Loading…', size = 'md' }: Loader
                   display: 'inline-block',
                   width: 4, height: 4,
                   borderRadius: '50%',
-                  background: '#8b5cf6',
+                  background: '#93CCC6',
                   animation: `l3d-dot-bounce 1.1s ease-in-out ${i * 0.18}s infinite`,
                 }}
               />

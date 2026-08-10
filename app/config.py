@@ -15,11 +15,11 @@ class Settings(BaseSettings):
     max_null_analysis_tables: int = 100
 
     # ── Azure SQL Store (job persistence + assessment results) ────────────────
-    azure_store_server: str = "source-assessment.database.windows.net"
+    azure_store_server: str = "uiap-source-assessment.database.windows.net"
     azure_store_port: int = 1433
     azure_store_database: str = "SourceAssessment"
-    azure_store_username: str = "hemanth"
-    azure_store_password: SecretStr = SecretStr("Ubti@123")
+    azure_store_username: str = "sqladmin"
+    azure_store_password: SecretStr = SecretStr("welcome@1234")
 
     # ── Azure Service Bus (gateway agent messaging) ───────────────────────────
     # Set SERVICE_BUS_CONNECTION_STRING env var in Azure Web App settings
@@ -48,8 +48,50 @@ class Settings(BaseSettings):
     oauth_google_client_secret: SecretStr = SecretStr("")
     oauth_google_redirect_uri: str = "http://localhost:8000/api/v1/auth/oauth/google/callback"
 
+    # Apple Sign In — register a Services ID at https://developer.apple.com
+    #   Set OAUTH_APPLE_CLIENT_ID (Services ID), OAUTH_APPLE_TEAM_ID,
+    #   OAUTH_APPLE_KEY_ID, and OAUTH_APPLE_PRIVATE_KEY (contents of .p8 file)
+    #   Redirect URI: {backend_url}/api/v1/auth/oauth/apple/callback (must be HTTPS in prod)
+    oauth_apple_client_id: str = ""         # Services ID (e.g. com.example.app)
+    oauth_apple_team_id: str = ""           # 10-char Apple Developer Team ID
+    oauth_apple_key_id: str = ""            # Key ID from developer.apple.com
+    oauth_apple_private_key: SecretStr = SecretStr("")  # Full .p8 key contents
+    oauth_apple_redirect_uri: str = "http://localhost:8000/api/v1/auth/oauth/apple/callback"
+
+    # ── Azure Partner Admin Link (PAL) ────────────────────────────────────────
+    # Linking is performed via a PowerShell subprocess (Az.Accounts +
+    # Az.ManagementPartner) using the client's own device-code sign-in — never
+    # sent to the frontend, never editable by the client. Override via
+    # PAL_PARTNER_ID env var if the Associated Partner ID ever changes.
+    pal_partner_id: str = "525616"
+    pal_organization_name: str = "UBTI"
+
     # Frontend base URL — used to redirect back after OAuth callback
     frontend_url: str = "http://localhost:5173"
+
+    # Backend base URL — used in admin notification emails
+    backend_url: str = "http://localhost:8000"
+
+    # ── Azure OpenAI (AI Report Generation) ──────────────────────────────────
+    azure_openai_endpoint: str = ""
+    azure_openai_api_key: SecretStr = SecretStr("")
+    azure_openai_api_version: str = "2024-11-20"
+    azure_openai_deployment: str = "gpt-4o"
+
+    # ── Azure Communication Services — Email ──────────────────────────────────
+    # Create a free ACS resource in Azure Portal → "Communication Services"
+    # Then: ACS resource → Email → Add domain (use free *.azurecomm.net domain)
+    # Copy the connection string from "Keys" blade and set ACS_EMAIL_CONNECTION_STRING
+    # Set ACS_EMAIL_SENDER to the "MailFrom" address shown on your email domain
+    acs_email_connection_string: SecretStr = SecretStr("")
+    acs_email_sender: str = ""           # e.g. donotreply@<yourname>.azurecomm.net
+    admin_email: str = "hemanth.rajan@ubtiinc.com"
+    admin_emails: list[str] = [
+        "hemanth.rajan@ubtiinc.com",
+        "panneerselvi@ubtiinc.com",
+        "hariprasath.s@ubtiinc.com",
+        "Selvasubbaiah.a@ubtiinc.com",
+    ]
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

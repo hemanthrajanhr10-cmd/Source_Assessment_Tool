@@ -1,29 +1,60 @@
-import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
-  Zap, MonitorSmartphone, CheckCircle2, AlertCircle,
+  MonitorSmartphone, CheckCircle2, AlertCircle,
   Loader2, ExternalLink, Tag, ArrowRight, Copy,
-  Building2, Database, FileText, Search, ChevronDown, ChevronRight,
+  Building2, Database, FileText, Search, ChevronDown, ChevronRight, X, Zap,
+  KeyRound, Eye, EyeOff, UserCog, ShieldCheck,
 } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 import type { FabricWorkspaceInfo, FabricWorkspaceItems } from '../types/api'
 import Button from '../components/ui/Button'
+import Switch from '../components/ui/Switch'
+import { FabricLogo } from '../components/ui/SourceLogos'
 import { formatTime } from '../utils/dateTime'
+import { useNotifications } from '../context/NotificationContext'
 
-// Steps: start → waiting (device code) → picking (workspaces) → picking-items (models & reports) → naming → submitting
-type Step = 'start' | 'waiting' | 'picking' | 'picking-items' | 'naming' | 'submitting'
+// Steps: start → waiting (device code) → sp-connecting (service principal) → picking (workspaces) → picking-items → naming → submitting
+type Step = 'start' | 'waiting' | 'sp-connecting' | 'picking' | 'picking-items' | 'naming' | 'submitting'
+type AuthMethod = 'device' | 'service_principal'
+
+/** How long (ms) to wait before surfacing a timeout message. */
+const AUTH_TIMEOUT_MS = 30_000
+
+/** How many consecutive poll failures before giving up. */
+const MAX_CONSECUTIVE_POLL_ERRORS = 5
 
 export default function FabricAssessmentPage() {
   const navigate = useNavigate()
+  const { push: pushNotif } = useNotifications()
+  const { data: palConfig } = useQuery({
+    queryKey: ['fabric-pal-config'],
+    queryFn: () => api.getFabricPalConfig().then(r => r.data),
+    staleTime: Infinity,
+  })
   const [step, setStep]           = useState<Step>('start')
   const [authId, setAuthId]       = useState('')
   const [userCode, setUserCode]   = useState('')
   const [verificationUrl, setVerificationUrl] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
   const [label, setLabel]         = useState('')
+  const [palEnabled, setPalEnabled] = useState(false)
   const [error, setError]         = useState<string | null>(null)
+  const [cancelInfo, setCancelInfo] = useState<string | null>(null)
   const [copied, setCopied]       = useState(false)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Auth method selection
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('device')
+
+  // Service Principal form state
+  const [spTenantId, setSpTenantId]         = useState('')
+  const [spClientId, setSpClientId]         = useState('')
+  const [spClientSecret, setSpClientSecret] = useState('')
+  const [spSecretVisible, setSpSecretVisible] = useState(false)
+  const [spConnecting, setSpConnecting]     = useState(false)
 
   // Workspace selection state
   const [workspaces, setWorkspaces]               = useState<FabricWorkspaceInfo[]>([])
@@ -31,31 +62,105 @@ export default function FabricAssessmentPage() {
   const [selectedWsIds, setSelectedWsIds]         = useState<Set<string>>(new Set())
   const [wsFilter, setWsFilter]                   = useState('')
 
-  // Model & Report selection state
+  // Model, Report & Dataflow selection state
   const [workspaceItems, setWorkspaceItems]             = useState<FabricWorkspaceItems[]>([])
   const [itemsLoading, setItemsLoading]                 = useState(false)
   const [selectedDatasetIds, setSelectedDatasetIds]     = useState<Set<string>>(new Set())
   const [selectedReportIds, setSelectedReportIds]       = useState<Set<string>>(new Set())
+  const [selectedDataflowIds, setSelectedDataflowIds]   = useState<Set<string>>(new Set())
   const [itemFilter, setItemFilter]                     = useState('')
   const [expandedWorkspaces, setExpandedWorkspaces]     = useState<Set<string>>(new Set())
+  // Per-workspace section expand state (independent of workspace expand)
+  const [expandedReports, setExpandedReports]           = useState<Set<string>>(new Set())
+  const [expandedModels, setExpandedModels]             = useState<Set<string>>(new Set())
+  const [expandedDataflows, setExpandedDataflows]       = useState<Set<string>>(new Set())
+
+  /** Clears all in-flight timers and resets auth state to 'start'. */
+  const resetToStart = useCallback((message?: string) => {
+    clearInterval(pollRef.current ?? undefined)
+    clearTimeout(timeoutRef.current ?? undefined)
+    pollRef.current    = null
+    timeoutRef.current = null
+    setStep('start')
+    setAuthId('')
+    setUserCode('')
+    setVerificationUrl('')
+    setExpiresAt('')
+    setError(null)
+    setSpConnecting(false)
+    if (message) setCancelInfo(message)
+  }, [])
+
+  /** Aborts the device-code flow and returns the user to the start view. */
+  const handleCancel = useCallback(() => {
+    resetToStart('Sign-in cancelled. You can try again.')
+  }, [resetToStart])
 
   // Poll auth status while in 'waiting' step
   useEffect(() => {
     if (step !== 'waiting' || !authId) return
+
+    let consecutiveErrors = 0
+
+    // Surface a timeout message if auth takes too long
+    timeoutRef.current = setTimeout(() => {
+      clearInterval(pollRef.current ?? undefined)
+      pollRef.current = null
+      setStep('start')
+      setError(
+        'Sign-in timed out after 30 seconds. ' +
+        'Please check your network connection and try again.'
+      )
+    }, AUTH_TIMEOUT_MS)
+
     pollRef.current = setInterval(async () => {
       try {
         const { data } = await api.fabricAuthStatus(authId)
+        consecutiveErrors = 0 // reset on success
+
         if (data.status === 'ready') {
-          clearInterval(pollRef.current!)
+          clearInterval(pollRef.current ?? undefined)
+          clearTimeout(timeoutRef.current ?? undefined)
+          pollRef.current    = null
+          timeoutRef.current = null
           await fetchWorkspaces(authId)
         } else if (data.status === 'error') {
-          clearInterval(pollRef.current!)
+          clearInterval(pollRef.current ?? undefined)
+          clearTimeout(timeoutRef.current ?? undefined)
+          pollRef.current    = null
+          timeoutRef.current = null
           setError(data.error || 'Authentication failed')
           setStep('start')
+        } else if (data.status === 'not_found') {
+          // Auth session was lost (e.g. server restart); restart cleanly
+          clearInterval(pollRef.current ?? undefined)
+          clearTimeout(timeoutRef.current ?? undefined)
+          pollRef.current    = null
+          timeoutRef.current = null
+          setError('Auth session expired. Please start again.')
+          setStep('start')
         }
-      } catch { /* ignore transient */ }
+        // 'starting' and 'pending' are valid wait states — continue polling
+      } catch {
+        consecutiveErrors++
+        if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) {
+          clearInterval(pollRef.current ?? undefined)
+          clearTimeout(timeoutRef.current ?? undefined)
+          pollRef.current    = null
+          timeoutRef.current = null
+          setError(
+            'Unable to reach the server. ' +
+            'Please check your connection and try again.'
+          )
+          setStep('start')
+        }
+      }
     }, 3000)
-    return () => clearInterval(pollRef.current!)
+
+    return () => {
+      clearInterval(pollRef.current ?? undefined)
+      clearTimeout(timeoutRef.current ?? undefined)
+    }
   }, [step, authId])
 
   const fetchWorkspaces = async (id: string) => {
@@ -79,12 +184,18 @@ export default function FabricAssessmentPage() {
       const { data } = await api.fabricListWorkspaceItems(authId, Array.from(selectedWsIds))
       setWorkspaceItems(data)
       // Auto-select all items
-      const allDatasets = new Set(data.flatMap(w => w.datasets.map(d => d.id)))
-      const allReports  = new Set(data.flatMap(w => w.reports.map(r => r.id)))
+      const allDatasets  = new Set(data.flatMap(w => w.datasets.map(d => d.id)))
+      const allReports   = new Set(data.flatMap(w => w.reports.map(r => r.id)))
+      const allDataflows = new Set(data.flatMap(w => (w.dataflows || []).map(df => df.id)))
       setSelectedDatasetIds(allDatasets)
       setSelectedReportIds(allReports)
-      // Expand all workspaces by default
-      setExpandedWorkspaces(new Set(data.map(w => w.workspace_id)))
+      setSelectedDataflowIds(allDataflows)
+      // Expand all workspaces + sections by default
+      const wsIds = new Set(data.map(w => w.workspace_id))
+      setExpandedWorkspaces(wsIds)
+      setExpandedReports(new Set(wsIds))
+      setExpandedModels(new Set(wsIds))
+      setExpandedDataflows(new Set(wsIds))
     } catch (err) {
       setError(getApiErrorMessage(err))
       setStep('picking')
@@ -95,6 +206,7 @@ export default function FabricAssessmentPage() {
 
   const handleStartAuth = async () => {
     setError(null)
+    setCancelInfo(null)
     setStep('waiting')
     try {
       const { data } = await api.fabricAuthStart()
@@ -105,6 +217,29 @@ export default function FabricAssessmentPage() {
     } catch (err) {
       setError(getApiErrorMessage(err))
       setStep('start')
+    }
+  }
+
+  const handleServicePrincipalConnect = async () => {
+    setError(null)
+    setCancelInfo(null)
+    setSpConnecting(true)
+    setStep('sp-connecting')
+    try {
+      const { data } = await api.fabricAuthServicePrincipal({
+        tenant_id:     spTenantId.trim(),
+        client_id:     spClientId.trim(),
+        client_secret: spClientSecret,
+      })
+      setAuthId(data.auth_id)
+      // Clear secret from component state immediately after successful auth
+      setSpClientSecret('')
+      await fetchWorkspaces(data.auth_id)
+    } catch (err) {
+      setError(getApiErrorMessage(err))
+      setStep('start')
+    } finally {
+      setSpConnecting(false)
     }
   }
 
@@ -150,7 +285,10 @@ export default function FabricAssessmentPage() {
     reports: ws.reports.filter(
       r => !itemFilter || r.name.toLowerCase().includes(itemFilter.toLowerCase())
     ),
-  })).filter(ws => ws.datasets.length > 0 || ws.reports.length > 0)
+    dataflows: (ws.dataflows || []).filter(
+      df => !itemFilter || df.name.toLowerCase().includes(itemFilter.toLowerCase())
+    ),
+  })).filter(ws => ws.datasets.length > 0 || ws.reports.length > 0 || ws.dataflows.length > 0)
 
   const toggleDataset = (id: string) => {
     setSelectedDatasetIds(prev => {
@@ -190,18 +328,52 @@ export default function FabricAssessmentPage() {
     })
   }
 
+  const toggleDataflow = (id: string) => {
+    setSelectedDataflowIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleWorkspaceDataflows = (ws: FabricWorkspaceItems) => {
+    const ids = (ws.dataflows || []).map(df => df.id)
+    const allSelected = ids.every(id => selectedDataflowIds.has(id))
+    setSelectedDataflowIds(prev => {
+      const next = new Set(prev)
+      if (allSelected) ids.forEach(id => next.delete(id))
+      else ids.forEach(id => next.add(id))
+      return next
+    })
+  }
+
+  const toggleSectionExpand = (
+    wsId: string,
+    setter: React.Dispatch<React.SetStateAction<Set<string>>>
+  ) => {
+    setter(prev => {
+      const next = new Set(prev)
+      next.has(wsId) ? next.delete(wsId) : next.add(wsId)
+      return next
+    })
+  }
+
   const toggleAllItems = () => {
     const allDs  = workspaceItems.flatMap(w => w.datasets.map(d => d.id))
     const allRpt = workspaceItems.flatMap(w => w.reports.map(r => r.id))
+    const allDf  = workspaceItems.flatMap(w => (w.dataflows || []).map(df => df.id))
     const allSelected =
       allDs.every(id => selectedDatasetIds.has(id)) &&
-      allRpt.every(id => selectedReportIds.has(id))
+      allRpt.every(id => selectedReportIds.has(id)) &&
+      allDf.every(id => selectedDataflowIds.has(id))
     if (allSelected) {
       setSelectedDatasetIds(new Set())
       setSelectedReportIds(new Set())
+      setSelectedDataflowIds(new Set())
     } else {
       setSelectedDatasetIds(new Set(allDs))
       setSelectedReportIds(new Set(allRpt))
+      setSelectedDataflowIds(new Set(allDf))
     }
   }
 
@@ -214,15 +386,17 @@ export default function FabricAssessmentPage() {
   }
 
   const totalItems = workspaceItems.reduce(
-    (acc, ws) => acc + ws.datasets.length + ws.reports.length, 0
+    (acc, ws) => acc + ws.datasets.length + ws.reports.length + (ws.dataflows || []).length, 0
   )
   const totalAllDs  = workspaceItems.flatMap(w => w.datasets.map(d => d.id))
   const totalAllRpt = workspaceItems.flatMap(w => w.reports.map(r => r.id))
+  const totalAllDf  = workspaceItems.flatMap(w => (w.dataflows || []).map(df => df.id))
   const allItemsSelected =
     totalAllDs.every(id => selectedDatasetIds.has(id)) &&
-    totalAllRpt.every(id => selectedReportIds.has(id))
+    totalAllRpt.every(id => selectedReportIds.has(id)) &&
+    totalAllDf.every(id => selectedDataflowIds.has(id))
 
-  const selectedItemCount = selectedDatasetIds.size + selectedReportIds.size
+  const selectedItemCount = selectedDatasetIds.size + selectedReportIds.size + selectedDataflowIds.size
 
   const handleStartSession = async () => {
     if (!authId || selectedWsIds.size === 0) return
@@ -230,28 +404,47 @@ export default function FabricAssessmentPage() {
     setStep('submitting')
     try {
       const { data } = await api.createFabricSession({
-        auth_id:      authId,
-        label:        label.trim() || undefined,
+        auth_id:       authId,
+        label:         label.trim() || undefined,
         workspace_ids: Array.from(selectedWsIds),
         dataset_ids:   Array.from(selectedDatasetIds),
         report_ids:    Array.from(selectedReportIds),
+        dataflow_ids:  Array.from(selectedDataflowIds),
       })
-      navigate(`/fabric/sessions/${data.fabric_session_id}`)
+      pushNotif(
+        'success',
+        'Fabric assessment started',
+        `${label.trim() || 'Assessment'} — ${selectedWsIds.size} workspace${selectedWsIds.size !== 1 ? 's' : ''}, ` +
+        `${selectedReportIds.size} report${selectedReportIds.size !== 1 ? 's' : ''}, ` +
+        `${selectedDatasetIds.size} model${selectedDatasetIds.size !== 1 ? 's' : ''}, ` +
+        `${selectedDataflowIds.size} dataflow${selectedDataflowIds.size !== 1 ? 's' : ''}.`,
+      )
+      // PAL linking needs a device code the client must see and act on, so it
+      // can't be resolved invisibly here — the report page picks up the intent
+      // and presents the code the moment the client lands there.
+      navigate(`/fabric/sessions/${data.fabric_session_id}`, {
+        state: palEnabled ? { palEnabled: true } : undefined,
+      })
     } catch (err) {
-      setError(getApiErrorMessage(err))
+      const msg = getApiErrorMessage(err)
+      setError(msg)
+      pushNotif('error', 'Fabric assessment failed to start', msg)
       setStep('naming')
     }
   }
 
-  const authDone        = step !== 'start' && step !== 'waiting'
-  const wsDone          = step === 'picking-items' || step === 'naming' || step === 'submitting'
-  const itemsDone       = step === 'naming' || step === 'submitting'
+  const authDone  = step !== 'start' && step !== 'waiting' && step !== 'sp-connecting'
+  const wsDone    = step === 'picking-items' || step === 'naming' || step === 'submitting'
+  const itemsDone = step === 'naming' || step === 'submitting'
 
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-2.5">
-          <Zap className="h-6 w-6 text-indigo-500" />
+        <h1 className="text-2xl font-bold text-slate-900 font-display flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+            style={{ background: '#F0FAF9', border: '1px solid #A8E2DD', boxShadow: '0 2px 8px rgba(77,168,160,0.10)' }}>
+            <FabricLogo size={28} />
+          </div>
           Fabric Workspace Assessment
         </h1>
         <p className="mt-1 text-sm text-slate-500">
@@ -263,33 +456,169 @@ export default function FabricAssessmentPage() {
 
         {/* ── Step 1 — Sign in ─────────────────────────────────────────────── */}
         <div className={`card overflow-hidden border-2 transition-colors ${
-          !authDone ? 'border-indigo-300' : 'border-slate-200'
+          !authDone ? 'border-earth-400' : 'border-slate-200'
         }`}>
           <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
             <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold
-              ${authDone ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'}`}>
+              ${authDone ? 'bg-earth-500 text-white' : 'bg-earth-600 text-white'}`}>
               {authDone ? <CheckCircle2 className="h-4 w-4" /> : '1'}
             </span>
             <h2 className="text-sm font-semibold text-slate-900">Sign in with Microsoft</h2>
           </div>
           <div className="p-6">
             {step === 'start' && (
-              <div className="space-y-4">
-                <p className="text-sm text-slate-500">
-                  Click below to start a secure Microsoft device-code login. You will be given a short
-                  code to enter at <strong className="text-slate-700">microsoft.com/devicelogin</strong>.
-                  No passwords are stored — the token is held in memory only for this session.
-                </p>
-                <Button leftIcon={<MonitorSmartphone className="h-4 w-4" />} onClick={handleStartAuth}>
-                  Connect to Microsoft Fabric
-                </Button>
+              <div className="space-y-5">
+
+                {cancelInfo && (
+                  <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-slate-400" />
+                    <span className="flex-1">{cancelInfo}</span>
+                    <button onClick={() => setCancelInfo(null)} aria-label="Dismiss" className="ml-auto text-slate-400 hover:text-slate-600 transition-colors">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* ── Auth method selector ─────────────────────────────────── */}
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-slate-100/80">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMethod('device')}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                      authMethod === 'device'
+                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <MonitorSmartphone className={`h-3.5 w-3.5 ${authMethod === 'device' ? 'text-earth-600' : 'text-slate-400'}`} />
+                    Interactive Login
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMethod('service_principal')}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                      authMethod === 'service_principal'
+                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <KeyRound className={`h-3.5 w-3.5 ${authMethod === 'service_principal' ? 'text-earth-600' : 'text-slate-400'}`} />
+                    Service Principal
+                  </button>
+                </div>
+
+                {/* ── Device code flow ─────────────────────────────────────── */}
+                {authMethod === 'device' && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-slate-500">
+                      Start a secure Microsoft device-code login. You will be given a short
+                      code to enter at <strong className="text-slate-700">microsoft.com/devicelogin</strong>.
+                      No passwords are stored — the token is held in memory only for this session.
+                    </p>
+                    <Button leftIcon={<MonitorSmartphone className="h-4 w-4" />} onClick={handleStartAuth}>
+                      Connect with Microsoft Account
+                    </Button>
+                  </div>
+                )}
+
+                {/* ── Service Principal form ────────────────────────────────── */}
+                {authMethod === 'service_principal' && (
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-3">
+                      <UserCog className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-amber-800 leading-relaxed">
+                        The service principal must have Fabric API permissions granted in Azure and be added
+                        as a workspace member. Credentials are used only to obtain a token — never stored.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="form-label">Tenant ID (Directory ID)</label>
+                        <input
+                          type="text"
+                          className="form-input font-mono text-sm"
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                          value={spTenantId}
+                          onChange={e => setSpTenantId(e.target.value)}
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="form-label">Client ID (Application ID)</label>
+                        <input
+                          type="text"
+                          className="form-input font-mono text-sm"
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                          value={spClientId}
+                          onChange={e => setSpClientId(e.target.value)}
+                          autoComplete="off"
+                          spellCheck={false}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="form-label">Client Secret</label>
+                        <div className="relative">
+                          <input
+                            type={spSecretVisible ? 'text' : 'password'}
+                            className="form-input pr-10 font-mono text-sm"
+                            placeholder="Your app registration secret value"
+                            value={spClientSecret}
+                            onChange={e => setSpClientSecret(e.target.value)}
+                            autoComplete="new-password"
+                            spellCheck={false}
+                          />
+                          <button
+                            type="button"
+                            tabIndex={-1}
+                            onClick={() => setSpSecretVisible(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                            aria-label={spSecretVisible ? 'Hide secret' : 'Show secret'}
+                          >
+                            {spSecretVisible
+                              ? <EyeOff className="h-4 w-4" />
+                              : <Eye className="h-4 w-4" />
+                            }
+                          </button>
+                        </div>
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          Transmitted over HTTPS and discarded immediately after the token is acquired.
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      leftIcon={<KeyRound className="h-4 w-4" />}
+                      loading={spConnecting}
+                      disabled={!spTenantId.trim() || !spClientId.trim() || !spClientSecret}
+                      onClick={handleServicePrincipalConnect}
+                    >
+                      {spConnecting ? 'Connecting…' : 'Connect with Service Principal'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {step === 'sp-connecting' && (
+              <div className="flex items-center gap-3 text-sm text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin text-earth-600" />
+                Authenticating with Azure AD…
               </div>
             )}
 
             {step === 'waiting' && !userCode && (
-              <div className="flex items-center gap-3 text-sm text-slate-500">
-                <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
-                Requesting device code from Microsoft…
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 text-sm text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin text-earth-600" />
+                  Requesting device code from Microsoft…
+                </div>
+                <button onClick={handleCancel} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-transparent px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">
+                  Cancel
+                </button>
               </div>
             )}
 
@@ -298,24 +627,17 @@ export default function FabricAssessmentPage() {
                 <p className="text-sm text-slate-500">
                   Open the link below in any browser and enter the code to authenticate:
                 </p>
-                <a
-                  href={verificationUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
-                >
+                <a href={verificationUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm font-medium text-earth-700 hover:text-earth-800 hover:underline transition-colors">
                   <ExternalLink className="h-4 w-4 shrink-0" />
                   {verificationUrl}
                 </a>
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 rounded-xl border-2 border-indigo-200 bg-indigo-50 px-5 py-3 text-center">
-                    <p className="text-xs text-indigo-500/70 font-medium mb-0.5">Your code</p>
-                    <p className="text-2xl font-mono font-bold tracking-widest text-indigo-600">{userCode}</p>
+                  <div className="flex-1 rounded-xl border-2 border-earth-200 bg-earth-50 px-5 py-3 text-center">
+                    <p className="text-xs text-earth-600/70 font-medium mb-0.5">Your code</p>
+                    <p className="text-2xl font-mono font-bold tracking-widest text-earth-700">{userCode}</p>
                   </div>
-                  <button
-                    onClick={handleCopy}
-                    className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 transition-colors"
-                  >
+                  <button onClick={handleCopy} className="shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-500 hover:bg-slate-100/50 hover:text-slate-700 transition-colors">
                     <Copy className="h-4 w-4" />
                     {copied ? 'Copied!' : 'Copy'}
                   </button>
@@ -323,281 +645,318 @@ export default function FabricAssessmentPage() {
                 <div className="flex items-center gap-2 text-sm text-slate-500">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Waiting for you to sign in…
-                  {expiresAt && (
-                    <span className="text-xs text-slate-400">
-                      (expires {formatTime(expiresAt)})
-                    </span>
-                  )}
+                  {expiresAt && <span className="text-xs text-slate-400">(expires {formatTime(expiresAt)})</span>}
                 </div>
+                <button onClick={handleCancel} className="flex w-full sm:w-auto sm:mx-auto items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-transparent px-4 py-2 text-sm text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors">
+                  ← Back
+                </button>
               </div>
             )}
 
             {authDone && (
-              <div className="flex items-center gap-2 text-sm text-emerald-700">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                Successfully authenticated with Microsoft
+              <div className="flex items-center gap-2 text-sm text-earth-700">
+                <CheckCircle2 className="h-4 w-4 text-earth-500" />
+                {authMethod === 'service_principal'
+                  ? 'Service principal authenticated with Microsoft Fabric'
+                  : 'Successfully authenticated with Microsoft'
+                }
               </div>
             )}
           </div>
         </div>
 
-        {/* ── Step 2 — Select Workspaces ───────────────────────────────────── */}
+        {/* ── Step 2 — Select Workspaces (redesigned) ─────────────────────── */}
         {(step === 'picking' || wsDone) && (
           <div className={`card overflow-hidden border-2 transition-colors ${
-            !wsDone ? 'border-indigo-300' : 'border-slate-200'
+            !wsDone ? 'border-earth-400' : 'border-slate-200'
           }`}>
             <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
               <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold
-                ${wsDone ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'}`}>
+                ${wsDone ? 'bg-earth-500 text-white' : 'bg-earth-600 text-white'}`}>
                 {wsDone ? <CheckCircle2 className="h-4 w-4" /> : '2'}
               </span>
               <h2 className="text-sm font-semibold text-slate-900">Select Workspaces</h2>
               {selectedWsIds.size > 0 && (
-                <span className="ml-auto text-xs text-indigo-600 font-medium">
+                <span className="ml-auto text-xs font-semibold text-earth-700 bg-earth-50 border border-earth-200 rounded-full px-2.5 py-0.5">
                   {selectedWsIds.size} selected
                 </span>
               )}
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-5 space-y-4">
               {workspacesLoading ? (
-                <div className="flex items-center gap-3 text-sm text-slate-500">
-                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                <div className="flex items-center gap-3 py-4 text-sm text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin text-earth-600" />
                   Loading accessible workspaces…
                 </div>
               ) : wsDone ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <div className="flex items-center gap-2 text-sm text-earth-700">
+                  <CheckCircle2 className="h-4 w-4 text-earth-500" />
                   {selectedWsIds.size} workspace{selectedWsIds.size !== 1 ? 's' : ''} selected
                 </div>
+              ) : workspaces.length === 0 ? (
+                <p className="text-sm text-slate-500 py-4">No accessible workspaces found for this account.</p>
               ) : (
                 <>
-                  {workspaces.length === 0 ? (
-                    <p className="text-sm text-slate-500">No accessible workspaces found for this account.</p>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
-                          <input
-                            type="text"
-                            className="form-input pl-9 py-1.5 text-sm"
-                            placeholder="Filter workspaces…"
-                            value={wsFilter}
-                            onChange={e => setWsFilter(e.target.value)}
-                          />
-                        </div>
-                        <button
-                          onClick={toggleAllWorkspaces}
-                          className="shrink-0 text-xs text-indigo-600 hover:text-indigo-700 hover:underline font-medium transition-colors"
-                        >
-                          {filteredWorkspaces.every(w => selectedWsIds.has(w.id))
-                            ? 'Deselect all'
-                            : 'Select all'}
-                        </button>
-                      </div>
+                  {/* Search + select-all */}
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        className="form-input pl-9 py-1.5 text-sm"
+                        placeholder="Search workspaces…"
+                        value={wsFilter}
+                        onChange={e => setWsFilter(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      onClick={toggleAllWorkspaces}
+                      className="shrink-0 text-xs font-medium text-earth-700 hover:text-earth-800 hover:underline transition-colors"
+                    >
+                      {filteredWorkspaces.every(w => selectedWsIds.has(w.id)) ? 'Deselect all' : 'Select all'}
+                    </button>
+                  </div>
 
-                      <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-50">
-                        {filteredWorkspaces.map(ws => (
-                          <label
-                            key={ws.id}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors"
-                          >
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/50 bg-white"
-                              checked={selectedWsIds.has(ws.id)}
-                              onChange={() => toggleWorkspace(ws.id)}
-                            />
-                            <Building2 className="h-4 w-4 text-slate-500 shrink-0" />
+                  {/* Workspace card grid */}
+                  <div className="grid gap-2">
+                    {filteredWorkspaces.map(ws => {
+                      const isSelected = selectedWsIds.has(ws.id)
+                      return (
+                        <button
+                          key={ws.id}
+                          type="button"
+                          onClick={() => toggleWorkspace(ws.id)}
+                          className={`w-full text-left rounded-xl border px-4 py-3 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-earth-400/50 ${
+                            isSelected
+                              ? 'border-earth-400 bg-earth-50/70 shadow-sm'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Checkbox visual */}
+                            <div className={`mt-0.5 h-4.5 w-4.5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
+                              isSelected ? 'border-earth-500 bg-earth-500' : 'border-slate-300 bg-white'
+                            }`}
+                              style={{ width: '1.125rem', height: '1.125rem' }}
+                            >
+                              {isSelected && (
+                                <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                            </div>
+
+                            {/* Icon + Name */}
+                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              isSelected ? 'bg-earth-100 text-earth-600' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              <Building2 className="h-4 w-4" />
+                            </div>
+
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-slate-800 truncate">{ws.name}</p>
-                              <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
-                                <span className="flex items-center gap-1">
+                              <p className={`text-sm font-semibold truncate leading-snug ${
+                                isSelected ? 'text-earth-900' : 'text-slate-800'
+                              }`}>{ws.name}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
                                   <Database className="h-3 w-3" />
                                   {ws.dataset_count} model{ws.dataset_count !== 1 ? 's' : ''}
                                 </span>
-                                <span className="flex items-center gap-1">
+                                <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
                                   <FileText className="h-3 w-3" />
                                   {ws.report_count} report{ws.report_count !== 1 ? 's' : ''}
                                 </span>
                                 {ws.state !== 'Active' && (
-                                  <span className="text-indigo-500">{ws.state}</span>
+                                  <span className="text-[11px] text-amber-600 font-medium">{ws.state}</span>
                                 )}
                               </div>
                             </div>
-                          </label>
-                        ))}
-
-                        {filteredWorkspaces.length === 0 && (
-                          <div className="px-4 py-6 text-center text-sm text-slate-400">
-                            No workspaces match "{wsFilter}"
                           </div>
-                        )}
-                      </div>
+                        </button>
+                      )
+                    })}
 
-                      <Button
-                        disabled={selectedWsIds.size === 0}
-                        loading={itemsLoading}
-                        rightIcon={<ArrowRight className="h-4 w-4" />}
-                        onClick={fetchWorkspaceItems}
-                      >
-                        Continue with {selectedWsIds.size || '…'} workspace{selectedWsIds.size !== 1 ? 's' : ''}
-                      </Button>
-                    </>
-                  )}
+                    {filteredWorkspaces.length === 0 && (
+                      <div className="py-8 text-center text-sm text-slate-400 rounded-xl border border-dashed border-slate-200">
+                        No workspaces match &quot;{wsFilter}&quot;
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    disabled={selectedWsIds.size === 0}
+                    loading={itemsLoading}
+                    rightIcon={<ArrowRight className="h-4 w-4" />}
+                    onClick={fetchWorkspaceItems}
+                  >
+                    Continue with {selectedWsIds.size || '…'} workspace{selectedWsIds.size !== 1 ? 's' : ''}
+                  </Button>
                 </>
               )}
             </div>
           </div>
         )}
 
-        {/* ── Step 3 — Select Models & Reports ────────────────────────────── */}
+        {/* ── Step 3 — Select Artifacts (redesigned) ──────────────────────── */}
         {(step === 'picking-items' || itemsDone) && (
           <div className={`card overflow-hidden border-2 transition-colors ${
-            !itemsDone ? 'border-indigo-300' : 'border-slate-200'
+            !itemsDone ? 'border-earth-400' : 'border-slate-200'
           }`}>
             <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
               <span className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold
-                ${itemsDone ? 'bg-emerald-500 text-white' : 'bg-indigo-600 text-white'}`}>
+                ${itemsDone ? 'bg-earth-500 text-white' : 'bg-earth-600 text-white'}`}>
                 {itemsDone ? <CheckCircle2 className="h-4 w-4" /> : '3'}
               </span>
-              <h2 className="text-sm font-semibold text-slate-900">Select Models &amp; Reports</h2>
-              {selectedItemCount > 0 && (
-                <span className="ml-auto text-xs text-indigo-600 font-medium">
-                  {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''},{' '}
-                  {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}
+              <h2 className="text-sm font-semibold text-slate-900">Select Artifacts</h2>
+              {selectedItemCount > 0 && !itemsDone && (
+                <span className="ml-auto text-[11px] font-semibold text-earth-700 bg-earth-50 border border-earth-200 rounded-full px-2.5 py-0.5 tabular-nums">
+                  {selectedItemCount} selected
                 </span>
               )}
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-5 space-y-4">
               {itemsLoading ? (
-                <div className="flex items-center gap-3 text-sm text-slate-500">
-                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
-                  Loading models and reports…
+                <div className="flex items-center gap-3 py-4 text-sm text-slate-500">
+                  <Loader2 className="h-5 w-5 animate-spin text-earth-600" />
+                  Loading artifacts from selected workspaces…
                 </div>
               ) : itemsDone ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-700">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                  {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''} and{' '}
-                  {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''} selected
+                <div className="flex items-center gap-2 text-sm text-earth-700">
+                  <CheckCircle2 className="h-4 w-4 text-earth-500" />
+                  {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''},{' '}
+                  {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''},{' '}
+                  {selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''} selected
                 </div>
+              ) : totalItems === 0 ? (
+                <p className="text-sm text-slate-500 py-4">No artifacts found in the selected workspaces.</p>
               ) : (
                 <>
-                  {totalItems === 0 ? (
-                    <p className="text-sm text-slate-500">No models or reports found in the selected workspaces.</p>
-                  ) : (
-                    <>
-                      {/* Search + global toggle */}
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
-                          <input
-                            type="text"
-                            className="form-input pl-9 py-1.5 text-sm"
-                            placeholder="Filter models and reports…"
-                            value={itemFilter}
-                            onChange={e => setItemFilter(e.target.value)}
-                          />
-                        </div>
-                        <button
-                          onClick={toggleAllItems}
-                          className="shrink-0 text-xs text-indigo-600 hover:text-indigo-700 hover:underline font-medium transition-colors"
-                        >
-                          {allItemsSelected ? 'Deselect all' : 'Select all'}
-                        </button>
-                      </div>
+                  {/* Search bar + global toggle */}
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        className="form-input pl-9 py-1.5 text-sm"
+                        placeholder="Search reports, models, dataflows…"
+                        value={itemFilter}
+                        onChange={e => setItemFilter(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      onClick={toggleAllItems}
+                      className="shrink-0 text-xs font-medium text-earth-700 hover:text-earth-800 hover:underline transition-colors"
+                    >
+                      {allItemsSelected ? 'Deselect all' : 'Select all'}
+                    </button>
+                  </div>
 
-                      {/* Workspace-grouped item list */}
-                      <div className="max-h-96 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-50">
-                        {filteredItems.map(ws => {
-                          const wsName     = wsNameMap[ws.workspace_id] || ws.workspace_id
-                          const expanded   = expandedWorkspaces.has(ws.workspace_id)
-                          const dsSelected = ws.datasets.filter(d => selectedDatasetIds.has(d.id)).length
-                          const rptSelected = ws.reports.filter(r => selectedReportIds.has(r.id)).length
+                  {/* Per-workspace accordion */}
+                  <div className="space-y-3">
+                    {filteredItems.map(ws => {
+                      const wsName      = wsNameMap[ws.workspace_id] || ws.workspace_id
+                      const wsExpanded  = expandedWorkspaces.has(ws.workspace_id)
+                      const rptExpanded = expandedReports.has(ws.workspace_id)
+                      const mdlExpanded = expandedModels.has(ws.workspace_id)
+                      const dfExpanded  = expandedDataflows.has(ws.workspace_id)
+                      const dsSelected  = ws.datasets.filter(d => selectedDatasetIds.has(d.id)).length
+                      const rptSelected = ws.reports.filter(r => selectedReportIds.has(r.id)).length
+                      const dfSelected  = (ws.dataflows || []).filter(df => selectedDataflowIds.has(df.id)).length
+                      const wsTotal     = ws.datasets.length + ws.reports.length + (ws.dataflows || []).length
+                      const wsSelectedTotal = dsSelected + rptSelected + dfSelected
 
-                          return (
-                            <div key={ws.workspace_id}>
-                              {/* Workspace header row */}
-                              <button
-                                className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-100/60 hover:bg-slate-100 transition-colors text-left"
-                                onClick={() => toggleWsExpand(ws.workspace_id)}
-                              >
-                                {expanded
-                                  ? <ChevronDown className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                                  : <ChevronRight className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                                }
-                                <Building2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                                <span className="flex-1 text-xs font-semibold text-slate-700 truncate">{wsName}</span>
-                                <span className="text-xs text-slate-400">
-                                  {dsSelected}/{ws.datasets.length} models · {rptSelected}/{ws.reports.length} reports
+                      return (
+                        <div key={ws.workspace_id} className="rounded-xl border border-slate-200 overflow-hidden">
+                          {/* Workspace accordion header */}
+                          <button
+                            type="button"
+                            className="w-full flex items-center gap-3 px-4 py-3 bg-slate-50 hover:bg-slate-100/70 transition-colors text-left"
+                            onClick={() => toggleWsExpand(ws.workspace_id)}
+                          >
+                            <div className="h-7 w-7 rounded-lg bg-earth-50 border border-earth-100 flex items-center justify-center shrink-0">
+                              <Building2 className="h-3.5 w-3.5 text-earth-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-semibold text-slate-800 truncate block">{wsName}</span>
+                            </div>
+                            {/* Artifact type summary chips */}
+                            <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+                              {ws.reports.length > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-sky-50 border-sky-200 text-sky-700">
+                                  <FileText className="h-2.5 w-2.5" />
+                                  {rptSelected}/{ws.reports.length}
                                 </span>
-                              </button>
+                              )}
+                              {ws.datasets.length > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-violet-50 border-violet-200 text-violet-700">
+                                  <Database className="h-2.5 w-2.5" />
+                                  {dsSelected}/{ws.datasets.length}
+                                </span>
+                              )}
+                              {(ws.dataflows || []).length > 0 && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-50 border-amber-200 text-amber-700">
+                                  <Zap className="h-2.5 w-2.5" />
+                                  {dfSelected}/{(ws.dataflows || []).length}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-slate-400 tabular-nums ml-2 shrink-0">
+                              {wsSelectedTotal}/{wsTotal}
+                            </span>
+                            {wsExpanded
+                              ? <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                              : <ChevronRight className="h-4 w-4 text-slate-400 shrink-0" />
+                            }
+                          </button>
 
-                              {expanded && (
-                                <div className="divide-y divide-slate-200">
-                                  {/* Models sub-section */}
-                                  {ws.datasets.length > 0 && (
-                                    <div>
-                                      <div className="flex items-center gap-2 px-5 py-1.5 bg-slate-50/40">
-                                        <Database className="h-3 w-3 text-indigo-400 shrink-0" />
-                                        <span className="text-xs font-medium text-slate-500 flex-1">Semantic Models</span>
-                                        <button
-                                          onClick={() => toggleWorkspaceDatasets(ws)}
-                                          className="text-xs text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
-                                        >
-                                          {ws.datasets.every(d => selectedDatasetIds.has(d.id)) ? 'Deselect' : 'Select'} all
-                                        </button>
-                                      </div>
-                                      {ws.datasets.filter(d =>
-                                        !itemFilter || d.name.toLowerCase().includes(itemFilter.toLowerCase())
-                                      ).map(ds => (
-                                        <label
-                                          key={ds.id}
-                                          className="flex items-center gap-3 px-6 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/50 bg-white"
-                                            checked={selectedDatasetIds.has(ds.id)}
-                                            onChange={() => toggleDataset(ds.id)}
-                                          />
-                                          <span className="text-sm text-slate-700 truncate">{ds.name}</span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                  )}
+                          {wsExpanded && (
+                            <div className="divide-y divide-slate-100">
 
-                                  {/* Reports sub-section */}
-                                  {ws.reports.length > 0 && (
-                                    <div>
-                                      <div className="flex items-center gap-2 px-5 py-1.5 bg-slate-50/40">
-                                        <FileText className="h-3 w-3 text-indigo-400/70 shrink-0" />
-                                        <span className="text-xs font-medium text-slate-500 flex-1">Reports</span>
-                                        <button
-                                          onClick={() => toggleWorkspaceReports(ws)}
-                                          className="text-xs text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
-                                        >
-                                          {ws.reports.every(r => selectedReportIds.has(r.id)) ? 'Deselect' : 'Select'} all
-                                        </button>
-                                      </div>
+                              {/* Reports section */}
+                              {ws.reports.length > 0 && (
+                                <div>
+                                  <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2 bg-sky-50/50 hover:bg-sky-50 transition-colors text-left"
+                                    onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedReports)}
+                                  >
+                                    {rptExpanded ? <ChevronDown className="h-3.5 w-3.5 text-sky-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-sky-400 shrink-0" />}
+                                    <FileText className="h-3.5 w-3.5 text-sky-500 shrink-0" />
+                                    <span className="flex-1 text-xs font-semibold text-sky-700 uppercase tracking-wider">
+                                      Reports
+                                    </span>
+                                    <span className="text-[11px] text-sky-600 font-semibold tabular-nums">{rptSelected}/{ws.reports.length}</span>
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={e => { e.stopPropagation(); toggleWorkspaceReports(ws) }}
+                                      onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceReports(ws))}
+                                      className="ml-3 text-[11px] text-sky-600 hover:text-sky-800 hover:underline transition-colors cursor-pointer font-medium"
+                                    >
+                                      {ws.reports.every(r => selectedReportIds.has(r.id)) ? 'Deselect all' : 'Select all'}
+                                    </span>
+                                  </button>
+                                  {rptExpanded && (
+                                    <div className="divide-y divide-slate-100/70">
                                       {ws.reports.filter(r =>
                                         !itemFilter || r.name.toLowerCase().includes(itemFilter.toLowerCase())
                                       ).map(rpt => (
                                         <label
                                           key={rpt.id}
-                                          className="flex items-center gap-3 px-6 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
+                                          className="flex items-center gap-3 pl-10 pr-4 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
                                         >
                                           <input
                                             type="checkbox"
-                                            className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/50 bg-white"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white shrink-0"
                                             checked={selectedReportIds.has(rpt.id)}
                                             onChange={() => toggleReport(rpt.id)}
                                           />
+                                          <FileText className="h-3 w-3 text-sky-400 shrink-0" />
                                           <span className="flex-1 text-sm text-slate-700 truncate">{rpt.name}</span>
                                           {rpt.report_type === 'PaginatedReport' && (
-                                            <span className="text-xs text-slate-400 shrink-0">Paginated</span>
+                                            <span className="text-[10px] text-slate-400 bg-slate-100 rounded px-1.5 py-0.5 shrink-0">Paginated</span>
                                           )}
                                         </label>
                                       ))}
@@ -605,27 +964,128 @@ export default function FabricAssessmentPage() {
                                   )}
                                 </div>
                               )}
+
+                              {/* Semantic Models section */}
+                              {ws.datasets.length > 0 && (
+                                <div>
+                                  <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2 bg-violet-50/50 hover:bg-violet-50 transition-colors text-left"
+                                    onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedModels)}
+                                  >
+                                    {mdlExpanded ? <ChevronDown className="h-3.5 w-3.5 text-violet-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-violet-400 shrink-0" />}
+                                    <Database className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                                    <span className="flex-1 text-xs font-semibold text-violet-700 uppercase tracking-wider">
+                                      Semantic Models
+                                    </span>
+                                    <span className="text-[11px] text-violet-600 font-semibold tabular-nums">{dsSelected}/{ws.datasets.length}</span>
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={e => { e.stopPropagation(); toggleWorkspaceDatasets(ws) }}
+                                      onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceDatasets(ws))}
+                                      className="ml-3 text-[11px] text-violet-600 hover:text-violet-800 hover:underline transition-colors cursor-pointer font-medium"
+                                    >
+                                      {ws.datasets.every(d => selectedDatasetIds.has(d.id)) ? 'Deselect all' : 'Select all'}
+                                    </span>
+                                  </button>
+                                  {mdlExpanded && (
+                                    <div className="divide-y divide-slate-100/70">
+                                      {ws.datasets.filter(d =>
+                                        !itemFilter || d.name.toLowerCase().includes(itemFilter.toLowerCase())
+                                      ).map(ds => (
+                                        <label
+                                          key={ds.id}
+                                          className="flex items-center gap-3 pl-10 pr-4 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white shrink-0"
+                                            checked={selectedDatasetIds.has(ds.id)}
+                                            onChange={() => toggleDataset(ds.id)}
+                                          />
+                                          <Database className="h-3 w-3 text-violet-400 shrink-0" />
+                                          <span className="flex-1 text-sm text-slate-700 truncate">{ds.name}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Dataflows section */}
+                              {(ws.dataflows || []).length > 0 && (
+                                <div>
+                                  <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2.5 px-4 py-2 bg-amber-50/50 hover:bg-amber-50 transition-colors text-left"
+                                    onClick={() => toggleSectionExpand(ws.workspace_id, setExpandedDataflows)}
+                                  >
+                                    {dfExpanded ? <ChevronDown className="h-3.5 w-3.5 text-amber-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-amber-400 shrink-0" />}
+                                    <Zap className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                    <span className="flex-1 text-xs font-semibold text-amber-700 uppercase tracking-wider">
+                                      Dataflows
+                                    </span>
+                                    <span className="text-[11px] text-amber-600 font-semibold tabular-nums">{dfSelected}/{(ws.dataflows || []).length}</span>
+                                    <span
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={e => { e.stopPropagation(); toggleWorkspaceDataflows(ws) }}
+                                      onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), toggleWorkspaceDataflows(ws))}
+                                      className="ml-3 text-[11px] text-amber-600 hover:text-amber-800 hover:underline transition-colors cursor-pointer font-medium"
+                                    >
+                                      {(ws.dataflows || []).every(df => selectedDataflowIds.has(df.id)) ? 'Deselect all' : 'Select all'}
+                                    </span>
+                                  </button>
+                                  {dfExpanded && (
+                                    <div className="divide-y divide-slate-100/70">
+                                      {(ws.dataflows || []).filter(df =>
+                                        !itemFilter || df.name.toLowerCase().includes(itemFilter.toLowerCase())
+                                      ).map(df => (
+                                        <label
+                                          key={df.id}
+                                          className="flex items-center gap-3 pl-10 pr-4 py-2 hover:bg-slate-50 cursor-pointer transition-colors"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            className="h-3.5 w-3.5 rounded border-slate-300 text-earth-700 focus:ring-earth-600/50 bg-white shrink-0"
+                                            checked={selectedDataflowIds.has(df.id)}
+                                            onChange={() => toggleDataflow(df.id)}
+                                          />
+                                          <Zap className="h-3 w-3 text-amber-400 shrink-0" />
+                                          <span className="flex-1 text-sm text-slate-700 truncate">{df.name}</span>
+                                          {df.generation && (
+                                            <span className="text-[10px] text-slate-400 bg-slate-100 rounded px-1.5 py-0.5 shrink-0">{df.generation}</span>
+                                          )}
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
                             </div>
-                          )
-                        })}
+                          )}
+                        </div>
+                      )
+                    })}
 
-                        {filteredItems.length === 0 && (
-                          <div className="px-4 py-6 text-center text-sm text-slate-400">
-                            No items match "{itemFilter}"
-                          </div>
-                        )}
+                    {filteredItems.length === 0 && (
+                      <div className="py-8 text-center text-sm text-slate-400 rounded-xl border border-dashed border-slate-200">
+                        No artifacts match &quot;{itemFilter}&quot;
                       </div>
+                    )}
+                  </div>
 
-                      <Button
-                        disabled={selectedItemCount === 0}
-                        rightIcon={<ArrowRight className="h-4 w-4" />}
-                        onClick={() => setStep('naming')}
-                      >
-                        Continue with {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''}{' '}
-                        &amp; {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}
-                      </Button>
-                    </>
-                  )}
+                  <Button
+                    disabled={selectedItemCount === 0}
+                    rightIcon={<ArrowRight className="h-4 w-4" />}
+                    onClick={() => setStep('naming')}
+                  >
+                    Continue — {selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''},{' '}
+                    {selectedDatasetIds.size} model{selectedDatasetIds.size !== 1 ? 's' : ''},{' '}
+                    {selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''}
+                  </Button>
                 </>
               )}
             </div>
@@ -634,11 +1094,9 @@ export default function FabricAssessmentPage() {
 
         {/* ── Step 4 — Label & Run ─────────────────────────────────────────── */}
         {itemsDone && (
-          <div className="card overflow-hidden border-2 border-indigo-300">
+          <div className="card overflow-hidden border-2 border-earth-400">
             <div className="flex items-center gap-3 px-6 py-4 border-b border-slate-200 bg-slate-50">
-              <span className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold bg-indigo-600 text-white">
-                4
-              </span>
+              <span className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold bg-earth-600 text-white">4</span>
               <h2 className="text-sm font-semibold text-slate-900">Label &amp; Start Assessment</h2>
             </div>
             <div className="p-6 space-y-4">
@@ -658,11 +1116,41 @@ export default function FabricAssessmentPage() {
                 </div>
                 <p className="mt-1 text-xs text-slate-400">Optional. Used as the session name.</p>
               </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3.5">
+                <Switch
+                  checked={palEnabled}
+                  onChange={setPalEnabled}
+                  disabled={step === 'submitting'}
+                  label={
+                    <span className="inline-flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-earth-600" />
+                      Link this assessment to {palConfig?.organization_name ?? 'UBTI'} via Azure Partner Admin Link
+                    </span>
+                  }
+                  description={
+                    <>
+                      Optional — lets {palConfig?.organization_name ?? 'UBTI'} report this engagement toward our Microsoft
+                      partnership. Connecting later is fine too.{' '}
+                      <a
+                        href={palConfig?.docs_url ?? 'https://learn.microsoft.com/en-us/azure/cost-management-billing/manage/link-partner-id'}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-earth-600 hover:text-earth-700 underline underline-offset-2"
+                      >
+                        Learn more
+                      </a>
+                    </>
+                  }
+                />
+              </div>
+
               <p className="text-sm text-slate-500">
                 Will assess{' '}
+                <strong className="text-slate-800">{selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}</strong>,{' '}
                 <strong className="text-slate-800">{selectedDatasetIds.size} semantic model{selectedDatasetIds.size !== 1 ? 's' : ''}</strong>{' '}
                 and{' '}
-                <strong className="text-slate-800">{selectedReportIds.size} report{selectedReportIds.size !== 1 ? 's' : ''}</strong>{' '}
+                <strong className="text-slate-800">{selectedDataflowIds.size} dataflow{selectedDataflowIds.size !== 1 ? 's' : ''}</strong>{' '}
                 across <strong className="text-slate-800">{selectedWsIds.size} workspace{selectedWsIds.size !== 1 ? 's' : ''}</strong>.
               </p>
               <Button

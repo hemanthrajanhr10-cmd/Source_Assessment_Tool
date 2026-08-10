@@ -1,13 +1,9 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Database, Mail, Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+﻿import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Database, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle } from 'lucide-react'
 import { api, getApiErrorMessage } from '../api/client'
 
 export default function RegisterPage() {
-  const { setToken } = useAuth()
-  const navigate = useNavigate()
-
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,6 +11,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -29,13 +26,12 @@ export default function RegisterPage() {
     }
     setLoading(true)
     try {
-      const res = await api.register({
+      await api.register({
         email,
         password,
         full_name: fullName || undefined,
       })
-      setToken(res.data.access_token)
-      navigate('/', { replace: true })
+      setSuccess(true)
     } catch (err) {
       setError(getApiErrorMessage(err))
     } finally {
@@ -44,37 +40,78 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-slate-50">
-      {/* Background subtle grid */}
+    <div className="min-h-screen flex items-center justify-center px-4 py-12" style={{ background: 'var(--color-canvas)' }}>
+      {/* Aurora background */}
       <div
-        className="fixed inset-0 opacity-[0.4] pointer-events-none"
+        className="fixed inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(to right, #e2e8f0 1px, transparent 1px)',
-          backgroundSize: '64px 64px',
+          background: 'linear-gradient(-45deg, #F0FAF9, #E5F5F3, #CCEFEC, #F0FAF9)',
+          backgroundSize: '400% 400%',
+          animation: 'aurora 16s ease-in-out infinite',
+          opacity: 0.5,
+        }}
+      />
+      {/* Dot grid */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.15]"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(108,189,181,0.55) 1px, transparent 1px)',
+          backgroundSize: '28px 28px',
         }}
       />
 
       <div className="w-full max-w-sm relative z-10 animate-slide-up">
+
+        {/* Pending-activation success state */}
+        {success && (
+          <div className="rounded-3xl bg-white p-8 text-center"
+               style={{ boxShadow: '0 24px 64px rgba(108,189,181,0.12), 0 4px 16px rgba(0,0,0,0.06)' }}>
+            <CheckCircle className="h-12 w-12 mx-auto mb-4" style={{ color: '#358F87' }} />
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Account Submitted</h2>
+            <p className="text-sm text-slate-600 leading-relaxed mb-6">
+              Your account request has been received. An administrator will review and
+              activate your account shortly. You'll be able to log in once access is granted.
+            </p>
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-2 text-sm font-semibold"
+              style={{ color: '#358F87' }}
+            >
+              Back to Sign In <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
+
+        {!success && (<>
         {/* Brand */}
         <div className="flex flex-col items-center mb-8">
           <div
             className="flex items-center justify-center h-12 w-12 rounded-2xl mb-4"
             style={{
-              background: 'rgba(245,158,11,0.1)',
-              border: '1.5px solid rgba(245,158,11,0.25)',
+              background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
+              boxShadow: '0 8px 24px rgba(108,189,181,0.36)',
             }}
           >
-            <Database className="h-6 w-6 text-amber-500" />
+            <Database className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 font-display">Create account</h1>
-          <p className="text-sm text-slate-500 mt-1">Join Source Assessment Tool</p>
+          <h1 className="text-2xl font-bold text-slate-900 font-display">
+            Source<span className="font-extrabold" style={{ color: '#358F87' }}>SAT</span>
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">Create your account</p>
         </div>
 
         {/* Card */}
         <div
-          className="rounded-2xl bg-white border border-slate-200 p-8"
-          style={{ boxShadow: '0 16px 40px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04)' }}
+          className="relative rounded-3xl p-px"
+          style={{ background: 'linear-gradient(135deg, rgba(108,189,181,0.28) 0%, rgba(147,204,198,0.14) 50%, rgba(77,168,160,0.20) 100%)' }}
         >
+        <div
+          className="rounded-[23px] bg-white p-8 relative overflow-hidden"
+          style={{ boxShadow: '0 24px 64px rgba(108,189,181,0.12), 0 4px 16px rgba(0,0,0,0.06)' }}
+        >
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ background: 'linear-gradient(135deg, rgba(240,250,249,0.70) 0%, transparent 50%)', borderRadius: 'inherit' }}
+            aria-hidden="true" />
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="form-label">
@@ -158,10 +195,13 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold mt-2
-                         bg-indigo-600 text-white hover:bg-indigo-700
-                         transition-all duration-200 disabled:opacity-50 active:scale-[0.98]
-                         shadow-sm hover:shadow-md hover:shadow-indigo-200/60"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold mt-2
+                         text-white btn-physics btn-shimmer
+                         transition-all duration-200 disabled:opacity-50"
+              style={{
+                background: 'linear-gradient(135deg, #4DA8A0 0%, #93CCC6 100%)',
+                boxShadow: '0 4px 16px rgba(108,189,181,0.40), 0 1px 3px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.20)',
+              }}
             >
               {loading ? 'Creating account…' : (
                 <>Create account <ArrowRight className="h-4 w-4" /></>
@@ -169,13 +209,17 @@ export default function RegisterPage() {
             </button>
           </form>
         </div>
+        </div>
 
         <p className="text-center text-sm text-slate-500 mt-6">
           Already have an account?{' '}
-          <Link to="/login" className="text-indigo-600 font-medium hover:text-indigo-700 transition-colors">
+          <Link to="/login" className="font-semibold transition-colors" style={{ color: '#358F87' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#25706A' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#358F87' }}>
             Sign in
           </Link>
         </p>
+        </>)}
       </div>
     </div>
   )
